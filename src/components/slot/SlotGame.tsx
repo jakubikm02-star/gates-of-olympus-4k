@@ -1,4 +1,4 @@
-import { Volume2, VolumeX, Info, Zap } from "lucide-react";
+import { Volume2, VolumeX, Info, RefreshCw, Menu } from "lucide-react";
 import { BUY_COST_X, START_BALANCE, BETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { useSlotGame } from "@/hooks/use-slot-game";
@@ -9,46 +9,112 @@ const AUTO_OPTS = [10, 25, 50, 100] as const;
 
 export function SlotGame() {
   const g = useSlotGame();
+  const winLine =
+    g.displayWin > 0
+      ? `WIN ${formatMoney(g.displayWin)}`
+      : g.busy
+        ? g.message
+        : "Klikni TOČIŤ — 8+ kdekoľvek vyhráva";
 
   return (
     <div className={`stage ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""}`}>
       <div className="stage-bg" />
-      <div className="vignette" />
+      <div className="stage-glow" />
 
       {!g.started && (
         <div className="boot">
+          <img src="/art/zeus.png" alt="" className="boot-zeus" />
           <div className="boot-card">
-            <p className="eyebrow">Pragmatic-style remake</p>
-            <h1 className="title">
-              GATES OF
-              <span>OLYMPUS</span>
-            </h1>
-            <p className="subtitle">4K 5G ULTRA MAX PRO</p>
+            <div className="logo-plate">
+              <span className="logo-kicker">GATES of</span>
+              <span className="logo-main">OLYMPUS</span>
+              <span className="logo-sub">4K 5G ULTRA MAX PRO</span>
+            </div>
+            <p className="boot-max">WIN UP TO 5000× BET</p>
             <p className="boot-copy">
-              6×5 pole, scatter výplaty, tumble, násobiče a voľné točenia. Iba zábava v
-              prehliadači — žiadne vklady, žiadne výbery.
+              6×5 pole, tumble, násobiče a voľné točenia. Demo v prehliadači — žiadne vklady.
             </p>
             <button type="button" className="cta" onClick={g.start}>
-              Hrať
+              HRAŤ
             </button>
           </div>
         </div>
       )}
 
-      <div className="layout">
-        <header className="topbar">
-          <div className="brand">
-            <span className="brand-kicker">GATES OF OLYMPUS</span>
-            <span className="brand-sub">4K 5G ULTRA MAX PRO</span>
-          </div>
-          <div className="top-actions">
+      <div className="table">
+        <div className="logo-plate compact">
+          <span className="logo-kicker">GATES of</span>
+          <span className="logo-main">OLYMPUS</span>
+          <span className="logo-sub">4K 5G ULTRA MAX PRO</span>
+        </div>
+
+        <div className="arena">
+          <aside className="side-left">
+            <button
+              type="button"
+              className="parchment buy"
+              onClick={() => void g.buyBonus()}
+              disabled={!g.canBuy}
+            >
+              <em>KÚPIŤ FREE SPINS</em>
+              <strong>{formatMoney(g.bet * BUY_COST_X)}</strong>
+            </button>
+            <button
+              type="button"
+              className={`parchment ante ${g.ante ? "on" : ""}`}
+              onClick={() => g.setAnte(!g.ante)}
+              disabled={g.busy}
+            >
+              <em>ANTE BET</em>
+              <strong>1.25×</strong>
+              <span className={`ante-switch ${g.ante ? "on" : ""}`}>
+                {g.ante ? "ON" : "OFF"}
+              </span>
+            </button>
+            {g.inFs && (
+              <div className="fs-meter">
+                <div className="wing-mult">
+                  <span>TOTAL MULTIPLIER</span>
+                  <b>{g.globalMult || g.seqMult || 0}X</b>
+                </div>
+                <div className="fs-left">
+                  FREE SPINS LEFT
+                  <strong>{g.fsLeft}</strong>
+                </div>
+              </div>
+            )}
+          </aside>
+
+          <section className="board-wrap">
+            {g.spinWin > 0 && (
+              <div className="tumble-win">
+                TUMBLE WIN
+                <strong>{formatMoney(g.spinWin)}</strong>
+              </div>
+            )}
+            <SlotGrid
+              grid={g.grid}
+              winMask={g.winMask}
+              spinning={g.phase === "spinning"}
+              reduced={false}
+            />
+          </section>
+
+          <aside className="zeus-col" aria-hidden="true">
+            <img src="/art/zeus.png" alt="" className={`zeus ${g.throwBolt ? "throw" : ""}`} />
+            {g.throwBolt && <span className="bolt" />}
+          </aside>
+        </div>
+
+        <footer className="bottom-hud">
+          <div className="hud-left">
             <button
               type="button"
               className="icon-btn"
               onClick={() => g.setPaytableOpen(true)}
               aria-label="Tabuľka"
             >
-              <Info size={18} />
+              <Info size={16} />
             </button>
             <button
               type="button"
@@ -56,50 +122,21 @@ export function SlotGame() {
               onClick={g.toggleMute}
               aria-label={g.muted ? "Zapnúť zvuk" : "Stlmiť"}
             >
-              {g.muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+              {g.muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
             </button>
-          </div>
-        </header>
-
-        <div className="playfield">
-          <aside className="zeus-col" aria-hidden="true">
-            <img src="/art/zeus.png" alt="" className={`zeus ${g.throwBolt ? "throw" : ""}`} />
-            {g.throwBolt && <span className="bolt" />}
-          </aside>
-
-          <section className="board-wrap">
-            <div className="fs-chip" hidden={!g.inFs}>
-              <Zap size={14} />
-              FS {g.fsLeft}/{g.fsTotal}
-              {g.globalMult > 0 && <em>Σ {g.globalMult}×</em>}
+            <div className="credit-stack">
+              <p>
+                CREDIT <b>{formatMoney(g.balance)}</b>
+              </p>
+              <p>
+                BET <b>{formatMoney(g.stake)}</b>
+              </p>
             </div>
-            <SlotGrid
-              grid={g.grid}
-              winMask={g.winMask}
-              spinning={g.phase === "spinning"}
-              reduced={false}
-            />
-            <p className="ticker">{g.message}</p>
-          </section>
-        </div>
+          </div>
 
-        <div className="hud">
-          <div className="stat">
-            <span>Zostatok</span>
-            <strong>{formatMoney(g.balance)}</strong>
-          </div>
-          <div className="stat win">
-            <span>Výhra</span>
-            <strong>{formatMoney(g.displayWin)}</strong>
-          </div>
-          <div className="stat">
-            <span>Stávka {g.ante ? "ANTE" : ""}</span>
-            <strong>{formatMoney(g.stake)}</strong>
-          </div>
-        </div>
+          <p className={`win-line ${g.displayWin > 0 ? "has-win" : ""}`}>{winLine}</p>
 
-        <div className="controls">
-          <div className="bet-wrap">
+          <div className="hud-right">
             <button
               type="button"
               className="round-btn"
@@ -109,10 +146,15 @@ export function SlotGame() {
             >
               −
             </button>
-            <div className="bet-readout">
-              <span>STÁVKA</span>
-              {formatMoney(g.bet)}
-            </div>
+            <button
+              type="button"
+              className={`spin-btn ${g.busy ? "is-busy" : ""}`}
+              onClick={() => void g.spin()}
+              disabled={!g.started || g.busy || g.inFs}
+              aria-label="Točiť"
+            >
+              <RefreshCw size={34} strokeWidth={2.6} />
+            </button>
             <button
               type="button"
               className="round-btn"
@@ -122,73 +164,46 @@ export function SlotGame() {
             >
               +
             </button>
+            {g.autoOn ? (
+              <button type="button" className="auto-pill on" onClick={g.stopAuto}>
+                STOP {g.autoLeft}
+              </button>
+            ) : (
+              <details className="auto-menu">
+                <summary>
+                  <Menu size={12} /> AUTO
+                </summary>
+                <div>
+                  {AUTO_OPTS.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      disabled={g.busy || !g.started}
+                      onClick={() => g.startAuto(n)}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
+        </footer>
 
+        <div className="extra-row">
           <button
             type="button"
-            className={`spin-btn ${g.busy ? "is-busy" : ""}`}
-            onClick={() => void g.spin()}
-            disabled={!g.started || g.busy || g.inFs}
+            className={`chip-btn ${g.turbo ? "on" : ""}`}
+            onClick={() => g.setTurbo(!g.turbo)}
           >
-            {g.inFs ? "FS" : "TOČIŤ"}
+            TURBO
           </button>
-
-          <div className="side-btns">
-            <button
-              type="button"
-              className={`chip-btn ${g.turbo ? "on" : ""}`}
-              onClick={() => g.setTurbo(!g.turbo)}
-            >
-              Turbo
-            </button>
-            <button
-              type="button"
-              className={`chip-btn ${g.ante ? "on" : ""}`}
-              onClick={() => g.setAnte(!g.ante)}
-              disabled={g.busy}
-            >
-              Ante 1.25×
-            </button>
-            <button
-              type="button"
-              className="chip-btn gold"
-              onClick={() => void g.buyBonus()}
-              disabled={!g.canBuy}
-            >
-              Bonus {BUY_COST_X}×
-            </button>
-          </div>
-        </div>
-
-        <div className="auto-row">
-          {g.autoOn ? (
-            <button type="button" className="chip-btn on" onClick={g.stopAuto}>
-              Stop auto ({g.autoLeft})
-            </button>
-          ) : (
-            AUTO_OPTS.map((n) => (
-              <button
-                key={n}
-                type="button"
-                className="chip-btn"
-                disabled={g.busy || !g.started}
-                onClick={() => g.startAuto(n)}
-              >
-                Auto {n}
-              </button>
-            ))
-          )}
           {g.balance < g.stake && (
             <button type="button" className="chip-btn gold" onClick={g.refill}>
               +{START_BALANCE} kredit
             </button>
           )}
         </div>
-
-        <p className="legal">
-          Demo automat pre zábavu. Najlepšia výhra v relácii {formatMoney(g.bestWin)}. Medzerník
-          točí.
-        </p>
       </div>
 
       {g.banner && (

@@ -10,6 +10,10 @@ interface Props {
 export function SlotGrid({ grid, winMask, spinning, reduced }: Props) {
   return (
     <div className="reel-frame" aria-label="Herné pole 6×5">
+      <span className="frame-corner tl" />
+      <span className="frame-corner tr" />
+      <span className="frame-corner bl" />
+      <span className="frame-corner br" />
       <div className="reel-inner">
         <div
           className={`reel-grid ${spinning ? "is-spinning" : ""}`}
@@ -44,17 +48,17 @@ export function SlotGrid({ grid, winMask, spinning, reduced }: Props) {
                     draggable={false}
                     className="cell-img"
                   />
+                  {cell.kind === "scatter" && <span className="scatter-label">SCATTER</span>}
                   {cell.kind === "mult" && (
-                    <span className="mult-tag">×{cell.mult}</span>
+                    <span className="mult-tag">{cell.mult}X</span>
                   )}
+                  {win && <span className="win-fx" aria-hidden="true" />}
                 </div>
               );
             }),
           )}
         </div>
       </div>
-      <div className="reel-shine" aria-hidden="true" />
     </div>
   );
 }
-
