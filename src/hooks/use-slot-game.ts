@@ -1,0 +1,451 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ANTE_COST,
+  BETS,
+  BUY_COST_X,
+  FS_RETRIGGER,
+  FS_SPINS,
+  MAX_WIN_X,
+  START_BALANCE,
+  type Cell,
+} from "@/lib/slot/symbols";
+import {
+  cloneGrid,
+  createRng,
+  emptyGrid,
+  evaluate,
+  generateBuyGrid,
+  generateGrid,
+  sumMultipliers,
+  tumble,
+  wait,
+} from "@/lib/slot/engine";
+import * as sfx from "@/lib/slot/audio";
+
+const SAVE_KEY = "olympus4k-v1";
+
+type Phase = "boot" | "idle" | "spinning" | "eval" | "win" | "tumble" | "mult" | "fs" | "big" | "max";
+
+export type WinBanner = "win" | "big" | "mega" | "epic" | "max" | null;
+
+interface Save {
+  balance: number;
+  betIndex: number;
+  muted: boolean;
+  turbo: boolean;
+  ante: boolean;
+  bestWin: number;
+}
+
+function loadSave(): Partial<Save> {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Save;
+  } catch {
+    return {};
+  }
+}
+
+function persist(s: Save): void {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(s));
+  } catch {
+    /* ignore quota */
+  }
+}
+
+export function useSlotGame() {
+  const [started, setStarted] = useState(false);
+  const [balance, setBalance] = useState(START_BALANCE);
+  const [betIndex, setBetIndex] = useState(4);
+  const [muted, setMuted] = useState(false);
+  const [turbo, setTurbo] = useState(false);
+  const [ante, setAnte] = useState(false);
+  const [bestWin, setBestWin] = useState(0);
+  const [grid, setGrid] = useState<Cell[][]>(() => emptyGrid());
+  const [phase, setPhase] = useState<Phase>("boot");
+  const [busy, setBusy] = useState(false);
+  const [winMask, setWinMask] = useState<boolean[][] | null>(null);
+  const [spinWin, setSpinWin] = useState(0);
+  const [displayWin, setDisplayWin] = useState(0);
+  const [fsLeft, setFsLeft] = useState(0);
+  const [fsTotal, setFsTotal] = useState(0);
+  const [inFs, setInFs] = useState(false);
+  const [globalMult, setGlobalMult] = useState(0);
+  const [seqMult, setSeqMult] = useState(0);
+  const [banner, setBanner] = useState<WinBanner>(null);
+  const [bannerAmount, setBannerAmount] = useState(0);
+  const [autoLeft, setAutoLeft] = useState(0);
+  const [autoOn, setAutoOn] = useState(false);
+  const [throwBolt, setThrowBolt] = useState(false);
+  const [paytableOpen, setPaytableOpen] = useState(false);
+  const [message, setMessage] = useState("8+ rovnakých symbolov kdekoľvek vyhráva");
+
+  const abort = useRef({ aborted: false });
+  const turboRef = useRef(turbo);
+  const anteRef = useRef(ante);
+  const inFsRef = useRef(false);
+  const globalMultRef = useRef(0);
+  const balanceRef = useRef(balance);
+  const betIndexRef = useRef(betIndex);
+  const autoRef = useRef(false);
+  const busyRef = useRef(false);
+  const extraFsRef = useRef(0);
+
+  turboRef.current = turbo;
+  anteRef.current = ante;
+  inFsRef.current = inFs;
+  globalMultRef.current = globalMult;
+  balanceRef.current = balance;
+  betIndexRef.current = betIndex;
+  autoRef.current = autoOn;
+  busyRef.current = busy;
+
+  const bet = BETS[betIndex];
+  const stake = ante ? +(bet * ANTE_COST).toFixed(2) : bet;
+
+  const readySave = useRef(false);
+
+  useEffect(() => {
+    const s = loadSave();
+    if (typeof s.balance === "number") setBalance(s.balance);
+    if (typeof s.betIndex === "number") {
+      setBetIndex(Math.min(BETS.length - 1, Math.max(0, s.betIndex)));
+    }
+    if (typeof s.muted === "boolean") setMuted(s.muted);
+    if (typeof s.turbo === "boolean") setTurbo(s.turbo);
+    if (typeof s.ante === "boolean") setAnte(s.ante);
+    if (typeof s.bestWin === "number") setBestWin(s.bestWin);
+    readySave.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!readySave.current) return;
+    persist({ balance, betIndex, muted, turbo, ante, bestWin });
+  }, [balance, betIndex, muted, turbo, ante, bestWin]);
+
+  const dur = useCallback((base: number) => (turboRef.current ? Math.round(base * 0.38) : base), []);
+
+  const start = useCallback(() => {
+    sfx.unlockAudio();
+    sfx.setMuted(muted);
+    sfx.startAmbience();
+    setStarted(true);
+    setPhase("idle");
+  }, [muted]);
+
+  const toggleMute = useCallback(() => {
+    sfx.unlockAudio();
+    setMuted((m) => {
+      const n = !m;
+      sfx.setMuted(n);
+      return n;
+    });
+  }, []);
+
+  const changeBet = useCallback((dir: -1 | 1) => {
+    if (busyRef.current) return;
+    setBetIndex((i) => Math.min(BETS.length - 1, Math.max(0, i + dir)));
+    sfx.playClick();
+  }, []);
+
+  const refill = useCallback(() => {
+    setBalance((b) => b + START_BALANCE);
+    sfx.playWin();
+  }, []);
+
+  const closeBanner = useCallback(() => setBanner(null), []);
+
+  const runSequence = useCallback(
+    async (opts?: { buy?: boolean; free?: boolean }): Promise<"fs" | "ok" | "max"> => {
+      const currentBet = BETS[betIndexRef.current];
+      const currentStake = anteRef.current ? +(currentBet * ANTE_COST).toFixed(2) : currentBet;
+      const isFree = !!opts?.free;
+      const cost = opts?.buy ? +(currentBet * BUY_COST_X).toFixed(2) : isFree ? 0 : currentStake;
+
+      if (!isFree && balanceRef.current < cost) {
+        setMessage("Nedostatok kreditu — doplň demo zostatok");
+        return "ok";
+      }
+
+      setWinMask(null);
+      setSpinWin(0);
+      setSeqMult(0);
+      extraFsRef.current = 0;
+      sfx.unlockAudio();
+      sfx.playSpin();
+
+      if (cost > 0) setBalance((b) => +(b - cost).toFixed(2));
+
+      setPhase("spinning");
+      setMessage(isFree ? "Voľné točenia" : "Točí sa…");
+
+      const rng = createRng();
+      const next = opts?.buy ? generateBuyGrid(rng, anteRef.current) : generateGrid(rng, anteRef.current);
+
+      await wait(dur(opts?.buy ? 920 : 740), abort.current);
+      setGrid(next);
+      sfx.playLand();
+      await wait(dur(160), abort.current);
+
+      let board = next;
+      let sequenceX = 0;
+      let pendingFs = false;
+      let tumbleN = 0;
+
+      for (;;) {
+        setPhase("eval");
+        const ev = evaluate(board);
+        if (ev.multipliers.length) {
+          setThrowBolt(true);
+          window.setTimeout(() => setThrowBolt(false), 480);
+        }
+        if (ev.winX <= 0) break;
+
+        setWinMask(ev.winMask);
+        sequenceX += ev.winX;
+        setSpinWin(sequenceX);
+        const bits = ev.wins.map((w) => `${w.count} ${w.payId === "scatter" ? "× 4ka" : "symb."}`);
+        setMessage(bits.join(" · "));
+        if (ev.scatterCount >= 4) {
+          sfx.playThunder();
+          if (!isFree && !inFsRef.current) pendingFs = true;
+          else extraFsRef.current += FS_RETRIGGER;
+        } else {
+          sfx.playWin();
+        }
+        setPhase("win");
+        await wait(dur(760), abort.current);
+
+        setPhase("tumble");
+        sfx.playTumble();
+        board = tumble(board, ev.winMask, rng, anteRef.current);
+        setWinMask(null);
+        setGrid(cloneGrid(board));
+        tumbleN += 1;
+        await wait(dur(400 + Math.min(180, tumbleN * 16)), abort.current);
+        setGrid((g) => g.map((row) => row.map((c) => ({ ...c, fall: 0 }))));
+        await wait(dur(60), abort.current);
+      }
+
+      const orbSum = sumMultipliers(board);
+      let applied = 1;
+      if (isFree || inFsRef.current) {
+        if (orbSum > 0) {
+          const gm = globalMultRef.current + orbSum;
+          globalMultRef.current = gm;
+          setGlobalMult(gm);
+          applied = Math.max(1, gm);
+        } else {
+          applied = Math.max(1, globalMultRef.current);
+        }
+      } else if (orbSum > 0) {
+        applied = orbSum;
+      }
+      setSeqMult(applied);
+
+      let paidX = sequenceX * applied;
+      let hitMax = false;
+      if (paidX > MAX_WIN_X) {
+        paidX = MAX_WIN_X;
+        hitMax = true;
+      }
+      const cash = +(paidX * currentBet).toFixed(2);
+
+      if (orbSum > 0 && sequenceX > 0) {
+        setPhase("mult");
+        setMessage(`Násobič ${applied}×`);
+        await wait(dur(500), abort.current);
+      }
+
+      if (cash > 0) {
+        setBalance((b) => +(b + cash).toFixed(2));
+        setDisplayWin((d) => +(d + cash).toFixed(2));
+        setBestWin((w) => Math.max(w, cash));
+      }
+
+      const x = currentBet > 0 ? cash / currentBet : 0;
+      let kind: WinBanner = null;
+      if (hitMax) kind = "max";
+      else if (x >= 100) kind = "epic";
+      else if (x >= 40) kind = "mega";
+      else if (x >= 15) kind = "big";
+
+      if (kind) {
+        setBanner(kind);
+        setBannerAmount(cash);
+        if (kind === "max") sfx.playMaxWin();
+        else sfx.playBigWin();
+        setPhase(kind === "max" ? "max" : "big");
+        await wait(dur(kind === "max" ? 2600 : 1500), abort.current);
+        setBanner(null);
+      }
+
+      setWinMask(null);
+      setPhase("idle");
+
+      if (pendingFs) return "fs";
+      if (hitMax) return "max";
+      return "ok";
+    },
+    [dur],
+  );
+
+  const playRound = useCallback(
+    async (opts?: { buy?: boolean }) => {
+      if (busyRef.current) return;
+      busyRef.current = true;
+      setBusy(true);
+      abort.current.aborted = false;
+      if (!opts?.buy && !inFsRef.current) setDisplayWin(0);
+
+      const r = await runSequence(opts);
+
+      if (r === "fs") {
+        setInFs(true);
+        inFsRef.current = true;
+        setPhase("fs");
+        setDisplayWin(0);
+        setGlobalMult(0);
+        globalMultRef.current = 0;
+        let left = FS_SPINS;
+        setFsLeft(left);
+        setFsTotal(left);
+        setMessage("15 voľných točení");
+        sfx.playThunder();
+        await wait(dur(1100), abort.current);
+
+        while (left > 0) {
+          left -= 1;
+          setFsLeft(left);
+          const inner = await runSequence({ free: true });
+          if (extraFsRef.current > 0) {
+            const add = extraFsRef.current;
+            extraFsRef.current = 0;
+            left += add;
+            setFsLeft(left);
+            setFsTotal((t) => t + add);
+            setMessage(`+${add} voľných točení`);
+            await wait(dur(640), abort.current);
+          }
+          if (inner === "max") break;
+          await wait(dur(140), abort.current);
+        }
+
+        setInFs(false);
+        inFsRef.current = false;
+        setFsLeft(0);
+        setGlobalMult(0);
+        globalMultRef.current = 0;
+        setMessage("Koniec voľných točení");
+        setPhase("idle");
+      }
+
+      busyRef.current = false;
+      setBusy(false);
+    },
+    [dur, runSequence],
+  );
+
+  const spin = useCallback(async () => {
+    if (!started || busyRef.current || inFsRef.current) return;
+    await playRound();
+  }, [started, playRound]);
+
+  const buyBonus = useCallback(async () => {
+    if (!started || busyRef.current || inFsRef.current) return;
+    await playRound({ buy: true });
+  }, [started, playRound]);
+
+  const startAuto = useCallback((n: number) => {
+    if (busyRef.current || inFsRef.current) return;
+    setAutoOn(true);
+    autoRef.current = true;
+    setAutoLeft(n);
+  }, []);
+
+  const stopAuto = useCallback(() => {
+    setAutoOn(false);
+    autoRef.current = false;
+    setAutoLeft(0);
+  }, []);
+
+  useEffect(() => {
+    if (!autoOn || busy || inFs || !started) return;
+    if (autoLeft <= 0) {
+      setAutoOn(false);
+      autoRef.current = false;
+      return;
+    }
+    let cancel = false;
+    void (async () => {
+      await wait(200);
+      if (cancel || !autoRef.current) return;
+      setAutoLeft((n) => n - 1);
+      await playRound();
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [autoOn, autoLeft, busy, inFs, started, playRound]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return;
+      e.preventDefault();
+      if (started && !busyRef.current && !inFsRef.current) void playRound();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [started, playRound]);
+
+  return {
+    started,
+    start,
+    balance,
+    bet,
+    stake,
+    betIndex,
+    changeBet,
+    muted,
+    toggleMute,
+    turbo,
+    setTurbo,
+    ante,
+    setAnte: (v: boolean) => {
+      if (!busyRef.current) {
+        setAnte(v);
+        sfx.playClick();
+      }
+    },
+    grid,
+    phase,
+    busy,
+    winMask,
+    spinWin,
+    displayWin,
+    fsLeft,
+    fsTotal,
+    inFs,
+    globalMult,
+    seqMult,
+    banner,
+    bannerAmount,
+    closeBanner,
+    autoOn,
+    autoLeft,
+    startAuto,
+    stopAuto,
+    throwBolt,
+    paytableOpen,
+    setPaytableOpen,
+    message,
+    spin,
+    buyBonus,
+    refill,
+    bestWin,
+    canSpin: started && !busy && !inFs && balance >= stake,
+    canBuy: started && !busy && !inFs && balance >= +(bet * BUY_COST_X).toFixed(2),
+  };
+}
