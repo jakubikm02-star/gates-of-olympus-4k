@@ -202,9 +202,9 @@ export function useSlotGame() {
       setPhase("landing");
       for (let i = 0; i < 6; i++) {
         sfx.playLand();
-        await wait(dur(52), abort.current);
+        await wait(dur(70), abort.current);
       }
-      await wait(dur(140), abort.current);
+      await wait(dur(280), abort.current);
 
       let board = next;
       let sequenceX = 0;
