@@ -90,6 +90,12 @@ export function playWin(): void {
 
 export function playTumble(): void {
   osc("sine", 160, 0.12, 0.06);
+  osc("triangle", 90, 0.1, 0.05);
+}
+
+export function playPop(): void {
+  osc("square", 140, 0.08, 0.07);
+  osc("sine", 980, 0.09, 0.04);
 }
 
 export function playScatter(): void {

@@ -24,7 +24,19 @@ import * as sfx from "@/lib/slot/audio";
 
 const SAVE_KEY = "olympus4k-v1";
 
-type Phase = "boot" | "idle" | "spinning" | "eval" | "win" | "tumble" | "mult" | "fs" | "big" | "max";
+type Phase =
+  | "boot"
+  | "idle"
+  | "spinning"
+  | "landing"
+  | "eval"
+  | "win"
+  | "pop"
+  | "tumble"
+  | "mult"
+  | "fs"
+  | "big"
+  | "max";
 
 export type WinBanner = "win" | "big" | "mega" | "epic" | "max" | null;
 
@@ -79,6 +91,7 @@ export function useSlotGame() {
   const [autoLeft, setAutoLeft] = useState(0);
   const [autoOn, setAutoOn] = useState(false);
   const [throwBolt, setThrowBolt] = useState(false);
+  const [shake, setShake] = useState(false);
   const [paytableOpen, setPaytableOpen] = useState(false);
   const [message, setMessage] = useState("8+ rovnakých symbolov kdekoľvek vyhráva");
 
@@ -184,10 +197,14 @@ export function useSlotGame() {
       const rng = createRng();
       const next = opts?.buy ? generateBuyGrid(rng, anteRef.current) : generateGrid(rng, anteRef.current);
 
-      await wait(dur(opts?.buy ? 920 : 740), abort.current);
+      await wait(dur(opts?.buy ? 980 : 720), abort.current);
       setGrid(next);
-      sfx.playLand();
-      await wait(dur(160), abort.current);
+      setPhase("landing");
+      for (let i = 0; i < 6; i++) {
+        sfx.playLand();
+        await wait(dur(52), abort.current);
+      }
+      await wait(dur(140), abort.current);
 
       let board = next;
       let sequenceX = 0;
@@ -210,23 +227,27 @@ export function useSlotGame() {
         setMessage(bits.join(" · "));
         if (ev.scatterCount >= 4) {
           sfx.playThunder();
+          setShake(true);
+          window.setTimeout(() => setShake(false), 520);
           if (!isFree && !inFsRef.current) pendingFs = true;
           else extraFsRef.current += FS_RETRIGGER;
         } else {
           sfx.playWin();
         }
         setPhase("win");
-        await wait(dur(760), abort.current);
+        await wait(dur(680), abort.current);
 
-        setPhase("tumble");
-        sfx.playTumble();
+        setPhase("pop");
+        sfx.playPop();
+        await wait(dur(220), abort.current);
         board = tumble(board, ev.winMask, rng, anteRef.current);
         setWinMask(null);
+        setPhase("tumble");
         setGrid(cloneGrid(board));
         tumbleN += 1;
-        await wait(dur(400 + Math.min(180, tumbleN * 16)), abort.current);
+        await wait(dur(420 + Math.min(200, tumbleN * 18)), abort.current);
         setGrid((g) => g.map((row) => row.map((c) => ({ ...c, fall: 0 }))));
-        await wait(dur(60), abort.current);
+        await wait(dur(50), abort.current);
       }
 
       const orbSum = sumMultipliers(board);
@@ -438,6 +459,7 @@ export function useSlotGame() {
     startAuto,
     stopAuto,
     throwBolt,
+    shake,
     paytableOpen,
     setPaytableOpen,
     message,

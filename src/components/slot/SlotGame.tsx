@@ -17,7 +17,7 @@ export function SlotGame() {
         : "Klikni TOČIŤ — 8+ kdekoľvek vyhráva";
 
   return (
-    <div className={`stage ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""}`}>
+    <div className={`stage ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""}`}>
       <div className="stage-bg" />
       <div className="stage-glow" />
 
@@ -96,6 +96,8 @@ export function SlotGame() {
               grid={g.grid}
               winMask={g.winMask}
               spinning={g.phase === "spinning"}
+              landing={g.phase === "landing"}
+              popping={g.phase === "pop"}
               reduced={false}
             />
           </section>
