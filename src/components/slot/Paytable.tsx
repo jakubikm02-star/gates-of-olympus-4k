@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { PAY_SYMBOLS, SCATTER } from "@/lib/slot/symbols";
 
 interface Props {
@@ -7,6 +8,15 @@ interface Props {
 }
 
 export function Paytable({ open, onClose, bet }: Props) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
   return (
     <div className="modal-back" onClick={onClose} role="presentation">

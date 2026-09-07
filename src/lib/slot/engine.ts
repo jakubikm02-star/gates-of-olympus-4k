@@ -191,12 +191,13 @@ export function cloneGrid(grid: Cell[][]): Cell[][] {
   return grid.map((row) => row.map((c) => ({ ...c })));
 }
 
-export function wait(ms: number, signal?: { aborted: boolean }): Promise<void> {
+export function wait(ms: number, signal?: { aborted?: boolean; skip?: boolean }): Promise<void> {
   if (ms <= 0) return Promise.resolve();
   return new Promise((resolve) => {
     const t0 = performance.now();
     const tick = (t: number) => {
-      if (signal?.aborted || t - t0 >= ms) {
+      const cap = signal?.skip ? Math.min(ms, 40) : ms;
+      if (signal?.aborted || t - t0 >= cap) {
         resolve();
         return;
       }

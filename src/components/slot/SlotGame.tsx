@@ -7,17 +7,31 @@ import { Paytable } from "./Paytable";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
 
+const BANNER_COPY: Record<string, string> = {
+  max: "MAX WIN",
+  epic: "MEGA!",
+  mega: "SUPER!",
+  big: "NICE!",
+  fs: "GRATULUJEME!",
+  win: "WIN",
+};
+
 export function SlotGame() {
   const g = useSlotGame();
+  const spinning = g.phase === "spinning" || g.phase === "landing";
   const winLine =
     g.displayWin > 0
-      ? `WIN ${formatMoney(g.displayWin)}`
-      : g.busy
-        ? g.message
-        : "Klikni TOČIŤ — 8+ kdekoľvek vyhráva";
+      ? `VÝHRA ${formatMoney(g.displayWin)}`
+      : spinning
+        ? "ŤUKNI A ZASTAV VALCE!"
+        : g.busy
+          ? g.message || "GOOD LUCK!"
+          : "GOOD LUCK!";
 
   return (
-    <div className={`stage ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""}`}>
+    <div
+      className={`stage ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""}`}
+    >
       <div className="stage-bg" />
       <div className="stage-glow" />
 
@@ -67,9 +81,7 @@ export function SlotGame() {
             >
               <em>ANTE BET</em>
               <strong>1.25×</strong>
-              <span className={`ante-switch ${g.ante ? "on" : ""}`}>
-                {g.ante ? "ON" : "OFF"}
-              </span>
+              <span className={`ante-switch ${g.ante ? "on" : ""}`}>{g.ante ? "ON" : "OFF"}</span>
             </button>
             {g.inFs && (
               <div className="fs-meter">
@@ -83,27 +95,53 @@ export function SlotGame() {
                 </div>
               </div>
             )}
+            <ol className="win-log" aria-label="História výhier">
+              {g.winLog.slice(-5).map((row, i) => (
+                <li key={`${row.amount}-${i}`}>
+                  <img src={row.src} alt="" />
+                  <span>
+                    {row.count}× <b>{row.amount}</b>
+                  </span>
+                </li>
+              ))}
+            </ol>
           </aside>
 
           <section className="board-wrap">
-            {g.spinWin > 0 && (
-              <div className="tumble-win">
-                TUMBLE WIN
-                <strong>{formatMoney(g.spinWin)}</strong>
-              </div>
-            )}
+            <div className="top-ticker">
+              {g.spinWin > 0 ? (
+                <>
+                  VÝHRA Z FUNKCIE TUMBLE
+                  <strong>
+                    {formatMoney(g.spinWin)}
+                    {g.seqMult > 1 ? ` ×${g.seqMult}` : ""}
+                  </strong>
+                </>
+              ) : (
+                g.topLine
+              )}
+            </div>
             <SlotGrid
               grid={g.grid}
               winMask={g.winMask}
               spinning={g.phase === "spinning"}
               landing={g.phase === "landing"}
               popping={g.phase === "pop"}
+              stoppedCols={g.stoppedCols}
+              anticipate={g.anticipate}
+              activatingMult={g.activatingMult}
+              clusterPay={g.clusterPay}
               reduced={false}
+              onTap={spinning ? g.stopReels : undefined}
             />
           </section>
 
           <aside className="zeus-col" aria-hidden="true">
-            <img src="/art/zeus.png" alt="" className={`zeus ${g.throwBolt ? "throw" : ""}`} />
+            <img
+              src="/art/zeus.png"
+              alt=""
+              className={`zeus ${g.throwBolt ? "throw" : ""} ${g.anticipate ? "anti" : ""}`}
+            />
             {g.throwBolt && <span className="bolt" />}
           </aside>
         </div>
@@ -128,15 +166,23 @@ export function SlotGame() {
             </button>
             <div className="credit-stack">
               <p>
-                CREDIT <b>{formatMoney(g.balance)}</b>
+                KREDIT <b>{formatMoney(g.balance)}</b>
               </p>
               <p>
-                BET <b>{formatMoney(g.stake)}</b>
+                STÁVKA <b>{formatMoney(g.stake)}</b>
               </p>
             </div>
           </div>
 
-          <p className={`win-line ${g.displayWin > 0 ? "has-win" : ""}`}>{winLine}</p>
+          <div className="win-stack">
+            <p className={`win-line ${g.displayWin > 0 ? "has-win" : ""}`}>{winLine}</p>
+            {g.payHint && (
+              <p className="pay-hint">
+                <img src={g.payHint.src} alt="" />
+                {g.payHint.count}× VYPLÁCA {g.payHint.amount}
+              </p>
+            )}
+          </div>
 
           <div className="hud-right">
             <button
@@ -150,10 +196,10 @@ export function SlotGame() {
             </button>
             <button
               type="button"
-              className={`spin-btn ${g.busy ? "is-busy" : ""}`}
+              className={`spin-btn ${g.busy ? "is-busy" : ""} ${spinning ? "is-stop" : ""}`}
               onClick={() => void g.spin()}
-              disabled={!g.started || g.busy || g.inFs}
-              aria-label="Točiť"
+              disabled={!g.started || g.inFs || (g.busy && !spinning)}
+              aria-label={spinning ? "Zastaviť valce" : "Točiť"}
             >
               <RefreshCw size={34} strokeWidth={2.6} />
             </button>
@@ -211,18 +257,13 @@ export function SlotGame() {
       {g.banner && (
         <div className="banner" onClick={g.closeBanner} role="presentation">
           <div className={`banner-card ${g.banner}`}>
-            <span className="banner-kicker">
-              {g.banner === "max"
-                ? "MAX WIN"
-                : g.banner === "epic"
-                  ? "EPIC WIN"
-                  : g.banner === "mega"
-                    ? "MEGA WIN"
-                    : g.banner === "big"
-                      ? "BIG WIN"
-                      : "WIN"}
-            </span>
-            <strong>{formatMoney(g.bannerAmount)}</strong>
+            <span className="banner-wings" aria-hidden="true" />
+            <span className="banner-kicker">{BANNER_COPY[g.banner] ?? "WIN"}</span>
+            {g.banner === "fs" ? (
+              <strong>15 FREE SPINS</strong>
+            ) : (
+              <strong>{formatMoney(g.bannerAmount)}</strong>
+            )}
             <em>ťukni pre pokračovanie</em>
           </div>
         </div>
