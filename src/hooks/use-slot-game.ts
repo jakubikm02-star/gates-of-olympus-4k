@@ -214,6 +214,7 @@ export function useSlotGame() {
       abort.current.skip = false;
       sfx.unlockAudio();
       sfx.startSpin();
+      sfx.duckMusic(0.42);
 
       if (cost > 0) setBalance((b) => +(b - cost).toFixed(2));
 
@@ -241,6 +242,7 @@ export function useSlotGame() {
           await wait(dur(c >= 4 ? 780 : 520), abort.current);
         }
         setStoppedCols(c + 1);
+        sfx.setSpinEnergy(1 - (c + 1) / 6);
         sfx.playLand(c);
         if (colScatter) {
           landedScatters += 1;
@@ -254,6 +256,7 @@ export function useSlotGame() {
       }
       sfx.stopSpin();
       sfx.stopAnticipate();
+      sfx.duckMusic(1);
       setAnticipate(false);
       setStoppedCols(6);
       abort.current.skip = false;
@@ -307,7 +310,7 @@ export function useSlotGame() {
           if (!isFree && !inFsRef.current) pendingFs = true;
           else extraFsRef.current += FS_RETRIGGER;
         } else {
-          sfx.playWin();
+          sfx.playWin("spark");
         }
         setPhase("win");
         await wait(dur(80), abort.current);
@@ -371,7 +374,8 @@ export function useSlotGame() {
         setDisplayWin(boosted);
         setTopLine(`VÝHRA Z FUNKCIE TUMBLE  ×${applied}`);
         setMessage(`Násobič ${applied}×`);
-        sfx.playWin();
+        sfx.playMult();
+        sfx.playWin("full");
         await wait(dur(420), abort.current);
         setThrowBolt(false);
         setActivatingMult(false);
@@ -398,10 +402,8 @@ export function useSlotGame() {
       if (cash > 0) {
         setBalance((b) => +(b + cash).toFixed(2));
         setBestWin((w) => Math.max(w, cash));
-        for (let i = 0; i < 6; i++) {
-          sfx.playCoin();
-          await wait(dur(42), abort.current);
-        }
+        sfx.playPayout();
+        await wait(dur(280), abort.current);
       }
 
       const x = currentBet > 0 ? cash / currentBet : 0;
@@ -431,6 +433,7 @@ export function useSlotGame() {
           : "SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE",
       );
       setMessage(cash > 0 ? "" : "GOOD LUCK!");
+      sfx.duckMusic(1);
 
       if (pendingFs) return "fs";
       if (hitMax) return "max";
