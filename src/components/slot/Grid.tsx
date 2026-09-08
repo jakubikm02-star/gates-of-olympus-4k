@@ -7,6 +7,11 @@ export interface ClusterPay {
   amount: string;
 }
 
+export interface Strike {
+  r: number;
+  c: number;
+}
+
 interface Props {
   grid: Cell[][];
   winMask: boolean[][] | null;
@@ -17,9 +22,21 @@ interface Props {
   anticipate: boolean;
   activatingMult: boolean;
   struckUids: number[];
+  strike: Strike | null;
   clusterPay: ClusterPay | null;
   reduced: boolean;
   onTap?: () => void;
+}
+
+function jaggedPath(x0: number, y0: number, x1: number, y1: number): string {
+  const n = 8;
+  let d = `M ${x0} ${y0}`;
+  for (let i = 1; i <= n; i++) {
+    const t = i / n;
+    const j = i < n ? (i % 2 === 0 ? 1 : -1) : 0;
+    d += ` L ${x0 + (x1 - x0) * t + j * 16} ${y0 + (y1 - y0) * t + j * -9}`;
+  }
+  return d;
 }
 
 function CellView({
@@ -85,10 +102,14 @@ export function SlotGrid({
   anticipate,
   activatingMult,
   struckUids,
+  strike,
   clusterPay,
   reduced,
   onTap,
 }: Props) {
+  const bolt = strike
+    ? jaggedPath(640, 155, (strike.c + 0.5) * 100, (strike.r + 0.5) * 100)
+    : "";
   return (
     <div className="reel-frame" aria-label="Herné pole 6×5" onClick={onTap}>
       <div
@@ -136,6 +157,12 @@ export function SlotGrid({
               <i key={i} style={{ ["--i" as string]: String(i) } as CSSProperties} />
             ))}
           </div>
+        )}
+        {strike && (
+          <svg className="reel-bolt" viewBox="0 0 600 500" preserveAspectRatio="none" aria-hidden="true">
+            <path d={bolt} fill="none" stroke="#7ecbff" strokeWidth="11" opacity="0.45" />
+            <path d={bolt} fill="none" stroke="#fff8d0" strokeWidth="4.5" />
+          </svg>
         )}
         {clusterPay && (
           <div className="cluster-pay" style={{ left: `${clusterPay.x}%`, top: `${clusterPay.y}%` }}>

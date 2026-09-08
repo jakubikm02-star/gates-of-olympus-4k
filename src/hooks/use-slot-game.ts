@@ -105,6 +105,8 @@ export function useSlotGame() {
   const [anticipate, setAnticipate] = useState(false);
   const [activatingMult, setActivatingMult] = useState(false);
   const [struckUids, setStruckUids] = useState<number[]>([]);
+  const [strike, setStrike] = useState<{ r: number; c: number } | null>(null);
+  const [flies, setFlies] = useState<{ key: number; r: number; c: number; mult: number }[]>([]);
   const [clusterPay, setClusterPay] = useState<{ x: number; y: number; amount: string } | null>(null);
   const [payHint, setPayHint] = useState<{ count: number; src: string; amount: string } | null>(null);
   const [winLog, setWinLog] = useState<{ count: number; src: string; amount: string }[]>([]);
@@ -120,6 +122,7 @@ export function useSlotGame() {
   const autoRef = useRef(false);
   const busyRef = useRef(false);
   const extraFsRef = useRef(0);
+  const flyKey = useRef(1);
 
   turboRef.current = turbo;
   anteRef.current = ante;
@@ -205,6 +208,8 @@ export function useSlotGame() {
       setWinLog([]);
       setActivatingMult(false);
       setStruckUids([]);
+      setStrike(null);
+      setFlies([]);
       extraFsRef.current = 0;
       abort.current.skip = false;
       sfx.unlockAudio();
@@ -305,7 +310,8 @@ export function useSlotGame() {
           sfx.playWin();
         }
         setPhase("win");
-        await wait(dur(860), abort.current);
+        await wait(dur(80), abort.current);
+        await wait(dur(780), abort.current);
 
         setPhase("pop");
         setClusterPay(null);
@@ -339,9 +345,17 @@ export function useSlotGame() {
         setTopLine("ZEUS AKTIVUJE NÁSOBIČE");
         await wait(dur(160), abort.current);
         for (const orb of orbs) {
+          setStrike({ r: orb.r, c: orb.c });
           setStruckUids((ids) => [...ids, orb.uid]);
           sfx.playZap();
-          await wait(dur(220), abort.current);
+          if (isFree || inFsRef.current) {
+            const key = flyKey.current++;
+            setFlies((f) => [...f, { key, r: orb.r, c: orb.c, mult: orb.mult }]);
+            window.setTimeout(() => setFlies((f) => f.filter((x) => x.key !== key)), 820);
+          }
+          await wait(dur(260), abort.current);
+          setStrike(null);
+          await wait(dur(40), abort.current);
         }
         if (isFree || inFsRef.current) {
           const gm = globalMultRef.current + orbSum;
@@ -599,6 +613,8 @@ export function useSlotGame() {
     anticipate,
     activatingMult,
     struckUids,
+    strike,
+    flies,
     clusterPay,
     payHint,
     winLog,

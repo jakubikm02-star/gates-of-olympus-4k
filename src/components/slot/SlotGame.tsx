@@ -4,6 +4,7 @@ import { formatMoney } from "@/lib/slot/format";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { SlotGrid } from "./Grid";
 import { Paytable } from "./Paytable";
+import { CountUp } from "./CountUp";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
 
@@ -19,9 +20,9 @@ const BANNER_COPY: Record<string, string> = {
 export function SlotGame() {
   const g = useSlotGame();
   const spinning = g.phase === "spinning" || g.phase === "landing";
-  const winLine =
+  const winLinePrefix =
     g.displayWin > 0
-      ? `VÝHRA ${formatMoney(g.displayWin)}`
+      ? "VÝHRA "
       : spinning
         ? "ŤUKNI A ZASTAV VALCE!"
         : g.busy
@@ -85,7 +86,7 @@ export function SlotGame() {
             </button>
             {g.inFs && (
               <div className="fs-meter">
-                <div className="wing-mult">
+                <div className={`wing-mult ${g.flies.length ? "is-feed" : ""}`}>
                   <span>TOTAL MULTIPLIER</span>
                   <b>{g.globalMult || g.seqMult || 0}X</b>
                 </div>
@@ -113,7 +114,7 @@ export function SlotGame() {
                 <>
                   VÝHRA Z FUNKCIE TUMBLE
                   <strong>
-                    {formatMoney(g.spinWin)}
+                    <CountUp value={g.spinWin} />
                     {g.seqMult > 1 ? ` ×${g.seqMult}` : ""}
                   </strong>
                 </>
@@ -121,6 +122,7 @@ export function SlotGame() {
                 g.topLine
               )}
             </div>
+            <div className="board-stage">
             <SlotGrid
               grid={g.grid}
               winMask={g.winMask}
@@ -131,10 +133,21 @@ export function SlotGame() {
               anticipate={g.anticipate}
               activatingMult={g.activatingMult}
               struckUids={g.struckUids}
+              strike={g.strike}
               clusterPay={g.clusterPay}
               reduced={false}
               onTap={spinning ? g.stopReels : undefined}
             />
+            {g.flies.map((f) => (
+              <span
+                key={f.key}
+                className="fly-orb"
+                style={{ left: `${((f.c + 0.5) / 6) * 100}%`, top: `${((f.r + 0.5) / 5) * 100}%` }}
+              >
+                {f.mult}X
+              </span>
+            ))}
+            </div>
           </section>
 
           <aside className="zeus-col" aria-hidden="true">
@@ -176,7 +189,15 @@ export function SlotGame() {
           </div>
 
           <div className="win-stack">
-            <p className={`win-line ${g.displayWin > 0 ? "has-win" : ""}`}>{winLine}</p>
+            <p className={`win-line ${g.displayWin > 0 ? "has-win" : ""}`}>
+              {g.displayWin > 0 ? (
+                <>
+                  VÝHRA <CountUp value={g.displayWin} />
+                </>
+              ) : (
+                winLinePrefix
+              )}
+            </p>
             {g.payHint && (
               <p className="pay-hint">
                 <img src={g.payHint.src} alt="" />
@@ -263,7 +284,9 @@ export function SlotGame() {
             {g.banner === "fs" ? (
               <strong>15 FREE SPINS</strong>
             ) : (
-              <strong>{formatMoney(g.bannerAmount)}</strong>
+              <strong>
+                <CountUp value={g.bannerAmount} />
+              </strong>
             )}
             <em>ťukni pre pokračovanie</em>
           </div>

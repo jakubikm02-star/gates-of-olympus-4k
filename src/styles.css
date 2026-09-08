@@ -311,6 +311,64 @@
   margin-top: 28px;
 }
 
+.board-stage {
+  position: relative;
+}
+
+.fly-orb {
+  position: absolute;
+  z-index: 8;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(0.9rem, 2.4vw, 1.35rem);
+  color: #fff8d0;
+  text-shadow: 0 0 12px #ffe14a, 0 2px 0 #3a2208;
+  pointer-events: none;
+  animation: fly-to-meter 0.72s cubic-bezier(0.18, 0.8, 0.22, 1) forwards;
+}
+
+@keyframes fly-to-meter {
+  to {
+    left: -22%;
+    top: 16%;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+}
+
+.wing-mult.is-feed b {
+  animation: meter-pop 0.4s cubic-bezier(0.22, 1.5, 0.36, 1);
+}
+
+@keyframes meter-pop {
+  50% {
+    transform: scale(1.18);
+    color: #fff;
+    text-shadow: 0 0 18px #ffe14a;
+  }
+}
+
+.reel-bolt {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 7;
+  filter: drop-shadow(0 0 8px #7ecbff);
+  animation: bolt-shot 0.22s ease-out both;
+}
+
+@keyframes bolt-shot {
+  from {
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
 .tumble-win,
 .top-ticker {
   position: absolute;
@@ -352,15 +410,16 @@
 
 .reel-frame {
   position: relative;
-  padding: 11px 10px 12px;
+  padding: 15px 14px 17px;
   background:
-    linear-gradient(180deg, #f0d070 0%, #c49228 28%, #8a5a12 62%, #c9a040 100%);
+    linear-gradient(180deg, #fff3c0 0%, #e8c45a 14%, #c49228 40%, #7a4e10 72%, #e0b84a 100%);
   box-shadow:
-    0 1px 0 #fff4c4,
-    0 16px 36px rgb(0 0 0 / 0.55),
-    inset 0 0 0 1px #4a3008,
-    inset 0 2px 0 #ffe9a0;
-  border-radius: 4px;
+    0 2px 0 #fff8d2,
+    0 0 0 2px #4a3008,
+    0 18px 40px rgb(0 0 0 / 0.55),
+    inset 0 3px 0 #ffe9a0,
+    inset 0 -5px 0 #5a3a0c;
+  border-radius: 5px;
 }
 
 .reel-window {
@@ -371,14 +430,16 @@
   overflow: hidden;
   background:
     repeating-linear-gradient(
-      135deg,
-      rgb(90 30 80 / 0.12) 0 14px,
-      transparent 14px 28px
+      90deg,
+      rgb(0 0 0 / 0.28) 0 1px,
+      transparent 1px calc(100% / 6)
     ),
-    radial-gradient(ellipse at 50% 30%, #3a1450 0%, #160818 72%);
+    radial-gradient(ellipse at 50% 0%, rgb(140 60 160 / 0.28), transparent 52%),
+    linear-gradient(180deg, #4a1860 0%, #2a0c38 42%, #140616 100%);
   box-shadow:
-    inset 0 22px 28px rgb(0 0 0 / 0.45),
-    inset 0 -18px 24px rgb(0 0 0 / 0.4);
+    inset 0 0 0 3px #3a2008,
+    inset 0 28px 36px rgb(0 0 0 / 0.5),
+    inset 0 -22px 30px rgb(0 0 0 / 0.48);
 }
 
 .reel-window.is-spinning,
@@ -490,27 +551,29 @@
 
 .win-fx {
   position: absolute;
-  inset: 5%;
-  border-radius: 6px;
+  inset: 4%;
   pointer-events: none;
   z-index: 3;
-  border: 2.5px solid #ffd24a;
-  box-shadow:
-    0 0 10px #ffb020,
-    0 0 22px rgb(255 160 20 / 0.55),
-    inset 0 0 12px rgb(255 180 40 / 0.5);
-  background: linear-gradient(180deg, rgb(255 220 80 / 0.18), transparent 48%);
-  animation: bolt-flicker 0.14s steps(2) infinite;
+  background:
+    radial-gradient(circle, rgb(255 230 140 / 0.28), transparent 62%);
+  filter: drop-shadow(0 0 8px #ffd24a);
 }
 
+.win-fx::before,
 .win-fx::after {
   content: "";
   position: absolute;
-  inset: -3px;
-  border-radius: 8px;
-  border: 1px solid rgb(255 248 200 / 0.7);
-  box-shadow: 0 0 8px #ffe14a;
-  opacity: 0.85;
+  inset: 6%;
+  background: conic-gradient(from var(--a, 0deg), transparent 0 62%, #ffe14a 70%, transparent 80%);
+  mix-blend-mode: screen;
+  animation: bolt-flicker 0.16s steps(2) infinite;
+  clip-path: polygon(48% 0, 58% 28%, 92% 18%, 64% 48%, 100% 72%, 58% 62%, 50% 100%, 42% 62%, 0 78%, 36% 48%, 8% 14%, 42% 28%);
+}
+
+.win-fx::after {
+  --a: 90deg;
+  animation-delay: 80ms;
+  opacity: 0.7;
 }
 
 @keyframes bolt-flicker {
@@ -895,8 +958,11 @@
 }
 
 @keyframes zeus-throw {
-  40% {
-    transform: rotate(-8deg) translate(8px, -10px) scale(1.04);
+  18% {
+    transform: rotate(6deg) translate(-6px, 4px) scale(0.98);
+  }
+  42% {
+    transform: rotate(-14deg) translate(14px, -16px) scale(1.08);
   }
   100% {
     transform: none;
@@ -962,6 +1028,10 @@
   font-size: 0.78rem;
   font-weight: 700;
   text-shadow: 0 1px 2px #000;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgb(48 24 60 / 0.75), rgb(12 6 18 / 0.75));
+  border: 1px solid rgb(224 184 74 / 0.4);
 }
 
 .credit-stack p {
@@ -1014,17 +1084,19 @@
 }
 
 .spin-btn {
-  width: 86px;
-  height: 86px;
+  width: 90px;
+  height: 90px;
   border-radius: 999px;
-  border: 7px solid #f2f2f2;
-  background: radial-gradient(circle at 38% 32%, #4a4a4a, #111 58%, #000);
-  color: #fff;
+  border: 7px solid #f4e6b0;
+  background:
+    radial-gradient(circle at 38% 32%, #fff4c0, #e0b84a 42%, #8a5a12 68%, #3a2208);
+  color: #3a2208;
   display: grid;
   place-items: center;
   box-shadow:
-    0 8px 0 #2a2a2a,
-    0 14px 24px rgb(0 0 0 / 0.4);
+    0 8px 0 #6a4810,
+    0 14px 24px rgb(0 0 0 / 0.4),
+    inset 0 2px 0 #fff8d2;
 }
 
 .spin-btn:hover:not(:disabled) {
@@ -1473,7 +1545,8 @@
   .reel-col.is-landing .strip,
   .cell.is-win .cell-img,
   .cell.is-struck .cell-img,
-  .orb-strike,
+  .fly-orb,
+  .reel-bolt,
   .cell.is-tease .cell-img,
   .cell.is-slam .cell-img,
   .zeus,
