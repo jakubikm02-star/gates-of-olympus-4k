@@ -711,15 +711,29 @@
 }
 
 .pay-quip {
-  font-size: 0.72rem;
-  color: #c4b896;
-  margin-top: 2px;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: #f0dca8;
+  margin-top: 4px;
+  line-height: 1.35;
 }
 
 .auto-hint {
   margin: 6px 8px 4px;
   font-size: 0.62rem;
   color: #c4b896;
+}
+
+.auto-stop {
+  align-self: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #5a1018;
+  border: 1px solid #c45a48;
+  color: #ffd0c8;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 .math-box {
@@ -1099,7 +1113,8 @@
   align-items: center;
   gap: 8px;
   padding: 4px 4px 0;
-  z-index: 5;
+  z-index: 40;
+  position: relative;
 }
 
 .hud-left,
@@ -1189,6 +1204,7 @@
   height: 90px;
   border-radius: 999px;
   border: 7px solid #f4e6b0;
+  touch-action: manipulation;
   background:
     radial-gradient(circle at 38% 32%, #fff4c0, #e0b84a 42%, #8a5a12 68%, #3a2208);
   color: #3a2208;
@@ -1569,12 +1585,25 @@
 }
 
 @media (max-width: 720px) {
+  .stage {
+    height: 100dvh;
+    max-height: 100dvh;
+  }
   .table {
-    padding: 4px 8px 10px;
+    padding: 2px 6px 0;
     min-height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .logo-plate.compact {
+    margin: 0 auto;
   }
   .logo-plate.compact .logo-main {
-    font-size: 1.15rem;
+    font-size: 0.95rem;
+  }
+  .logo-kicker {
+    font-size: 0.52rem;
   }
   .logo-sub {
     display: none;
@@ -1587,12 +1616,17 @@
     grid-template-columns: 1fr;
     margin-top: 0;
     overflow: visible;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
   .side-left {
     flex-direction: row;
     flex-wrap: wrap;
     padding-top: 0;
     gap: 6px;
+    flex-shrink: 0;
   }
   .parchment {
     flex: 1;
@@ -1604,21 +1638,49 @@
   }
   .zeus-col {
     display: none;
+    pointer-events: none;
   }
   .fs-hero {
     width: 100%;
     gap: 6px;
-    margin-bottom: 4px;
+    margin: 0 0 4px;
+    flex-shrink: 0;
   }
   .fs-hero .wing-mult b {
-    font-size: clamp(1.8rem, 11vw, 2.8rem);
+    font-size: clamp(1.5rem, 9vw, 2.4rem);
   }
   .fs-hero .fs-left {
-    min-width: 72px;
-    padding: 8px 6px;
+    min-width: 68px;
+    padding: 6px 6px;
   }
   .board-wrap {
-    margin-top: 12px;
+    margin-top: 4px;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .top-ticker {
+    top: -28px;
+    font-size: 0.58rem;
+    padding: 4px 12px 5px;
+    min-width: 0;
+    max-width: 92%;
+  }
+  .board-stage {
+    flex: 0 1 auto;
+    min-height: 0;
+  }
+  .reel-frame {
+    flex: 0 1 auto;
+    padding: 8px 7px 9px;
+  }
+  .reel-window {
+    aspect-ratio: 6 / 5;
+    width: 100%;
+    height: auto;
+    max-height: min(52dvh, 360px);
   }
   .bottom-hud {
     display: flex;
@@ -1626,27 +1688,40 @@
     justify-content: space-between;
     align-items: center;
     gap: 6px;
-    position: sticky;
-    bottom: 0;
-    padding: 8px 4px 10px;
-    background: linear-gradient(180deg, transparent, rgb(10 4 16 / 0.88) 28%);
+    position: relative;
+    z-index: 40;
+    flex-shrink: 0;
+    padding: 6px 4px 8px;
+    background: linear-gradient(180deg, transparent, rgb(10 4 16 / 0.92) 28%);
   }
   .win-stack {
     width: 100%;
     order: -1;
+    min-height: 1.6em;
   }
   .hud-left,
   .hud-right {
     flex: 1;
   }
   .spin-btn {
-    width: 76px;
-    height: 76px;
+    width: 72px;
+    height: 72px;
+    border-width: 5px;
+  }
+  .extra-row {
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    padding: 0 0 8px;
+  }
+  .auto-stop {
+    width: 100%;
+    text-align: center;
   }
   .boot-zeus {
     opacity: 0.4;
     right: -16%;
     max-width: 70vw;
+    pointer-events: none;
   }
   .boot-card {
     margin-right: 0;

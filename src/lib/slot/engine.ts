@@ -2,6 +2,7 @@ import {
   COLS,
   ROWS,
   MULT_TABLE,
+  BASE_MULT_TABLE,
   PAY_SYMBOLS,
   SCATTER,
   MAX_WIN_X,
@@ -62,8 +63,8 @@ function randomPayCell(rng: () => number): Cell {
   return { uid: nextUid(), kind: "pay", payId: s.id };
 }
 
-export function randomOrb(rng: () => number): Cell {
-  const m = pickWeighted(MULT_TABLE, rng).value;
+export function randomOrb(rng: () => number, fs = false): Cell {
+  const m = pickWeighted(fs ? MULT_TABLE : BASE_MULT_TABLE, rng).value;
   return { uid: nextUid(), kind: "mult", mult: m };
 }
 
@@ -104,21 +105,25 @@ export function generateBuyGrid(rng: () => number): Cell[][] {
 }
 
 export function zeusDropCount(rng: () => number, fs: boolean, afterTumble: boolean): number {
-  // Tuned empirically via scripts/slot-rtp.ts toward ~96.5% RTP / buy ≈ 100× EV.
-  const p = afterTumble ? (fs ? 0.22 : 0.09) : fs ? 0.155 : 0.055;
+  const p = afterTumble ? (fs ? 0.22 : 0.082) : fs ? 0.155 : 0.05;
   if (rng() > p) return 0;
   const r = rng();
   if (fs) {
     if (r < 0.7) return 1;
-    if (r < 0.93) return 2;
+    if (r < 0.92) return 2;
     return 3;
   }
-  if (r < 0.82) return 1;
+  if (r < 0.84) return 1;
   if (r < 0.97) return 2;
   return 3;
 }
 
-export function zeusDrop(grid: Cell[][], rng: () => number, n: number): { grid: Cell[][]; drops: { r: number; c: number; mult: number }[] } {
+export function zeusDrop(
+  grid: Cell[][],
+  rng: () => number,
+  n: number,
+  fs = false,
+): { grid: Cell[][]; drops: { r: number; c: number; mult: number }[] } {
   if (n <= 0) return { grid, drops: [] };
   const spots: { r: number; c: number }[] = [];
   for (let r = 0; r < ROWS; r++) {
@@ -137,7 +142,7 @@ export function zeusDrop(grid: Cell[][], rng: () => number, n: number): { grid: 
   const take = Math.min(n, spots.length);
   for (let i = 0; i < take; i++) {
     const { r, c } = spots[i];
-    const orb = randomOrb(rng);
+    const orb = randomOrb(rng, fs);
     next[r][c] = orb;
     drops.push({ r, c, mult: orb.mult ?? 2 });
   }
@@ -288,12 +293,12 @@ export interface PaidSpin {
 
 export function resolvePaidSpin(
   rng: () => number,
-  opts: { ante: boolean; buy?: boolean; free?: boolean; globalMult: number },
+  opts: { ante: boolean; buy?: boolean; free?: boolean; globalMult: number; capRemain?: number },
 ): PaidSpin {
   const ante = opts.buy || opts.free ? false : opts.ante;
   let board = opts.buy ? generateBuyGrid(rng) : generateGrid(rng, ante);
   const n0 = zeusDropCount(rng, !!opts.free, false);
-  if (n0) board = zeusDrop(board, rng, n0).grid;
+  if (n0) board = zeusDrop(board, rng, n0, !!opts.free).grid;
 
   let sequenceX = 0;
   let scatterPeak = 0;
@@ -309,7 +314,7 @@ export function resolvePaidSpin(
     sequenceX += ev.winX;
     board = tumble(board, ev.winMask, rng, ante);
     const n = zeusDropCount(rng, !!opts.free, true);
-    if (n) board = zeusDrop(board, rng, n).grid;
+    if (n) board = zeusDrop(board, rng, n, !!opts.free).grid;
     tumbles += 1;
     if (tumbles > 48) break;
   }
@@ -326,10 +331,11 @@ export function resolvePaidSpin(
     applied = globalMult;
   }
 
+  const cap = opts.capRemain ?? MAX_WIN_X;
   let paidX = sequenceX * applied;
   let hitMax = false;
-  if (paidX > MAX_WIN_X) {
-    paidX = MAX_WIN_X;
+  if (paidX >= cap) {
+    paidX = Math.max(0, cap);
     hitMax = true;
   }
 

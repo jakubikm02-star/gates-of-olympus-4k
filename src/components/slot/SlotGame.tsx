@@ -254,7 +254,7 @@ export function SlotGame() {
                       {n}
                     </button>
                   ))}
-                  <p className="auto-hint">stop: FS · 20× · 50% kredit</p>
+                  <p className="auto-hint">stop: FS · 20× · 50% kredit. Po FS sa nespúšťa.</p>
                 </div>
               </details>
             )}
@@ -282,6 +282,7 @@ export function SlotGame() {
           >
             TURBO
           </button>
+          {g.autoReason && !g.autoOn && <span className="auto-stop">{g.autoReason}</span>}
           {g.balance < g.stake && (
             <button type="button" className="chip-btn gold" onClick={g.refill}>
               +{START_BALANCE} kredit

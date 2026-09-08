@@ -106,6 +106,7 @@ export function useSlotGame() {
   const [bannerAmount, setBannerAmount] = useState(0);
   const [autoLeft, setAutoLeft] = useState(0);
   const [autoOn, setAutoOn] = useState(false);
+  const [autoReason, setAutoReason] = useState<string | null>(null);
   const [throwBolt, setThrowBolt] = useState(false);
   const [shake, setShake] = useState(false);
   const [paytableOpen, setPaytableOpen] = useState(false);
@@ -137,6 +138,7 @@ export function useSlotGame() {
   const flyKey = useRef(1);
   const lastPaidXRef = useRef(0);
   const autoFloorRef = useRef(0);
+  const featureXRef = useRef(0);
 
   turboRef.current = turbo;
   quickRef.current = quick;
@@ -237,6 +239,7 @@ export function useSlotGame() {
       setFlies([]);
       extraFsRef.current = 0;
       abort.current.skip = false;
+      if (!isFree) featureXRef.current = 0;
       sfx.unlockAudio();
       sfx.startSpin();
       sfx.duckMusic(0.42);
@@ -296,7 +299,7 @@ export function useSlotGame() {
         setThrowBolt(true);
         sfx.playThunder();
         setTopLine("ZEUS HÁDŽE NÁSOBIČE");
-        const dropped = zeusDrop(board, rng, landDrop);
+        const dropped = zeusDrop(board, rng, landDrop, isFree || inFsRef.current);
         board = dropped.grid;
         setGrid(cloneGrid(board));
         await wait(dur(480), abort.current);
@@ -372,7 +375,7 @@ export function useSlotGame() {
         if (more > 0) {
           setThrowBolt(true);
           sfx.playZap();
-          const dropped = zeusDrop(board, rng, more);
+          const dropped = zeusDrop(board, rng, more, isFree || inFsRef.current);
           board = dropped.grid;
           setTopLine("ZEUS HÁDŽE NÁSOBIČE");
         }
@@ -467,10 +470,12 @@ export function useSlotGame() {
 
       let paidX = sequenceX * applied;
       let hitMax = false;
-      if (paidX > MAX_WIN_X) {
-        paidX = MAX_WIN_X;
+      const remain = MAX_WIN_X - featureXRef.current;
+      if (paidX >= remain) {
+        paidX = Math.max(0, remain);
         hitMax = true;
       }
+      featureXRef.current += paidX;
       const cash = +(paidX * currentBet).toFixed(2);
       if (cash > 0 && cash !== +(sequenceX * currentBet).toFixed(2)) {
         setSpinWin(cash);
@@ -519,8 +524,8 @@ export function useSlotGame() {
       setMessage(cash > 0 ? "" : DEAD[Math.floor(Math.random() * DEAD.length)]);
       sfx.duckMusic(1);
 
-      if (pendingFs) return "fs";
       if (hitMax) return "max";
+      if (pendingFs) return "fs";
       return "ok";
     },
     [dur],
@@ -537,10 +542,21 @@ export function useSlotGame() {
       const r = await runSequence(opts);
 
       if (autoRef.current) {
-        if (r === "fs" || lastPaidXRef.current >= 20 || balanceRef.current <= autoFloorRef.current) {
+        if (r === "fs") {
           autoRef.current = false;
           setAutoOn(false);
           setAutoLeft(0);
+          setAutoReason("AUTO STOP · FREE SPINS — nespúšťa sa po bonuse");
+        } else if (lastPaidXRef.current >= 20) {
+          autoRef.current = false;
+          setAutoOn(false);
+          setAutoLeft(0);
+          setAutoReason("AUTO STOP · 20×");
+        } else if (balanceRef.current <= autoFloorRef.current) {
+          autoRef.current = false;
+          setAutoOn(false);
+          setAutoLeft(0);
+          setAutoReason("AUTO STOP · 50% KREDIT");
         }
       }
 
@@ -585,7 +601,7 @@ export function useSlotGame() {
         setFsLeft(0);
         setGlobalMult(0);
         globalMultRef.current = 0;
-        setMessage("Koniec voľných točení");
+        setMessage("Koniec voľných točení — AUTO sa nespúšťa");
         setPhase("idle");
         setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
       }
@@ -618,6 +634,7 @@ export function useSlotGame() {
   const startAuto = useCallback((n: number) => {
     if (busyRef.current || inFsRef.current) return;
     autoFloorRef.current = balanceRef.current * 0.5;
+    setAutoReason(null);
     setAutoOn(true);
     autoRef.current = true;
     setAutoLeft(n);
@@ -700,6 +717,7 @@ export function useSlotGame() {
     closeBanner,
     autoOn,
     autoLeft,
+    autoReason,
     startAuto,
     stopAuto,
     throwBolt,
