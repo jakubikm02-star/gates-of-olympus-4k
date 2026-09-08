@@ -1,6 +1,6 @@
 /**
- * Sample bank: Mixkit (slot/thunder/whoosh) + Kenney Casino (CC0).
- * Pragmatic Play SFX are copyrighted and are not used.
+ * Sample bank: Mixkit (slot/thunder/whoosh) + Kenney Casino (CC0)
+ * + Freesound LilMati coin05 (CC0). Pragmatic Play SFX are not used.
  * Synth fallbacks fire only if a buffer has not decoded yet.
  */
 
@@ -15,7 +15,7 @@ let brownBuf: AudioBuffer | null = null;
 let spinNodes: { stop: () => void; gain: GainNode } | null = null;
 let anticipateNodes: { stop: () => void } | null = null;
 const playing: Partial<Record<string, { stop: () => void }>> = {};
-const CUT_PREV = new Set(["win", "winFull", "payout", "bigwin"]);
+const CUT_PREV = new Set(["win", "winFull", "payout", "bigwin", "tumble", "pop"]);
 const bufs: Record<string, AudioBuffer> = {};
 let loadStarted = false;
 
@@ -24,13 +24,13 @@ const FILES: Record<string, string> = {
   land: "/sfx/land.mp3",
   land2: "/sfx/land2.mp3",
   click: "/sfx/click.mp3",
-  win: "/sfx/win.mp3",
-  winFull: "/sfx/win-full.mp3",
+  win: "/sfx/win.mp3?v=tumble2",
+  winFull: "/sfx/win-full.mp3?v=tumble2",
   payout: "/sfx/payout.mp3",
   coin: "/sfx/coin.mp3",
   scatter: "/sfx/scatter.mp3",
   collect: "/sfx/collect.mp3",
-  tumble: "/sfx/tumble.mp3",
+  tumble: "/sfx/tumble.mp3?v=tumble2",
   pop: "/sfx/pop.mp3",
   zap: "/sfx/zap.mp3",
   electric: "/sfx/electric.mp3",
@@ -276,8 +276,8 @@ export function playLand(col = 0): void {
 
 export function playWin(size: "spark" | "full" = "spark"): void {
   if (size === "full") {
-    if (playBuf("winFull", { gain: 0.48 })) return;
-  } else if (playBuf("win", { gain: 0.4, rate: 0.96 + Math.random() * 0.08 })) {
+    if (playBuf("winFull", { gain: 0.62 })) return;
+  } else if (playBuf("win", { gain: 0.72, rate: 0.94 + Math.random() * 0.12 })) {
     return;
   }
   if (!ctx) return;
@@ -303,7 +303,8 @@ export function playPayout(): void {
 }
 
 export function playTumble(): void {
-  if (!playBuf("tumble", { gain: 0.75, rate: 0.92 + Math.random() * 0.1 })) {
+  playing["pop"]?.stop();
+  if (!playBuf("tumble", { gain: 0.95, rate: 0.94 + Math.random() * 0.1 })) {
     noise("brown", 0.32, 0.11, 50, 900);
   }
 }

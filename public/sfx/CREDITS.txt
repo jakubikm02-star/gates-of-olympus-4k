@@ -5,14 +5,19 @@ https://mixkit.co/license/#sfxFree
   Slot machine pack  https://mixkit.co/free-sound-effects/slot-machine/
   Thunder pack       https://mixkit.co/free-sound-effects/thunder/
   Whoosh pack        https://mixkit.co/free-sound-effects/whoosh/
+  Coin pack          https://mixkit.co/free-sound-effects/coin/
   Harp / electric    Mixkit free SFX library
+
+  tumble.mp3   Mixkit 2166 — Cinematic whoosh fast transition (1.28s)
+               https://mixkit.co/free-sound-effects/whoosh/
+  win-full.mp3 Mixkit 2017 — Clinking coins (1.54s)
+               https://mixkit.co/free-sound-effects/coin/
 
 Kenney Casino Audio — CC0 (public domain)
 https://kenney.nl/assets/casino-audio
 https://opengameart.org/content/54-casino-sound-effects-cards-dice-chips
   dice-throw, chips-collide, chip-lay used for reel stops and UI clicks
 
-Win / payout stings (win.mp3, win-full.mp3, payout.mp3)
-  Original Mixkit slot-win alarms were replaced with short synthesized
-  sine bells (G4/C5 spark, C major arpeggio, coin ticks). Same files,
-  not a 5-second casino siren on every tumble.
+Freesound — CC0 (public domain)
+  win.mp3  LilMati coin05 (Freesound 443258), 0.52s coin ping
+           https://freesound.org/people/LilMati/sounds/443258/

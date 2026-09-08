@@ -359,7 +359,7 @@ export function useSlotGame() {
           setShake(true);
           window.setTimeout(() => setShake(false), 520);
           extraFsRef.current += FS_RETRIGGER;
-        } else if (tumbleN === 0) {
+        } else {
           sfx.playWin("spark");
         }
         setPhase("win");
