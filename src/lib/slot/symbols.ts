@@ -30,6 +30,7 @@ export interface PaySymbol {
   /** Payout as multiple of total bet for 8–9 / 10–11 / 12+ */
   pays: readonly [number, number, number];
   weight: number;
+  quip: string;
 }
 
 export const PAY_SYMBOLS: readonly PaySymbol[] = [
@@ -38,21 +39,24 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     name: "Hrdzavý RJ45",
     src: "/symbols/rj45.png",
     pays: [0.25, 0.75, 2],
-    weight: 22,
+    weight: 16,
+    quip: "Ešte drží. Skoro.",
   },
   {
     id: "router",
     name: "Wi-Fi router",
     src: "/symbols/router.png",
     pays: [0.4, 0.9, 4],
-    weight: 18,
+    weight: 14,
+    quip: "Heslo je na spodku.",
   },
   {
     id: "hap",
     name: "hAP ac²",
     src: "/symbols/hap.png",
     pays: [0.5, 1, 5],
-    weight: 15,
+    weight: 12,
+    quip: "Winbox otvorený na 8291.",
   },
   {
     id: "roof",
@@ -60,6 +64,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     src: "/symbols/roof.png",
     pays: [0.8, 1.2, 8],
     weight: 12,
+    quip: "Padá aj v lete.",
   },
   {
     id: "arris",
@@ -67,6 +72,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     src: "/symbols/arris.png",
     pays: [1, 1.5, 10],
     weight: 10,
+    quip: "Modem, ktorý prežil tri providery.",
   },
   {
     id: "case",
@@ -74,6 +80,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     src: "/symbols/case.png",
     pays: [1.5, 2, 12],
     weight: 8,
+    quip: "Vnútri je len merací kábel a hnev.",
   },
   {
     id: "meter",
@@ -81,6 +88,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     src: "/symbols/meter.png",
     pays: [2, 5, 15],
     weight: 6,
+    quip: "−27 dBm. Zázrak, že to svieti.",
   },
   {
     id: "pdf",
@@ -88,6 +96,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     src: "/symbols/pdf.png",
     pays: [2.5, 10, 25],
     weight: 5,
+    quip: "ULTRA MAX PRO. Stále PDF.",
   },
   {
     id: "dacia",
@@ -95,6 +104,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     src: "/symbols/dacia.png",
     pays: [10, 25, 50],
     weight: 3.4,
+    quip: "Sedem miest, nula hanby.",
   },
 ] as const;
 
@@ -104,10 +114,19 @@ export const SCATTER = {
   src: "/symbols/tv4ka.png",
   /** 4 / 5 / 6+ scatters as multiple of bet */
   pays: [3, 5, 100] as const,
-  weight: 2.7,
+  /** Base weight: P(4+ on land) ~1/330; tumble inflates bonus toward ~1/250. */
+  weight: 1.55,
+  /** Binomial: P(X≥4) with ante ≈ 2× base. Not a raw cell-weight ×2. */
+  weightAnte: 1.95,
 };
 
-export const MULT_WEIGHT = 3.8;
+export const ALL_ART: readonly string[] = [
+  ...PAY_SYMBOLS.map((s) => s.src),
+  SCATTER.src,
+  "/art/orb.png",
+  "/art/zeus.png",
+  "/art/olympus-bg.jpg",
+];
 
 export const MULT_TABLE: readonly { value: number; w: number }[] = [
   { value: 2, w: 28 },
@@ -134,9 +153,22 @@ export const BETS = [
 export const MAX_WIN_X = 5000;
 export const FS_SPINS = 15;
 export const FS_RETRIGGER = 5;
+export const FS_TRIGGER_SCATTERS = 4;
+export const FS_RETRIGGER_SCATTERS = 3;
 export const BUY_COST_X = 100;
 export const ANTE_COST = 1.25;
 export const START_BALANCE = 5000;
+
+/** Baked from scripts/slot-rtp.ts 1e6 paid spins. */
+export const MATH_NOTE = {
+  spins: 1_000_000,
+  rtp: 0.9939,
+  hit: 0.3471,
+  bonusEvery: 309,
+  anteBonusEvery: 149,
+  buyEv: 0.9835,
+  maxEvery: null as number | null,
+};
 
 export function payForCount(pays: readonly [number, number, number], count: number): number {
   if (count >= 12) return pays[2];
@@ -163,4 +195,9 @@ export function symbolName(cell: Cell): string {
   if (cell.kind === "scatter") return SCATTER.name;
   if (cell.kind === "mult") return `x${cell.mult ?? 2}`;
   return PAY_SYMBOLS.find((p) => p.id === cell.payId)?.name ?? "";
+}
+
+export function payName(id: PayId | "scatter"): string {
+  if (id === "scatter") return SCATTER.name;
+  return PAY_SYMBOLS.find((p) => p.id === id)?.name ?? id;
 }

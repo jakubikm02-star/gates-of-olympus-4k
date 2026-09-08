@@ -277,6 +277,43 @@
   gap: 8px;
 }
 
+.fs-hero {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 10px;
+  width: min(100%, 560px);
+  margin: 0 auto 8px;
+  position: relative;
+  z-index: 5;
+}
+
+.fs-hero .wing-mult {
+  flex: 1;
+  padding: 8px 18px 6px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgb(255 210 80 / 0.28), transparent 62%),
+    linear-gradient(180deg, #4a1c70, #14081c);
+  border: 2px solid #f0c44a;
+  box-shadow:
+    0 0 28px rgb(255 200 70 / 0.38),
+    inset 0 0 18px rgb(255 180 40 / 0.14);
+}
+
+.fs-hero .wing-mult b {
+  font-size: clamp(2.4rem, 7.2vw, 4.2rem);
+  line-height: 0.88;
+  color: #fff6c8;
+  text-shadow: 0 0 18px #ffd24a, 0 3px 0 #5a3208;
+}
+
+.fs-hero .fs-left {
+  min-width: 96px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 .wing-mult,
 .fs-left {
   text-align: center;
@@ -330,10 +367,10 @@
 
 @keyframes fly-to-meter {
   to {
-    left: -22%;
-    top: 16%;
+    left: 42%;
+    top: -12%;
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.4);
+    transform: translate(-50%, -50%) scale(0.32);
   }
 }
 
@@ -652,8 +689,72 @@
   }
 }
 
-.cell.is-dormant .cell-img {
-  filter: drop-shadow(0 6px 8px rgb(0 0 0 / 0.5)) brightness(0.92);
+.cell.is-expired {
+  animation: expire-drop 0.55s ease-in forwards;
+}
+
+.cell.is-expired .cell-img {
+  filter: grayscale(1) brightness(0.55);
+  opacity: 0.4;
+}
+
+.cell.is-expired .mult-tag {
+  text-decoration: line-through;
+  color: #f2b0b0;
+}
+
+@keyframes expire-drop {
+  to {
+    transform: translateY(42%) scale(0.72);
+    opacity: 0;
+  }
+}
+
+.pay-quip {
+  font-size: 0.72rem;
+  color: #c4b896;
+  margin-top: 2px;
+}
+
+.auto-hint {
+  margin: 6px 8px 4px;
+  font-size: 0.62rem;
+  color: #c4b896;
+}
+
+.math-box {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid #5a3a18;
+  border-radius: 10px;
+  background: rgb(20 10 8 / 0.45);
+  color: #c4b896;
+  font-size: 0.78rem;
+}
+
+.math-box summary {
+  cursor: pointer;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #f0c44a;
+}
+
+.math-box p {
+  margin: 8px 0 0;
+  line-height: 1.45;
+}
+
+.in-fs .fs-hero .wing-mult b {
+  font-size: clamp(2.4rem, 7.2vw, 4.2rem);
+  line-height: 0.88;
+}
+
+.in-fs .board-wrap {
+  margin-top: 6px;
+}
+
+.in-fs .fs-hero {
+  order: -1;
 }
 
 .cell.is-dormant .mult-tag {
@@ -1504,8 +1605,20 @@
   .zeus-col {
     display: none;
   }
+  .fs-hero {
+    width: 100%;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .fs-hero .wing-mult b {
+    font-size: clamp(1.8rem, 11vw, 2.8rem);
+  }
+  .fs-hero .fs-left {
+    min-width: 72px;
+    padding: 8px 6px;
+  }
   .board-wrap {
-    margin-top: 32px;
+    margin-top: 12px;
   }
   .bottom-hud {
     display: flex;
@@ -1545,6 +1658,7 @@
   .reel-col.is-landing .strip,
   .cell.is-win .cell-img,
   .cell.is-struck .cell-img,
+  .cell.is-expired,
   .fly-orb,
   .reel-bolt,
   .cell.is-tease .cell-img,

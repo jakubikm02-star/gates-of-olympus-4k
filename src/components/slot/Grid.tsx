@@ -23,6 +23,7 @@ interface Props {
   activatingMult: boolean;
   struckUids: number[];
   strike: Strike | null;
+  expiredUids: number[];
   clusterPay: ClusterPay | null;
   reduced: boolean;
   onTap?: () => void;
@@ -49,6 +50,7 @@ function CellView({
   dormant,
   tease,
   slam,
+  expired,
 }: {
   cell: Cell;
   win: boolean;
@@ -59,6 +61,7 @@ function CellView({
   dormant: boolean;
   tease: boolean;
   slam: boolean;
+  expired: boolean;
 }) {
   const fall = cell.fall ?? 0;
   return (
@@ -73,6 +76,7 @@ function CellView({
         popping && win ? "is-pop" : "",
         tease ? "is-tease" : "",
         slam ? "is-slam" : "",
+        expired ? "is-expired" : "",
       ].join(" ")}
       style={
         fall && !reduced && !spinning
@@ -103,6 +107,7 @@ export function SlotGrid({
   activatingMult,
   struckUids,
   strike,
+  expiredUids,
   clusterPay,
   reduced,
   onTap,
@@ -145,6 +150,7 @@ export function SlotGrid({
                     dormant={cell.kind === "mult" && !struckUids.includes(cell.uid) && !colSpin}
                     tease={anticipate && !colSpin && cell.kind === "scatter"}
                     slam={colLand && (cell.kind === "scatter" || cell.kind === "mult")}
+                    expired={expiredUids.includes(cell.uid)}
                   />
                 ))}
               </div>

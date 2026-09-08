@@ -2,9 +2,11 @@ import {
   COLS,
   ROWS,
   MULT_TABLE,
-  MULT_WEIGHT,
   PAY_SYMBOLS,
   SCATTER,
+  MAX_WIN_X,
+  FS_TRIGGER_SCATTERS,
+  FS_RETRIGGER_SCATTERS,
   payForCount,
   scatterPay,
   type Cell,
@@ -60,20 +62,17 @@ function randomPayCell(rng: () => number): Cell {
   return { uid: nextUid(), kind: "pay", payId: s.id };
 }
 
+export function randomOrb(rng: () => number): Cell {
+  const m = pickWeighted(MULT_TABLE, rng).value;
+  return { uid: nextUid(), kind: "mult", mult: m };
+}
+
+/** Orbs are Zeus-drops, not fill-bag competitors. */
 export function randomCell(rng: () => number, ante: boolean): Cell {
-  const scatterW = SCATTER.weight * (ante ? 2 : 1);
-  const table: { w: number; kind: "pay" | "scatter" | "mult"; id?: PayId }[] = [
-    ...PAY_SYMBOLS.map((p) => ({ w: p.weight, kind: "pay" as const, id: p.id })),
-    { w: scatterW, kind: "scatter" },
-    { w: MULT_WEIGHT, kind: "mult" },
-  ];
-  const pick = pickWeighted(table, rng);
-  if (pick.kind === "scatter") return { uid: nextUid(), kind: "scatter" };
-  if (pick.kind === "mult") {
-    const m = pickWeighted(MULT_TABLE, rng).value;
-    return { uid: nextUid(), kind: "mult", mult: m };
-  }
-  return { uid: nextUid(), kind: "pay", payId: pick.id };
+  const scatterW = ante ? SCATTER.weightAnte : SCATTER.weight;
+  const payW = PAY_SYMBOLS.reduce((s, p) => s + p.weight, 0);
+  if (rng() * (payW + scatterW) < scatterW) return { uid: nextUid(), kind: "scatter" };
+  return randomPayCell(rng);
 }
 
 export function generateGrid(rng: () => number, ante: boolean): Cell[][] {
@@ -86,9 +85,9 @@ export function generateGrid(rng: () => number, ante: boolean): Cell[][] {
   return g;
 }
 
-/** Force 4 scatters for bonus buy opening. */
-export function generateBuyGrid(rng: () => number, ante: boolean): Cell[][] {
-  const g = generateGrid(rng, ante);
+/** Force 4 scatters. Buy is always 100× base bet; ante is off for this grid. */
+export function generateBuyGrid(rng: () => number): Cell[][] {
+  const g = generateGrid(rng, false);
   const spots: [number, number][] = [];
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) spots.push([r, c]);
   for (let i = spots.length - 1; i > 0; i--) {
@@ -104,11 +103,57 @@ export function generateBuyGrid(rng: () => number, ante: boolean): Cell[][] {
   return g;
 }
 
+export function zeusDropCount(rng: () => number, fs: boolean, afterTumble: boolean): number {
+  // Tuned empirically via scripts/slot-rtp.ts toward ~96.5% RTP / buy ≈ 100× EV.
+  const p = afterTumble ? (fs ? 0.22 : 0.09) : fs ? 0.155 : 0.055;
+  if (rng() > p) return 0;
+  const r = rng();
+  if (fs) {
+    if (r < 0.7) return 1;
+    if (r < 0.93) return 2;
+    return 3;
+  }
+  if (r < 0.82) return 1;
+  if (r < 0.97) return 2;
+  return 3;
+}
+
+export function zeusDrop(grid: Cell[][], rng: () => number, n: number): { grid: Cell[][]; drops: { r: number; c: number; mult: number }[] } {
+  if (n <= 0) return { grid, drops: [] };
+  const spots: { r: number; c: number }[] = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (grid[r][c].kind === "pay") spots.push({ r, c });
+    }
+  }
+  for (let i = spots.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = spots[i];
+    spots[i] = spots[j];
+    spots[j] = tmp;
+  }
+  const next = cloneGrid(grid);
+  const drops: { r: number; c: number; mult: number }[] = [];
+  const take = Math.min(n, spots.length);
+  for (let i = 0; i < take; i++) {
+    const { r, c } = spots[i];
+    const orb = randomOrb(rng);
+    next[r][c] = orb;
+    drops.push({ r, c, mult: orb.mult ?? 2 });
+  }
+  return { grid: next, drops };
+}
+
 export interface LineWin {
   payId: PayId | "scatter";
   count: number;
   payX: number;
   cells: { r: number; c: number }[];
+}
+
+export interface NearMiss {
+  payId: PayId;
+  count: number;
 }
 
 export function evaluate(grid: Cell[][]): {
@@ -117,6 +162,7 @@ export function evaluate(grid: Cell[][]): {
   scatterCount: number;
   multipliers: number[];
   winMask: boolean[][];
+  nearMiss: NearMiss | null;
 } {
   const counts = new Map<PayId, { n: number; cells: { r: number; c: number }[] }>();
   const scatterCells: { r: number; c: number }[] = [];
@@ -156,7 +202,16 @@ export function evaluate(grid: Cell[][]): {
     for (const p of scatterCells) winMask[p.r][p.c] = true;
   }
 
-  return { wins, winX, scatterCount, multipliers, winMask };
+  let nearMiss: NearMiss | null = null;
+  if (winX <= 0) {
+    for (const sym of PAY_SYMBOLS) {
+      const info = counts.get(sym.id);
+      if (!info || info.n !== 7) continue;
+      if (!nearMiss || info.n > nearMiss.count) nearMiss = { payId: sym.id, count: info.n };
+    }
+  }
+
+  return { wins, winX, scatterCount, multipliers, winMask, nearMiss };
 }
 
 export function tumble(grid: Cell[][], winMask: boolean[][], rng: () => number, ante: boolean): Cell[][] {
@@ -198,8 +253,104 @@ export function listOrbs(grid: Cell[][]): { uid: number; r: number; c: number; m
   return out;
 }
 
+export function expireOrbs(grid: Cell[][], rng: () => number): { grid: Cell[][]; expired: number[] } {
+  const next = cloneGrid(grid);
+  const expired: number[] = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (next[r][c].kind === "mult") {
+        expired.push(next[r][c].uid);
+        next[r][c] = randomPayCell(rng);
+      }
+    }
+  }
+  return { grid: next, expired };
+}
+
 export function cloneGrid(grid: Cell[][]): Cell[][] {
   return grid.map((row) => row.map((c) => ({ ...c })));
+}
+
+export interface PaidSpin {
+  sequenceX: number;
+  orbSum: number;
+  applied: number;
+  paidX: number;
+  scatterPeak: number;
+  triggeredFs: boolean;
+  retrigger: boolean;
+  hitMax: boolean;
+  nearMiss: NearMiss | null;
+  deadOrbs: number;
+  globalMult: number;
+  tumbles: number;
+}
+
+export function resolvePaidSpin(
+  rng: () => number,
+  opts: { ante: boolean; buy?: boolean; free?: boolean; globalMult: number },
+): PaidSpin {
+  const ante = opts.buy || opts.free ? false : opts.ante;
+  let board = opts.buy ? generateBuyGrid(rng) : generateGrid(rng, ante);
+  const n0 = zeusDropCount(rng, !!opts.free, false);
+  if (n0) board = zeusDrop(board, rng, n0).grid;
+
+  let sequenceX = 0;
+  let scatterPeak = 0;
+  let tumbles = 0;
+  let nearMiss: NearMiss | null = null;
+  for (;;) {
+    const ev = evaluate(board);
+    scatterPeak = Math.max(scatterPeak, ev.scatterCount);
+    if (ev.winX <= 0) {
+      nearMiss = ev.nearMiss;
+      break;
+    }
+    sequenceX += ev.winX;
+    board = tumble(board, ev.winMask, rng, ante);
+    const n = zeusDropCount(rng, !!opts.free, true);
+    if (n) board = zeusDrop(board, rng, n).grid;
+    tumbles += 1;
+    if (tumbles > 48) break;
+  }
+
+  const orbSum = sumMultipliers(board);
+  let globalMult = opts.globalMult;
+  let applied = 1;
+  if (sequenceX > 0 && orbSum > 0) {
+    if (opts.free) {
+      globalMult += orbSum;
+      applied = Math.max(1, globalMult);
+    } else applied = orbSum;
+  } else if (opts.free && sequenceX > 0 && globalMult > 1) {
+    applied = globalMult;
+  }
+
+  let paidX = sequenceX * applied;
+  let hitMax = false;
+  if (paidX > MAX_WIN_X) {
+    paidX = MAX_WIN_X;
+    hitMax = true;
+  }
+
+  const triggeredFs = !opts.free && scatterPeak >= FS_TRIGGER_SCATTERS;
+  const retrigger = !!opts.free && scatterPeak >= FS_RETRIGGER_SCATTERS;
+  const deadOrbs = sequenceX <= 0 ? listOrbs(board).length : 0;
+
+  return {
+    sequenceX,
+    orbSum,
+    applied,
+    paidX,
+    scatterPeak,
+    triggeredFs,
+    retrigger,
+    hitMax,
+    nearMiss,
+    deadOrbs,
+    globalMult,
+    tumbles,
+  };
 }
 
 export function wait(ms: number, signal?: { aborted?: boolean; skip?: boolean }): Promise<void> {

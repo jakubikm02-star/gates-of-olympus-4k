@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ALL_ART,
   ANTE_COST,
   BETS,
   BUY_COST_X,
   FS_RETRIGGER,
+  FS_RETRIGGER_SCATTERS,
   FS_SPINS,
+  FS_TRIGGER_SCATTERS,
   MAX_WIN_X,
   PAY_SYMBOLS,
   SCATTER,
   START_BALANCE,
+  payName,
   type Cell,
 } from "@/lib/slot/symbols";
 import {
@@ -16,11 +20,14 @@ import {
   createRng,
   emptyGrid,
   evaluate,
+  expireOrbs,
   generateBuyGrid,
   generateGrid,
   listOrbs,
   tumble,
   wait,
+  zeusDrop,
+  zeusDropCount,
 } from "@/lib/slot/engine";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
@@ -48,6 +55,7 @@ interface Save {
   betIndex: number;
   muted: boolean;
   turbo: boolean;
+  quick: boolean;
   ante: boolean;
   bestWin: number;
 }
@@ -80,6 +88,7 @@ export function useSlotGame() {
   const [betIndex, setBetIndex] = useState(4);
   const [muted, setMuted] = useState(false);
   const [turbo, setTurbo] = useState(false);
+  const [quick, setQuick] = useState(false);
   const [ante, setAnte] = useState(false);
   const [bestWin, setBestWin] = useState(0);
   const [grid, setGrid] = useState<Cell[][]>(() => emptyGrid());
@@ -107,6 +116,8 @@ export function useSlotGame() {
   const [struckUids, setStruckUids] = useState<number[]>([]);
   const [strike, setStrike] = useState<{ r: number; c: number } | null>(null);
   const [flies, setFlies] = useState<{ key: number; r: number; c: number; mult: number }[]>([]);
+  const [expiredUids, setExpiredUids] = useState<number[]>([]);
+  const [spinTape, setSpinTape] = useState<{ label: string; amount: string }[]>([]);
   const [clusterPay, setClusterPay] = useState<{ x: number; y: number; amount: string } | null>(null);
   const [payHint, setPayHint] = useState<{ count: number; src: string; amount: string } | null>(null);
   const [winLog, setWinLog] = useState<{ count: number; src: string; amount: string }[]>([]);
@@ -114,6 +125,7 @@ export function useSlotGame() {
 
   const abort = useRef({ aborted: false, skip: false });
   const turboRef = useRef(turbo);
+  const quickRef = useRef(quick);
   const anteRef = useRef(ante);
   const inFsRef = useRef(false);
   const globalMultRef = useRef(0);
@@ -123,8 +135,11 @@ export function useSlotGame() {
   const busyRef = useRef(false);
   const extraFsRef = useRef(0);
   const flyKey = useRef(1);
+  const lastPaidXRef = useRef(0);
+  const autoFloorRef = useRef(0);
 
   turboRef.current = turbo;
+  quickRef.current = quick;
   anteRef.current = ante;
   inFsRef.current = inFs;
   globalMultRef.current = globalMult;
@@ -146,6 +161,7 @@ export function useSlotGame() {
     }
     if (typeof s.muted === "boolean") setMuted(s.muted);
     if (typeof s.turbo === "boolean") setTurbo(s.turbo);
+    if (typeof s.quick === "boolean") setQuick(s.quick);
     if (typeof s.ante === "boolean") setAnte(s.ante);
     if (typeof s.bestWin === "number") setBestWin(s.bestWin);
     readySave.current = true;
@@ -153,15 +169,23 @@ export function useSlotGame() {
 
   useEffect(() => {
     if (!readySave.current) return;
-    persist({ balance, betIndex, muted, turbo, ante, bestWin });
-  }, [balance, betIndex, muted, turbo, ante, bestWin]);
+    persist({ balance, betIndex, muted, turbo, quick, ante, bestWin });
+  }, [balance, betIndex, muted, turbo, quick, ante, bestWin]);
 
-  const dur = useCallback((base: number) => (turboRef.current ? Math.round(base * 0.38) : base), []);
+  const dur = useCallback((base: number) => {
+    if (turboRef.current) return Math.round(base * 0.34);
+    if (quickRef.current) return Math.round(base * 0.62);
+    return base;
+  }, []);
 
   const start = useCallback(() => {
     sfx.unlockAudio();
     sfx.setMuted(muted);
     sfx.startAmbience();
+    for (const src of ALL_ART) {
+      const img = new Image();
+      img.src = src;
+    }
     setStarted(true);
     setPhase("idle");
   }, [muted]);
@@ -206,6 +230,7 @@ export function useSlotGame() {
       setClusterPay(null);
       setPayHint(null);
       setWinLog([]);
+      setExpiredUids([]);
       setActivatingMult(false);
       setStruckUids([]);
       setStrike(null);
@@ -225,7 +250,9 @@ export function useSlotGame() {
       setMessage(isFree ? "Voľné točenia" : "Točí sa…");
 
       const rng = createRng();
-      const next = opts?.buy ? generateBuyGrid(rng, anteRef.current) : generateGrid(rng, anteRef.current);
+      const next = opts?.buy
+        ? generateBuyGrid(rng)
+        : generateGrid(rng, opts?.free ? false : anteRef.current);
 
       await wait(dur(opts?.buy ? 720 : 620), abort.current);
       setGrid(next);
@@ -263,9 +290,24 @@ export function useSlotGame() {
       await wait(dur(140), abort.current);
 
       let board = next;
+      const landDrop = zeusDropCount(rng, isFree || inFsRef.current, false);
+      if (landDrop > 0) {
+        setPhase("mult");
+        setThrowBolt(true);
+        sfx.playThunder();
+        setTopLine("ZEUS HÁDŽE NÁSOBIČE");
+        const dropped = zeusDrop(board, rng, landDrop);
+        board = dropped.grid;
+        setGrid(cloneGrid(board));
+        await wait(dur(480), abort.current);
+        setThrowBolt(false);
+      }
+
+      const fillAnte = opts?.buy || opts?.free ? false : anteRef.current;
       let sequenceX = 0;
       let pendingFs = false;
       let tumbleN = 0;
+      const DEAD = ["ZEUS MLČÍ", "VALCE SPALI", "NIČ. ZNOVA.", "HROM BEZ DÁŽĎA", "ROUTER TICHÝ"];
 
       for (;;) {
         setPhase("eval");
@@ -300,15 +342,20 @@ export function useSlotGame() {
             amount: top.amount,
           });
           setTopLine("VÝHRA Z FUNKCIE TUMBLE");
-          setMessage(`${main.count}× vypláca ${top.amount}`);
+          setMessage(`${main.count}× ${payName(main.payId)} vypláca ${top.amount}`);
         }
 
-        if (ev.scatterCount >= 4) {
+        const fsNow = isFree || inFsRef.current;
+        if (!fsNow && ev.scatterCount >= FS_TRIGGER_SCATTERS) {
           sfx.playThunder();
           setShake(true);
           window.setTimeout(() => setShake(false), 520);
-          if (!isFree && !inFsRef.current) pendingFs = true;
-          else extraFsRef.current += FS_RETRIGGER;
+          pendingFs = true;
+        } else if (fsNow && ev.scatterCount >= FS_RETRIGGER_SCATTERS) {
+          sfx.playThunder();
+          setShake(true);
+          window.setTimeout(() => setShake(false), 520);
+          extraFsRef.current += FS_RETRIGGER;
         } else {
           sfx.playWin("spark");
         }
@@ -320,7 +367,15 @@ export function useSlotGame() {
         setClusterPay(null);
         sfx.playPop();
         await wait(dur(240), abort.current);
-        board = tumble(board, ev.winMask, rng, anteRef.current);
+        board = tumble(board, ev.winMask, rng, fillAnte);
+        const more = zeusDropCount(rng, isFree || inFsRef.current, true);
+        if (more > 0) {
+          setThrowBolt(true);
+          sfx.playZap();
+          const dropped = zeusDrop(board, rng, more);
+          board = dropped.grid;
+          setTopLine("ZEUS HÁDŽE NÁSOBIČE");
+        }
         setWinMask(null);
         setPayHint(null);
         setPhase("tumble");
@@ -329,8 +384,31 @@ export function useSlotGame() {
         tumbleN += 1;
         if (hasOrb(board)) setTopLine("NÁSOBIČE ČAKAJÚ NA ZEUSA");
         await wait(dur(500 + Math.min(180, tumbleN * 20)), abort.current);
+        setThrowBolt(false);
         setGrid((g) => g.map((row) => row.map((c) => ({ ...c, fall: 0 }))));
         await wait(dur(40), abort.current);
+      }
+
+      const miss = evaluate(board);
+      if (sequenceX <= 0 && miss.nearMiss) {
+        setTopLine(`${miss.nearMiss.count}/8 ${payName(miss.nearMiss.payId)}`);
+        setMessage("SKORO");
+        await wait(dur(180), abort.current);
+      } else if (sequenceX <= 0 && landedScatters === 3) {
+        setTopLine("EŠTE JEDEN SCATTER");
+        setShake(true);
+        window.setTimeout(() => setShake(false), 400);
+        await wait(dur(480), abort.current);
+      }
+
+      if ((isFree || inFsRef.current) && sequenceX <= 0 && hasOrb(board)) {
+        setTopLine("BEZ VÝHRY GULE PREPADNÚ");
+        const gone = expireOrbs(board, rng);
+        setExpiredUids(gone.expired);
+        await wait(dur(560), abort.current);
+        board = gone.grid;
+        setGrid(cloneGrid(board));
+        setExpiredUids([]);
       }
 
       const orbs = listOrbs(board);
@@ -399,14 +477,20 @@ export function useSlotGame() {
         setDisplayWin(cash);
       }
 
+      lastPaidXRef.current = currentBet > 0 ? cash / currentBet : 0;
+      if (cash > 0) {
+        setSpinTape((t) => [{ label: `${lastPaidXRef.current.toFixed(1)}×`, amount: formatMoney(cash) }, ...t].slice(0, 8));
+      } else {
+        setSpinTape((t) => [{ label: "0×", amount: DEAD[Math.floor(Math.random() * DEAD.length)] }, ...t].slice(0, 8));
+      }
+
       if (cash > 0) {
         setBalance((b) => +(b + cash).toFixed(2));
         setBestWin((w) => Math.max(w, cash));
         sfx.playPayout();
         await wait(dur(280), abort.current);
       }
-
-      const x = currentBet > 0 ? cash / currentBet : 0;
+      const x = lastPaidXRef.current;
       let kind: WinBanner = null;
       if (hitMax) kind = "max";
       else if (x >= 100) kind = "epic";
@@ -432,7 +516,7 @@ export function useSlotGame() {
           ? "3× SCATTER ZNOVU SPUSTÍ FUNKCIU"
           : "SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE",
       );
-      setMessage(cash > 0 ? "" : "GOOD LUCK!");
+      setMessage(cash > 0 ? "" : DEAD[Math.floor(Math.random() * DEAD.length)]);
       sfx.duckMusic(1);
 
       if (pendingFs) return "fs";
@@ -451,6 +535,14 @@ export function useSlotGame() {
       if (!opts?.buy && !inFsRef.current) setDisplayWin(0);
 
       const r = await runSequence(opts);
+
+      if (autoRef.current) {
+        if (r === "fs" || lastPaidXRef.current >= 20 || balanceRef.current <= autoFloorRef.current) {
+          autoRef.current = false;
+          setAutoOn(false);
+          setAutoLeft(0);
+        }
+      }
 
       if (r === "fs") {
         setInFs(true);
@@ -525,6 +617,7 @@ export function useSlotGame() {
 
   const startAuto = useCallback((n: number) => {
     if (busyRef.current || inFsRef.current) return;
+    autoFloorRef.current = balanceRef.current * 0.5;
     setAutoOn(true);
     autoRef.current = true;
     setAutoLeft(n);
@@ -582,6 +675,8 @@ export function useSlotGame() {
     toggleMute,
     turbo,
     setTurbo,
+    quick,
+    setQuick,
     ante,
     setAnte: (v: boolean) => {
       if (!busyRef.current) {
@@ -621,6 +716,8 @@ export function useSlotGame() {
     clusterPay,
     payHint,
     winLog,
+    spinTape,
+    expiredUids,
     topLine,
     spin,
     stopReels,

@@ -9,7 +9,7 @@ import { CountUp } from "./CountUp";
 const AUTO_OPTS = [10, 25, 50, 100] as const;
 
 const BANNER_COPY: Record<string, string> = {
-  max: "MAX WIN",
+  max: "MAX WIN 5000×",
   epic: "MEGA!",
   mega: "SUPER!",
   big: "NICE!",
@@ -84,24 +84,11 @@ export function SlotGame() {
               <strong>1.25×</strong>
               <span className={`ante-switch ${g.ante ? "on" : ""}`}>{g.ante ? "ON" : "OFF"}</span>
             </button>
-            {g.inFs && (
-              <div className="fs-meter">
-                <div className={`wing-mult ${g.flies.length ? "is-feed" : ""}`}>
-                  <span>TOTAL MULTIPLIER</span>
-                  <b>{g.globalMult || g.seqMult || 0}X</b>
-                </div>
-                <div className="fs-left">
-                  FREE SPINS LEFT
-                  <strong>{g.fsLeft}</strong>
-                </div>
-              </div>
-            )}
             <ol className="win-log" aria-label="História výhier">
-              {g.winLog.slice(-5).map((row, i) => (
+              {(g.spinTape.length ? g.spinTape : g.winLog.slice(-5).map((row) => ({ label: `${row.count}×`, amount: row.amount }))).map((row, i) => (
                 <li key={`${row.amount}-${i}`}>
-                  <img src={row.src} alt="" />
                   <span>
-                    {row.count}× <b>{row.amount}</b>
+                    {row.label} <b>{row.amount}</b>
                   </span>
                 </li>
               ))}
@@ -109,6 +96,18 @@ export function SlotGame() {
           </aside>
 
           <section className="board-wrap">
+            {g.inFs && (
+              <div className="fs-hero" aria-live="polite">
+                <div className={`wing-mult ${g.flies.length ? "is-feed" : ""}`}>
+                  <span>TOTAL MULTIPLIER</span>
+                  <b>{g.globalMult || 0}X</b>
+                </div>
+                <div className="fs-left">
+                  FREE SPINS LEFT
+                  <strong>{g.fsLeft}</strong>
+                </div>
+              </div>
+            )}
             <div className="top-ticker">
               {g.spinWin > 0 ? (
                 <>
@@ -134,6 +133,7 @@ export function SlotGame() {
               activatingMult={g.activatingMult}
               struckUids={g.struckUids}
               strike={g.strike}
+              expiredUids={g.expiredUids}
               clusterPay={g.clusterPay}
               reduced={false}
               onTap={spinning ? g.stopReels : undefined}
@@ -254,6 +254,7 @@ export function SlotGame() {
                       {n}
                     </button>
                   ))}
+                  <p className="auto-hint">stop: FS · 20× · 50% kredit</p>
                 </div>
               </details>
             )}
@@ -263,8 +264,21 @@ export function SlotGame() {
         <div className="extra-row">
           <button
             type="button"
+            className={`chip-btn ${g.quick ? "on" : ""}`}
+            onClick={() => {
+              g.setQuick(!g.quick);
+              if (!g.quick) g.setTurbo(false);
+            }}
+          >
+            QUICK
+          </button>
+          <button
+            type="button"
             className={`chip-btn ${g.turbo ? "on" : ""}`}
-            onClick={() => g.setTurbo(!g.turbo)}
+            onClick={() => {
+              g.setTurbo(!g.turbo);
+              if (!g.turbo) g.setQuick(false);
+            }}
           >
             TURBO
           </button>
@@ -288,6 +302,7 @@ export function SlotGame() {
                 <CountUp value={g.bannerAmount} />
               </strong>
             )}
+            {g.banner === "max" && <em>FEATURE TERMINATED</em>}
             <em>ťukni pre pokračovanie</em>
           </div>
         </div>
