@@ -1,0 +1,13 @@
+Sound sources (not Pragmatic Play — those SFX are copyrighted and were not used):
+
+Mixkit License — free for personal and commercial use inside a project
+https://mixkit.co/license/#sfxFree
+  Slot machine pack  https://mixkit.co/free-sound-effects/slot-machine/
+  Thunder pack       https://mixkit.co/free-sound-effects/thunder/
+  Whoosh pack        https://mixkit.co/free-sound-effects/whoosh/
+  Harp / electric    Mixkit free SFX library
+
+Kenney Casino Audio — CC0 (public domain)
+https://kenney.nl/assets/casino-audio
+https://opengameart.org/content/54-casino-sound-effects-cards-dice-chips
+  dice-throw, chips-collide, chip-lay used for reel stops and UI clicks
