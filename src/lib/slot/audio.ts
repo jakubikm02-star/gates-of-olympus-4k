@@ -189,6 +189,13 @@ export function playPop(): void {
   tone("sine", 920, 0.08, 0.04);
 }
 
+export function playZap(): void {
+  burst(0.16, 0.18, 400, 8000);
+  tone("sawtooth", 420, 0.12, 0.07, 80);
+  tone("square", 1800, 0.05, 0.05);
+  tone("triangle", 90, 0.18, 0.08, 40);
+}
+
 export function playScatter(n = 1): void {
   const gain = 0.06 + Math.min(4, n) * 0.028;
   burst(0.32, 0.1 + n * 0.03, 80, 800);

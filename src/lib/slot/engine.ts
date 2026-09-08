@@ -187,6 +187,17 @@ export function sumMultipliers(grid: Cell[][]): number {
   return s;
 }
 
+export function listOrbs(grid: Cell[][]): { uid: number; r: number; c: number; mult: number }[] {
+  const out: { uid: number; r: number; c: number; mult: number }[] = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = grid[r][c];
+      if (cell.kind === "mult" && cell.mult) out.push({ uid: cell.uid, r, c, mult: cell.mult });
+    }
+  }
+  return out;
+}
+
 export function cloneGrid(grid: Cell[][]): Cell[][] {
   return grid.map((row) => row.map((c) => ({ ...c })));
 }

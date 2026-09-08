@@ -589,6 +589,71 @@
   }
 }
 
+.cell.is-dormant .cell-img {
+  filter: drop-shadow(0 6px 8px rgb(0 0 0 / 0.5)) brightness(0.92);
+}
+
+.cell.is-dormant .mult-tag {
+  opacity: 0.85;
+}
+
+.cell.is-struck {
+  z-index: 5;
+}
+
+.cell.is-struck .cell-img {
+  animation: orb-ignite 0.42s cubic-bezier(0.22, 1.4, 0.36, 1) both;
+  filter: drop-shadow(0 0 18px #ffe14a) brightness(1.45);
+}
+
+.cell.is-struck .mult-tag {
+  color: #fff8d0;
+  text-shadow: 0 0 14px #ffe14a, 0 2px 0 #3a2208;
+  animation: mult-pop 0.35s cubic-bezier(0.22, 1.5, 0.36, 1) both;
+}
+
+@keyframes orb-ignite {
+  0% {
+    transform: scale(0.86);
+    filter: brightness(2.2) drop-shadow(0 0 24px #fff);
+  }
+  55% {
+    transform: scale(1.16);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.orb-strike {
+  position: absolute;
+  inset: -8%;
+  pointer-events: none;
+  z-index: 4;
+  background:
+    radial-gradient(circle, rgb(255 250 210 / 0.55), transparent 58%),
+    conic-gradient(from 80deg, transparent 0 40%, rgb(180 220 255 / 0.7) 50%, transparent 62%);
+  mix-blend-mode: screen;
+  animation: strike-flash 0.38s ease-out both;
+}
+
+@keyframes strike-flash {
+  from {
+    opacity: 1;
+    transform: scale(0.4) rotate(-12deg);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.35) rotate(18deg);
+  }
+}
+
+.reel-window.is-zeus-strike {
+  box-shadow:
+    inset 0 0 42px rgb(255 210 80 / 0.28),
+    inset 0 22px 28px rgb(0 0 0 / 0.45);
+}
+
 .cell.is-hot .cell-img {
   filter: hue-rotate(-40deg) saturate(1.4) brightness(1.35) drop-shadow(0 0 16px #6dff7a);
   animation: hot-pulse 0.35s ease-in-out infinite;
@@ -1407,7 +1472,8 @@
   .reel-col.is-spinning .strip,
   .reel-col.is-landing .strip,
   .cell.is-win .cell-img,
-  .cell.is-pop .cell-img,
+  .cell.is-struck .cell-img,
+  .orb-strike,
   .cell.is-tease .cell-img,
   .cell.is-slam .cell-img,
   .zeus,

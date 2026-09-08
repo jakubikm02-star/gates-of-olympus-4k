@@ -18,7 +18,7 @@ import {
   evaluate,
   generateBuyGrid,
   generateGrid,
-  sumMultipliers,
+  listOrbs,
   tumble,
   wait,
 } from "@/lib/slot/engine";
@@ -104,6 +104,7 @@ export function useSlotGame() {
   const [stoppedCols, setStoppedCols] = useState(6);
   const [anticipate, setAnticipate] = useState(false);
   const [activatingMult, setActivatingMult] = useState(false);
+  const [struckUids, setStruckUids] = useState<number[]>([]);
   const [clusterPay, setClusterPay] = useState<{ x: number; y: number; amount: string } | null>(null);
   const [payHint, setPayHint] = useState<{ count: number; src: string; amount: string } | null>(null);
   const [winLog, setWinLog] = useState<{ count: number; src: string; amount: string }[]>([]);
@@ -203,6 +204,7 @@ export function useSlotGame() {
       setPayHint(null);
       setWinLog([]);
       setActivatingMult(false);
+      setStruckUids([]);
       extraFsRef.current = 0;
       abort.current.skip = false;
       sfx.unlockAudio();
@@ -316,27 +318,56 @@ export function useSlotGame() {
         sfx.playTumble();
         setGrid(cloneGrid(board));
         tumbleN += 1;
-        if (hasOrb(board)) setTopLine("ZASIAHNI ZELENÚ GUĽU A NÁSOB TUMBLE WIN");
+        if (hasOrb(board)) setTopLine("NÁSOBIČE ČAKAJÚ NA ZEUSA");
         await wait(dur(500 + Math.min(180, tumbleN * 20)), abort.current);
         setGrid((g) => g.map((row) => row.map((c) => ({ ...c, fall: 0 }))));
         await wait(dur(40), abort.current);
       }
 
-      const orbSum = sumMultipliers(board);
+      const orbs = listOrbs(board);
+      const orbSum = orbs.reduce((s, o) => s + o.mult, 0);
+      const willThrow = sequenceX > 0 && orbSum > 0;
       let applied = 1;
-      if (isFree || inFsRef.current) {
-        if (orbSum > 0) {
+
+      if (willThrow) {
+        setPhase("mult");
+        setActivatingMult(true);
+        setThrowBolt(true);
+        setShake(true);
+        window.setTimeout(() => setShake(false), 420);
+        sfx.playThunder();
+        setTopLine("ZEUS AKTIVUJE NÁSOBIČE");
+        await wait(dur(160), abort.current);
+        for (const orb of orbs) {
+          setStruckUids((ids) => [...ids, orb.uid]);
+          sfx.playZap();
+          await wait(dur(220), abort.current);
+        }
+        if (isFree || inFsRef.current) {
           const gm = globalMultRef.current + orbSum;
           globalMultRef.current = gm;
           setGlobalMult(gm);
           applied = Math.max(1, gm);
         } else {
-          applied = Math.max(1, globalMultRef.current);
+          applied = orbSum;
         }
-      } else if (orbSum > 0) {
-        applied = orbSum;
+        setSeqMult(applied);
+        const boosted = +(sequenceX * applied * currentBet).toFixed(2);
+        setSpinWin(boosted);
+        setDisplayWin(boosted);
+        setTopLine(`VÝHRA Z FUNKCIE TUMBLE  ×${applied}`);
+        setMessage(`Násobič ${applied}×`);
+        sfx.playWin();
+        await wait(dur(420), abort.current);
+        setThrowBolt(false);
+        setActivatingMult(false);
+      } else if ((isFree || inFsRef.current) && sequenceX > 0 && globalMultRef.current > 1) {
+        applied = globalMultRef.current;
+        setSeqMult(applied);
+        setTopLine(`VÝHRA Z FUNKCIE TUMBLE  ×${applied}`);
+      } else {
+        setSeqMult(1);
       }
-      setSeqMult(applied);
 
       let paidX = sequenceX * applied;
       let hitMax = false;
@@ -345,21 +376,9 @@ export function useSlotGame() {
         hitMax = true;
       }
       const cash = +(paidX * currentBet).toFixed(2);
-
-      if (orbSum > 0 && sequenceX > 0) {
-        setPhase("mult");
-        setActivatingMult(true);
-        setThrowBolt(true);
-        sfx.playThunder();
-        setTopLine(`VÝHRA Z FUNKCIE TUMBLE  ×${applied}`);
-        setMessage(`Násobič ${applied}×`);
-        await wait(dur(780), abort.current);
-        setThrowBolt(false);
+      if (cash > 0 && cash !== +(sequenceX * currentBet).toFixed(2)) {
         setSpinWin(cash);
         setDisplayWin(cash);
-        sfx.playWin();
-        await wait(dur(300), abort.current);
-        setActivatingMult(false);
       }
 
       if (cash > 0) {
@@ -579,6 +598,7 @@ export function useSlotGame() {
     stoppedCols,
     anticipate,
     activatingMult,
+    struckUids,
     clusterPay,
     payHint,
     winLog,

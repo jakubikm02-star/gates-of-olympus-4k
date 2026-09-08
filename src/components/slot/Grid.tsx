@@ -16,6 +16,7 @@ interface Props {
   stoppedCols: number;
   anticipate: boolean;
   activatingMult: boolean;
+  struckUids: number[];
   clusterPay: ClusterPay | null;
   reduced: boolean;
   onTap?: () => void;
@@ -28,6 +29,7 @@ function CellView({
   reduced,
   spinning,
   hot,
+  dormant,
   tease,
   slam,
 }: {
@@ -37,6 +39,7 @@ function CellView({
   reduced: boolean;
   spinning: boolean;
   hot: boolean;
+  dormant: boolean;
   tease: boolean;
   slam: boolean;
 }) {
@@ -48,7 +51,8 @@ function CellView({
         win ? "is-win" : "",
         cell.kind === "scatter" ? "is-scatter" : "",
         cell.kind === "mult" ? "is-mult" : "",
-        hot ? "is-hot" : "",
+        hot ? "is-struck" : "",
+        dormant ? "is-dormant" : "",
         popping && win ? "is-pop" : "",
         tease ? "is-tease" : "",
         slam ? "is-slam" : "",
@@ -66,6 +70,7 @@ function CellView({
       {cell.kind === "scatter" && <span className="scatter-label">SCATTER</span>}
       {cell.kind === "mult" && <span className="mult-tag">{cell.mult}X</span>}
       {win && <span className="win-fx" aria-hidden="true" />}
+      {hot && <span className="orb-strike" aria-hidden="true" />}
     </div>
   );
 }
@@ -79,6 +84,7 @@ export function SlotGrid({
   stoppedCols,
   anticipate,
   activatingMult,
+  struckUids,
   clusterPay,
   reduced,
   onTap,
@@ -86,7 +92,7 @@ export function SlotGrid({
   return (
     <div className="reel-frame" aria-label="Herné pole 6×5" onClick={onTap}>
       <div
-        className={`reel-window ${spinning ? "is-spinning" : ""} ${landing ? "is-landing" : ""} ${anticipate ? "is-anticipate" : ""}`}
+        className={`reel-window ${spinning ? "is-spinning" : ""} ${landing ? "is-landing" : ""} ${anticipate ? "is-anticipate" : ""} ${activatingMult ? "is-zeus-strike" : ""}`}
       >
         {Array.from({ length: COLS }, (_, c) => {
           const visible = Array.from({ length: ROWS }, (_, r) => grid[r][c]);
@@ -114,7 +120,8 @@ export function SlotGrid({
                     popping={popping}
                     reduced={reduced}
                     spinning={colSpin}
-                    hot={activatingMult && cell.kind === "mult"}
+                    hot={struckUids.includes(cell.uid)}
+                    dormant={cell.kind === "mult" && !struckUids.includes(cell.uid) && !colSpin}
                     tease={anticipate && !colSpin && cell.kind === "scatter"}
                     slam={colLand && (cell.kind === "scatter" || cell.kind === "mult")}
                   />

@@ -130,6 +130,7 @@ export function SlotGame() {
               stoppedCols={g.stoppedCols}
               anticipate={g.anticipate}
               activatingMult={g.activatingMult}
+              struckUids={g.struckUids}
               clusterPay={g.clusterPay}
               reduced={false}
               onTap={spinning ? g.stopReels : undefined}

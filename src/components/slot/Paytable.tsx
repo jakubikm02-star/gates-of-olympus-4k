@@ -65,8 +65,8 @@ export function Paytable({ open, onClose, bet }: Props) {
         <ul className="rules">
           <li>8 a viac rovnakých symbolov kdekoľvek na poli sa vypláca. Žiadne línie.</li>
           <li>Výherné symboly zmiznú, nové spadnú zhora (tumble).</li>
-          <li>Zlaté gule sú násobiče. V základnej hre sa sčítajú na konci tumble reťaze.</li>
-          <li>Vo voľných točeniach sa násobiče sčítavajú do globálneho násobiča až do konca bonusu.</li>
+          <li>Zlaté gule sú násobiče. Aktivujú sa až keď Zeus hodí blesk — na konci tumble reťaze, a len ak bola výhra.</li>
+          <li>Vo voľných točeniach Zeus zbiera gule do globálneho násobiča. Bez výhry gule prepadnú.</li>
           <li>4 scatteri spustia 15 voľných točení. Ďalšie 4+ počas FS pridajú +5.</li>
           <li>Ante (1.25× stávka) zdvojnásobí šancu na scatter. Kúpa bonusu stojí 100× stávku.</li>
           <li>Maximálna výhra 5000× stávka. Toto je demo — žiadne skutočné peniaze.</li>
