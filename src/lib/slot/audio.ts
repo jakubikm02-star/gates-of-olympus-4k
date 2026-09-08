@@ -14,6 +14,8 @@ let whiteBuf: AudioBuffer | null = null;
 let brownBuf: AudioBuffer | null = null;
 let spinNodes: { stop: () => void; gain: GainNode } | null = null;
 let anticipateNodes: { stop: () => void } | null = null;
+const playing: Partial<Record<string, { stop: () => void }>> = {};
+const CUT_PREV = new Set(["win", "winFull", "payout", "bigwin"]);
 const bufs: Record<string, AudioBuffer> = {};
 let loadStarted = false;
 
@@ -131,7 +133,7 @@ function playBuf(
   g.connect(sfx);
   src.start(t);
   if (!opts.loop) src.stop(t + b.duration / (opts.rate ?? 1) + 0.02);
-  return {
+  const handle = {
     gain: g,
     stop: () => {
       g.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.04);
@@ -144,6 +146,11 @@ function playBuf(
       }, 80);
     },
   };
+  if (CUT_PREV.has(name)) {
+    playing[name]?.stop();
+    playing[name] = handle;
+  }
+  return handle;
 }
 
 function env(duration: number, peak: number, attack = 0.005, when = 0): GainNode | null {
@@ -268,12 +275,21 @@ export function playLand(col = 0): void {
 }
 
 export function playWin(size: "spark" | "full" = "spark"): void {
-  const ok = size === "full" ? playBuf("winFull", { gain: 0.72 }) : playBuf("win", { gain: 0.7 });
-  if (ok) return;
+  if (size === "full") {
+    if (playBuf("winFull", { gain: 0.48 })) return;
+  } else if (playBuf("win", { gain: 0.4, rate: 0.96 + Math.random() * 0.08 })) {
+    return;
+  }
   if (!ctx) return;
   const t = ctx.currentTime;
-  const notes = size === "full" ? [523, 659, 784, 1046, 1318] : [784, 1046, 1318];
-  notes.forEach((n, i) => tone("sine", n, 0.38, 0.06, undefined, t + i * 0.042));
+  if (size === "full") {
+    tone("sine", 261, 0.32, 0.05, undefined, t);
+    tone("sine", 329, 0.34, 0.045, undefined, t + 0.05);
+    tone("sine", 392, 0.36, 0.05, undefined, t + 0.1);
+  } else {
+    tone("sine", 392, 0.18, 0.045, 330, t);
+    tone("sine", 523, 0.16, 0.03, undefined, t + 0.02);
+  }
 }
 
 export function playCoin(): void {
@@ -283,7 +299,7 @@ export function playCoin(): void {
 }
 
 export function playPayout(): void {
-  if (!playBuf("payout", { gain: 0.7 })) playCoin();
+  if (!playBuf("payout", { gain: 0.46 })) playCoin();
 }
 
 export function playTumble(): void {
@@ -359,8 +375,7 @@ export function playThunder(): void {
 }
 
 export function playMult(): void {
-  playBuf("collect", { gain: 0.7 });
-  playBuf("winFull", { gain: 0.45 });
+  playBuf("collect", { gain: 0.5, rate: 0.98 });
 }
 
 export function playFsStart(): void {

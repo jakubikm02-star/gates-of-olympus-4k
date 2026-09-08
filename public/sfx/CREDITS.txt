@@ -11,3 +11,8 @@ Kenney Casino Audio — CC0 (public domain)
 https://kenney.nl/assets/casino-audio
 https://opengameart.org/content/54-casino-sound-effects-cards-dice-chips
   dice-throw, chips-collide, chip-lay used for reel stops and UI clicks
+
+Win / payout stings (win.mp3, win-full.mp3, payout.mp3)
+  Original Mixkit slot-win alarms were replaced with short synthesized
+  sine bells (G4/C5 spark, C major arpeggio, coin ticks). Same files,
+  not a 5-second casino siren on every tumble.
