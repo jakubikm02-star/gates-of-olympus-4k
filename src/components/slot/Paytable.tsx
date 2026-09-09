@@ -59,14 +59,14 @@ export function Paytable({ open, onClose, bet }: Props) {
                 <span>5 = {(SCATTER.pays[1] * bet).toFixed(2)}</span>
                 <span>6 = {(SCATTER.pays[2] * bet).toFixed(2)}</span>
               </div>
-              <div className="pay-quip">Štyri obrazovky a Zeus otvorí bránu.</div>
+              <div className="pay-quip">Štyri obrazovky a rampa ide hore.</div>
             </div>
           </div>
         </div>
         <ul className="rules">
           <li>8 a viac rovnakých symbolov kdekoľvek. Žiadne línie. 7/8 je near-miss, nie výhra.</li>
           <li>Výherné symboly zmiznú, nové spadnú zhora (tumble). Orby a scatter tumble prežijú.</li>
-          <li>Násobiče nepadajú z valca ako RJ45. Zeus ich hodí. Aktivujú sa až na konci reťaze, a len ak bola výhra.</li>
+          <li>Násobiče nepadajú z valca ako RJ45. Rampa ich pustí. Aktivujú sa až na konci reťaze, a len ak bola výhra.</li>
           <li>Base: súčet orbov × celá tumble sekvencia. Vo FS orby tečú do globálneho metra; bez výhry gule prepadnú.</li>
           <li>4 scatteri = 15 voľných točení. V bonuse 3+ scatteri = +5. Pay scatteru ostáva 4 / 5 / 6.</li>
           <li>Ante 1.25× stávka dvíha P(bonus) približne na dvojnásobok cez binom, nie surový ×2 na bunke. Vo FS sa ante vypína.</li>

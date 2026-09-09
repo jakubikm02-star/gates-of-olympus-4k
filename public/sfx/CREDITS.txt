@@ -2,21 +2,25 @@ Sound sources (not Pragmatic Play — those SFX are copyrighted and were not use
 
 Mixkit License — free for personal and commercial use inside a project
 https://mixkit.co/license/#sfxFree
-  Slot machine pack  https://mixkit.co/free-sound-effects/slot-machine/
-  Thunder pack       https://mixkit.co/free-sound-effects/thunder/
-  Whoosh pack        https://mixkit.co/free-sound-effects/whoosh/
-  Coin pack          https://mixkit.co/free-sound-effects/coin/
-  Harp / electric    Mixkit free SFX library
-
-  tumble.mp3   Mixkit 2166 — Cinematic whoosh fast transition (1.28s)
+  tumble.mp3   Mixkit 2166 — Cinematic whoosh fast transition
                https://mixkit.co/free-sound-effects/whoosh/
-  win-full.mp3 Mixkit 2017 — Clinking coins (1.54s)
+  win-full.mp3 Mixkit 2017 — Clinking coins
                https://mixkit.co/free-sound-effects/coin/
+  land.mp3     Mixkit 1564 — Car door slam
+               https://mixkit.co/free-sound-effects/car/
+  zap.mp3      Mixkit 2709 — Hydraulic bus door (barrier / rampa)
+               https://mixkit.co/free-sound-effects/bus/
+  Slot / thunder / harp packs as originally licensed
 
 Kenney Casino Audio — CC0 (public domain)
 https://kenney.nl/assets/casino-audio
-https://opengameart.org/content/54-casino-sound-effects-cards-dice-chips
   dice-throw, chips-collide, chip-lay used for reel stops and UI clicks
+
+BigSoundBank — CC0, Joseph SARDIN
+https://bigsoundbank.com
+  thunder.mp3  Automatic gate closing (sound 1126), trimmed
+  land2.mp3    Automatic gate opening (sound 1125), trimmed
+  https://bigsoundbank.com/sound-1126-portail-automatique-fermeture.html
 
 Freesound — CC0 (public domain)
   win.mp3  LilMati coin05 (Freesound 443258), 0.52s coin ping

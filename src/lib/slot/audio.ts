@@ -21,8 +21,8 @@ let loadStarted = false;
 
 const FILES: Record<string, string> = {
   spin: "/sfx/spin.mp3",
-  land: "/sfx/land.mp3",
-  land2: "/sfx/land2.mp3",
+  land: "/sfx/land.mp3?v=park1",
+  land2: "/sfx/land2.mp3?v=park1",
   click: "/sfx/click.mp3",
   win: "/sfx/win.mp3?v=tumble2",
   winFull: "/sfx/win-full.mp3?v=tumble2",
@@ -32,9 +32,9 @@ const FILES: Record<string, string> = {
   collect: "/sfx/collect.mp3",
   tumble: "/sfx/tumble.mp3?v=tumble2",
   pop: "/sfx/pop.mp3",
-  zap: "/sfx/zap.mp3",
-  electric: "/sfx/electric.mp3",
-  thunder: "/sfx/thunder.mp3",
+  zap: "/sfx/zap.mp3?v=park1",
+  electric: "/sfx/electric.mp3?v=park1",
+  thunder: "/sfx/thunder.mp3?v=park1",
   bigwin: "/sfx/bigwin.mp3",
   siren: "/sfx/siren.mp3",
   harp: "/sfx/harp.mp3",

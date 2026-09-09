@@ -124,8 +124,8 @@ export const ALL_ART: readonly string[] = [
   ...PAY_SYMBOLS.map((s) => s.src),
   SCATTER.src,
   "/art/orb.png",
-  "/art/zeus.png",
-  "/art/olympus-bg.jpg",
+  "/art/ramp.png",
+  "/art/parking-bg.jpg",
 ];
 
 /** Base orbs: mostly 2–8× so dead-spin theater exists without paying a bank. */

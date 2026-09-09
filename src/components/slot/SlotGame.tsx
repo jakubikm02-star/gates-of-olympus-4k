@@ -31,23 +31,25 @@ export function SlotGame() {
 
   return (
     <div
-      className={`stage ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""}`}
+      className={`stage ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""}`}
     >
       <div className="stage-bg" />
       <div className="stage-glow" />
+      <div className="park-lines" aria-hidden="true" />
 
       {!g.started && (
         <div className="boot">
-          <img src="/art/zeus.png" alt="" className="boot-zeus" />
+          <img src="/art/ramp.png" alt="" className="boot-ramp" />
           <div className="boot-card">
             <div className="logo-plate">
               <span className="logo-kicker">GATES of</span>
               <span className="logo-main">OLYMPUS</span>
-              <span className="logo-sub">4K 5G ULTRA MAX PRO</span>
+              <span className="logo-sub">ZÓNA · LÍSTOK · RAMPA · POKUTA</span>
             </div>
             <p className="boot-max">WIN UP TO 5000× BET</p>
             <p className="boot-copy">
-              6×5 pole, tumble, násobiče a voľné točenia. Demo v prehliadači — žiadne vklady.
+              6×5 pole v nočnej garáži. Rampa púšťa násobiče, platené parkovné, pokuta za mŕtvy spin.
+              Demo v prehliadači — žiadne vklady.
             </p>
             <button type="button" className="cta" onClick={g.start}>
               HRAŤ
@@ -60,7 +62,7 @@ export function SlotGame() {
         <div className="logo-plate compact">
           <span className="logo-kicker">GATES of</span>
           <span className="logo-main">OLYMPUS</span>
-          <span className="logo-sub">4K 5G ULTRA MAX PRO</span>
+          <span className="logo-sub">ZÓNA · LÍSTOK · RAMPA · POKUTA</span>
         </div>
 
         <div className="arena">
@@ -85,13 +87,25 @@ export function SlotGame() {
               <span className={`ante-switch ${g.ante ? "on" : ""}`}>{g.ante ? "ON" : "OFF"}</span>
             </button>
             <ol className="win-log" aria-label="História výhier">
-              {(g.spinTape.length ? g.spinTape : g.winLog.slice(-5).map((row) => ({ label: `${row.count}×`, amount: row.amount }))).map((row, i) => (
-                <li key={`${row.amount}-${i}`}>
-                  <span>
-                    {row.label} <b>{row.amount}</b>
-                  </span>
-                </li>
-              ))}
+              {(() => {
+                const rows = g.spinTape.length
+                  ? g.spinTape
+                  : g.winLog.slice(-5).map((row) => ({ label: `${row.count}×`, amount: row.amount }));
+                if (!rows.length) {
+                  return (
+                    <li>
+                      <span>ČAKÁM LÍSTOK</span>
+                    </li>
+                  );
+                }
+                return rows.map((row, i) => (
+                  <li key={`${row.amount}-${i}`}>
+                    <span>
+                      {row.label} <b>{row.amount}</b>
+                    </span>
+                  </li>
+                ));
+              })()}
             </ol>
           </aside>
 
@@ -150,11 +164,12 @@ export function SlotGame() {
             </div>
           </section>
 
-          <aside className="zeus-col" aria-hidden="true">
+          <aside className="ramp-col" aria-hidden="true">
+            <span className="led-sign">P · OPEN</span>
             <img
-              src="/art/zeus.png"
+              src="/art/ramp.png"
               alt=""
-              className={`zeus ${g.throwBolt ? "throw" : ""} ${g.anticipate ? "anti" : ""}`}
+              className={`ramp ${g.throwBolt ? "throw" : ""} ${g.anticipate ? "anti" : ""}`}
             />
             {g.throwBolt && <span className="bolt" />}
           </aside>

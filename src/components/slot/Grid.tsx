@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { COLS, ROWS, symbolName, symbolSrc, type Cell } from "@/lib/slot/symbols";
+import { COLS, ROWS, symbolSrc, type Cell } from "@/lib/slot/symbols";
 
 export interface ClusterPay {
   x: number;
@@ -87,7 +87,7 @@ function CellView({
           : undefined
       }
     >
-      <img src={symbolSrc(cell)} alt={symbolName(cell)} draggable={false} className="cell-img" />
+      <img src={symbolSrc(cell)} alt="" draggable={false} className="cell-img" />
       {cell.kind === "scatter" && <span className="scatter-label">SCATTER</span>}
       {cell.kind === "mult" && <span className="mult-tag">{cell.mult}X</span>}
       {win && <span className="win-fx" aria-hidden="true" />}
@@ -166,8 +166,8 @@ export function SlotGrid({
         )}
         {strike && (
           <svg className="reel-bolt" viewBox="0 0 600 500" preserveAspectRatio="none" aria-hidden="true">
-            <path d={bolt} fill="none" stroke="#7ecbff" strokeWidth="11" opacity="0.45" />
-            <path d={bolt} fill="none" stroke="#fff8d0" strokeWidth="4.5" />
+            <path d={bolt} fill="none" stroke="#3ec6e0" strokeWidth="11" opacity="0.45" />
+            <path d={bolt} fill="none" stroke="#f0c419" strokeWidth="4.5" />
           </svg>
         )}
         {clusterPay && (

@@ -13,9 +13,9 @@ export const Route = createRootRoute({
       { title: APP_NAME },
       {
         name: "description",
-        content: "Remake Gates of Olympus s vlastnými symbolmi. Demo automat v prehliadači.",
+        content: "Gates of Olympus 4K v nočnej garáži. Rampa, lístok, pokuta. Demo automat.",
       },
-      { name: "theme-color", content: "#07060c" },
+      { name: "theme-color", content: "#0b0d10" },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
@@ -33,7 +33,8 @@ export const Route = createRootRoute({
       { rel: "preload", as: "image", href: "/symbols/dacia.png" },
       { rel: "preload", as: "image", href: "/symbols/tv4ka.png" },
       { rel: "preload", as: "image", href: "/art/orb.png" },
-      { rel: "preload", as: "image", href: "/art/zeus.png" },
+      { rel: "preload", as: "image", href: "/art/ramp.png" },
+      { rel: "preload", as: "image", href: "/art/parking-bg.jpg" },
     ],
   }),
   component: () => (

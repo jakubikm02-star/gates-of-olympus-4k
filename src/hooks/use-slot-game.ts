@@ -298,7 +298,7 @@ export function useSlotGame() {
         setPhase("mult");
         setThrowBolt(true);
         sfx.playThunder();
-        setTopLine("ZEUS HÁDŽE NÁSOBIČE");
+        setTopLine("RAMPA PÚŠŤA NÁSOBIČE");
         const dropped = zeusDrop(board, rng, landDrop, isFree || inFsRef.current);
         board = dropped.grid;
         setGrid(cloneGrid(board));
@@ -310,7 +310,7 @@ export function useSlotGame() {
       let sequenceX = 0;
       let pendingFs = false;
       let tumbleN = 0;
-      const DEAD = ["ZEUS MLČÍ", "VALCE SPALI", "NIČ. ZNOVA.", "HROM BEZ DÁŽĎA", "ROUTER TICHÝ"];
+      const DEAD = ["RAMPA STOJÍ", "VALCE SPALI", "NIČ. ZNOVA.", "POKUTA BEZ LÍSTKA", "ZÓNA TICHÁ"];
 
       for (;;) {
         setPhase("eval");
@@ -377,7 +377,7 @@ export function useSlotGame() {
           sfx.playZap();
           const dropped = zeusDrop(board, rng, more, isFree || inFsRef.current);
           board = dropped.grid;
-          setTopLine("ZEUS HÁDŽE NÁSOBIČE");
+          setTopLine("RAMPA PÚŠŤA NÁSOBIČE");
         }
         setWinMask(null);
         setPayHint(null);
@@ -385,7 +385,7 @@ export function useSlotGame() {
         sfx.playTumble();
         setGrid(cloneGrid(board));
         tumbleN += 1;
-        if (hasOrb(board)) setTopLine("NÁSOBIČE ČAKAJÚ NA ZEUSA");
+        if (hasOrb(board)) setTopLine("NÁSOBIČE ČAKAJÚ NA RAMPÚ");
         await wait(dur(500 + Math.min(180, tumbleN * 20)), abort.current);
         setThrowBolt(false);
         setGrid((g) => g.map((row) => row.map((c) => ({ ...c, fall: 0 }))));
@@ -426,7 +426,7 @@ export function useSlotGame() {
         setShake(true);
         window.setTimeout(() => setShake(false), 420);
         sfx.playThunder();
-        setTopLine("ZEUS AKTIVUJE NÁSOBIČE");
+        setTopLine("ZÁVORA AKTIVUJE NÁSOBIČE");
         await wait(dur(160), abort.current);
         for (const orb of orbs) {
           setStrike({ r: orb.r, c: orb.c });
