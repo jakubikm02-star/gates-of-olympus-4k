@@ -88,6 +88,10 @@ export function Paytable({ open, onClose, bet }: Props) {
             KONTROLA sa nabíja PITY metrom (100). Iba mŕtvy spin (+2) a 3 / 4 scattere (+20 / +35).
             Výherný spin bez 3+ scatterov bar nehýbe. Keď je plný, spustí sa pick. Kúpiť sa nedá.
           </li>
+          <li>
+            Ranked liga 4ky: KREDIT → SLOBODA → SMART → 4KA TV → OPTIKA → DUO → 5G NA DOMA → NEKONEČNO.
+            RP rastie z násobiča aj zo sumy výhry. Mŕtvy spin berie entry. Štít raz podrží rank.
+          </li>
           <li>Kúpa FS = 100× základná stávka. Ante sa na kúpu nevzťahuje. Max 5000× je cap celej feature, nie jedného spinu — potom FEATURE TERMINATED.</li>
           <li>
             Simulácia {MATH_NOTE.spins.toLocaleString("sk-SK")} spinov: RTP {(MATH_NOTE.rtp * 100).toFixed(1)} %,

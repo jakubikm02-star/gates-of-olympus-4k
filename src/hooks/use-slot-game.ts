@@ -32,6 +32,7 @@ import {
   zeusDropCount,
 } from "@/lib/slot/engine";
 import { dealPickBoard, pityGain, PITY_GOAL, type PickTile } from "@/lib/slot/pick-bonus";
+import { applyRankDelta, rpFromWin, standing, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 
@@ -70,6 +71,9 @@ interface Save {
   ante: boolean;
   bestWin: number;
   pity: number;
+  rp: number;
+  rankPeak: number;
+  rankShield: boolean;
 }
 
 function loadSave(): Partial<Save> {
@@ -126,6 +130,12 @@ export function useSlotGame() {
   const [pickPicks, setPickPicks] = useState(0);
   const [pity, setPity] = useState(0);
   const [pityDelta, setPityDelta] = useState(0);
+  const [rp, setRp] = useState(0);
+  const [rankPeak, setRankPeak] = useState(0);
+  const [rankShield, setRankShield] = useState(false);
+  const [rankDelta, setRankDelta] = useState(0);
+  const [rankFlash, setRankFlash] = useState<RankFlash | null>(null);
+  const [rankOpen, setRankOpen] = useState(false);
   const [autoLeft, setAutoLeft] = useState(0);
   const [autoOn, setAutoOn] = useState(false);
   const [autoReason, setAutoReason] = useState<string | null>(null);
@@ -170,6 +180,7 @@ export function useSlotGame() {
   const pickRevealedRef = useRef<boolean[]>([]);
   const pityRef = useRef(0);
   const featureXRef = useRef(0);
+  const rankRef = useRef({ rp: 0, peak: 0, shield: false });
 
   turboRef.current = turbo;
   quickRef.current = quick;
@@ -202,13 +213,51 @@ export function useSlotGame() {
       setPity(p);
       pityRef.current = p;
     }
+    if (typeof s.rp === "number") {
+      const n = Math.max(0, Math.floor(s.rp));
+      setRp(n);
+      rankRef.current.rp = n;
+    }
+    if (typeof s.rankPeak === "number") {
+      const n = Math.max(0, Math.floor(s.rankPeak));
+      setRankPeak(n);
+      rankRef.current.peak = n;
+    }
+    if (typeof s.rankShield === "boolean") {
+      setRankShield(s.rankShield);
+      rankRef.current.shield = s.rankShield;
+    }
     readySave.current = true;
   }, []);
 
   useEffect(() => {
     if (!readySave.current) return;
-    persist({ balance, betIndex, muted, turbo, quick, ante, bestWin, pity });
-  }, [balance, betIndex, muted, turbo, quick, ante, bestWin, pity]);
+    persist({
+      balance,
+      betIndex,
+      muted,
+      turbo,
+      quick,
+      ante,
+      bestWin,
+      pity,
+      rp,
+      rankPeak,
+      rankShield,
+    });
+  }, [balance, betIndex, muted, turbo, quick, ante, bestWin, pity, rp, rankPeak, rankShield]);
+
+  useEffect(() => {
+    if (!rankFlash) return;
+    const t = window.setTimeout(() => setRankFlash(null), 2600);
+    return () => window.clearTimeout(t);
+  }, [rankFlash]);
+
+  useEffect(() => {
+    if (!rankDelta) return;
+    const t = window.setTimeout(() => setRankDelta(0), 1600);
+    return () => window.clearTimeout(t);
+  }, [rankDelta]);
 
   const dur = useCallback((base: number) => {
     if (turboRef.current) return Math.round(base * 0.34);
@@ -246,6 +295,27 @@ export function useSlotGame() {
   const refill = useCallback(() => {
     setBalance((b) => b + START_BALANCE);
     sfx.playWin();
+  }, []);
+
+  const pushRank = useCallback((delta: number) => {
+    if (!delta) return;
+    const res = applyRankDelta(rankRef.current, delta);
+    rankRef.current = res.save;
+    setRp(res.save.rp);
+    setRankPeak(res.save.peak);
+    setRankShield(res.save.shield);
+    setRankDelta(res.applied);
+    if (res.event) {
+      setRankFlash({
+        event: res.event,
+        before: res.before,
+        after: res.after,
+        applied: res.applied,
+      });
+      if (res.event === "up") sfx.playFsStart();
+      else if (res.event === "down") sfx.playThunder();
+      else sfx.playCollect();
+    }
   }, []);
 
   const closeBanner = useCallback(() => {
@@ -332,13 +402,16 @@ export function useSlotGame() {
       setBestWin((w) => Math.max(w, cash));
       setSpinTape((t) => [{ label: "KONTROLA", amount: formatMoney(cash) }, ...t].slice(0, 8));
       sfx.playPayout();
+      pushRank(rpFromWin(cash, betNow, 1));
+    } else {
+      pushRank(-standing(rankRef.current.rp).entry);
     }
     pickOpenRef.current = false;
     setPickOpen(false);
     setPhase("idle");
     setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
     setMessage(cash > 0 ? `KONTROLA ${formatMoney(cash)}` : "Odťah bez pokuty");
-  }, [waitForPick]);
+  }, [waitForPick, pushRank]);
 
   const runSequence = useCallback(
     async (opts?: { buy?: boolean; free?: boolean }): Promise<"fs" | "ok" | "max" | "pick"> => {
@@ -687,6 +760,10 @@ export function useSlotGame() {
         sfx.playPayout();
         await wait(dur(280), abort.current);
       }
+      if (!isFree) {
+        if (cash > 0) pushRank(rpFromWin(cash, currentBet, applied));
+        else pushRank(-standing(rankRef.current.rp).entry);
+      }
       const x = lastPaidXRef.current;
       let kind: WinBanner = null;
       if (hitMax) kind = "max";
@@ -721,7 +798,7 @@ export function useSlotGame() {
       if (pendingPick) return "pick";
       return "ok";
     },
-    [dur, waitForBanner],
+    [dur, waitForBanner, pushRank],
   );
 
   const playRound = useCallback(
@@ -829,6 +906,8 @@ export function useSlotGame() {
         setMessage(fsCash > 0 ? `TOTAL WIN ${formatMoney(fsCash)}` : "Koniec voľných točení");
         if (fsCash > 0 || hitCap) sfx.playBigWin();
         else sfx.playPayout();
+        if (fsCash > 0) pushRank(rpFromWin(fsCash, betNow, Math.max(1, peakMult)));
+        else pushRank(-standing(rankRef.current.rp).entry);
         await waitForBanner();
         setBannerMeta(null);
         setPhase("idle");
@@ -852,7 +931,7 @@ export function useSlotGame() {
       busyRef.current = false;
       setBusy(false);
     },
-    [dur, runSequence, waitForBanner, runPick],
+    [dur, runSequence, waitForBanner, runPick, pushRank],
   );
 
   const stopReels = useCallback(() => {
@@ -980,6 +1059,14 @@ export function useSlotGame() {
     pity,
     pityDelta,
     pityGoal: PITY_GOAL,
+    rank: standing(rp),
+    rankPeak,
+    rankShield,
+    rankDelta,
+    rankFlash,
+    rankOpen,
+    setRankOpen,
+    clearRankFlash: () => setRankFlash(null),
     autoOn,
     autoLeft,
     autoReason,

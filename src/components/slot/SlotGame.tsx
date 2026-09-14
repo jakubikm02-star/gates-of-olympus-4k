@@ -6,6 +6,9 @@ import { SlotGrid } from "./Grid";
 import { Paytable } from "./Paytable";
 import { PickBonus } from "./PickBonus";
 import { CountUp } from "./CountUp";
+import { RankBadge } from "./RankBadge";
+import { RankPanel } from "./RankPanel";
+import { RankToast } from "./RankToast";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
 
@@ -53,6 +56,10 @@ export function SlotGame() {
               6×5 pole v nočnej garáži. Rampa púšťa násobiče, platené parkovné, pokuta za mŕtvy spin.
               Demo v prehliadači — žiadne vklady.
             </p>
+            <div className="boot-rank">
+              <span className="boot-rank-kicker">LIGA 4KY</span>
+              <RankBadge stand={g.rank} onOpen={() => g.setRankOpen(true)} />
+            </div>
             <button type="button" className="cta" onClick={g.start}>
               HRAŤ
             </button>
@@ -61,10 +68,14 @@ export function SlotGame() {
       )}
 
       <div className="table">
-        <div className="logo-plate compact">
-          <span className="logo-kicker">PORTS of</span>
-          <span className="logo-main">PARKIZMUS</span>
-          <span className="logo-sub">ZÓNA · LÍSTOK · RAMPA · POKUTA</span>
+        <div className="table-head">
+          <RankBadge stand={g.rank} delta={g.rankDelta} onOpen={() => g.setRankOpen(true)} />
+          <div className="logo-plate compact">
+            <span className="logo-kicker">PORTS of</span>
+            <span className="logo-main">PARKIZMUS</span>
+            <span className="logo-sub">ZÓNA · LÍSTOK · RAMPA · POKUTA</span>
+          </div>
+          <span className="head-spacer" aria-hidden="true" />
         </div>
 
         <div className="arena">
@@ -427,6 +438,14 @@ export function SlotGame() {
       )}
 
       <Paytable open={g.paytableOpen} onClose={() => g.setPaytableOpen(false)} bet={g.bet} />
+      <RankPanel
+        open={g.rankOpen}
+        onClose={() => g.setRankOpen(false)}
+        stand={g.rank}
+        peak={g.rankPeak}
+        shield={g.rankShield}
+      />
+      <RankToast flash={g.rankFlash} onDone={g.clearRankFlash} />
     </div>
   );
 }
