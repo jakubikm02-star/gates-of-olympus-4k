@@ -8,7 +8,6 @@ import {
   FS_RETRIGGER_SCATTERS,
   FS_SPINS,
   FS_TRIGGER_SCATTERS,
-  KONTROLA_COST_X,
   MAX_WIN_X,
   PAY_SYMBOLS,
   SCATTER,
@@ -875,24 +874,6 @@ export function useSlotGame() {
     await playRound({ buy: true });
   }, [started, playRound]);
 
-  const buyKontrola = useCallback(async () => {
-    if (!started || busyRef.current || inFsRef.current || pickOpenRef.current) return;
-    const betNow = BETS[betIndexRef.current];
-    const cost = +(betNow * KONTROLA_COST_X).toFixed(2);
-    if (balanceRef.current < cost) {
-      setMessage("Nedostatok kreditu — doplň demo zostatok");
-      return;
-    }
-    busyRef.current = true;
-    setBusy(true);
-    setBalance((b) => +(b - cost).toFixed(2));
-    setDisplayWin(0);
-    sfx.playClick();
-    await runPick();
-    busyRef.current = false;
-    setBusy(false);
-  }, [started, runPick]);
-
   const startAuto = useCallback((n: number) => {
     if (busyRef.current || inFsRef.current) return;
     autoFloorRef.current = balanceRef.current * 0.5;
@@ -996,7 +977,6 @@ export function useSlotGame() {
     pickPicks,
     revealPick,
     finishPick,
-    buyKontrola,
     pity,
     pityDelta,
     pityGoal: PITY_GOAL,
@@ -1029,6 +1009,5 @@ export function useSlotGame() {
     bestWin,
     canSpin: started && !busy && !inFs && balance >= stake,
     canBuy: started && !busy && !inFs && balance >= +(bet * BUY_COST_X).toFixed(2),
-    canKontrola: started && !busy && !inFs && balance >= +(bet * KONTROLA_COST_X).toFixed(2),
   };
 }

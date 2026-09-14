@@ -86,7 +86,7 @@ export function Paytable({ open, onClose, bet }: Props) {
           <li>Ante 1.25× stávka dvíha P(bonus) približne na dvojnásobok cez binom, nie surový ×2 na bunke. Vo FS sa ante vypína.</li>
           <li>
             KONTROLA sa nabíja PITY metrom (100). Iba mŕtvy spin (+2) a 3 / 4 scattere (+20 / +35).
-            Výherný spin bez 3+ scatterov bar nehýbe. Keď je plný, spustí sa pick. Kúpa = 3× stávka.
+            Výherný spin bez 3+ scatterov bar nehýbe. Keď je plný, spustí sa pick. Kúpiť sa nedá.
           </li>
           <li>Kúpa FS = 100× základná stávka. Ante sa na kúpu nevzťahuje. Max 5000× je cap celej feature, nie jedného spinu — potom FEATURE TERMINATED.</li>
           <li>

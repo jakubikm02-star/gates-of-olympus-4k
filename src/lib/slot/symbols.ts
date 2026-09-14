@@ -176,7 +176,6 @@ export const FS_RETRIGGER = 5;
 export const FS_TRIGGER_SCATTERS = 4;
 export const FS_RETRIGGER_SCATTERS = 3;
 export const BUY_COST_X = 100;
-export const KONTROLA_COST_X = 3;
 export const ANTE_COST = 1.25;
 export const START_BALANCE = 5000;
 
