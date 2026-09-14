@@ -328,38 +328,49 @@
   display: flex;
   justify-content: center;
   align-items: stretch;
-  gap: 10px;
-  width: min(100%, 560px);
-  margin: 0 auto 8px;
+  gap: 8px;
+  width: min(100%, calc((100dvh - 16.4rem) * 6 / 5));
+  margin: 0 auto 6px;
   position: relative;
-  z-index: 5;
+  z-index: 3;
   flex-shrink: 0;
+  height: 2.55rem;
 }
 
 .fs-hero .wing-mult {
   flex: 1;
-  padding: 8px 18px 6px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 12px;
   background:
     radial-gradient(ellipse at 50% 0%, rgb(62 198 224 / 0.22), transparent 62%),
     linear-gradient(180deg, #163038, #0a1014);
   border: 2px solid #f0c419;
   box-shadow:
-    0 0 28px rgb(62 198 224 / 0.28),
-    inset 0 0 18px rgb(240 196 25 / 0.1);
+    0 0 16px rgb(62 198 224 / 0.2),
+    inset 0 0 12px rgb(240 196 25 / 0.08);
 }
 
 .fs-hero .wing-mult b {
-  font-size: clamp(2.4rem, 7.2vw, 4.2rem);
-  line-height: 0.88;
+  display: inline;
+  font-family: var(--font-display);
+  font-size: clamp(1.15rem, 3.2vw, 1.7rem);
+  line-height: 1;
   color: #fff6c8;
-  text-shadow: 0 0 18px #ffd24a, 0 3px 0 #5a3208;
+  text-shadow: 0 0 10px #ffd24a, 0 2px 0 #5a3208;
 }
 
 .fs-hero .fs-left {
-  min-width: 96px;
+  min-width: 7.5rem;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 12px;
 }
 
 .wing-mult,
@@ -379,13 +390,13 @@
   font-weight: 700;
 }
 
-.wing-mult b,
-.fs-left strong {
-  display: block;
+.fs-hero .fs-left strong {
+  display: inline;
   font-family: var(--font-display);
-  font-size: 1.6rem;
-  color: #fff4c0;
-  text-shadow: 0 0 12px #ffd24a;
+  font-size: clamp(1.15rem, 3.2vw, 1.7rem);
+  line-height: 1;
+  color: #fff6c8;
+  text-shadow: 0 0 10px #ffd24a, 0 2px 0 #5a3208;
 }
 
 .board-wrap {
@@ -854,16 +865,24 @@
 }
 
 .in-fs .fs-hero .wing-mult b {
-  font-size: clamp(2.4rem, 7.2vw, 4.2rem);
-  line-height: 0.88;
+  font-size: clamp(1.15rem, 3.2vw, 1.7rem);
+  line-height: 1;
 }
 
 .in-fs .board-wrap {
-  margin-top: 6px;
+  margin-top: 2px;
 }
 
 .in-fs .fs-hero {
   order: -1;
+}
+
+.in-fs .board-stage-inner {
+  width: min(100%, calc((100dvh - 16.4rem) * 6 / 5));
+}
+
+.in-fs .reel-frame {
+  max-height: calc(100dvh - 15.6rem);
 }
 
 .cell.is-dormant .cell-img {
@@ -1932,12 +1951,25 @@
   .board-stage-inner {
     width: min(100%, calc((100dvh - 11.5rem) * 6 / 5));
   }
+  .in-fs .board-stage-inner {
+    width: min(100%, calc((100dvh - 14rem) * 6 / 5));
+  }
   .reel-frame {
     max-height: calc(100dvh - 11rem);
     padding: 8px 8px 10px;
   }
+  .in-fs .reel-frame {
+    max-height: calc(100dvh - 13.4rem);
+  }
   .reel-window {
     max-height: calc(100dvh - 12rem);
+  }
+  .in-fs .reel-window {
+    max-height: calc(100dvh - 14.2rem);
+  }
+  .fs-hero {
+    height: 2.2rem;
+    margin-bottom: 4px;
   }
 }
 
@@ -2000,16 +2032,18 @@
   }
   .fs-hero {
     width: 100%;
+    height: 2.35rem;
     gap: 6px;
     margin: 0 0 4px;
     flex-shrink: 0;
   }
-  .fs-hero .wing-mult b {
-    font-size: clamp(1.5rem, 9vw, 2.4rem);
+  .fs-hero .wing-mult b,
+  .fs-hero .fs-left strong {
+    font-size: 1.15rem;
   }
   .fs-hero .fs-left {
-    min-width: 68px;
-    padding: 6px 6px;
+    min-width: 0;
+    padding: 4px 8px;
   }
   .board-wrap {
     margin-top: 4px;

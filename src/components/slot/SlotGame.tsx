@@ -344,7 +344,7 @@ export function SlotGame() {
                 <p className="wb-line dim">status: ok</p>
               )}
               <p className="wb-line">
-                [admin@parkizmus] {'>'} <span className="wb-hint">ťukni pre pokračovanie</span>
+                [admin@parkizmus] {'>'} <span className="wb-hint">ťukni sem — okno ostane kým neklikneš</span>
                 <span className="wb-caret" aria-hidden="true" />
               </p>
             </div>

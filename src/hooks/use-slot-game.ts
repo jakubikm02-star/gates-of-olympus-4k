@@ -138,6 +138,8 @@ export function useSlotGame() {
   const flyKey = useRef(1);
   const lastPaidXRef = useRef(0);
   const autoFloorRef = useRef(0);
+  const bannerWait = useRef<(() => void) | null>(null);
+  const bannerOpen = useRef(false);
   const featureXRef = useRef(0);
 
   turboRef.current = turbo;
@@ -212,7 +214,21 @@ export function useSlotGame() {
     sfx.playWin();
   }, []);
 
-  const closeBanner = useCallback(() => setBanner(null), []);
+  const closeBanner = useCallback(() => {
+    if (!bannerOpen.current && !bannerWait.current) return;
+    bannerOpen.current = false;
+    setBanner(null);
+    const done = bannerWait.current;
+    bannerWait.current = null;
+    sfx.playClick();
+    done?.();
+  }, []);
+
+  const waitForBanner = useCallback(() => {
+    return new Promise<void>((resolve) => {
+      bannerWait.current = resolve;
+    });
+  }, []);
 
   const runSequence = useCallback(
     async (opts?: { buy?: boolean; free?: boolean }): Promise<"fs" | "ok" | "max"> => {
@@ -503,13 +519,13 @@ export function useSlotGame() {
       else if (x >= 15) kind = "big";
 
       if (kind) {
+        bannerOpen.current = true;
         setBanner(kind);
         setBannerAmount(cash);
         if (kind === "max") sfx.playMaxWin();
         else sfx.playBigWin();
         setPhase(kind === "max" ? "max" : "big");
-        await wait(dur(kind === "max" ? 2600 : 1600), abort.current);
-        setBanner(null);
+        await waitForBanner();
       }
 
       setWinMask(null);
@@ -528,7 +544,7 @@ export function useSlotGame() {
       if (pendingFs) return "fs";
       return "ok";
     },
-    [dur],
+    [dur, waitForBanner],
   );
 
   const playRound = useCallback(
@@ -572,11 +588,11 @@ export function useSlotGame() {
         setFsTotal(left);
         setMessage("15 voľných točení");
         sfx.playFsStart();
+        bannerOpen.current = true;
         setBanner("fs");
         setBannerAmount(0);
         setTopLine("GRATULUJEME!");
-        await wait(dur(1400), abort.current);
-        setBanner(null);
+        await waitForBanner();
 
         while (left > 0) {
           left -= 1;
@@ -609,7 +625,7 @@ export function useSlotGame() {
       busyRef.current = false;
       setBusy(false);
     },
-    [dur, runSequence],
+    [dur, runSequence, waitForBanner],
   );
 
   const stopReels = useCallback(() => {
@@ -667,9 +683,14 @@ export function useSlotGame() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code !== "Space") return;
+      if (e.code !== "Space" && e.code !== "Enter" && e.code !== "Escape") return;
       e.preventDefault();
       if (!started) return;
+      if (bannerOpen.current) {
+        closeBanner();
+        return;
+      }
+      if (e.code !== "Space") return;
       if (busyRef.current) {
         stopReels();
         return;
@@ -678,7 +699,7 @@ export function useSlotGame() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [started, playRound, stopReels]);
+  }, [started, playRound, stopReels, closeBanner]);
 
   return {
     started,
