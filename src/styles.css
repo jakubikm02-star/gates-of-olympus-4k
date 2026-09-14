@@ -27,14 +27,16 @@
   html,
   body,
   #app {
-    min-height: 100%;
+    height: 100%;
+    max-height: 100dvh;
+    overflow: hidden;
   }
   body {
     margin: 0;
     background: #0b0d10;
     color: var(--color-fg);
     font-family: var(--font-sans);
-    overflow-x: hidden;
+    overflow: hidden;
   }
   * {
     box-sizing: border-box;
@@ -43,7 +45,9 @@
 
 .stage {
   position: relative;
-  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
   isolation: isolate;
   overflow: hidden;
 }
@@ -150,11 +154,14 @@
   position: relative;
   max-width: 1360px;
   margin: 0 auto;
-  padding: 8px 12px 12px;
-  min-height: 100dvh;
+  padding: 4px 12px 6px;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  overflow: hidden;
 }
 
 .logo-plate {
@@ -165,13 +172,24 @@
 .logo-plate.compact {
   position: relative;
   z-index: 4;
-  margin: 0 auto 2px;
+  margin: 0 auto;
   width: auto;
   pointer-events: none;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .logo-plate.compact .logo-main {
-  font-size: clamp(1.1rem, 2.4vw, 1.7rem);
+  font-size: clamp(1rem, 2vw, 1.45rem);
+}
+
+.logo-plate.compact .logo-kicker {
+  font-size: 0.58rem;
+}
+
+.logo-plate.compact .logo-sub {
+  font-size: 0.52rem;
+  margin-top: 2px;
 }
 
 .stage.is-boot .table {
@@ -219,9 +237,10 @@
   gap: 8px;
   align-items: stretch;
   justify-content: center;
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   width: min(1180px, 100%);
-  margin: 8px auto 0;
+  margin: 4px auto 0;
   overflow: hidden;
 }
 
@@ -313,6 +332,7 @@
   margin: 0 auto 8px;
   position: relative;
   z-index: 5;
+  flex-shrink: 0;
 }
 
 .fs-hero .wing-mult {
@@ -370,13 +390,27 @@
 .board-wrap {
   position: relative;
   z-index: 3;
-  align-self: center;
+  align-self: stretch;
   width: 100%;
-  margin-top: 28px;
+  margin-top: 22px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .board-stage {
   position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.board-stage-inner {
+  position: relative;
+  width: min(100%, calc((100dvh - 13.25rem) * 6 / 5));
 }
 
 .fly-orb {
@@ -474,7 +508,9 @@
 
 .reel-frame {
   position: relative;
-  padding: 15px 14px 17px;
+  padding: 12px 11px 14px;
+  width: 100%;
+  max-height: calc(100dvh - 12.5rem);
   background:
     linear-gradient(180deg, #3a424a 0%, #1c2228 40%, #0e1216 72%, #2a3138 100%);
   box-shadow:
@@ -502,6 +538,9 @@
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   aspect-ratio: 6 / 5;
+  width: 100%;
+  height: auto;
+  max-height: calc(100dvh - 14rem);
   overflow: hidden;
   background:
     repeating-linear-gradient(
@@ -1183,9 +1222,10 @@
   grid-template-columns: 1fr minmax(180px, 1.4fr) 1fr;
   align-items: center;
   gap: 8px;
-  padding: 4px 4px 0;
+  padding: 2px 4px 0;
   z-index: 40;
   position: relative;
+  flex-shrink: 0;
 }
 
 .hud-left,
@@ -1374,6 +1414,8 @@
   display: flex;
   justify-content: center;
   gap: 8px;
+  flex-shrink: 0;
+  padding-bottom: 4px;
 }
 
 .chip-btn {
@@ -1679,6 +1721,45 @@
   }
 }
 
+@media (min-width: 721px) and (max-height: 900px) {
+  .spin-btn {
+    width: 72px;
+    height: 72px;
+    border-width: 5px;
+  }
+  .spin-btn svg {
+    width: 28px;
+    height: 28px;
+  }
+  .round-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .side-left {
+    padding-top: 24px;
+  }
+}
+
+@media (min-width: 721px) and (max-height: 760px) {
+  .logo-plate.compact .logo-sub {
+    display: none;
+  }
+  .spin-btn {
+    width: 64px;
+    height: 64px;
+  }
+  .board-stage-inner {
+    width: min(100%, calc((100dvh - 11.5rem) * 6 / 5));
+  }
+  .reel-frame {
+    max-height: calc(100dvh - 11rem);
+    padding: 8px 8px 10px;
+  }
+  .reel-window {
+    max-height: calc(100dvh - 12rem);
+  }
+}
+
 @media (max-width: 720px) {
   .stage {
     height: 100dvh;
@@ -1767,6 +1848,9 @@
   .board-stage {
     flex: 0 1 auto;
     min-height: 0;
+  }
+  .board-stage-inner {
+    width: 100%;
   }
   .reel-frame {
     flex: 0 1 auto;

@@ -136,6 +136,7 @@ export function SlotGame() {
               )}
             </div>
             <div className="board-stage">
+            <div className="board-stage-inner">
             <SlotGrid
               grid={g.grid}
               winMask={g.winMask}
@@ -161,6 +162,7 @@ export function SlotGame() {
                 {f.mult}X
               </span>
             ))}
+            </div>
             </div>
           </section>
 
