@@ -14,9 +14,9 @@ const AUTO_OPTS = [10, 25, 50, 100] as const;
 
 const BANNER_COPY: Record<string, string> = {
   max: "MAX WIN 5000×",
-  epic: "MEGA!",
-  mega: "SUPER!",
-  big: "NICE!",
+  epic: "SUPER MEGA WIN",
+  mega: "MEGA WIN",
+  big: "BIG WIN",
   fs: "GRATULUJEME!",
   fsTotal: "TOTAL WIN",
   win: "WIN",

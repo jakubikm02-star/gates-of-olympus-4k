@@ -171,6 +171,12 @@ export const BETS = [
 ] as const;
 
 export const MAX_WIN_X = 5000;
+/** Pragmatic Gates of Olympus win-celebration floors (bet multiples). */
+export const WIN_POP_X = {
+  big: 20,
+  mega: 35,
+  epic: 50,
+} as const;
 export const FS_SPINS = 15;
 export const FS_RETRIGGER = 5;
 export const FS_TRIGGER_SCATTERS = 4;

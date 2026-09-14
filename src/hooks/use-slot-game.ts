@@ -9,6 +9,7 @@ import {
   FS_SPINS,
   FS_TRIGGER_SCATTERS,
   MAX_WIN_X,
+  WIN_POP_X,
   PAY_SYMBOLS,
   SCATTER,
   START_BALANCE,
@@ -779,9 +780,9 @@ export function useSlotGame() {
       const x = lastPaidXRef.current;
       let kind: WinBanner = null;
       if (hitMax) kind = "max";
-      else if (x >= 100) kind = "epic";
-      else if (x >= 40) kind = "mega";
-      else if (x >= 15) kind = "big";
+      else if (x >= WIN_POP_X.epic) kind = "epic";
+      else if (x >= WIN_POP_X.mega) kind = "mega";
+      else if (x >= WIN_POP_X.big) kind = "big";
 
       if (kind) {
         bannerOpen.current = true;

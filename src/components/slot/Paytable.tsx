@@ -92,6 +92,10 @@ export function Paytable({ open, onClose, bet }: Props) {
             Ranked liga 4ky: KREDIT → SLOBODA → SMART → 4KA TV → OPTIKA → DUO → 5G NA DOMA → NEKONEČNO.
             RP rastie z násobiča aj zo sumy výhry. Mŕtvy spin berie entry. Štít raz podrží rank.
           </li>
+          <li>
+            Win popup ako na Olympuse: BIG WIN od 20× stávky, MEGA WIN od 35×, SUPER MEGA WIN od 50×.
+            MAX WIN 5000× ukončí feature.
+          </li>
           <li>Kúpa FS = 100× základná stávka. Ante sa na kúpu nevzťahuje. Max 5000× je cap celej feature, nie jedného spinu — potom FEATURE TERMINATED.</li>
           <li>
             Simulácia {MATH_NOTE.spins.toLocaleString("sk-SK")} spinov: RTP {(MATH_NOTE.rtp * 100).toFixed(1)} %,
