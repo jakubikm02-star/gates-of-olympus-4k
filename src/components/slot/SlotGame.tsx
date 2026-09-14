@@ -14,6 +14,7 @@ const BANNER_COPY: Record<string, string> = {
   mega: "SUPER!",
   big: "NICE!",
   fs: "GRATULUJEME!",
+  fsTotal: "TOTAL WIN",
   win: "WIN",
 };
 
@@ -329,18 +330,50 @@ export function SlotGame() {
               <span>Help</span>
             </nav>
             <div className="wb-term">
-              <p className="wb-line dim">[admin@parkizmus] {'>'} /system script run win.rsc</p>
-              <p className="wb-line dim">  status: running…</p>
+              <p className="wb-line dim">
+                [admin@parkizmus] {'>'}{" "}
+                {g.banner === "fsTotal" ? "/log print fs-summary" : "/system script run win.rsc"}
+              </p>
+              {g.banner !== "fsTotal" && <p className="wb-line dim">  status: running…</p>}
               <p className="wb-kicker">{BANNER_COPY[g.banner] ?? "WIN"}</p>
               {g.banner === "fs" ? (
                 <p className="wb-amt">free-spins: 15</p>
+              ) : g.banner === "fsTotal" ? (
+                <table className="wb-table">
+                  <tbody>
+                    <tr>
+                      <td>free-spins</td>
+                      <td>{g.bannerMeta?.spins ?? 15}</td>
+                    </tr>
+                    <tr>
+                      <td>retrigger</td>
+                      <td>+{g.bannerMeta?.extra ?? 0}</td>
+                    </tr>
+                    <tr>
+                      <td>peak-mult</td>
+                      <td>{g.bannerMeta?.peakMult ?? 0}X</td>
+                    </tr>
+                    {g.bannerMeta?.terminated && (
+                      <tr className="err">
+                        <td>status</td>
+                        <td>FEATURE TERMINATED</td>
+                      </tr>
+                    )}
+                    <tr className="total">
+                      <td>TOTAL WIN</td>
+                      <td>
+                        <CountUp value={g.bannerAmount} />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               ) : (
                 <p className="wb-amt">
                   credit-out: <CountUp value={g.bannerAmount} />
                 </p>
               )}
               {g.banner === "max" && <p className="wb-err">status: FEATURE TERMINATED</p>}
-              {g.banner !== "max" && g.banner !== "fs" && (
+              {g.banner !== "max" && g.banner !== "fs" && g.banner !== "fsTotal" && (
                 <p className="wb-line dim">status: ok</p>
               )}
               <p className="wb-line">

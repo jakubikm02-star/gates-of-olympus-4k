@@ -48,7 +48,14 @@ type Phase =
   | "big"
   | "max";
 
-export type WinBanner = "win" | "big" | "mega" | "epic" | "max" | "fs" | null;
+export type WinBanner = "win" | "big" | "mega" | "epic" | "max" | "fs" | "fsTotal" | null;
+
+export interface BannerMeta {
+  spins: number;
+  extra: number;
+  peakMult: number;
+  terminated: boolean;
+}
 
 interface Save {
   balance: number;
@@ -104,6 +111,7 @@ export function useSlotGame() {
   const [seqMult, setSeqMult] = useState(0);
   const [banner, setBanner] = useState<WinBanner>(null);
   const [bannerAmount, setBannerAmount] = useState(0);
+  const [bannerMeta, setBannerMeta] = useState<BannerMeta | null>(null);
   const [autoLeft, setAutoLeft] = useState(0);
   const [autoOn, setAutoOn] = useState(false);
   const [autoReason, setAutoReason] = useState<string | null>(null);
@@ -594,13 +602,24 @@ export function useSlotGame() {
         setTopLine("GRATULUJEME!");
         await waitForBanner();
 
+        let fsCash = 0;
+        let played = 0;
+        let extraSpins = 0;
+        let peakMult = 0;
+        let hitCap = false;
+        const betNow = BETS[betIndexRef.current];
+
         while (left > 0) {
           left -= 1;
           setFsLeft(left);
+          played += 1;
           const inner = await runSequence({ free: true });
+          fsCash = +(fsCash + lastPaidXRef.current * betNow).toFixed(2);
+          peakMult = Math.max(peakMult, globalMultRef.current);
           if (extraFsRef.current > 0) {
             const add = extraFsRef.current;
             extraFsRef.current = 0;
+            extraSpins += add;
             left += add;
             setFsLeft(left);
             setFsTotal((t) => t + add);
@@ -608,7 +627,10 @@ export function useSlotGame() {
             sfx.playScatter(4);
             await wait(dur(720), abort.current);
           }
-          if (inner === "max") break;
+          if (inner === "max") {
+            hitCap = true;
+            break;
+          }
           await wait(dur(160), abort.current);
         }
 
@@ -617,7 +639,24 @@ export function useSlotGame() {
         setFsLeft(0);
         setGlobalMult(0);
         globalMultRef.current = 0;
-        setMessage("Koniec voľných točení — AUTO sa nespúšťa");
+        setDisplayWin(fsCash);
+        setSpinWin(fsCash);
+        setBannerMeta({
+          spins: played,
+          extra: extraSpins,
+          peakMult,
+          terminated: hitCap,
+        });
+        bannerOpen.current = true;
+        setBanner("fsTotal");
+        setBannerAmount(fsCash);
+        setPhase(hitCap ? "max" : "big");
+        setTopLine("KONIEC VOĽNÝCH TOČENÍ");
+        setMessage(fsCash > 0 ? `TOTAL WIN ${formatMoney(fsCash)}` : "Koniec voľných točení");
+        if (fsCash > 0 || hitCap) sfx.playBigWin();
+        else sfx.playPayout();
+        await waitForBanner();
+        setBannerMeta(null);
         setPhase("idle");
         setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
       }
@@ -735,6 +774,7 @@ export function useSlotGame() {
     seqMult,
     banner,
     bannerAmount,
+    bannerMeta,
     closeBanner,
     autoOn,
     autoLeft,
