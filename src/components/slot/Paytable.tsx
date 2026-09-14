@@ -85,8 +85,8 @@ export function Paytable({ open, onClose, bet }: Props) {
           <li>4 scatteri = 15 voľných točení. V bonuse 3+ scatteri = +5. Pay scatteru ostáva 4 / 5 / 6.</li>
           <li>Ante 1.25× stávka dvíha P(bonus) približne na dvojnásobok cez binom, nie surový ×2 na bunke. Vo FS sa ante vypína.</li>
           <li>
-            KONTROLA sa nabíja PITY metrom (100). Iba mŕtvy spin (+2) a 3 / 4 scattere (+20 / +35).
-            Výherný spin bez 3+ scatterov bar nehýbe. Keď je plný, spustí sa pick. Kúpiť sa nedá.
+            KONTROLA má vlastný PITY meter na každú stávku (100). Iba mŕtvy spin (+2) a 3 / 4 scattere
+            (+20 / +35) na tej stávke. 90 % na 0,20 € neplatí na 100 € — to je iný bar. Kúpiť sa nedá.
           </li>
           <li>
             Ranked liga 4ky: KREDIT → SLOBODA → SMART → 4KA TV → OPTIKA → DUO → 5G NA DOMA → NEKONEČNO.

@@ -126,6 +126,7 @@ export function SlotGame() {
             {!g.inFs && (
               <div className={`pity-bar ${g.pityDelta ? "is-feed" : ""} ${g.pity >= g.pityGoal ? "is-hot" : ""}`}>
                 <span className="pity-kicker">PITY</span>
+                <span className="pity-stake">{formatMoney(g.bet)}</span>
                 <span className="pity-name">KONTROLA</span>
                 <div
                   className="pity-track"
@@ -133,7 +134,7 @@ export function SlotGame() {
                   aria-valuemin={0}
                   aria-valuemax={g.pityGoal}
                   aria-valuenow={Math.min(g.pityGoal, g.pity)}
-                  aria-label="Pity meter kontroly"
+                  aria-label={`Pity meter kontroly pre stávku ${formatMoney(g.bet)}`}
                 >
                   <i style={{ ["--pity" as string]: `${Math.min(100, (g.pity / g.pityGoal) * 100)}%` }} />
                 </div>

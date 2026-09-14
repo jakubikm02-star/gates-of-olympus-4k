@@ -31,7 +31,7 @@ import {
   zeusDrop,
   zeusDropCount,
 } from "@/lib/slot/engine";
-import { dealPickBoard, pityGain, PITY_GOAL, type PickTile } from "@/lib/slot/pick-bonus";
+import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, type PickTile, type PityMap } from "@/lib/slot/pick-bonus";
 import { applyRankDelta, rpFromWin, standing, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
@@ -71,6 +71,7 @@ interface Save {
   ante: boolean;
   bestWin: number;
   pity: number;
+  pityByBet: PityMap;
   rp: number;
   rankPeak: number;
   rankShield: boolean;
@@ -128,7 +129,7 @@ export function useSlotGame() {
   const [pickTotalX, setPickTotalX] = useState(0);
   const [pickKillId, setPickKillId] = useState<number | null>(null);
   const [pickPicks, setPickPicks] = useState(0);
-  const [pity, setPity] = useState(0);
+  const [pityByBet, setPityByBet] = useState<PityMap>({});
   const [pityDelta, setPityDelta] = useState(0);
   const [rp, setRp] = useState(0);
   const [rankPeak, setRankPeak] = useState(0);
@@ -178,7 +179,7 @@ export function useSlotGame() {
   const pickTotalXRef = useRef(0);
   const pickTilesRef = useRef<PickTile[]>([]);
   const pickRevealedRef = useRef<boolean[]>([]);
-  const pityRef = useRef(0);
+  const pityByBetRef = useRef<PityMap>({});
   const featureXRef = useRef(0);
   const rankRef = useRef({ rp: 0, peak: 0, shield: false });
 
@@ -191,9 +192,11 @@ export function useSlotGame() {
   betIndexRef.current = betIndex;
   autoRef.current = autoOn;
   busyRef.current = busy;
+  pityByBetRef.current = pityByBet;
 
   const bet = BETS[betIndex];
   const stake = ante ? +(bet * ANTE_COST).toFixed(2) : bet;
+  const pity = readPity(pityByBet, bet);
 
   const readySave = useRef(false);
 
@@ -208,11 +211,18 @@ export function useSlotGame() {
     if (typeof s.quick === "boolean") setQuick(s.quick);
     if (typeof s.ante === "boolean") setAnte(s.ante);
     if (typeof s.bestWin === "number") setBestWin(s.bestWin);
-    if (typeof s.pity === "number") {
-      const p = Math.max(0, Math.min(PITY_GOAL, Math.floor(s.pity)));
-      setPity(p);
-      pityRef.current = p;
+    const idx =
+      typeof s.betIndex === "number" ? Math.min(BETS.length - 1, Math.max(0, s.betIndex)) : 4;
+    let map: PityMap = {};
+    if (s.pityByBet && typeof s.pityByBet === "object") {
+      for (const [k, v] of Object.entries(s.pityByBet)) {
+        if (typeof v === "number" && Number.isFinite(v)) map[k] = Math.max(0, Math.floor(v));
+      }
+    } else if (typeof s.pity === "number") {
+      map[String(BETS[idx])] = Math.max(0, Math.min(PITY_GOAL, Math.floor(s.pity)));
     }
+    pityByBetRef.current = map;
+    setPityByBet(map);
     if (typeof s.rp === "number") {
       const n = Math.max(0, Math.floor(s.rp));
       setRp(n);
@@ -241,11 +251,12 @@ export function useSlotGame() {
       ante,
       bestWin,
       pity,
+      pityByBet,
       rp,
       rankPeak,
       rankShield,
     });
-  }, [balance, betIndex, muted, turbo, quick, ante, bestWin, pity, rp, rankPeak, rankShield]);
+  }, [balance, betIndex, muted, turbo, quick, ante, bestWin, pity, pityByBet, rp, rankPeak, rankShield]);
 
   useEffect(() => {
     if (!rankFlash) return;
@@ -648,15 +659,15 @@ export function useSlotGame() {
       if (!fsNow) {
         const add = pityGain(scatterPeak, sequenceX <= 0);
         if (add > 0) {
-          const next = pityRef.current + add;
-          pityRef.current = next;
-          setPity(Math.min(PITY_GOAL, next));
+          const nextMap = bumpPity(pityByBetRef.current, currentBet, add);
+          let stored = readPity(nextMap, currentBet);
+          pityByBetRef.current = nextMap;
           setPityDelta(add);
           window.setTimeout(() => setPityDelta(0), 720);
-          if (next >= PITY_GOAL && !pendingFs) {
+          if (stored >= PITY_GOAL && !pendingFs) {
             pendingPick = true;
-            pityRef.current = next - PITY_GOAL;
-            setPity(pityRef.current);
+            stored -= PITY_GOAL;
+            pityByBetRef.current = { ...nextMap, [String(currentBet)]: stored };
             setTopLine("PITY PLNÝ — KONTROLA");
             setShake(true);
             window.setTimeout(() => setShake(false), 400);
@@ -666,6 +677,7 @@ export function useSlotGame() {
             setTopLine(`PITY +${add}`);
             await wait(dur(280), abort.current);
           }
+          setPityByBet(pityByBetRef.current);
         }
       }
 
@@ -916,9 +928,11 @@ export function useSlotGame() {
 
       if (r === "pick") {
         await runPick();
-      } else if (pityRef.current >= PITY_GOAL && r !== "max") {
-        pityRef.current -= PITY_GOAL;
-        setPity(Math.max(0, pityRef.current));
+      } else if (readPity(pityByBetRef.current, BETS[betIndexRef.current]) >= PITY_GOAL && r !== "max") {
+        const b = BETS[betIndexRef.current];
+        const left = readPity(pityByBetRef.current, b) - PITY_GOAL;
+        pityByBetRef.current = { ...pityByBetRef.current, [String(b)]: Math.max(0, left) };
+        setPityByBet(pityByBetRef.current);
         if (autoRef.current) {
           autoRef.current = false;
           setAutoOn(false);

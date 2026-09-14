@@ -12,6 +12,24 @@ export interface PickTile {
 export const PICK_BAYS = 12;
 export const PITY_GOAL = 100;
 
+export type PityMap = Record<string, number>;
+
+export function pityKey(bet: number): string {
+  return String(bet);
+}
+
+export function readPity(map: PityMap, bet: number): number {
+  const n = map[pityKey(bet)];
+  return typeof n === "number" && Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+}
+
+export function bumpPity(map: PityMap, bet: number, add: number): PityMap {
+  if (add === 0) return map;
+  const key = pityKey(bet);
+  const next = readPity(map, bet) + add;
+  return { ...map, [key]: Math.max(0, next) };
+}
+
 /** Only dead spins and 3/4 scatters charge KONTROLA. */
 export function pityGain(scatterPeak: number, dead: boolean): number {
   if (scatterPeak >= 4) return 35;
