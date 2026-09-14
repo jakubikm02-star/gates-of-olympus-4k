@@ -158,7 +158,7 @@ export function SlotGame() {
             <div className="top-ticker">
               {g.spinWin > 0 ? (
                 <>
-                  VÝHRA Z FUNKCIE TUMBLE
+                  TUMBLE
                   <strong>
                     <CountUp value={g.spinWin} />
                     {g.seqMult > 1 ? ` ×${g.seqMult}` : ""}
