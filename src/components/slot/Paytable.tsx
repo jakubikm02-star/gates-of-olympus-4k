@@ -85,9 +85,8 @@ export function Paytable({ open, onClose, bet }: Props) {
           <li>4 scatteri = 15 voľných točení. V bonuse 3+ scatteri = +5. Pay scatteru ostáva 4 / 5 / 6.</li>
           <li>Ante 1.25× stávka dvíha P(bonus) približne na dvojnásobok cez binom, nie surový ×2 na bunke. Vo FS sa ante vypína.</li>
           <li>
-            KONTROLA sa nabíja PITY metrom (100). Každý spin +1, mŕtvy spin +1 naviac, scattere +2 / +6 /
-            +18. Keď je bar plný, spustí sa pick: 12 státí, lístky / zóny / pokuty, prvý ODŤAH končí.
-            Kúpa = 3× stávka.
+            KONTROLA sa nabíja PITY metrom (100). Iba mŕtvy spin (+2) a 3 / 4 scattere (+20 / +35).
+            Výherný spin bez 3+ scatterov bar nehýbe. Keď je plný, spustí sa pick. Kúpa = 3× stávka.
           </li>
           <li>Kúpa FS = 100× základná stávka. Ante sa na kúpu nevzťahuje. Max 5000× je cap celej feature, nie jedného spinu — potom FEATURE TERMINATED.</li>
           <li>

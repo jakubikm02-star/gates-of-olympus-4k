@@ -575,23 +575,25 @@ export function useSlotGame() {
 
       if (!fsNow) {
         const add = pityGain(scatterPeak, sequenceX <= 0);
-        const next = pityRef.current + add;
-        pityRef.current = next;
-        setPity(Math.min(PITY_GOAL, next));
-        setPityDelta(add);
-        window.setTimeout(() => setPityDelta(0), 720);
-        if (next >= PITY_GOAL && !pendingFs) {
-          pendingPick = true;
-          pityRef.current = next - PITY_GOAL;
-          setPity(pityRef.current);
-          setTopLine("PITY PLNÝ — KONTROLA");
-          setShake(true);
-          window.setTimeout(() => setShake(false), 400);
-          sfx.playThunder();
-          await wait(dur(420), abort.current);
-        } else if (scatterPeak === 3 && sequenceX <= 0) {
-          setTopLine(`PITY +${add}`);
-          await wait(dur(280), abort.current);
+        if (add > 0) {
+          const next = pityRef.current + add;
+          pityRef.current = next;
+          setPity(Math.min(PITY_GOAL, next));
+          setPityDelta(add);
+          window.setTimeout(() => setPityDelta(0), 720);
+          if (next >= PITY_GOAL && !pendingFs) {
+            pendingPick = true;
+            pityRef.current = next - PITY_GOAL;
+            setPity(pityRef.current);
+            setTopLine("PITY PLNÝ — KONTROLA");
+            setShake(true);
+            window.setTimeout(() => setShake(false), 400);
+            sfx.playThunder();
+            await wait(dur(420), abort.current);
+          } else if (scatterPeak >= 3) {
+            setTopLine(`PITY +${add}`);
+            await wait(dur(280), abort.current);
+          }
         }
       }
 
