@@ -84,6 +84,10 @@ export function Paytable({ open, onClose, bet }: Props) {
           <li>Base: súčet plechoviek × celá tumble sekvencia. Vo FS tečú do globálneho metra; bez výhry prepadnú.</li>
           <li>4 scatteri = 15 voľných točení. V bonuse 3+ scatteri = +5. Pay scatteru ostáva 4 / 5 / 6.</li>
           <li>Ante 1.25× stávka dvíha P(bonus) približne na dvojnásobok cez binom, nie surový ×2 na bunke. Vo FS sa ante vypína.</li>
+          <li>
+            3 scattere bez výhry spustia KONTROLU: 12 státí, klikaj lístky / zóny / pokuty. Prvý ODŤAH
+            končí záznam. Kúpa kontroly = 3× stávka (EV ~3×).
+          </li>
           <li>Kúpa FS = 100× základná stávka. Ante sa na kúpu nevzťahuje. Max 5000× je cap celej feature, nie jedného spinu — potom FEATURE TERMINATED.</li>
           <li>
             Simulácia {MATH_NOTE.spins.toLocaleString("sk-SK")} spinov: RTP {(MATH_NOTE.rtp * 100).toFixed(1)} %,

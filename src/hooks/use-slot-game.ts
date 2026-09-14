@@ -8,6 +8,7 @@ import {
   FS_RETRIGGER_SCATTERS,
   FS_SPINS,
   FS_TRIGGER_SCATTERS,
+  KONTROLA_COST_X,
   MAX_WIN_X,
   PAY_SYMBOLS,
   SCATTER,
@@ -31,6 +32,7 @@ import {
   zeusDrop,
   zeusDropCount,
 } from "@/lib/slot/engine";
+import { dealPickBoard, type PickTile } from "@/lib/slot/pick-bonus";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 
@@ -47,6 +49,7 @@ type Phase =
   | "tumble"
   | "mult"
   | "fs"
+  | "pick"
   | "big"
   | "max";
 
@@ -114,6 +117,13 @@ export function useSlotGame() {
   const [banner, setBanner] = useState<WinBanner>(null);
   const [bannerAmount, setBannerAmount] = useState(0);
   const [bannerMeta, setBannerMeta] = useState<BannerMeta | null>(null);
+  const [pickOpen, setPickOpen] = useState(false);
+  const [pickTiles, setPickTiles] = useState<PickTile[]>([]);
+  const [pickRevealed, setPickRevealed] = useState<boolean[]>([]);
+  const [pickEnded, setPickEnded] = useState(false);
+  const [pickTotalX, setPickTotalX] = useState(0);
+  const [pickKillId, setPickKillId] = useState<number | null>(null);
+  const [pickPicks, setPickPicks] = useState(0);
   const [autoLeft, setAutoLeft] = useState(0);
   const [autoOn, setAutoOn] = useState(false);
   const [autoReason, setAutoReason] = useState<string | null>(null);
@@ -150,6 +160,12 @@ export function useSlotGame() {
   const autoFloorRef = useRef(0);
   const bannerWait = useRef<(() => void) | null>(null);
   const bannerOpen = useRef(false);
+  const pickWait = useRef<(() => void) | null>(null);
+  const pickOpenRef = useRef(false);
+  const pickEndedRef = useRef(false);
+  const pickTotalXRef = useRef(0);
+  const pickTilesRef = useRef<PickTile[]>([]);
+  const pickRevealedRef = useRef<boolean[]>([]);
   const featureXRef = useRef(0);
 
   turboRef.current = turbo;
@@ -240,8 +256,84 @@ export function useSlotGame() {
     });
   }, []);
 
+  const waitForPick = useCallback(() => {
+    return new Promise<void>((resolve) => {
+      pickWait.current = resolve;
+    });
+  }, []);
+
+  const revealPick = useCallback((id: number) => {
+    if (!pickOpenRef.current || pickEndedRef.current) return;
+    if (pickRevealedRef.current[id]) return;
+    const tile = pickTilesRef.current[id];
+    if (!tile) return;
+    const nextRev = pickRevealedRef.current.slice();
+    nextRev[id] = true;
+    pickRevealedRef.current = nextRev;
+    sfx.playClick();
+    setPickPicks((n) => n + 1);
+    if (tile.kind === "odtah") {
+      pickEndedRef.current = true;
+      const all = nextRev.map(() => true);
+      pickRevealedRef.current = all;
+      setPickRevealed(all);
+      setPickEnded(true);
+      setPickKillId(id);
+      sfx.playThunder();
+    } else {
+      pickTotalXRef.current = +(pickTotalXRef.current + tile.payX).toFixed(4);
+      setPickRevealed(nextRev);
+      setPickTotalX(pickTotalXRef.current);
+      sfx.playCollect();
+    }
+  }, []);
+
+  const finishPick = useCallback(() => {
+    if (!pickEndedRef.current) return;
+    sfx.playClick();
+    const done = pickWait.current;
+    pickWait.current = null;
+    done?.();
+  }, []);
+
+  const runPick = useCallback(async () => {
+    const tiles = dealPickBoard(createRng());
+    pickTilesRef.current = tiles;
+    pickRevealedRef.current = tiles.map(() => false);
+    pickTotalXRef.current = 0;
+    pickEndedRef.current = false;
+    pickOpenRef.current = true;
+    setPickTiles(tiles);
+    setPickRevealed(tiles.map(() => false));
+    setPickTotalX(0);
+    setPickEnded(false);
+    setPickKillId(null);
+    setPickPicks(0);
+    setPickOpen(true);
+    setPhase("pick");
+    setTopLine("ZAPARKOVALI STE NESPRÁVNE");
+    setMessage("Klikni na státie");
+    sfx.playFsStart();
+    await waitForPick();
+    const betNow = BETS[betIndexRef.current];
+    const cash = +(pickTotalXRef.current * betNow).toFixed(2);
+    if (cash > 0) {
+      setBalance((b) => +(b + cash).toFixed(2));
+      setDisplayWin(cash);
+      setSpinWin(cash);
+      setBestWin((w) => Math.max(w, cash));
+      setSpinTape((t) => [{ label: "KONTROLA", amount: formatMoney(cash) }, ...t].slice(0, 8));
+      sfx.playPayout();
+    }
+    pickOpenRef.current = false;
+    setPickOpen(false);
+    setPhase("idle");
+    setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
+    setMessage(cash > 0 ? `KONTROLA ${formatMoney(cash)}` : "Odťah bez pokuty");
+  }, [waitForPick]);
+
   const runSequence = useCallback(
-    async (opts?: { buy?: boolean; free?: boolean }): Promise<"fs" | "ok" | "max"> => {
+    async (opts?: { buy?: boolean; free?: boolean }): Promise<"fs" | "ok" | "max" | "pick"> => {
       const currentBet = BETS[betIndexRef.current];
       const currentStake = anteRef.current ? +(currentBet * ANTE_COST).toFixed(2) : currentBet;
       const isFree = !!opts?.free;
@@ -290,6 +382,7 @@ export function useSlotGame() {
       setPhase("landing");
       let landedScatters = 0;
       let pendingFs = false;
+      let pendingPick = false;
       for (let c = 0; c < 6; c++) {
         const colN = next.reduce((n, row) => n + (row[c].kind === "scatter" ? 1 : 0), 0);
         if (landedScatters >= 2 && !abort.current.skip) {
@@ -469,11 +562,13 @@ export function useSlotGame() {
         setTopLine(`${miss.nearMiss.count}/8 ${payName(miss.nearMiss.payId)}`);
         setMessage("SKORO");
         await wait(dur(180), abort.current);
-      } else if (sequenceX <= 0 && scatterPeak === 3 && !pendingFs) {
-        setTopLine("EŠTE JEDEN SCATTER");
+      } else if (sequenceX <= 0 && scatterPeak === 3 && !pendingFs && !fsNow) {
+        pendingPick = true;
+        setTopLine("ZAPARKOVALI STE NESPRÁVNE");
         setShake(true);
         window.setTimeout(() => setShake(false), 400);
-        await wait(dur(480), abort.current);
+        sfx.playThunder();
+        await wait(dur(420), abort.current);
       }
 
       if ((isFree || inFsRef.current) && sequenceX <= 0 && hasOrb(board)) {
@@ -593,11 +688,12 @@ export function useSlotGame() {
           ? "3× SCATTER ZNOVU SPUSTÍ FUNKCIU"
           : "SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE",
       );
-      setMessage(cash > 0 ? "" : DEAD[Math.floor(Math.random() * DEAD.length)]);
+      setMessage(cash > 0 ? "" : pendingPick ? "KONTROLA" : DEAD[Math.floor(Math.random() * DEAD.length)]);
       sfx.duckMusic(1);
 
       if (hitMax) return "max";
       if (pendingFs) return "fs";
+      if (pendingPick) return "pick";
       return "ok";
     },
     [dur, waitForBanner],
@@ -619,6 +715,11 @@ export function useSlotGame() {
           setAutoOn(false);
           setAutoLeft(0);
           setAutoReason("AUTO STOP · FREE SPINS — nespúšťa sa po bonuse");
+        } else if (r === "pick") {
+          autoRef.current = false;
+          setAutoOn(false);
+          setAutoLeft(0);
+          setAutoReason("AUTO STOP · KONTROLA");
         } else if (lastPaidXRef.current >= 20) {
           autoRef.current = false;
           setAutoOn(false);
@@ -709,10 +810,14 @@ export function useSlotGame() {
         setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
       }
 
+      if (r === "pick") {
+        await runPick();
+      }
+
       busyRef.current = false;
       setBusy(false);
     },
-    [dur, runSequence, waitForBanner],
+    [dur, runSequence, waitForBanner, runPick],
   );
 
   const stopReels = useCallback(() => {
@@ -733,6 +838,24 @@ export function useSlotGame() {
     if (!started || busyRef.current || inFsRef.current) return;
     await playRound({ buy: true });
   }, [started, playRound]);
+
+  const buyKontrola = useCallback(async () => {
+    if (!started || busyRef.current || inFsRef.current || pickOpenRef.current) return;
+    const betNow = BETS[betIndexRef.current];
+    const cost = +(betNow * KONTROLA_COST_X).toFixed(2);
+    if (balanceRef.current < cost) {
+      setMessage("Nedostatok kreditu — doplň demo zostatok");
+      return;
+    }
+    busyRef.current = true;
+    setBusy(true);
+    setBalance((b) => +(b - cost).toFixed(2));
+    setDisplayWin(0);
+    sfx.playClick();
+    await runPick();
+    busyRef.current = false;
+    setBusy(false);
+  }, [started, runPick]);
 
   const startAuto = useCallback((n: number) => {
     if (busyRef.current || inFsRef.current) return;
@@ -773,6 +896,10 @@ export function useSlotGame() {
       if (e.code !== "Space" && e.code !== "Enter" && e.code !== "Escape") return;
       e.preventDefault();
       if (!started) return;
+      if (pickOpenRef.current) {
+        if (pickEndedRef.current && (e.code === "Space" || e.code === "Enter")) finishPick();
+        return;
+      }
       if (bannerOpen.current) {
         closeBanner();
         return;
@@ -786,7 +913,7 @@ export function useSlotGame() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [started, playRound, stopReels, closeBanner]);
+  }, [started, playRound, stopReels, closeBanner, finishPick]);
 
   return {
     started,
@@ -824,6 +951,16 @@ export function useSlotGame() {
     bannerAmount,
     bannerMeta,
     closeBanner,
+    pickOpen,
+    pickTiles,
+    pickRevealed,
+    pickEnded,
+    pickTotalX,
+    pickKillId,
+    pickPicks,
+    revealPick,
+    finishPick,
+    buyKontrola,
     autoOn,
     autoLeft,
     autoReason,
@@ -853,5 +990,6 @@ export function useSlotGame() {
     bestWin,
     canSpin: started && !busy && !inFs && balance >= stake,
     canBuy: started && !busy && !inFs && balance >= +(bet * BUY_COST_X).toFixed(2),
+    canKontrola: started && !busy && !inFs && balance >= +(bet * KONTROLA_COST_X).toFixed(2),
   };
 }

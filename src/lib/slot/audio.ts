@@ -214,6 +214,12 @@ export function playClick(): void {
   }
 }
 
+export function playCollect(): void {
+  if (!playBuf("collect", { gain: 0.72, rate: 0.96 + Math.random() * 0.08 })) {
+    playCoin();
+  }
+}
+
 export function startSpin(): void {
   if (!ctx || !sfx) return;
   stopSpin();

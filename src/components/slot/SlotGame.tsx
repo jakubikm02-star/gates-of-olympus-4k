@@ -1,9 +1,10 @@
 import { Volume2, VolumeX, Info, RefreshCw, Menu } from "lucide-react";
-import { BUY_COST_X, START_BALANCE, BETS } from "@/lib/slot/symbols";
+import { BUY_COST_X, KONTROLA_COST_X, START_BALANCE, BETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { SlotGrid } from "./Grid";
 import { Paytable } from "./Paytable";
+import { PickBonus } from "./PickBonus";
 import { CountUp } from "./CountUp";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
@@ -76,6 +77,15 @@ export function SlotGame() {
             >
               <em>KÚPIŤ FREE SPINS</em>
               <strong>{formatMoney(g.bet * BUY_COST_X)}</strong>
+            </button>
+            <button
+              type="button"
+              className="parchment kontrola"
+              onClick={() => void g.buyKontrola()}
+              disabled={!g.canKontrola}
+            >
+              <em>KONTROLA</em>
+              <strong>{formatMoney(g.bet * KONTROLA_COST_X)}</strong>
             </button>
             <button
               type="button"
@@ -309,6 +319,20 @@ export function SlotGame() {
           )}
         </div>
       </div>
+
+      {g.pickOpen && (
+        <PickBonus
+          tiles={g.pickTiles}
+          revealed={g.pickRevealed}
+          ended={g.pickEnded}
+          totalX={g.pickTotalX}
+          bet={g.bet}
+          killId={g.pickKillId}
+          picks={g.pickPicks}
+          onPick={g.revealPick}
+          onDone={g.finishPick}
+        />
+      )}
 
       {g.banner && (
         <div className="banner" onClick={g.closeBanner} role="presentation">
