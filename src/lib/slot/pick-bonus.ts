@@ -30,6 +30,11 @@ export function bumpPity(map: PityMap, bet: number, add: number): PityMap {
   return { ...map, [key]: Math.max(0, next) };
 }
 
+/** Consume the bar for the current bet — no leftover after KONTROLA. */
+export function spendPity(map: PityMap, bet: number): PityMap {
+  return { ...map, [pityKey(bet)]: 0 };
+}
+
 /** Only dead spins and 3/4 scatters charge KONTROLA. */
 export function pityGain(scatterPeak: number, dead: boolean): number {
   if (scatterPeak >= 4) return 35;

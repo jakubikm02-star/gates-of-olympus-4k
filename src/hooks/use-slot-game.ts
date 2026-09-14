@@ -32,7 +32,7 @@ import {
   zeusDrop,
   zeusDropCount,
 } from "@/lib/slot/engine";
-import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, type PickTile, type PityMap } from "@/lib/slot/pick-bonus";
+import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, spendPity, type PickTile, type PityMap } from "@/lib/slot/pick-bonus";
 import { applyRankDelta, rpFromWin, standing, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
@@ -181,6 +181,7 @@ export function useSlotGame() {
   const pickTilesRef = useRef<PickTile[]>([]);
   const pickRevealedRef = useRef<boolean[]>([]);
   const pityByBetRef = useRef<PityMap>({});
+  const kontrolaArmedRef = useRef(false);
   const featureXRef = useRef(0);
   const rankRef = useRef({ rp: 0, peak: 0, shield: false });
 
@@ -379,10 +380,10 @@ export function useSlotGame() {
   }, []);
 
   const finishPick = useCallback(() => {
-    if (!pickEndedRef.current) return;
-    sfx.playClick();
+    pickEndedRef.current = true;
     const done = pickWait.current;
     pickWait.current = null;
+    sfx.playClick();
     done?.();
   }, []);
 
@@ -404,8 +405,11 @@ export function useSlotGame() {
     setTopLine("ZAPARKOVALI STE NESPRÁVNE");
     setMessage("Klikni na státie");
     sfx.playFsStart();
-    await waitForPick();
+    kontrolaArmedRef.current = false;
     const betNow = BETS[betIndexRef.current];
+    pityByBetRef.current = spendPity(pityByBetRef.current, betNow);
+    setPityByBet(pityByBetRef.current);
+    await waitForPick();
     const cash = +(pickTotalXRef.current * betNow).toFixed(2);
     if (cash > 0) {
       setBalance((b) => +(b + cash).toFixed(2));
@@ -661,24 +665,27 @@ export function useSlotGame() {
         const add = pityGain(scatterPeak, sequenceX <= 0);
         if (add > 0) {
           const nextMap = bumpPity(pityByBetRef.current, currentBet, add);
-          let stored = readPity(nextMap, currentBet);
-          pityByBetRef.current = nextMap;
+          const stored = readPity(nextMap, currentBet);
           setPityDelta(add);
           window.setTimeout(() => setPityDelta(0), 720);
-          if (stored >= PITY_GOAL && !pendingFs) {
+          if (stored >= PITY_GOAL) {
+            pityByBetRef.current = spendPity(nextMap, currentBet);
+            kontrolaArmedRef.current = true;
             pendingPick = true;
-            stored -= PITY_GOAL;
-            pityByBetRef.current = { ...nextMap, [String(currentBet)]: stored };
             setTopLine("PITY PLNÝ — KONTROLA");
             setShake(true);
             window.setTimeout(() => setShake(false), 400);
             sfx.playThunder();
-            await wait(dur(420), abort.current);
-          } else if (scatterPeak >= 3) {
-            setTopLine(`PITY +${add}`);
-            await wait(dur(280), abort.current);
+            setPityByBet(pityByBetRef.current);
+            if (!pendingFs) await wait(dur(420), abort.current);
+          } else {
+            pityByBetRef.current = nextMap;
+            setPityByBet(nextMap);
+            if (scatterPeak >= 3) {
+              setTopLine(`PITY +${add}`);
+              await wait(dur(280), abort.current);
+            }
           }
-          setPityByBet(pityByBetRef.current);
         }
       }
 
@@ -927,13 +934,10 @@ export function useSlotGame() {
         setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
       }
 
-      if (r === "pick") {
-        await runPick();
-      } else if (readPity(pityByBetRef.current, BETS[betIndexRef.current]) >= PITY_GOAL && r !== "max") {
-        const b = BETS[betIndexRef.current];
-        const left = readPity(pityByBetRef.current, b) - PITY_GOAL;
-        pityByBetRef.current = { ...pityByBetRef.current, [String(b)]: Math.max(0, left) };
-        setPityByBet(pityByBetRef.current);
+      if (r === "max") {
+        kontrolaArmedRef.current = false;
+      } else if (r === "pick" || kontrolaArmedRef.current) {
+        kontrolaArmedRef.current = false;
         if (autoRef.current) {
           autoRef.current = false;
           setAutoOn(false);

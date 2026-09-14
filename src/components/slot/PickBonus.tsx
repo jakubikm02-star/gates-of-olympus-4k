@@ -3,18 +3,18 @@ import { Clock, Receipt, ChevronLeft, CircleCheck, MapPin, Search, Ticket, User,
 import type { PickTile } from "@/lib/slot/pick-bonus";
 
 const PIN_POS: { x: number; y: number }[] = [
-  { x: 18, y: 20 },
-  { x: 50, y: 12 },
-  { x: 82, y: 24 },
-  { x: 22, y: 44 },
-  { x: 54, y: 50 },
-  { x: 84, y: 40 },
-  { x: 16, y: 70 },
-  { x: 48, y: 76 },
-  { x: 80, y: 64 },
-  { x: 28, y: 96 },
-  { x: 60, y: 92 },
-  { x: 88, y: 86 },
+  { x: 20, y: 24 },
+  { x: 50, y: 20 },
+  { x: 80, y: 26 },
+  { x: 22, y: 40 },
+  { x: 52, y: 42 },
+  { x: 78, y: 38 },
+  { x: 18, y: 56 },
+  { x: 48, y: 54 },
+  { x: 82, y: 52 },
+  { x: 24, y: 68 },
+  { x: 50, y: 66 },
+  { x: 78, y: 64 },
 ];
 
 function eur(n: number): string {
@@ -100,7 +100,7 @@ export function PickBonus({ tiles, revealed, ended, totalX, bet, killId, picks, 
             )}
           </div>
           <div className="pk-actions">
-            <button type="button" className="pk-outline" onClick={onDone}>
+            <button type="button" className="pk-outline pk-done" onClick={onDone}>
               SPÄŤ NA AUTOMAT
             </button>
           </div>

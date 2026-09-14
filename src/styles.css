@@ -2100,7 +2100,7 @@
 .pk-back {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 90;
   display: grid;
   place-items: center;
   padding: 0;
@@ -2350,6 +2350,12 @@
   font-size: 0.92rem;
 }
 
+.pk-done {
+  border-color: var(--color-app-mint);
+  background: var(--color-app-mint);
+  color: #fff;
+}
+
 .pk-map {
   position: relative;
   flex: 1;
@@ -2414,7 +2420,7 @@
 
 .pk-pins {
   position: absolute;
-  inset: 62px 6px 72px;
+  inset: 58px 8px 56px;
   z-index: 2;
   pointer-events: none;
 }
@@ -2527,7 +2533,8 @@
   font-weight: 700;
   font-size: 0.98rem;
   box-shadow: 0 4px 12px rgb(30 61 92 / 0.18);
-  z-index: 5;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .pk-tabs {
