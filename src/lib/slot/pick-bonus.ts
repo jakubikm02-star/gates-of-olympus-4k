@@ -9,6 +9,17 @@ export interface PickTile {
 }
 
 export const PICK_BAYS = 12;
+export const PITY_GOAL = 100;
+
+/** Points toward KONTROLA. ~1.8–2.5 / base spin → bonus every ~40–55 spins. */
+export function pityGain(scatterPeak: number, dead: boolean): number {
+  let n = 1;
+  if (dead) n += 1;
+  if (scatterPeak >= 3) n += 18;
+  else if (scatterPeak === 2) n += 6;
+  else if (scatterPeak === 1) n += 2;
+  return n;
+}
 
 /** 3 ODŤAH among 12; pick until first tow. E[safes]=9/4=2.25, avg prize 1.333 → EV ≈ 3×. */
 const BAG: readonly Omit<PickTile, "id">[] = [

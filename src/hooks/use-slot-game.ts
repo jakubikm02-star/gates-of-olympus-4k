@@ -32,7 +32,7 @@ import {
   zeusDrop,
   zeusDropCount,
 } from "@/lib/slot/engine";
-import { dealPickBoard, type PickTile } from "@/lib/slot/pick-bonus";
+import { dealPickBoard, pityGain, PITY_GOAL, type PickTile } from "@/lib/slot/pick-bonus";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 
@@ -70,6 +70,7 @@ interface Save {
   quick: boolean;
   ante: boolean;
   bestWin: number;
+  pity: number;
 }
 
 function loadSave(): Partial<Save> {
@@ -124,6 +125,8 @@ export function useSlotGame() {
   const [pickTotalX, setPickTotalX] = useState(0);
   const [pickKillId, setPickKillId] = useState<number | null>(null);
   const [pickPicks, setPickPicks] = useState(0);
+  const [pity, setPity] = useState(0);
+  const [pityDelta, setPityDelta] = useState(0);
   const [autoLeft, setAutoLeft] = useState(0);
   const [autoOn, setAutoOn] = useState(false);
   const [autoReason, setAutoReason] = useState<string | null>(null);
@@ -166,6 +169,7 @@ export function useSlotGame() {
   const pickTotalXRef = useRef(0);
   const pickTilesRef = useRef<PickTile[]>([]);
   const pickRevealedRef = useRef<boolean[]>([]);
+  const pityRef = useRef(0);
   const featureXRef = useRef(0);
 
   turboRef.current = turbo;
@@ -194,13 +198,18 @@ export function useSlotGame() {
     if (typeof s.quick === "boolean") setQuick(s.quick);
     if (typeof s.ante === "boolean") setAnte(s.ante);
     if (typeof s.bestWin === "number") setBestWin(s.bestWin);
+    if (typeof s.pity === "number") {
+      const p = Math.max(0, Math.min(PITY_GOAL, Math.floor(s.pity)));
+      setPity(p);
+      pityRef.current = p;
+    }
     readySave.current = true;
   }, []);
 
   useEffect(() => {
     if (!readySave.current) return;
-    persist({ balance, betIndex, muted, turbo, quick, ante, bestWin });
-  }, [balance, betIndex, muted, turbo, quick, ante, bestWin]);
+    persist({ balance, betIndex, muted, turbo, quick, ante, bestWin, pity });
+  }, [balance, betIndex, muted, turbo, quick, ante, bestWin, pity]);
 
   const dur = useCallback((base: number) => {
     if (turboRef.current) return Math.round(base * 0.34);
@@ -562,13 +571,28 @@ export function useSlotGame() {
         setTopLine(`${miss.nearMiss.count}/8 ${payName(miss.nearMiss.payId)}`);
         setMessage("SKORO");
         await wait(dur(180), abort.current);
-      } else if (sequenceX <= 0 && scatterPeak === 3 && !pendingFs && !fsNow) {
-        pendingPick = true;
-        setTopLine("ZAPARKOVALI STE NESPRÁVNE");
-        setShake(true);
-        window.setTimeout(() => setShake(false), 400);
-        sfx.playThunder();
-        await wait(dur(420), abort.current);
+      }
+
+      if (!fsNow) {
+        const add = pityGain(scatterPeak, sequenceX <= 0);
+        const next = pityRef.current + add;
+        pityRef.current = next;
+        setPity(Math.min(PITY_GOAL, next));
+        setPityDelta(add);
+        window.setTimeout(() => setPityDelta(0), 720);
+        if (next >= PITY_GOAL && !pendingFs) {
+          pendingPick = true;
+          pityRef.current = next - PITY_GOAL;
+          setPity(pityRef.current);
+          setTopLine("PITY PLNÝ — KONTROLA");
+          setShake(true);
+          window.setTimeout(() => setShake(false), 400);
+          sfx.playThunder();
+          await wait(dur(420), abort.current);
+        } else if (scatterPeak === 3 && sequenceX <= 0) {
+          setTopLine(`PITY +${add}`);
+          await wait(dur(280), abort.current);
+        }
       }
 
       if ((isFree || inFsRef.current) && sequenceX <= 0 && hasOrb(board)) {
@@ -812,6 +836,16 @@ export function useSlotGame() {
 
       if (r === "pick") {
         await runPick();
+      } else if (pityRef.current >= PITY_GOAL && r !== "max") {
+        pityRef.current -= PITY_GOAL;
+        setPity(Math.max(0, pityRef.current));
+        if (autoRef.current) {
+          autoRef.current = false;
+          setAutoOn(false);
+          setAutoLeft(0);
+          setAutoReason("AUTO STOP · KONTROLA");
+        }
+        await runPick();
       }
 
       busyRef.current = false;
@@ -961,6 +995,9 @@ export function useSlotGame() {
     revealPick,
     finishPick,
     buyKontrola,
+    pity,
+    pityDelta,
+    pityGoal: PITY_GOAL,
     autoOn,
     autoLeft,
     autoReason,

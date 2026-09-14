@@ -530,6 +530,101 @@
   background: linear-gradient(180deg, #152028, #0a0e12);
 }
 
+.pity-bar {
+  position: relative;
+  z-index: 4;
+  flex-shrink: 0;
+  width: min(100%, calc((100dvh - 16.4rem) * 6 / 5));
+  margin: 0 auto 6px;
+  height: 1.9rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  background: linear-gradient(180deg, #1c2830, #0c1014);
+  border: 2px solid #f0c419;
+  border-radius: 10px;
+  color: #f0c419;
+}
+
+.pity-kicker {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--color-fine);
+}
+
+.pity-name {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.pity-track {
+  position: relative;
+  flex: 1;
+  height: 10px;
+  border-radius: 999px;
+  background: #07090c;
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.7);
+  overflow: hidden;
+}
+
+.pity-track i {
+  display: block;
+  height: 100%;
+  width: var(--pity, 0%);
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c44a12, #f0c419 55%, #ffe56a);
+  box-shadow: 0 0 10px rgb(240 196 25 / 0.45);
+  transition: width 0.35s ease-out;
+}
+
+.pity-bar b {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  color: #fff6c8;
+  min-width: 3.6rem;
+  text-align: right;
+}
+
+.pity-plus {
+  position: absolute;
+  right: 4.4rem;
+  top: -0.55rem;
+  font-style: normal;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #ffe56a;
+  text-shadow: 0 0 8px #f0c419;
+  animation: pity-pop 0.7s ease-out both;
+  pointer-events: none;
+}
+
+.pity-bar.is-feed .pity-track i {
+  filter: brightness(1.15);
+}
+
+.pity-bar.is-hot {
+  box-shadow: 0 0 16px rgb(226 74 18 / 0.45);
+  border-color: var(--color-fine);
+}
+
+@keyframes pity-pop {
+  0% {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+}
+
 @keyframes banner-in {
   from {
     transform: translateX(-50%) translateY(-10px) scale(0.7);
@@ -2374,6 +2469,16 @@
     min-height: 1.85rem;
     letter-spacing: 0.08em;
     margin-bottom: 4px;
+  }
+  .pity-bar {
+    width: 96%;
+    height: 1.7rem;
+    margin-bottom: 4px;
+    gap: 6px;
+    padding: 0 8px;
+  }
+  .pity-name {
+    display: none;
   }
   .wb-menu span:nth-child(n + 4) {
     display: none;

@@ -121,6 +121,26 @@ export function SlotGame() {
           </aside>
 
           <section className="board-wrap">
+            {!g.inFs && (
+              <div className={`pity-bar ${g.pityDelta ? "is-feed" : ""} ${g.pity >= g.pityGoal ? "is-hot" : ""}`}>
+                <span className="pity-kicker">PITY</span>
+                <span className="pity-name">KONTROLA</span>
+                <div
+                  className="pity-track"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={g.pityGoal}
+                  aria-valuenow={Math.min(g.pityGoal, g.pity)}
+                  aria-label="Pity meter kontroly"
+                >
+                  <i style={{ ["--pity" as string]: `${Math.min(100, (g.pity / g.pityGoal) * 100)}%` }} />
+                </div>
+                <b>
+                  {Math.min(g.pityGoal, g.pity)}/{g.pityGoal}
+                </b>
+                {g.pityDelta > 0 && <em className="pity-plus">+{g.pityDelta}</em>}
+              </div>
+            )}
             {g.inFs && (
               <div className="fs-hero" aria-live="polite">
                 <div className={`wing-mult ${g.flies.length ? "is-feed" : ""}`}>
