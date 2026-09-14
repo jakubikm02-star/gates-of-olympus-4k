@@ -405,7 +405,7 @@ export function useSlotGame() {
       }
 
       if ((isFree || inFsRef.current) && sequenceX <= 0 && hasOrb(board)) {
-        setTopLine("BEZ VÝHRY GULE PREPADNÚ");
+        setTopLine("BEZ VÝHRY PLECHOVKY PREPADNÚ");
         const gone = expireOrbs(board, rng);
         setExpiredUids(gone.expired);
         await wait(dur(560), abort.current);

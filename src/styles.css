@@ -180,7 +180,8 @@
 }
 
 .logo-plate.compact .logo-main {
-  font-size: clamp(1rem, 2vw, 1.45rem);
+  font-size: clamp(1.05rem, 2.6vw, 1.7rem);
+  letter-spacing: 0.05em;
 }
 
 .logo-plate.compact .logo-kicker {
@@ -188,8 +189,7 @@
 }
 
 .logo-plate.compact .logo-sub {
-  font-size: 0.52rem;
-  margin-top: 2px;
+  display: none;
 }
 
 .stage.is-boot .table {
@@ -248,7 +248,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding-top: 36px;
+  padding-top: 8px;
   z-index: 2;
 }
 
@@ -392,7 +392,7 @@
   z-index: 3;
   align-self: stretch;
   width: 100%;
-  margin-top: 22px;
+  margin-top: 4px;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -410,20 +410,34 @@
 
 .board-stage-inner {
   position: relative;
-  width: min(100%, calc((100dvh - 13.25rem) * 6 / 5));
+  width: min(100%, calc((100dvh - 13.85rem) * 6 / 5));
 }
 
 .fly-orb {
   position: absolute;
   z-index: 8;
   transform: translate(-50%, -50%);
+  width: 3.5rem;
+  height: 3.5rem;
+  display: grid;
+  place-items: center;
   font-family: var(--font-display);
   font-weight: 900;
-  font-size: clamp(0.9rem, 2.4vw, 1.35rem);
+  font-size: clamp(0.78rem, 2.1vw, 1.15rem);
   color: #fff8d0;
   text-shadow: 0 0 12px #ffe14a, 0 2px 0 #3a2208;
   pointer-events: none;
   animation: fly-to-meter 0.72s cubic-bezier(0.18, 0.8, 0.22, 1) forwards;
+}
+
+.fly-orb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 6px rgb(0 0 0 / 0.55));
 }
 
 @keyframes fly-to-meter {
@@ -469,19 +483,21 @@
 
 .tumble-win,
 .top-ticker {
-  position: absolute;
-  top: -40px;
-  left: 50%;
-  transform: translateX(-50%);
+  position: relative;
   z-index: 4;
-  min-width: 240px;
+  flex-shrink: 0;
+  width: min(100%, 440px);
+  margin: 0 auto 6px;
   text-align: center;
-  padding: 6px 22px 8px;
+  padding: 6px 16px 7px;
+  min-height: 2.2rem;
+  display: grid;
+  place-items: center;
   background: linear-gradient(180deg, #1c2830, #0c1014);
   border: 2px solid #f0c419;
   border-radius: 10px;
   font-size: 0.68rem;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   font-weight: 800;
   color: #f0c419;
   pointer-events: none;
@@ -510,7 +526,7 @@
   position: relative;
   padding: 12px 11px 14px;
   width: 100%;
-  max-height: calc(100dvh - 12.5rem);
+  max-height: calc(100dvh - 13.1rem);
   background:
     linear-gradient(180deg, #3a424a 0%, #1c2228 40%, #0e1216 72%, #2a3138 100%);
   box-shadow:
@@ -651,7 +667,7 @@
 }
 
 .cell.is-mult .cell-img {
-  width: 92%;
+  width: 78%;
   height: 92%;
 }
 
@@ -847,6 +863,10 @@
 
 .in-fs .fs-hero {
   order: -1;
+}
+
+.cell.is-dormant .cell-img {
+  filter: brightness(0.86) saturate(0.88) drop-shadow(0 8px 10px rgb(0 0 0 / 0.55));
 }
 
 .cell.is-dormant .mult-tag {
@@ -1084,7 +1104,7 @@
 .mult-tag {
   position: absolute;
   left: 50%;
-  top: 50%;
+  top: 46%;
   z-index: 2;
   transform: translate(-50%, -50%);
   font-family: var(--font-display);
@@ -1506,7 +1526,8 @@
 }
 
 .boot-card .logo-main {
-  font-size: clamp(2.4rem, 8vw, 4rem);
+  font-size: clamp(2.05rem, 7vw, 3.35rem);
+  letter-spacing: 0.05em;
 }
 
 .boot-card .logo-kicker {
@@ -1736,7 +1757,7 @@
     height: 36px;
   }
   .side-left {
-    padding-top: 24px;
+    padding-top: 8px;
   }
 }
 
@@ -1839,11 +1860,13 @@
     justify-content: center;
   }
   .top-ticker {
-    top: -28px;
     font-size: 0.58rem;
     padding: 4px 12px 5px;
     min-width: 0;
-    max-width: 92%;
+    max-width: 96%;
+    min-height: 1.85rem;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
   }
   .board-stage {
     flex: 0 1 auto;

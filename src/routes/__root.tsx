@@ -3,7 +3,7 @@ import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import appCss from "../styles.css?url";
 
-const APP_NAME = "Gates of Olympus 4K";
+const APP_NAME = "Ports of Parkizmus";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -13,7 +13,7 @@ export const Route = createRootRoute({
       { title: APP_NAME },
       {
         name: "description",
-        content: "Gates of Olympus 4K v nočnej garáži. Rampa, lístok, pokuta. Demo automat.",
+        content: "Ports of Parkizmus — nočná garáž, rampa, lístok, pokuta. Demo automat.",
       },
       { name: "theme-color", content: "#0b0d10" },
     ],
@@ -32,7 +32,7 @@ export const Route = createRootRoute({
       { rel: "preload", as: "image", href: "/symbols/pdf.png" },
       { rel: "preload", as: "image", href: "/symbols/dacia.png" },
       { rel: "preload", as: "image", href: "/symbols/tv4ka.png" },
-      { rel: "preload", as: "image", href: "/art/orb.png" },
+      { rel: "preload", as: "image", href: "/symbols/can.png" },
       { rel: "preload", as: "image", href: "/art/ramp.png" },
       { rel: "preload", as: "image", href: "/art/parking-bg.jpg" },
     ],

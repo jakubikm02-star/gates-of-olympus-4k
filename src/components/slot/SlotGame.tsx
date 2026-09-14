@@ -42,8 +42,8 @@ export function SlotGame() {
           <img src="/art/ramp.png" alt="" className="boot-ramp" />
           <div className="boot-card">
             <div className="logo-plate">
-              <span className="logo-kicker">GATES of</span>
-              <span className="logo-main">OLYMPUS</span>
+              <span className="logo-kicker">PORTS of</span>
+              <span className="logo-main">PARKIZMUS</span>
               <span className="logo-sub">ZÓNA · LÍSTOK · RAMPA · POKUTA</span>
             </div>
             <p className="boot-max">WIN UP TO 5000× BET</p>
@@ -60,8 +60,8 @@ export function SlotGame() {
 
       <div className="table">
         <div className="logo-plate compact">
-          <span className="logo-kicker">GATES of</span>
-          <span className="logo-main">OLYMPUS</span>
+          <span className="logo-kicker">PORTS of</span>
+          <span className="logo-main">PARKIZMUS</span>
           <span className="logo-sub">ZÓNA · LÍSTOK · RAMPA · POKUTA</span>
         </div>
 
@@ -159,6 +159,7 @@ export function SlotGame() {
                 className="fly-orb"
                 style={{ left: `${((f.c + 0.5) / 6) * 100}%`, top: `${((f.r + 0.5) / 5) * 100}%` }}
               >
+                <img src="/symbols/can.png" alt="" />
                 {f.mult}X
               </span>
             ))}

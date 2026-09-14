@@ -51,6 +51,16 @@ export function Paytable({ open, onClose, bet }: Props) {
             </div>
           ))}
           <div className="pay-row">
+            <img src="/symbols/can.png" alt="" className="pay-ico" />
+            <div>
+              <div className="pay-name">Energy plechovka · násobič</div>
+              <div className="pay-vals">
+                <span>2×–500×</span>
+              </div>
+              <div className="pay-quip">Rampa ju hodí. Bez výhry prepadne.</div>
+            </div>
+          </div>
+          <div className="pay-row">
             <img src={SCATTER.src} alt="" className="pay-ico" />
             <div>
               <div className="pay-name">{SCATTER.name} · scatter</div>
@@ -65,9 +75,9 @@ export function Paytable({ open, onClose, bet }: Props) {
         </div>
         <ul className="rules">
           <li>8 a viac rovnakých symbolov kdekoľvek. Žiadne línie. 7/8 je near-miss, nie výhra.</li>
-          <li>Výherné symboly zmiznú, nové spadnú zhora (tumble). Orby a scatter tumble prežijú.</li>
-          <li>Násobiče nepadajú z valca ako RJ45. Rampa ich pustí. Aktivujú sa až na konci reťaze, a len ak bola výhra.</li>
-          <li>Base: súčet orbov × celá tumble sekvencia. Vo FS orby tečú do globálneho metra; bez výhry gule prepadnú.</li>
+          <li>Výherné symboly zmiznú, nové spadnú zhora (tumble). Plechovky a scatter tumble prežijú.</li>
+          <li>Násobiče nepadajú z valca ako RJ45. Rampa ich pustí ako energy plechovky. Aktivujú sa až na konci reťaze, a len ak bola výhra.</li>
+          <li>Base: súčet plechoviek × celá tumble sekvencia. Vo FS tečú do globálneho metra; bez výhry prepadnú.</li>
           <li>4 scatteri = 15 voľných točení. V bonuse 3+ scatteri = +5. Pay scatteru ostáva 4 / 5 / 6.</li>
           <li>Ante 1.25× stávka dvíha P(bonus) približne na dvojnásobok cez binom, nie surový ×2 na bunke. Vo FS sa ante vypína.</li>
           <li>Kúpa FS = 100× základná stávka. Ante sa na kúpu nevzťahuje. Max 5000× je cap celej feature, nie jedného spinu — potom FEATURE TERMINATED.</li>

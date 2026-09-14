@@ -123,7 +123,7 @@ export const SCATTER = {
 export const ALL_ART: readonly string[] = [
   ...PAY_SYMBOLS.map((s) => s.src),
   SCATTER.src,
-  "/art/orb.png",
+  "/symbols/can.png",
   "/art/ramp.png",
   "/art/parking-bg.jpg",
 ];
@@ -206,7 +206,7 @@ export function scatterPay(count: number): number {
 
 export function symbolSrc(cell: Cell): string {
   if (cell.kind === "scatter") return SCATTER.src;
-  if (cell.kind === "mult") return "/art/orb.png";
+  if (cell.kind === "mult") return "/symbols/can.png";
   const s = PAY_SYMBOLS.find((p) => p.id === cell.payId);
   return s?.src ?? PAY_SYMBOLS[0].src;
 }
