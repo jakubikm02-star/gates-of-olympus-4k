@@ -311,18 +311,49 @@ export function SlotGame() {
 
       {g.banner && (
         <div className="banner" onClick={g.closeBanner} role="presentation">
-          <div className={`banner-card ${g.banner}`}>
-            <span className="banner-wings" aria-hidden="true" />
-            <span className="banner-kicker">{BANNER_COPY[g.banner] ?? "WIN"}</span>
-            {g.banner === "fs" ? (
-              <strong>15 FREE SPINS</strong>
-            ) : (
-              <strong>
-                <CountUp value={g.bannerAmount} />
-              </strong>
-            )}
-            {g.banner === "max" && <em>FEATURE TERMINATED</em>}
-            <em>ťukni pre pokračovanie</em>
+          <div className={`banner-card ${g.banner}`} role="dialog" aria-label="Výhra">
+            <header className="wb-title">
+              <span className="wb-ico" aria-hidden="true" />
+              <span className="wb-title-text">WinBox — New Terminal [admin@parkizmus]</span>
+              <span className="wb-winbtns" aria-hidden="true">
+                <i className="wb-min" />
+                <i className="wb-max" />
+                <i className="wb-x" />
+              </span>
+            </header>
+            <nav className="wb-menu" aria-hidden="true">
+              <span>File</span>
+              <span>New Terminal</span>
+              <span>IP</span>
+              <span>System</span>
+              <span>Help</span>
+            </nav>
+            <div className="wb-term">
+              <p className="wb-line dim">[admin@parkizmus] {'>'} /system script run win.rsc</p>
+              <p className="wb-line dim">  status: running…</p>
+              <p className="wb-kicker">{BANNER_COPY[g.banner] ?? "WIN"}</p>
+              {g.banner === "fs" ? (
+                <p className="wb-amt">free-spins: 15</p>
+              ) : (
+                <p className="wb-amt">
+                  credit-out: <CountUp value={g.bannerAmount} />
+                </p>
+              )}
+              {g.banner === "max" && <p className="wb-err">status: FEATURE TERMINATED</p>}
+              {g.banner !== "max" && g.banner !== "fs" && (
+                <p className="wb-line dim">status: ok</p>
+              )}
+              <p className="wb-line">
+                [admin@parkizmus] {'>'} <span className="wb-hint">ťukni pre pokračovanie</span>
+                <span className="wb-caret" aria-hidden="true" />
+              </p>
+            </div>
+            <footer className="wb-status">
+              <span>connected</span>
+              <span>192.168.88.1</span>
+              <span>ether1</span>
+              <span>8291</span>
+            </footer>
           </div>
         </div>
       )}
