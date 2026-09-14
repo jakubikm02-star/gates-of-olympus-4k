@@ -6,6 +6,7 @@ export interface PickTile {
   payX: number;
   title: string;
   note: string;
+  zone: string;
 }
 
 export const PICK_BAYS = 12;
@@ -21,18 +22,18 @@ export function pityGain(scatterPeak: number, dead: boolean): number {
 
 /** 3 ODŤAH among 12; pick until first tow. E[safes]=9/4=2.25, avg prize 1.333 → EV ≈ 3×. */
 const BAG: readonly Omit<PickTile, "id">[] = [
-  { kind: "listok", payX: 0.2, title: "LÍSTOK", note: "krátkodobé" },
-  { kind: "listok", payX: 0.4, title: "LÍSTOK", note: "1 hodina" },
-  { kind: "listok", payX: 0.5, title: "LÍSTOK", note: "zóna B" },
-  { kind: "listok", payX: 0.6, title: "LÍSTOK", note: "2 hodiny" },
-  { kind: "listok", payX: 0.8, title: "LÍSTOK", note: "celý deň" },
-  { kind: "listok", payX: 1, title: "LÍSTOK", note: "rezident" },
-  { kind: "pokuta", payX: 2, title: "POKUTA", note: "bez lístka" },
-  { kind: "pokuta", payX: 5, title: "POKUTA", note: "zákaz zastavenia" },
-  { kind: "zona", payX: 1.5, title: "ZÓNA", note: "modrá + príplatok" },
-  { kind: "odtah", payX: 0, title: "ODŤAH", note: "koniec kontroly" },
-  { kind: "odtah", payX: 0, title: "ODŤAH", note: "koniec kontroly" },
-  { kind: "odtah", payX: 0, title: "ODŤAH", note: "koniec kontroly" },
+  { kind: "listok", payX: 0.2, title: "LÍSTOK", note: "0:30", zone: "1020 · Nábrežie 1" },
+  { kind: "listok", payX: 0.4, title: "LÍSTOK", note: "1:00", zone: "5001 · Dvory 4" },
+  { kind: "listok", payX: 0.5, title: "LÍSTOK", note: "1:00", zone: "2010 · Staré mesto" },
+  { kind: "listok", payX: 0.6, title: "LÍSTOK", note: "2:00", zone: "3012 · Sever 2" },
+  { kind: "listok", payX: 0.8, title: "LÍSTOK", note: "celý deň", zone: "4040 · Sídlisko" },
+  { kind: "listok", payX: 1, title: "LÍSTOK", note: "rezident", zone: "1001 · Centrum" },
+  { kind: "pokuta", payX: 2, title: "POKUTA", note: "bez lístka", zone: "Zákaz zastavenia" },
+  { kind: "pokuta", payX: 5, title: "POKUTA", note: "zákaz vjazdu", zone: "Modrá zóna" },
+  { kind: "zona", payX: 1.5, title: "ZÓNA", note: "príplatok", zone: "Zóna A" },
+  { kind: "odtah", payX: 0, title: "ODŤAH", note: "koniec", zone: "Odťahová služba" },
+  { kind: "odtah", payX: 0, title: "ODŤAH", note: "koniec", zone: "Odťahová služba" },
+  { kind: "odtah", payX: 0, title: "ODŤAH", note: "koniec", zone: "Odťahová služba" },
 ];
 
 export function dealPickBoard(rng: () => number): PickTile[] {

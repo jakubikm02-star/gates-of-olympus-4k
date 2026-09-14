@@ -82,7 +82,7 @@ function CellView({
         fall && !reduced && !spinning
           ? ({
               ["--fall" as string]: String(fall),
-              animation: `cell-drop ${280 + fall * 90}ms cubic-bezier(0.22, 1.22, 0.36, 1) both`,
+              animation: `cell-drop ${240 + fall * 70}ms cubic-bezier(0.2, 0.9, 0.32, 1) both`,
             } as CSSProperties)
           : undefined
       }
