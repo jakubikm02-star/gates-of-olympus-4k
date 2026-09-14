@@ -13,10 +13,12 @@ import {
   SCATTER,
   START_BALANCE,
   payName,
+  scatterPay,
   type Cell,
 } from "@/lib/slot/symbols";
 import {
   cloneGrid,
+  countScatters,
   createRng,
   emptyGrid,
   evaluate,
@@ -287,9 +289,10 @@ export function useSlotGame() {
 
       setPhase("landing");
       let landedScatters = 0;
+      let pendingFs = false;
       for (let c = 0; c < 6; c++) {
-        const colScatter = next.some((row) => row[c].kind === "scatter");
-        if (landedScatters >= 2 && c < 6 && !abort.current.skip) {
+        const colN = next.reduce((n, row) => n + (row[c].kind === "scatter" ? 1 : 0), 0);
+        if (landedScatters >= 2 && !abort.current.skip) {
           setAnticipate(true);
           setTopLine(landedScatters >= 3 ? "EŠTE JEDEN SCATTER…" : "SCATTER…");
           sfx.startAnticipate();
@@ -298,8 +301,8 @@ export function useSlotGame() {
         setStoppedCols(c + 1);
         sfx.setSpinEnergy(1 - (c + 1) / 6);
         sfx.playLand(c);
-        if (colScatter) {
-          landedScatters += 1;
+        if (colN > 0) {
+          landedScatters += colN;
           sfx.playScatter(landedScatters);
           if (landedScatters >= 3) {
             setShake(true);
@@ -332,17 +335,55 @@ export function useSlotGame() {
 
       const fillAnte = opts?.buy || opts?.free ? false : anteRef.current;
       let sequenceX = 0;
-      let pendingFs = false;
+      let scatterPeak = countScatters(next);
+      let scatterPayLocked = 0;
+      let retriggered = false;
+      let fsAnnounced = false;
       let tumbleN = 0;
+      const fsNow = isFree || inFsRef.current;
+      if (!fsNow && scatterPeak >= FS_TRIGGER_SCATTERS) pendingFs = true;
       const DEAD = ["RAMPA STOJÍ", "VALCE SPALI", "NIČ. ZNOVA.", "POKUTA BEZ LÍSTKA", "ZÓNA TICHÁ"];
 
       for (;;) {
         setPhase("eval");
         const ev = evaluate(board);
-        if (ev.winX <= 0) break;
+        scatterPeak = Math.max(scatterPeak, ev.scatterCount);
+
+        if (ev.scatterCount > landedScatters) {
+          sfx.playScatter(ev.scatterCount);
+          landedScatters = ev.scatterCount;
+          if (ev.scatterCount >= 3) {
+            setShake(true);
+            window.setTimeout(() => setShake(false), 320);
+          }
+        }
+
+        if (!fsNow && scatterPeak >= FS_TRIGGER_SCATTERS) {
+          pendingFs = true;
+          setTopLine(`${scatterPeak}× SCATTER — FREE SPINS`);
+        } else if (fsNow && scatterPeak >= FS_RETRIGGER_SCATTERS && !retriggered) {
+          retriggered = true;
+          extraFsRef.current = FS_RETRIGGER;
+          sfx.playThunder();
+          setShake(true);
+          window.setTimeout(() => setShake(false), 520);
+          setTopLine(`+${FS_RETRIGGER} FREE SPINS`);
+        }
+
+        const sPay = scatterPay(ev.scatterCount);
+        const clusterX = ev.winX - sPay;
+        const scatterDelta = Math.max(0, sPay - scatterPayLocked);
+        scatterPayLocked = Math.max(scatterPayLocked, sPay);
+        const winX = clusterX + scatterDelta;
+        if (winX <= 0) break;
+
+        const tumbleMask = ev.winMask.map((row, r) =>
+          row.map((v, c) => (board[r][c].kind === "scatter" ? false : v)),
+        );
+        const willPop = tumbleMask.some((row) => row.some(Boolean));
 
         setWinMask(ev.winMask);
-        sequenceX += ev.winX;
+        sequenceX += winX;
         const cashNow = +(sequenceX * currentBet).toFixed(2);
         setSpinWin(cashNow);
         setDisplayWin(cashNow);
@@ -368,21 +409,16 @@ export function useSlotGame() {
             y: ((avgR + 0.5) / 5) * 100,
             amount: top.amount,
           });
-          setTopLine("VÝHRA Z FUNKCIE TUMBLE");
+          if (pendingFs) setTopLine(`${scatterPeak}× SCATTER — FREE SPINS`);
+          else setTopLine("VÝHRA Z FUNKCIE TUMBLE");
           setMessage(`${main.count}× ${payName(main.payId)} vypláca ${top.amount}`);
         }
 
-        const fsNow = isFree || inFsRef.current;
-        if (!fsNow && ev.scatterCount >= FS_TRIGGER_SCATTERS) {
+        if (pendingFs && !fsNow && !fsAnnounced) {
+          fsAnnounced = true;
           sfx.playThunder();
           setShake(true);
           window.setTimeout(() => setShake(false), 520);
-          pendingFs = true;
-        } else if (fsNow && ev.scatterCount >= FS_RETRIGGER_SCATTERS) {
-          sfx.playThunder();
-          setShake(true);
-          window.setTimeout(() => setShake(false), 520);
-          extraFsRef.current += FS_RETRIGGER;
         } else {
           sfx.playWin("spark");
         }
@@ -390,11 +426,17 @@ export function useSlotGame() {
         await wait(dur(80), abort.current);
         await wait(dur(780), abort.current);
 
+        if (!willPop) {
+          setClusterPay(null);
+          break;
+        }
+
         setPhase("pop");
+        setWinMask(tumbleMask);
         setClusterPay(null);
         sfx.playPop();
         await wait(dur(240), abort.current);
-        board = tumble(board, ev.winMask, rng, fillAnte);
+        board = tumble(board, tumbleMask, rng, fillAnte);
         const more = zeusDropCount(rng, isFree || inFsRef.current, true);
         if (more > 0) {
           setThrowBolt(true);
@@ -416,12 +458,18 @@ export function useSlotGame() {
         await wait(dur(40), abort.current);
       }
 
+      if (!fsNow && scatterPeak >= FS_TRIGGER_SCATTERS) pendingFs = true;
+      if (fsNow && scatterPeak >= FS_RETRIGGER_SCATTERS && !retriggered) {
+        retriggered = true;
+        extraFsRef.current = FS_RETRIGGER;
+      }
+
       const miss = evaluate(board);
       if (sequenceX <= 0 && miss.nearMiss) {
         setTopLine(`${miss.nearMiss.count}/8 ${payName(miss.nearMiss.payId)}`);
         setMessage("SKORO");
         await wait(dur(180), abort.current);
-      } else if (sequenceX <= 0 && landedScatters === 3) {
+      } else if (sequenceX <= 0 && scatterPeak === 3 && !pendingFs) {
         setTopLine("EŠTE JEDEN SCATTER");
         setShake(true);
         window.setTimeout(() => setShake(false), 400);

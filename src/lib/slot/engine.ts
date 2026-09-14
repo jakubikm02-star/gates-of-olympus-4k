@@ -276,6 +276,12 @@ export function cloneGrid(grid: Cell[][]): Cell[][] {
   return grid.map((row) => row.map((c) => ({ ...c })));
 }
 
+export function countScatters(grid: Cell[][]): number {
+  let n = 0;
+  for (const row of grid) for (const cell of row) if (cell.kind === "scatter") n += 1;
+  return n;
+}
+
 export interface PaidSpin {
   sequenceX: number;
   orbSum: number;
@@ -302,17 +308,27 @@ export function resolvePaidSpin(
 
   let sequenceX = 0;
   let scatterPeak = 0;
+  let scatterPayLocked = 0;
   let tumbles = 0;
   let nearMiss: NearMiss | null = null;
   for (;;) {
     const ev = evaluate(board);
     scatterPeak = Math.max(scatterPeak, ev.scatterCount);
-    if (ev.winX <= 0) {
+    const sPay = scatterPay(ev.scatterCount);
+    const clusterX = ev.winX - sPay;
+    const scatterDelta = Math.max(0, sPay - scatterPayLocked);
+    scatterPayLocked = Math.max(scatterPayLocked, sPay);
+    const winX = clusterX + scatterDelta;
+    if (winX <= 0) {
       nearMiss = ev.nearMiss;
       break;
     }
-    sequenceX += ev.winX;
-    board = tumble(board, ev.winMask, rng, ante);
+    sequenceX += winX;
+    const mask = ev.winMask.map((row, r) =>
+      row.map((v, c) => (board[r][c].kind === "scatter" ? false : v)),
+    );
+    if (!mask.some((row) => row.some(Boolean))) break;
+    board = tumble(board, mask, rng, ante);
     const n = zeusDropCount(rng, !!opts.free, true);
     if (n) board = zeusDrop(board, rng, n, !!opts.free).grid;
     tumbles += 1;

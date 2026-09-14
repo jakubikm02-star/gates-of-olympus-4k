@@ -75,6 +75,10 @@ export function Paytable({ open, onClose, bet }: Props) {
         </div>
         <ul className="rules">
           <li>8 a viac rovnakých symbolov kdekoľvek. Žiadne línie. 7/8 je near-miss, nie výhra.</li>
+          <li>
+            4 a viac scatterov kdekoľvek na obrazovke — aj počas tumble — spustí 15 free spins.
+            Scatter ostane na poli, kým bonus nezačne.
+          </li>
           <li>Výherné symboly zmiznú, nové spadnú zhora (tumble). Plechovky a scatter tumble prežijú.</li>
           <li>Násobiče nepadajú z valca ako RJ45. Rampa ich pustí ako energy plechovky. Aktivujú sa až na konci reťaze, a len ak bola výhra.</li>
           <li>Base: súčet plechoviek × celá tumble sekvencia. Vo FS tečú do globálneho metra; bez výhry prepadnú.</li>
