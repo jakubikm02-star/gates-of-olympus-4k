@@ -41,7 +41,8 @@ export function RankPanel({ open, onClose, stand, peak, shield }: Props) {
           </button>
         </header>
         <p className="modal-lead">
-          Body za výhru: násobič + suma. Mŕtvy spin berie entry. Štít drží rank raz.
+          Body za výhru rastú logaritmicky (100× ≈ pol divízie). Mŕtvy spin berie malé entry.
+          Po postupe je buffer + štít raz podrží rank.
         </p>
 
         <div

@@ -1,5 +1,7 @@
 export const DIV_RP = 100;
 export const MASTER_RP = 300;
+export const PROMO_BUFFER = 40;
+export const WIN_RP_CAP = 90;
 
 export interface RankDef {
   id: string;
@@ -14,13 +16,13 @@ export interface RankDef {
 /** Apex-style ladder named after 4ka services / products. */
 export const RANKS: RankDef[] = [
   { id: "kredit", name: "KREDIT", product: "Dobitie", divisions: 4, entry: 0, color: "#8d939b", ink: "#e8eaee" },
-  { id: "sloboda", name: "SLOBODA", product: "Paušál 200 / 400", divisions: 4, entry: 8, color: "#c47a3a", ink: "#ffe1c0" },
-  { id: "smart", name: "SMART", product: "SMART paušál", divisions: 4, entry: 12, color: "#b7c2ce", ink: "#f4f7fb" },
-  { id: "telka", name: "4KA TV", product: "Telka cez anténu", divisions: 4, entry: 16, color: "#e2b01a", ink: "#fff4c4" },
-  { id: "optika", name: "OPTIKA", product: "Internet XL", divisions: 4, entry: 22, color: "#3ec6e0", ink: "#d9f7ff" },
-  { id: "duo", name: "DUO", product: "Internet + TV", divisions: 4, entry: 28, color: "#6ea8ff", ink: "#e7f0ff" },
-  { id: "fiveg", name: "5G NA DOMA", product: "5G na doma", divisions: 1, entry: 36, color: "#c86bff", ink: "#f6e5ff" },
-  { id: "nekonecno", name: "NEKONEČNO", product: "SLOBODA NEKONEČNO", divisions: 1, entry: 48, color: "#ff3b4e", ink: "#ffe3b0" },
+  { id: "sloboda", name: "SLOBODA", product: "Paušál 200 / 400", divisions: 4, entry: 3, color: "#c47a3a", ink: "#ffe1c0" },
+  { id: "smart", name: "SMART", product: "SMART paušál", divisions: 4, entry: 4, color: "#b7c2ce", ink: "#f4f7fb" },
+  { id: "telka", name: "4KA TV", product: "Telka cez anténu", divisions: 4, entry: 5, color: "#e2b01a", ink: "#fff4c4" },
+  { id: "optika", name: "OPTIKA", product: "Internet XL", divisions: 4, entry: 6, color: "#3ec6e0", ink: "#d9f7ff" },
+  { id: "duo", name: "DUO", product: "Internet + TV", divisions: 4, entry: 7, color: "#6ea8ff", ink: "#e7f0ff" },
+  { id: "fiveg", name: "5G NA DOMA", product: "5G na doma", divisions: 1, entry: 8, color: "#c86bff", ink: "#f6e5ff" },
+  { id: "nekonecno", name: "NEKONEČNO", product: "SLOBODA NEKONEČNO", divisions: 1, entry: 10, color: "#ff3b4e", ink: "#ffe3b0" },
 ];
 
 const ROMAN = ["", "I", "II", "III", "IV"] as const;
@@ -107,13 +109,13 @@ export function rankStart(rankIndex: number): number {
   return b?.floor ?? 0;
 }
 
-/** Win RP from multiplier value + win amount (in bet multiples). */
+/** Win RP: log scale so 100× is ~½ division, not a full rank skip. */
 export function rpFromWin(win: number, bet: number, seqMult: number): number {
   if (win <= 0 || bet <= 0) return 0;
   const wx = win / bet;
-  const fromSum = wx * 2.6;
-  const fromMult = Math.max(1, seqMult) * 4;
-  return Math.max(1, Math.round(Math.min(380, fromSum + fromMult)));
+  const fromSum = 8 * Math.log2(1 + wx);
+  const fromMult = 1.5 * Math.log2(1 + Math.max(1, seqMult));
+  return Math.max(1, Math.round(Math.min(WIN_RP_CAP, fromSum + fromMult)));
 }
 
 export interface RankSave {
@@ -162,7 +164,14 @@ export function applyRankDelta(save: RankSave, delta: number): {
       same && before.division > 0 && afterTry.division > 0 && afterTry.division > before.division;
     if (afterTry.rankIndex > before.rankIndex || climbedDiv) {
       event = "up";
-      if (afterTry.rankIndex > before.rankIndex) shield = true;
+      if (afterTry.rankIndex > before.rankIndex) {
+        shield = true;
+        const floor = rankStart(afterTry.rankIndex);
+        if (nextRp < floor + PROMO_BUFFER) {
+          nextRp = floor + PROMO_BUFFER;
+          applied = nextRp - save.rp;
+        }
+      }
     } else if (afterTry.rankIndex < before.rankIndex || droppedDiv) {
       event = "down";
     }

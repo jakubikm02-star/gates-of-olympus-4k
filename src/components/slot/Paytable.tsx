@@ -90,7 +90,8 @@ export function Paytable({ open, onClose, bet }: Props) {
           </li>
           <li>
             Ranked liga 4ky: KREDIT → SLOBODA → SMART → 4KA TV → OPTIKA → DUO → 5G NA DOMA → NEKONEČNO.
-            RP rastie z násobiča aj zo sumy výhry. Mŕtvy spin berie entry. Štít raz podrží rank.
+            RP z výhry ide logaritmicky (100× ťa nevyhodí o celý rank). Mŕtvy spin berie nízke entry.
+            Po postupe je buffer 40 RP a štít raz podrží rank.
           </li>
           <li>
             Win popup ako na Olympuse: BIG WIN od 20× stávky, MEGA WIN od 35×, SUPER MEGA WIN od 50×.
