@@ -9,6 +9,7 @@ import { CountUp } from "./CountUp";
 import { RankBadge } from "./RankBadge";
 import { RankPanel } from "./RankPanel";
 import { RankToast } from "./RankToast";
+import { UserButton } from "@/lib/auth/gates";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
 
@@ -22,8 +23,8 @@ const BANNER_COPY: Record<string, string> = {
   win: "WIN",
 };
 
-export function SlotGame() {
-  const g = useSlotGame();
+export function SlotGame({ userId }: { userId: string }) {
+  const g = useSlotGame(userId);
   const spinning = g.phase === "spinning" || g.phase === "landing";
   const winLinePrefix =
     g.displayWin > 0
@@ -54,14 +55,14 @@ export function SlotGame() {
             <p className="boot-max">WIN UP TO 5000× BET</p>
             <p className="boot-copy">
               6×5 pole v nočnej garáži. Rampa púšťa násobiče, platené parkovné, pokuta za mŕtvy spin.
-              Demo v prehliadači — žiadne vklady.
+              Kredit, pity a liga sú viazané na tvoj účet.
             </p>
             <div className="boot-rank">
               <span className="boot-rank-kicker">LIGA 4KY</span>
               <RankBadge stand={g.rank} onOpen={() => g.setRankOpen(true)} />
             </div>
-            <button type="button" className="cta" onClick={g.start}>
-              HRAŤ
+            <button type="button" className="cta" onClick={g.start} disabled={!g.saveReady}>
+              {g.saveReady ? "HRAŤ" : "NAČÍTAVAM…"}
             </button>
           </div>
         </div>
@@ -75,7 +76,11 @@ export function SlotGame() {
             <span className="logo-main">PARKIZMUS</span>
             <span className="logo-sub">ZÓNA · LÍSTOK · RAMPA · POKUTA</span>
           </div>
-          <span className="head-spacer" aria-hidden="true" />
+          <span className="head-spacer">
+            <div className="account-chip">
+              <UserButton />
+            </div>
+          </span>
         </div>
 
         <div className="arena">

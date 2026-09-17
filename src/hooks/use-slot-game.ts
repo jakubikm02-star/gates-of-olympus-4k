@@ -36,8 +36,8 @@ import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, spendPity, type
 import { applyRankDelta, rpFromWin, standing, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
-
-const SAVE_KEY = "olympus4k-v1";
+import { cacheKey, emptyPlayerSave, pickNewerSave, sanitizePlayerSave, type PlayerSave } from "@/lib/slot/player-save";
+import { loadPlayerSave, savePlayerSave } from "@/lib/slot/save-fn";
 
 type Phase =
   | "boot"
@@ -63,34 +63,24 @@ export interface BannerMeta {
   terminated: boolean;
 }
 
-interface Save {
-  balance: number;
-  betIndex: number;
-  muted: boolean;
-  turbo: boolean;
-  quick: boolean;
-  ante: boolean;
-  bestWin: number;
-  pity: number;
-  pityByBet: PityMap;
-  rp: number;
-  rankPeak: number;
-  rankShield: boolean;
-}
-
-function loadSave(): Partial<Save> {
+function readLocal(userId: string): PlayerSave | null {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return {};
-    return JSON.parse(raw) as Save;
+    const raw = localStorage.getItem(cacheKey(userId));
+    if (raw) return sanitizePlayerSave(JSON.parse(raw));
+    const legacy = localStorage.getItem("olympus4k-v1");
+    if (!legacy) return null;
+    const s = sanitizePlayerSave(JSON.parse(legacy));
+    writeLocal(userId, s);
+    localStorage.removeItem("olympus4k-v1");
+    return s;
   } catch {
-    return {};
+    return null;
   }
 }
 
-function persist(s: Save): void {
+function writeLocal(userId: string, s: PlayerSave): void {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(s));
+    localStorage.setItem(cacheKey(userId), JSON.stringify(s));
   } catch {
     /* ignore quota */
   }
@@ -100,7 +90,7 @@ function hasOrb(board: Cell[][]): boolean {
   return board.some((row) => row.some((c) => c.kind === "mult"));
 }
 
-export function useSlotGame() {
+export function useSlotGame(userId: string) {
   const [started, setStarted] = useState(false);
   const [balance, setBalance] = useState(START_BALANCE);
   const [betIndex, setBetIndex] = useState(4);
@@ -138,6 +128,7 @@ export function useSlotGame() {
   const [rankDelta, setRankDelta] = useState(0);
   const [rankFlash, setRankFlash] = useState<RankFlash | null>(null);
   const [rankOpen, setRankOpen] = useState(false);
+  const [saveReady, setSaveReady] = useState(false);
   const [autoLeft, setAutoLeft] = useState(0);
   const [autoOn, setAutoOn] = useState(false);
   const [autoReason, setAutoReason] = useState<string | null>(null);
@@ -200,51 +191,73 @@ export function useSlotGame() {
   const stake = ante ? +(bet * ANTE_COST).toFixed(2) : bet;
   const pity = readPity(pityByBet, bet);
 
+  const saveSnapRef = useRef<PlayerSave>(emptyPlayerSave());
   const readySave = useRef(false);
 
-  useEffect(() => {
-    const s = loadSave();
-    if (typeof s.balance === "number") setBalance(s.balance);
-    if (typeof s.betIndex === "number") {
-      setBetIndex(Math.min(BETS.length - 1, Math.max(0, s.betIndex)));
-    }
-    if (typeof s.muted === "boolean") setMuted(s.muted);
-    if (typeof s.turbo === "boolean") setTurbo(s.turbo);
-    if (typeof s.quick === "boolean") setQuick(s.quick);
-    if (typeof s.ante === "boolean") setAnte(s.ante);
-    if (typeof s.bestWin === "number") setBestWin(s.bestWin);
-    const idx =
-      typeof s.betIndex === "number" ? Math.min(BETS.length - 1, Math.max(0, s.betIndex)) : 4;
-    let map: PityMap = {};
-    if (s.pityByBet && typeof s.pityByBet === "object") {
-      for (const [k, v] of Object.entries(s.pityByBet)) {
-        if (typeof v === "number" && Number.isFinite(v)) map[k] = Math.max(0, Math.floor(v));
-      }
-    } else if (typeof s.pity === "number") {
-      map[String(BETS[idx])] = Math.max(0, Math.min(PITY_GOAL, Math.floor(s.pity)));
-    }
-    pityByBetRef.current = map;
-    setPityByBet(map);
-    if (typeof s.rp === "number") {
-      const n = Math.max(0, Math.floor(s.rp));
-      setRp(n);
-      rankRef.current.rp = n;
-    }
-    if (typeof s.rankPeak === "number") {
-      const n = Math.max(0, Math.floor(s.rankPeak));
-      setRankPeak(n);
-      rankRef.current.peak = n;
-    }
-    if (typeof s.rankShield === "boolean") {
-      setRankShield(s.rankShield);
-      rankRef.current.shield = s.rankShield;
-    }
-    readySave.current = true;
+  const applySave = useCallback((s: PlayerSave) => {
+    setBalance(s.balance);
+    setBetIndex(s.betIndex);
+    setMuted(s.muted);
+    setTurbo(s.turbo);
+    setQuick(s.quick);
+    setAnte(s.ante);
+    setBestWin(s.bestWin);
+    pityByBetRef.current = s.pityByBet;
+    setPityByBet(s.pityByBet);
+    setRp(s.rp);
+    setRankPeak(s.rankPeak);
+    setRankShield(s.rankShield);
+    rankRef.current = { rp: s.rp, peak: s.rankPeak, shield: s.rankShield };
+    saveSnapRef.current = s;
   }, []);
+
+  const flushSave = useCallback(
+    (payload?: PlayerSave) => {
+      if (!readySave.current) return;
+      const next = payload ?? { ...saveSnapRef.current, updatedAt: Date.now() };
+      saveSnapRef.current = next;
+      writeLocal(userId, next);
+      void savePlayerSave({ data: next }).catch(() => undefined);
+    },
+    [userId],
+  );
+
+  useEffect(() => {
+    readySave.current = false;
+    setSaveReady(false);
+    const blank = emptyPlayerSave();
+    applySave(blank);
+    const cached = readLocal(userId);
+    if (cached) applySave(cached);
+    let cancelled = false;
+    void loadPlayerSave()
+      .then((row) => {
+        if (cancelled) return;
+        const next = pickNewerSave(row, cached) ?? blank;
+        applySave(next);
+        readySave.current = true;
+        setSaveReady(true);
+        writeLocal(userId, { ...next, updatedAt: next.updatedAt || Date.now() });
+        if (!row || (cached && cached.updatedAt > row.updatedAt)) {
+          void savePlayerSave({ data: next }).catch(() => undefined);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        readySave.current = true;
+        setSaveReady(true);
+        const fallback = cached ?? blank;
+        writeLocal(userId, fallback);
+        void savePlayerSave({ data: fallback }).catch(() => undefined);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, applySave]);
 
   useEffect(() => {
     if (!readySave.current) return;
-    persist({
+    const payload: PlayerSave = {
       balance,
       betIndex,
       muted,
@@ -252,13 +265,32 @@ export function useSlotGame() {
       quick,
       ante,
       bestWin,
-      pity,
       pityByBet,
       rp,
       rankPeak,
       rankShield,
-    });
-  }, [balance, betIndex, muted, turbo, quick, ante, bestWin, pity, pityByBet, rp, rankPeak, rankShield]);
+      updatedAt: Date.now(),
+    };
+    saveSnapRef.current = payload;
+    writeLocal(userId, payload);
+    const t = window.setTimeout(() => {
+      void savePlayerSave({ data: payload }).catch(() => undefined);
+    }, 480);
+    return () => window.clearTimeout(t);
+  }, [userId, balance, betIndex, muted, turbo, quick, ante, bestWin, pityByBet, rp, rankPeak, rankShield]);
+
+  useEffect(() => {
+    const onHide = () => flushSave();
+    const onVis = () => {
+      if (document.visibilityState === "hidden") flushSave();
+    };
+    window.addEventListener("pagehide", onHide);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [flushSave]);
 
   useEffect(() => {
     if (!rankFlash) return;
@@ -1033,6 +1065,7 @@ export function useSlotGame() {
   return {
     started,
     start,
+    saveReady,
     balance,
     bet,
     stake,
