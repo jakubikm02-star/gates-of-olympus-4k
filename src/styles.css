@@ -3376,65 +3376,96 @@ html:-webkit-full-screen {
 }
 
 .stage.is-ls .table {
-  display: grid;
-  grid-template-columns: minmax(108px, 0.85fr) minmax(0, 1fr) minmax(118px, 0.95fr);
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    "head head head"
-    "left board right"
-    "hud hud hud";
+  display: flex;
+  flex-direction: column;
   max-width: none;
   width: 100%;
   height: 100%;
   max-height: 100%;
   min-height: 0;
-  padding: 4px 12px 6px;
-  gap: 4px 10px;
+  padding: 0;
+  gap: 0;
   overflow: hidden;
+  position: relative;
 }
 
 .stage.is-ls .table-head {
-  grid-area: head;
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  right: 10px;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.stage.is-ls .table-head > * {
+  pointer-events: auto;
 }
 
 .stage.is-ls .arena {
-  display: contents;
-}
-
-.stage.is-ls .side-left {
-  grid-area: left;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  padding-top: 0;
-  gap: 8px;
-  min-width: 0;
-}
-
-.stage.is-ls .board-wrap {
-  grid-area: board;
-  margin-top: 0;
+  display: block;
+  position: relative;
+  flex: 1 1 auto;
   min-height: 0;
-  height: auto;
-  align-self: stretch;
-}
-
-.stage.is-ls .ramp-col {
-  grid-area: right;
-  display: flex !important;
-  pointer-events: none;
-  align-items: flex-end;
-  justify-content: center;
-  min-width: 0;
-  height: auto;
+  width: 100%;
+  margin: 0;
   overflow: hidden;
 }
 
-.stage.is-ls .bottom-hud {
-  grid-area: hud;
-  display: grid;
-  grid-template-columns: 1fr minmax(160px, 1.3fr) 1fr;
+.stage.is-ls .board-wrap {
+  position: absolute;
+  inset: 8px 0 4px;
+  margin: 0;
+  min-height: 0;
+  height: auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+}
+
+.stage.is-ls .side-left {
+  position: absolute;
+  left: 10px;
+  top: 52px;
+  width: min(168px, 18vw);
+  z-index: 5;
+  flex-direction: column;
   flex-wrap: nowrap;
-  padding: 2px 0 0;
+  padding: 0;
+  gap: 8px;
+  min-width: 0;
+  pointer-events: auto;
+}
+
+.stage.is-ls .ramp-col {
+  position: absolute;
+  right: 0;
+  top: 36px;
+  bottom: 4px;
+  width: min(300px, 28vw);
+  z-index: 2;
+  display: flex !important;
+  pointer-events: none;
+  align-items: flex-end;
+  justify-content: flex-end;
+  min-width: 0;
+  height: auto;
+  overflow: visible;
+}
+
+.stage.is-ls .bottom-hud {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 6px;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: 1fr minmax(180px, 1.2fr) 1fr;
+  flex-wrap: nowrap;
+  padding: 0;
   background: none;
 }
 
@@ -3446,12 +3477,29 @@ html:-webkit-full-screen {
 .stage.is-ls .win-stack {
   width: auto;
   order: 0;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+}
+
+.stage.is-ls .win-line {
+  font-size: clamp(1.05rem, 3.2vh, 1.7rem);
+  height: auto;
 }
 
 .stage.is-ls .parchment {
   flex: 0 0 auto;
   min-width: 0;
   width: 100%;
+  padding: 8px 10px 7px;
+}
+
+.stage.is-ls .parchment em {
+  font-size: 0.52rem;
+}
+
+.stage.is-ls .parchment strong {
+  font-size: 0.95rem;
 }
 
 .stage.is-ls .ls-spin {
@@ -3460,9 +3508,9 @@ html:-webkit-full-screen {
   align-items: center;
   gap: 4px;
   position: absolute;
-  right: 4%;
-  bottom: 4%;
-  z-index: 4;
+  right: 6%;
+  bottom: 12%;
+  z-index: 6;
   pointer-events: auto;
 }
 
@@ -3480,14 +3528,14 @@ html:-webkit-full-screen {
 }
 
 .stage.is-ls .ls-hold {
-  width: 72px;
-  height: 72px;
-  border-width: 5px;
+  width: 96px;
+  height: 96px;
+  border-width: 7px;
 }
 
 .stage.is-ls .ls-hold svg {
-  width: 28px;
-  height: 28px;
+  width: 38px;
+  height: 38px;
 }
 
 .stage.is-ls .spin-btn.is-turbo {
@@ -3498,74 +3546,71 @@ html:-webkit-full-screen {
 }
 
 .stage.is-ls .hud-spin {
-  width: 52px;
-  height: 52px;
-  border-width: 4px;
+  display: none;
 }
 
-.stage.is-ls .hud-spin svg {
-  width: 22px;
-  height: 22px;
+.stage.is-ls .pity-bar,
+.stage.is-ls .top-ticker,
+.stage.is-ls .fs-hero {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  width: min(560px, 62%);
+  margin: 0;
 }
 
 .stage.is-ls .pity-bar {
-  height: 1.55rem;
-  margin-bottom: 3px;
-  width: 100%;
+  top: 0;
+  height: 1.4rem;
 }
 
 .stage.is-ls .top-ticker {
-  height: 1.7rem;
-  min-height: 1.7rem;
-  max-height: 1.7rem;
-  margin-bottom: 3px;
-  max-width: 100%;
-  width: 100%;
+  top: 1.5rem;
+  height: 1.5rem;
+  min-height: 1.5rem;
+  max-height: 1.5rem;
 }
 
 .stage.is-ls .fs-hero {
-  height: 2rem;
-  margin-bottom: 3px;
+  top: 0;
+  height: 1.7rem;
+  width: min(600px, 68%);
 }
 
 .stage.is-ls .board-stage {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-height: 0;
-  height: 0;
+  width: 100%;
+  height: 100%;
+  padding: 3.1rem 0 50px;
+  box-sizing: border-box;
 }
 
 .stage.is-ls .board-stage-inner {
-  --bz: 8px;
+  --bz: 10px;
 }
 
 .stage.is-ls .ramp {
   max-width: none;
-  width: 118%;
+  width: 140%;
   max-height: 100%;
-  margin-left: -8%;
+  margin-left: 0;
+  object-position: right bottom;
 }
 
 .stage.is-ls .led-sign {
-  top: 6px;
+  top: 8px;
+  right: 14%;
+  left: auto;
+  transform: none;
   font-size: 0.58rem;
   padding: 2px 8px;
 }
 
+.stage.is-ls .ls-exit,
 .stage.is-theater .ls-exit {
-  display: inline-flex;
-  position: absolute;
-  right: 10px;
-  bottom: 6px;
-  z-index: 70;
-  min-height: 28px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  border: 1px solid rgb(255 255 255 / 0.28);
-  background: rgb(8 10 14 / 0.78);
-  color: #e8eef4;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  display: none;
 }
 
 .ls-turn {
@@ -3612,20 +3657,27 @@ html:-webkit-full-screen {
 
 @media (max-height: 400px) {
   .stage.is-ls .ls-hold {
-    width: 58px;
-    height: 58px;
-    border-width: 4px;
+    width: 76px;
+    height: 76px;
+    border-width: 5px;
+  }
+  .stage.is-ls .ls-hold svg {
+    width: 30px;
+    height: 30px;
   }
   .stage.is-ls .credit-stack {
     font-size: 0.68rem;
     padding: 4px 8px;
   }
   .stage.is-ls .round-btn {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
   }
-  .stage.is-ls .table {
-    padding: 2px 8px 4px;
-    gap: 2px 8px;
+  .stage.is-ls .board-stage {
+    padding: 2.85rem 0 42px;
+  }
+  .stage.is-ls .side-left {
+    width: min(148px, 20vw);
+    top: 44px;
   }
 }
