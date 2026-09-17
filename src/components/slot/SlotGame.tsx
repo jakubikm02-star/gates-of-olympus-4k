@@ -58,7 +58,7 @@ export function SlotGame() {
             </p>
             <div className="boot-rank">
               <span className="boot-rank-kicker">LIGA 4KY</span>
-              <RankBadge stand={g.rank} onOpen={() => g.setRankOpen(true)} />
+              <RankBadge stand={g.rank} streak={g.winStreak} parts={g.rankParts} onOpen={() => g.setRankOpen(true)} />
             </div>
             <button type="button" className="cta" onClick={g.start}>
               HRAŤ
@@ -69,7 +69,13 @@ export function SlotGame() {
 
       <div className="table">
         <div className="table-head">
-          <RankBadge stand={g.rank} delta={g.rankDelta} onOpen={() => g.setRankOpen(true)} />
+          <RankBadge
+            stand={g.rank}
+            delta={g.rankDelta}
+            streak={g.winStreak}
+            parts={g.rankParts}
+            onOpen={() => g.setRankOpen(true)}
+          />
           <div className="logo-plate compact">
             <span className="logo-kicker">PORTS of</span>
             <span className="logo-main">PARKIZMUS</span>
@@ -161,8 +167,8 @@ export function SlotGame() {
                 <>
                   TUMBLE
                   <strong>
-                    <CountUp value={g.spinWin} />
-                    {g.seqMult > 1 ? ` ×${g.seqMult}` : ""}
+                    <CountUp value={g.seqMult > 1 && g.baseWin > 0 ? g.baseWin : g.spinWin} />
+                    {g.seqMult > 1 ? <em className="ticker-x"> ×{g.seqMult}</em> : null}
                   </strong>
                 </>
               ) : (
@@ -445,6 +451,7 @@ export function SlotGame() {
         stand={g.rank}
         peak={g.rankPeak}
         shield={g.rankShield}
+        streak={g.winStreak}
       />
       <RankToast flash={g.rankFlash} onDone={g.clearRankFlash} />
     </div>

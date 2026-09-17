@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { RankMark } from "./RankBadge";
-import { BANDS, NEKONECNO_FLOOR, RANKS, type Standing } from "@/lib/slot/ranks";
+import { BANDS, NEKONECNO_FLOOR, RANK_REWARDS, RANKS, type Standing } from "@/lib/slot/ranks";
 
 const ROMAN = ["", "I", "II", "III", "IV"];
 
@@ -10,9 +10,10 @@ interface Props {
   stand: Standing;
   peak: number;
   shield: boolean;
+  streak?: number;
 }
 
-export function RankPanel({ open, onClose, stand, peak, shield }: Props) {
+export function RankPanel({ open, onClose, stand, peak, shield, streak = 0 }: Props) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -41,9 +42,10 @@ export function RankPanel({ open, onClose, stand, peak, shield }: Props) {
           </button>
         </header>
         <p className="modal-lead">
-          Body za výhru rastú logaritmicky (100× ≈ pol divízie). Mŕtvy spin berie malé entry.
-          Po postupe je buffer + štít raz podrží rank.
+          RP rastú zo sumy, násobiča, série, tumble a bannerov. 100× ťa nevyhodí o celý rank.
+          Mŕtvy spin berie malé entry a zhodí sériu.
         </p>
+        {streak >= 2 && <p className="rank-now-streak">Séria {streak} výhier po sebe</p>}
 
         <div
           className={`rank-hero rk-${stand.id}`}
@@ -69,6 +71,15 @@ export function RankPanel({ open, onClose, stand, peak, shield }: Props) {
             </small>
           </div>
         </div>
+
+        <ul className="rank-rewards">
+          {RANK_REWARDS.map((row) => (
+            <li key={row.id}>
+              <strong>{row.title}</strong>
+              <span>{row.detail}</span>
+            </li>
+          ))}
+        </ul>
 
         <ol className="rank-ladder">
           {RANKS.map((r, i) => {

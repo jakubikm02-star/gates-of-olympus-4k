@@ -670,6 +670,13 @@
   font-variant-numeric: tabular-nums;
 }
 
+.ticker-x {
+  font-style: normal;
+  margin-left: 0.2em;
+  color: #f0c419;
+  font-size: 0.92em;
+}
+
 .reel-frame {
   position: relative;
   padding: var(--bz, 12px);
@@ -3003,6 +3010,70 @@
   color: #ff7a7a;
 }
 
+.rank-streak {
+  flex: 0 0 auto;
+  min-width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #f0c419;
+  background: rgb(240 196 25 / 0.14);
+  border: 1px solid rgb(240 196 25 / 0.4);
+  border-radius: 999px;
+  padding: 0 5px;
+  line-height: 1;
+}
+
+.rank-rewards {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.rank-rewards li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgb(255 255 255 / 0.06);
+  background: rgb(255 255 255 / 0.03);
+}
+
+.rank-rewards strong {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  font-family: var(--font-display);
+  color: #f0c419;
+}
+
+.rank-rewards span {
+  color: #c9d3dc;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.rank-now-streak {
+  margin: -4px 0 12px;
+  color: #f0c419;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.rank-toast-bits {
+  display: block;
+  margin-top: 4px;
+  font-style: normal;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  color: #f0c419;
+}
+
 .rank-back {
   z-index: 80;
 }
@@ -3200,9 +3271,18 @@
     width: 24px;
     height: 28px;
   }
+  .rank-streak {
+    min-width: 16px;
+    height: 16px;
+    font-size: 0.5rem;
+    padding: 0 4px;
+  }
   .rank-toast {
     top: 10%;
     width: min(340px, calc(100% - 20px));
+  }
+  .rank-rewards {
+    grid-template-columns: 1fr;
   }
   .account-chip > div > span:nth-child(2) {
     display: none;

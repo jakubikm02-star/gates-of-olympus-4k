@@ -1,5 +1,5 @@
 import { RankMark } from "./RankBadge";
-import type { RankFlash } from "@/lib/slot/ranks";
+import { rankBits, type RankFlash } from "@/lib/slot/ranks";
 
 interface Props {
   flash: RankFlash | null;
@@ -15,6 +15,7 @@ export function RankToast({ flash, onDone }: Props) {
     flash.event === "shield"
       ? "Demotion hold — ďalšia prehra zhodí rank"
       : `${flash.before.name}${flash.before.roman ? ` ${flash.before.roman}` : ""}  →  ${stand.name}${stand.roman ? ` ${stand.roman}` : ""}`;
+  const bits = flash.parts ? rankBits(flash.parts) : [];
   return (
     <button
       type="button"
@@ -32,6 +33,7 @@ export function RankToast({ flash, onDone }: Props) {
           {stand.roman ? ` ${stand.roman}` : ""}
         </em>
         <small>{sub}</small>
+        {bits.length > 0 && <i className="rank-toast-bits">{bits.join(" · ")}</i>}
       </span>
     </button>
   );

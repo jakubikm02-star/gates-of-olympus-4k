@@ -110,12 +110,121 @@ export function rankStart(rankIndex: number): number {
 }
 
 /** Win RP: log scale so 100× is ~½ division, not a full rank skip. */
+export type RankBanner = "big" | "mega" | "epic" | "max" | null;
+export type RankKind = "base" | "fs" | "pick";
+
+export interface RankSpin {
+  cash: number;
+  bet: number;
+  /** Applied can / global multiplier (1 if none). */
+  mult: number;
+  tumbles: number;
+  /** Consecutive paying results after this one (1 = first win after a dead). */
+  streak: number;
+  banner: RankBanner;
+  kind: RankKind;
+  ante?: boolean;
+  scatters?: number;
+  /** FS retrigger batches (each +5 spins). */
+  retriggers?: number;
+  /** Safe KONTROLA tiles before ODŤAH. */
+  picks?: number;
+}
+
+export interface RankBreakdown {
+  total: number;
+  fromSum: number;
+  fromMult: number;
+  fromStreak: number;
+  fromTumble: number;
+  fromBanner: number;
+  fromBonus: number;
+}
+
+export const RANK_REWARDS = [
+  { id: "sum", title: "Suma výhry", detail: "Log z násobku stávky. 10× ≈ 31 RP, 100× ≈ 60 RP — nie celý rank." },
+  { id: "mult", title: "Násobič", detail: "Energy plechovky. ×2 ≈ +4, ×10 ≈ +12, ×50 ≈ +19." },
+  { id: "streak", title: "Séria výhier", detail: "2. výhra +2, 3. +5, 4. +9, 5.+ max +14. Mŕtvy spin zhodí na 0." },
+  { id: "tumble", title: "Tumble reťaz", detail: "Dva a viac pádov v jednom spine: +2 až +8 RP." },
+  { id: "banner", title: "BIG / MEGA / EPIC / MAX", detail: "Popup: +4 / +8 / +12 / +18." },
+  { id: "bonus", title: "Bonusy", detail: "FS total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2." },
+] as const;
+
+export const RANK_RULES = RANK_REWARDS.map((r) => `${r.title} — ${r.detail}`);
+
+export function bannerFromX(x: number, hitMax = false): RankBanner {
+  if (hitMax) return "max";
+  if (x >= 50) return "epic";
+  if (x >= 35) return "mega";
+  if (x >= 20) return "big";
+  return null;
+}
+
+export function rpFromSpin(s: RankSpin): RankBreakdown {
+  const empty: RankBreakdown = {
+    total: 0,
+    fromSum: 0,
+    fromMult: 0,
+    fromStreak: 0,
+    fromTumble: 0,
+    fromBanner: 0,
+    fromBonus: 0,
+  };
+  if (s.cash <= 0 || s.bet <= 0) return empty;
+
+  const wx = s.cash / s.bet;
+  const fromSum = Math.round(9 * Math.log2(1 + wx));
+  const m = Math.max(1, s.mult);
+  const fromMult = m > 1 ? Math.round(1 + 3.2 * Math.log2(m)) : 0;
+  const k = Math.max(0, s.streak - 1);
+  const fromStreak = k > 0 ? Math.min(14, Math.round(2 * k + 0.35 * k * k)) : 0;
+  const fromTumble = s.tumbles >= 2 ? Math.min(8, s.tumbles) : 0;
+  const fromBanner =
+    s.banner === "max" ? 18 : s.banner === "epic" ? 12 : s.banner === "mega" ? 8 : s.banner === "big" ? 4 : 0;
+  let fromBonus = 0;
+  if (s.kind === "fs") fromBonus += 6;
+  if (s.kind === "pick") fromBonus += 4;
+  if (s.ante && s.kind === "base") fromBonus += 1;
+  if ((s.scatters ?? 0) >= 3 && s.kind === "base") fromBonus += 2;
+  const retriggers = s.retriggers ?? 0;
+  if (retriggers > 0) fromBonus += Math.min(10, retriggers * 5);
+  const picks = s.picks ?? 0;
+  if (s.kind === "pick" && picks > 0) fromBonus += Math.min(6, picks);
+
+  const raw = fromSum + fromMult + fromStreak + fromTumble + fromBanner + fromBonus;
+  return {
+    total: Math.max(1, Math.min(WIN_RP_CAP, raw)),
+    fromSum,
+    fromMult,
+    fromStreak,
+    fromTumble,
+    fromBanner,
+    fromBonus,
+  };
+}
+
+export function rankBits(b: RankBreakdown): string[] {
+  const bits: string[] = [];
+  if (b.fromSum) bits.push(`suma +${b.fromSum}`);
+  if (b.fromMult) bits.push(`× +${b.fromMult}`);
+  if (b.fromStreak) bits.push(`séria +${b.fromStreak}`);
+  if (b.fromTumble) bits.push(`tumble +${b.fromTumble}`);
+  if (b.fromBanner) bits.push(`banner +${b.fromBanner}`);
+  if (b.fromBonus) bits.push(`bonus +${b.fromBonus}`);
+  return bits;
+}
+
+/** @deprecated use rpFromSpin — kept for a few simple call sites. */
 export function rpFromWin(win: number, bet: number, seqMult: number): number {
-  if (win <= 0 || bet <= 0) return 0;
-  const wx = win / bet;
-  const fromSum = 8 * Math.log2(1 + wx);
-  const fromMult = 1.5 * Math.log2(1 + Math.max(1, seqMult));
-  return Math.max(1, Math.round(Math.min(WIN_RP_CAP, fromSum + fromMult)));
+  return rpFromSpin({
+    cash: win,
+    bet,
+    mult: seqMult,
+    tumbles: 0,
+    streak: 1,
+    banner: null,
+    kind: "base",
+  }).total;
 }
 
 export interface RankSave {
@@ -131,6 +240,7 @@ export interface RankFlash {
   before: Standing;
   after: Standing;
   applied: number;
+  parts?: RankBreakdown;
 }
 
 export function applyRankDelta(save: RankSave, delta: number): {

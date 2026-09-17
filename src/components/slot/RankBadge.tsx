@@ -1,5 +1,5 @@
 import { Cable, Infinity, Layers, Radio, Smartphone, Sparkles, Tv, Wallet } from "lucide-react";
-import type { Standing } from "@/lib/slot/ranks";
+import { rankBits, type RankBreakdown, type Standing } from "@/lib/slot/ranks";
 
 const ICONS = {
   kredit: Wallet,
@@ -20,17 +20,21 @@ export function RankMark({ id, size = 16 }: { id: string; size?: number }) {
 interface Props {
   stand: Standing;
   delta?: number;
+  streak?: number;
+  parts?: RankBreakdown | null;
   onOpen: () => void;
 }
 
-export function RankBadge({ stand, delta = 0, onOpen }: Props) {
+export function RankBadge({ stand, delta = 0, streak = 0, parts = null, onOpen }: Props) {
   const pct = stand.need > 0 ? Math.min(100, (stand.into / stand.need) * 100) : 100;
+  const hint = parts && parts.total > 0 ? rankBits(parts).join(" · ") : undefined;
   return (
     <button
       type="button"
       className={`rank-chip rk-${stand.id}`}
       onClick={onOpen}
       aria-label={`Rank ${stand.name} ${stand.roman}`.trim()}
+      title={hint}
       style={{ ["--rk" as string]: stand.color, ["--rk-ink" as string]: stand.ink }}
     >
       <span className="rank-shield" aria-hidden="true">
@@ -45,6 +49,11 @@ export function RankBadge({ stand, delta = 0, onOpen }: Props) {
           <b style={{ width: `${pct}%` }} />
         </i>
       </span>
+      {streak >= 2 && (
+        <span className="rank-streak" aria-label={`Séria ${streak} výhier`}>
+          {streak}
+        </span>
+      )}
       {delta !== 0 && (
         <strong className={`rank-delta ${delta > 0 ? "up" : "dn"}`}>
           {delta > 0 ? `+${delta}` : delta}

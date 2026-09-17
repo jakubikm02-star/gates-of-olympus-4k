@@ -33,7 +33,7 @@ import {
   zeusDropCount,
 } from "@/lib/slot/engine";
 import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, spendPity, type PickTile, type PityMap } from "@/lib/slot/pick-bonus";
-import { applyRankDelta, rpFromWin, standing, type RankFlash } from "@/lib/slot/ranks";
+import { applyRankDelta, bannerFromX, rpFromSpin, standing, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
@@ -89,6 +89,7 @@ export function useSlotGame() {
   const [winMask, setWinMask] = useState<boolean[][] | null>(null);
   const [spinWin, setSpinWin] = useState(0);
   const [displayWin, setDisplayWin] = useState(0);
+  const [baseWin, setBaseWin] = useState(0);
   const [fsLeft, setFsLeft] = useState(0);
   const [fsTotal, setFsTotal] = useState(0);
   const [inFs, setInFs] = useState(false);
@@ -112,6 +113,8 @@ export function useSlotGame() {
   const [rankDelta, setRankDelta] = useState(0);
   const [rankFlash, setRankFlash] = useState<RankFlash | null>(null);
   const [rankOpen, setRankOpen] = useState(false);
+  const [winStreak, setWinStreak] = useState(0);
+  const [rankParts, setRankParts] = useState<RankBreakdown | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [autoLeft, setAutoLeft] = useState(0);
   const [autoOn, setAutoOn] = useState(false);
@@ -159,6 +162,7 @@ export function useSlotGame() {
   const kontrolaArmedRef = useRef(false);
   const featureXRef = useRef(0);
   const rankRef = useRef({ rp: 0, peak: 0, shield: false });
+  const streakRef = useRef(0);
 
   turboRef.current = turbo;
   quickRef.current = quick;
@@ -192,6 +196,8 @@ export function useSlotGame() {
     setRankPeak(s.rankPeak);
     setRankShield(s.rankShield);
     rankRef.current = { rp: s.rp, peak: s.rankPeak, shield: s.rankShield };
+    streakRef.current = s.winStreak;
+    setWinStreak(s.winStreak);
     saveSnapRef.current = s;
   }, []);
 
@@ -223,11 +229,12 @@ export function useSlotGame() {
       rp,
       rankPeak,
       rankShield,
+      winStreak,
       updatedAt: Date.now(),
     };
     saveSnapRef.current = payload;
     writeLocal(payload);
-  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, bestWin, pityByBet, rp, rankPeak, rankShield]);
+  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak]);
 
   useEffect(() => {
     const onHide = () => flushSave();
@@ -250,7 +257,10 @@ export function useSlotGame() {
 
   useEffect(() => {
     if (!rankDelta) return;
-    const t = window.setTimeout(() => setRankDelta(0), 1600);
+    const t = window.setTimeout(() => {
+      setRankDelta(0);
+      setRankParts(null);
+    }, 2200);
     return () => window.clearTimeout(t);
   }, [rankDelta]);
 
@@ -292,7 +302,7 @@ export function useSlotGame() {
     sfx.playWin();
   }, []);
 
-  const pushRank = useCallback((delta: number) => {
+  const pushRank = useCallback((delta: number, parts?: RankBreakdown | null) => {
     if (!delta) return;
     const res = applyRankDelta(rankRef.current, delta);
     rankRef.current = res.save;
@@ -300,18 +310,33 @@ export function useSlotGame() {
     setRankPeak(res.save.peak);
     setRankShield(res.save.shield);
     setRankDelta(res.applied);
+    setRankParts(delta > 0 && parts ? parts : null);
     if (res.event) {
       setRankFlash({
         event: res.event,
         before: res.before,
         after: res.after,
         applied: res.applied,
+        parts: parts ?? undefined,
       });
       if (res.event === "up") sfx.playFsStart();
       else if (res.event === "down") sfx.playThunder();
       else sfx.playCollect();
     }
   }, []);
+
+  const noteResult = useCallback(
+    (paid: boolean) => {
+      if (paid) {
+        streakRef.current += 1;
+      } else {
+        streakRef.current = 0;
+      }
+      setWinStreak(streakRef.current);
+      return streakRef.current;
+    },
+    [],
+  );
 
   const closeBanner = useCallback(() => {
     if (!bannerOpen.current && !bannerWait.current) return;
@@ -400,8 +425,20 @@ export function useSlotGame() {
       setBestWin((w) => Math.max(w, cash));
       setSpinTape((t) => [{ label: "KONTROLA", amount: formatMoney(cash) }, ...t].slice(0, 8));
       sfx.playPayout();
-      pushRank(rpFromWin(cash, betNow, 1));
+      const streak = noteResult(true);
+      const parts = rpFromSpin({
+        cash,
+        bet: betNow,
+        mult: 1,
+        tumbles: 0,
+        streak,
+        banner: bannerFromX(cash / betNow),
+        kind: "pick",
+        picks: pickTilesRef.current.filter((t, i) => pickRevealedRef.current[i] && t.kind !== "odtah").length,
+      });
+      pushRank(parts.total, parts);
     } else {
+      noteResult(false);
       pushRank(-standing(rankRef.current.rp).entry);
     }
     pickOpenRef.current = false;
@@ -409,7 +446,7 @@ export function useSlotGame() {
     setPhase("idle");
     setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
     setMessage(cash > 0 ? `KONTROLA ${formatMoney(cash)}` : "Odťah bez pokuty");
-  }, [waitForPick, pushRank]);
+  }, [waitForPick, pushRank, noteResult]);
 
   const runSequence = useCallback(
     async (opts?: { buy?: boolean; free?: boolean }): Promise<"fs" | "ok" | "max" | "pick"> => {
@@ -425,6 +462,7 @@ export function useSlotGame() {
 
       setWinMask(null);
       setSpinWin(0);
+      setBaseWin(0);
       setSeqMult(0);
       setClusterPay(null);
       setPayHint(null);
@@ -559,6 +597,7 @@ export function useSlotGame() {
         const cashNow = +(sequenceX * currentBet).toFixed(2);
         setSpinWin(cashNow);
         setDisplayWin(cashNow);
+        setBaseWin(cashNow);
 
         const ranked = [...ev.wins].sort((a, b) => b.payX - a.payX);
         const main = ranked[0];
@@ -720,6 +759,7 @@ export function useSlotGame() {
         const boosted = +(sequenceX * applied * currentBet).toFixed(2);
         setSpinWin(boosted);
         setDisplayWin(boosted);
+        setBaseWin(+(sequenceX * currentBet).toFixed(2));
         setTopLine(`VÝHRA Z FUNKCIE TUMBLE  ×${applied}`);
         setMessage(`Násobič ${applied}×`);
         sfx.playMult();
@@ -762,16 +802,33 @@ export function useSlotGame() {
         sfx.playPayout();
         await wait(dur(280), abort.current);
       }
-      if (!isFree) {
-        if (cash > 0) pushRank(rpFromWin(cash, currentBet, applied));
-        else pushRank(-standing(rankRef.current.rp).entry);
-      }
       const x = lastPaidXRef.current;
       let kind: WinBanner = null;
       if (hitMax) kind = "max";
       else if (x >= WIN_POP_X.epic) kind = "epic";
       else if (x >= WIN_POP_X.mega) kind = "mega";
       else if (x >= WIN_POP_X.big) kind = "big";
+
+      if (!isFree) {
+        if (cash > 0) {
+          const streak = noteResult(true);
+          const parts = rpFromSpin({
+            cash,
+            bet: currentBet,
+            mult: applied,
+            tumbles: tumbleN,
+            streak,
+            banner: bannerFromX(x, hitMax),
+            kind: "base",
+            ante: anteRef.current && !opts?.buy,
+            scatters: scatterPeak,
+          });
+          pushRank(parts.total, parts);
+        } else {
+          noteResult(false);
+          pushRank(-standing(rankRef.current.rp).entry);
+        }
+      }
 
       if (kind) {
         bannerOpen.current = true;
@@ -800,7 +857,7 @@ export function useSlotGame() {
       if (pendingPick) return "pick";
       return "ok";
     },
-    [dur, waitForBanner, pushRank],
+    [dur, waitForBanner, pushRank, noteResult],
   );
 
   const playRound = useCallback(
@@ -908,8 +965,24 @@ export function useSlotGame() {
         setMessage(fsCash > 0 ? `TOTAL WIN ${formatMoney(fsCash)}` : "Koniec voľných točení");
         if (fsCash > 0 || hitCap) sfx.playBigWin();
         else sfx.playPayout();
-        if (fsCash > 0) pushRank(rpFromWin(fsCash, betNow, Math.max(1, peakMult)));
-        else pushRank(-standing(rankRef.current.rp).entry);
+        if (fsCash > 0) {
+          const streak = noteResult(true);
+          const fx = betNow > 0 ? fsCash / betNow : 0;
+          const parts = rpFromSpin({
+            cash: fsCash,
+            bet: betNow,
+            mult: Math.max(1, peakMult),
+            tumbles: 0,
+            streak,
+            banner: bannerFromX(fx, hitCap),
+            kind: "fs",
+            retriggers: extraSpins > 0 ? Math.round(extraSpins / FS_RETRIGGER) : 0,
+          });
+          pushRank(parts.total, parts);
+        } else {
+          noteResult(false);
+          pushRank(-standing(rankRef.current.rp).entry);
+        }
         await waitForBanner();
         setBannerMeta(null);
         setPhase("idle");
@@ -932,7 +1005,7 @@ export function useSlotGame() {
       busyRef.current = false;
       setBusy(false);
     },
-    [dur, runSequence, waitForBanner, runPick, pushRank],
+    [dur, runSequence, waitForBanner, runPick, pushRank, noteResult],
   );
 
   const stopReels = useCallback(() => {
@@ -1039,6 +1112,7 @@ export function useSlotGame() {
     winMask,
     spinWin,
     displayWin,
+    baseWin,
     fsLeft,
     fsTotal,
     inFs,
@@ -1067,6 +1141,8 @@ export function useSlotGame() {
     rankFlash,
     rankOpen,
     setRankOpen,
+    winStreak,
+    rankParts,
     clearRankFlash: () => setRankFlash(null),
     autoOn,
     autoLeft,
