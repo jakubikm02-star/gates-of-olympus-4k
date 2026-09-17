@@ -1,7 +1,9 @@
-import { Volume2, VolumeX, Info, RefreshCw, Menu } from "lucide-react";
+import { useRef, type PointerEvent } from "react";
+import { Volume2, VolumeX, Info, RefreshCw, Menu, Maximize2, Minimize2, RotateCw } from "lucide-react";
 import { BUY_COST_X, START_BALANCE, BETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { useSlotGame } from "@/hooks/use-slot-game";
+import { useTheater } from "@/hooks/use-theater";
 import { SlotGrid } from "./Grid";
 import { Paytable } from "./Paytable";
 import { PickBonus } from "./PickBonus";
@@ -22,8 +24,66 @@ const BANNER_COPY: Record<string, string> = {
   win: "WIN",
 };
 
+type Game = ReturnType<typeof useSlotGame>;
+
+function HoldSpin({
+  g,
+  spinning,
+  className,
+  label,
+}: {
+  g: Game;
+  spinning: boolean;
+  className: string;
+  label?: string;
+}) {
+  const timer = useRef(0);
+  const held = useRef(false);
+
+  const down = (e: PointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    if (!g.started || g.inFs) return;
+    if (g.busy) {
+      if (spinning) g.stopReels();
+      return;
+    }
+    held.current = false;
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      held.current = true;
+      g.setTurbo(true);
+      void g.spin();
+    }, 420);
+  };
+
+  const up = () => {
+    window.clearTimeout(timer.current);
+    timer.current = 0;
+    if (!g.started || g.inFs) return;
+    if (held.current) return;
+    if (g.busy) return;
+    void g.spin();
+  };
+
+  return (
+    <button
+      type="button"
+      className={className}
+      onPointerDown={down}
+      onPointerUp={up}
+      onPointerCancel={up}
+      disabled={!g.started || g.inFs || (g.busy && !spinning)}
+      aria-label={label ?? (spinning ? "Zastaviť valce" : "Točiť")}
+    >
+      <RefreshCw size={34} strokeWidth={2.6} />
+    </button>
+  );
+}
+
 export function SlotGame() {
   const g = useSlotGame();
+  const theater = useTheater();
   const spinning = g.phase === "spinning" || g.phase === "landing";
   const winLinePrefix =
     g.displayWin > 0
@@ -36,7 +96,8 @@ export function SlotGame() {
 
   return (
     <div
-      className={`stage ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""}`}
+      ref={theater.ref}
+      className={`stage ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${theater.landscape ? "is-ls" : ""} ${theater.on ? "is-theater" : ""}`}
     >
       <div className="stage-bg" />
       <div className="stage-glow" />
@@ -76,12 +137,25 @@ export function SlotGame() {
             parts={g.rankParts}
             onOpen={() => g.setRankOpen(true)}
           />
-          <div className="logo-plate compact">
-            <span className="logo-kicker">PORTS of</span>
-            <span className="logo-main">PARKIZMUS</span>
-            <span className="logo-sub">ZÓNA · LÍSTOK · RAMPA · POKUTA</span>
+          <div className="head-center">
+            <div className="logo-plate compact">
+              <span className="logo-kicker">PORTS of</span>
+              <span className="logo-main">PARKIZMUS</span>
+              <span className="logo-sub">ZÓNA · LÍSTOK · RAMPA · POKUTA</span>
+            </div>
+            <p className="ls-max">WIN UP TO 5000× BET</p>
           </div>
-          <span className="head-spacer" aria-hidden="true" />
+          <div className="head-end">
+            <button
+              type="button"
+              className="icon-btn theater-btn"
+              onClick={theater.toggle}
+              aria-label={theater.on ? "Ukončiť celú obrazovku" : "Celá obrazovka · landscape"}
+              title={theater.on ? "Ukončiť celú obrazovku" : "Celá obrazovka"}
+            >
+              {theater.on ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
+          </div>
         </div>
 
         <div className="arena">
@@ -207,7 +281,7 @@ export function SlotGame() {
             </div>
           </section>
 
-          <aside className="ramp-col" aria-hidden="true">
+          <aside className="ramp-col" aria-hidden="false">
             <span className="led-sign">P · OPEN</span>
             <img
               src="/art/ramp.png"
@@ -215,6 +289,10 @@ export function SlotGame() {
               className={`ramp ${g.throwBolt ? "throw" : ""} ${g.anticipate ? "anti" : ""}`}
             />
             {g.throwBolt && <span className="bolt" />}
+            <div className="ls-spin">
+              <HoldSpin g={g} spinning={spinning} className={`spin-btn ls-hold ${g.busy ? "is-busy" : ""} ${spinning ? "is-stop" : ""} ${g.turbo ? "is-turbo" : ""}`} label={g.turbo ? "Turbo točenie" : "Točiť · drž pre turbo"} />
+              <span>{g.turbo ? "TURBO" : "DRŽ PRE TURBO"}</span>
+            </div>
           </aside>
         </div>
 
@@ -276,7 +354,7 @@ export function SlotGame() {
             </button>
             <button
               type="button"
-              className={`spin-btn ${g.busy ? "is-busy" : ""} ${spinning ? "is-stop" : ""}`}
+              className={`spin-btn hud-spin ${g.busy ? "is-busy" : ""} ${spinning ? "is-stop" : ""}`}
               onClick={() => void g.spin()}
               disabled={!g.started || g.inFs || (g.busy && !spinning)}
               aria-label={spinning ? "Zastaviť valce" : "Točiť"}
@@ -340,6 +418,13 @@ export function SlotGame() {
           >
             TURBO
           </button>
+          <button
+            type="button"
+            className={`chip-btn ${theater.on ? "on" : ""}`}
+            onClick={theater.toggle}
+          >
+            {theater.on ? "UKONČIŤ 16:9" : "CELOU OBRAZOVKU"}
+          </button>
           {g.autoReason && !g.autoOn && <span className="auto-stop">{g.autoReason}</span>}
           {g.balance < g.stake && (
             <button type="button" className="chip-btn gold" onClick={g.refill}>
@@ -348,6 +433,23 @@ export function SlotGame() {
           )}
         </div>
       </div>
+
+      {theater.needsRotate && (
+        <div className="ls-turn" role="dialog" aria-label="Otoč telefón">
+          <RotateCw size={42} strokeWidth={2.2} />
+          <p>Otoč telefón na šírku</p>
+          <span>16:9 landscape · celá obrazovka</span>
+          <button type="button" className="chip-btn gold" onClick={() => void theater.exit()}>
+            Ukončiť
+          </button>
+        </div>
+      )}
+
+      {theater.on && !theater.needsRotate && (
+        <button type="button" className="ls-exit" onClick={() => void theater.exit()}>
+          Ukončiť celú obrazovku
+        </button>
+      )}
 
       {g.pickOpen && (
         <PickBonus

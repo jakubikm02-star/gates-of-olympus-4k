@@ -2886,6 +2886,36 @@
   justify-self: center;
 }
 
+.head-center {
+  justify-self: center;
+  min-width: 0;
+  text-align: center;
+}
+
+.head-end {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ls-max {
+  display: none;
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  font-size: clamp(0.72rem, 2.4vh, 1.12rem);
+  color: #f0c419;
+  text-shadow: 0 2px 0 #1a1400, 0 0 12px rgb(240 196 25 / 0.35);
+  white-space: nowrap;
+}
+
+.ls-spin,
+.ls-exit {
+  display: none;
+}
+
 .head-spacer {
   display: block;
   min-width: 0;
@@ -3319,5 +3349,283 @@
   .stage.is-bolt::after {
     animation: none !important;
     filter: none;
+  }
+}
+
+html.is-theater,
+html.is-theater body,
+html:fullscreen,
+html:-webkit-full-screen {
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #0b0d10;
+}
+
+.stage.is-ls .head-center .logo-plate {
+  display: none;
+}
+
+.stage.is-ls .ls-max {
+  display: block;
+}
+
+.stage.is-ls {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+.stage.is-ls .table {
+  display: grid;
+  grid-template-columns: minmax(108px, 0.85fr) minmax(0, 1fr) minmax(118px, 0.95fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "head head head"
+    "left board right"
+    "hud hud hud";
+  max-width: none;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  padding: 4px 12px 6px;
+  gap: 4px 10px;
+  overflow: hidden;
+}
+
+.stage.is-ls .table-head {
+  grid-area: head;
+}
+
+.stage.is-ls .arena {
+  display: contents;
+}
+
+.stage.is-ls .side-left {
+  grid-area: left;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  padding-top: 0;
+  gap: 8px;
+  min-width: 0;
+}
+
+.stage.is-ls .board-wrap {
+  grid-area: board;
+  margin-top: 0;
+  min-height: 0;
+  height: auto;
+  align-self: stretch;
+}
+
+.stage.is-ls .ramp-col {
+  grid-area: right;
+  display: flex !important;
+  pointer-events: none;
+  align-items: flex-end;
+  justify-content: center;
+  min-width: 0;
+  height: auto;
+  overflow: hidden;
+}
+
+.stage.is-ls .bottom-hud {
+  grid-area: hud;
+  display: grid;
+  grid-template-columns: 1fr minmax(160px, 1.3fr) 1fr;
+  flex-wrap: nowrap;
+  padding: 2px 0 0;
+  background: none;
+}
+
+.stage.is-ls .extra-row,
+.stage.is-ls .win-log {
+  display: none;
+}
+
+.stage.is-ls .win-stack {
+  width: auto;
+  order: 0;
+}
+
+.stage.is-ls .parchment {
+  flex: 0 0 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+.stage.is-ls .ls-spin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  position: absolute;
+  right: 4%;
+  bottom: 4%;
+  z-index: 4;
+  pointer-events: auto;
+}
+
+.stage.is-ls .ls-spin span {
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  color: #fff8d0;
+  text-shadow: 0 1px 2px #000;
+  background: rgb(8 10 14 / 0.72);
+  border: 1px solid rgb(240 196 25 / 0.45);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.stage.is-ls .ls-hold {
+  width: 72px;
+  height: 72px;
+  border-width: 5px;
+}
+
+.stage.is-ls .ls-hold svg {
+  width: 28px;
+  height: 28px;
+}
+
+.stage.is-ls .spin-btn.is-turbo {
+  box-shadow:
+    0 8px 0 #5a4808,
+    0 14px 24px rgb(0 0 0 / 0.4),
+    0 0 18px rgb(62 198 224 / 0.45);
+}
+
+.stage.is-ls .hud-spin {
+  width: 52px;
+  height: 52px;
+  border-width: 4px;
+}
+
+.stage.is-ls .hud-spin svg {
+  width: 22px;
+  height: 22px;
+}
+
+.stage.is-ls .pity-bar {
+  height: 1.55rem;
+  margin-bottom: 3px;
+  width: 100%;
+}
+
+.stage.is-ls .top-ticker {
+  height: 1.7rem;
+  min-height: 1.7rem;
+  max-height: 1.7rem;
+  margin-bottom: 3px;
+  max-width: 100%;
+  width: 100%;
+}
+
+.stage.is-ls .fs-hero {
+  height: 2rem;
+  margin-bottom: 3px;
+}
+
+.stage.is-ls .board-stage {
+  flex: 1 1 0;
+  min-height: 0;
+  height: 0;
+}
+
+.stage.is-ls .board-stage-inner {
+  --bz: 8px;
+}
+
+.stage.is-ls .ramp {
+  max-width: none;
+  width: 118%;
+  max-height: 100%;
+  margin-left: -8%;
+}
+
+.stage.is-ls .led-sign {
+  top: 6px;
+  font-size: 0.58rem;
+  padding: 2px 8px;
+}
+
+.stage.is-theater .ls-exit {
+  display: inline-flex;
+  position: absolute;
+  right: 10px;
+  bottom: 6px;
+  z-index: 70;
+  min-height: 28px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.28);
+  background: rgb(8 10 14 / 0.78);
+  color: #e8eef4;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.ls-turn {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background:
+    linear-gradient(180deg, rgb(7 9 11 / 0.82), rgb(7 9 11 / 0.92)),
+    url("/art/parking-bg.jpg") center / cover no-repeat;
+  color: #f3f4f6;
+  text-align: center;
+  padding: 24px;
+}
+
+.ls-turn svg {
+  color: #f0c419;
+  filter: drop-shadow(0 0 12px rgb(240 196 25 / 0.45));
+}
+
+.ls-turn p {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  letter-spacing: 0.08em;
+  color: #fff8d0;
+}
+
+.ls-turn span {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+}
+
+.stage.is-ls .pk-app {
+  height: min(100%, 860px);
+  max-height: 100%;
+  width: min(430px, 100%);
+}
+
+@media (max-height: 400px) {
+  .stage.is-ls .ls-hold {
+    width: 58px;
+    height: 58px;
+    border-width: 4px;
+  }
+  .stage.is-ls .credit-stack {
+    font-size: 0.68rem;
+    padding: 4px 8px;
+  }
+  .stage.is-ls .round-btn {
+    width: 32px;
+    height: 32px;
+  }
+  .stage.is-ls .table {
+    padding: 2px 8px 4px;
+    gap: 2px 8px;
   }
 }
