@@ -89,7 +89,8 @@ export function Paytable({ open, onClose, bet }: Props) {
             (+20 / +35) na tej stávke. Po spustení bar padne na 0 — pretečenie sa neprenáša. Kúpiť sa nedá.
           </li>
           <li>
-            Účet drží kredit, pity aj rank. Iný hráč = iný zostatok, nie spoločný prehliadač.
+            Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bez účtu — po vymazaní dát prehliadača
+            sa zostatok resetuje.
           </li>
           <li>
             Ranked liga 4ky: KREDIT → SLOBODA → SMART → 4KA TV → OPTIKA → DUO → 5G NA DOMA → NEKONEČNO.

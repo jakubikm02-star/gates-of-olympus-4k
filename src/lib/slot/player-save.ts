@@ -1,6 +1,9 @@
 import { BETS, START_BALANCE } from "./symbols";
 import type { PityMap } from "./pick-bonus";
 
+export const SAVE_KEY = "parkizmus-v1";
+const LEGACY_KEYS = ["olympus4k-v1"];
+
 export interface PlayerSave {
   balance: number;
   betIndex: number;
@@ -63,7 +66,7 @@ function pityMap(raw: unknown): PityMap {
   return out;
 }
 
-export function stampMs(v: unknown): number {
+function stampMs(v: unknown): number {
   if (typeof v === "number" && Number.isFinite(v)) return Math.max(0, Math.floor(v));
   if (v instanceof Date) {
     const n = v.getTime();
@@ -95,13 +98,42 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   return s;
 }
 
-/** Prefer the newer blob so an unflushed last spin is not overwritten by an older server row. */
-export function pickNewerSave(a: PlayerSave | null, b: PlayerSave | null): PlayerSave | null {
+function parseSlot(raw: string | null): PlayerSave | null {
+  if (!raw) return null;
+  try {
+    return sanitizePlayerSave(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+function newer(a: PlayerSave | null, b: PlayerSave | null): PlayerSave | null {
   if (!a) return b;
   if (!b) return a;
   return a.updatedAt >= b.updatedAt ? a : b;
 }
 
-export function cacheKey(userId: string): string {
-  return `parkizmus-save:${userId}`;
+export function readLocalSave(): PlayerSave | null {
+  try {
+    let best = parseSlot(localStorage.getItem(SAVE_KEY));
+    for (const key of LEGACY_KEYS) {
+      best = newer(best, parseSlot(localStorage.getItem(key)));
+    }
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith("parkizmus-save:")) continue;
+      best = newer(best, parseSlot(localStorage.getItem(key)));
+    }
+    return best;
+  } catch {
+    return null;
+  }
+}
+
+export function writeLocalSave(s: PlayerSave): void {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ ...s, updatedAt: s.updatedAt || Date.now() }));
+  } catch {
+    /* ignore quota */
+  }
 }

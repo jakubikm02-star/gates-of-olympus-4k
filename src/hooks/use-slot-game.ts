@@ -36,8 +36,7 @@ import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, spendPity, type
 import { applyRankDelta, rpFromWin, standing, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
-import { cacheKey, emptyPlayerSave, pickNewerSave, sanitizePlayerSave, type PlayerSave } from "@/lib/slot/player-save";
-import { loadPlayerSave, savePlayerSave } from "@/lib/slot/save-fn";
+import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
 
 type Phase =
   | "boot"
@@ -63,34 +62,19 @@ export interface BannerMeta {
   terminated: boolean;
 }
 
-function readLocal(userId: string): PlayerSave | null {
-  try {
-    const raw = localStorage.getItem(cacheKey(userId));
-    if (raw) return sanitizePlayerSave(JSON.parse(raw));
-    const legacy = localStorage.getItem("olympus4k-v1");
-    if (!legacy) return null;
-    const s = sanitizePlayerSave(JSON.parse(legacy));
-    writeLocal(userId, s);
-    localStorage.removeItem("olympus4k-v1");
-    return s;
-  } catch {
-    return null;
-  }
+function readLocal(): PlayerSave | null {
+  return readLocalSave();
 }
 
-function writeLocal(userId: string, s: PlayerSave): void {
-  try {
-    localStorage.setItem(cacheKey(userId), JSON.stringify(s));
-  } catch {
-    /* ignore quota */
-  }
+function writeLocal(s: PlayerSave): void {
+  writeLocalSave(s);
 }
 
 function hasOrb(board: Cell[][]): boolean {
   return board.some((row) => row.some((c) => c.kind === "mult"));
 }
 
-export function useSlotGame(userId: string) {
+export function useSlotGame() {
   const [started, setStarted] = useState(false);
   const [balance, setBalance] = useState(START_BALANCE);
   const [betIndex, setBetIndex] = useState(4);
@@ -128,7 +112,7 @@ export function useSlotGame(userId: string) {
   const [rankDelta, setRankDelta] = useState(0);
   const [rankFlash, setRankFlash] = useState<RankFlash | null>(null);
   const [rankOpen, setRankOpen] = useState(false);
-  const [saveReady, setSaveReady] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const [autoLeft, setAutoLeft] = useState(0);
   const [autoOn, setAutoOn] = useState(false);
   const [autoReason, setAutoReason] = useState<string | null>(null);
@@ -211,52 +195,22 @@ export function useSlotGame(userId: string) {
     saveSnapRef.current = s;
   }, []);
 
-  const flushSave = useCallback(
-    (payload?: PlayerSave) => {
-      if (!readySave.current) return;
-      const next = payload ?? { ...saveSnapRef.current, updatedAt: Date.now() };
-      saveSnapRef.current = next;
-      writeLocal(userId, next);
-      void savePlayerSave({ data: next }).catch(() => undefined);
-    },
-    [userId],
-  );
-
-  useEffect(() => {
-    readySave.current = false;
-    setSaveReady(false);
-    const blank = emptyPlayerSave();
-    applySave(blank);
-    const cached = readLocal(userId);
-    if (cached) applySave(cached);
-    let cancelled = false;
-    void loadPlayerSave()
-      .then((row) => {
-        if (cancelled) return;
-        const next = pickNewerSave(row, cached) ?? blank;
-        applySave(next);
-        readySave.current = true;
-        setSaveReady(true);
-        writeLocal(userId, { ...next, updatedAt: next.updatedAt || Date.now() });
-        if (!row || (cached && cached.updatedAt > row.updatedAt)) {
-          void savePlayerSave({ data: next }).catch(() => undefined);
-        }
-      })
-      .catch(() => {
-        if (cancelled) return;
-        readySave.current = true;
-        setSaveReady(true);
-        const fallback = cached ?? blank;
-        writeLocal(userId, fallback);
-        void savePlayerSave({ data: fallback }).catch(() => undefined);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, applySave]);
-
-  useEffect(() => {
+  const flushSave = useCallback((payload?: PlayerSave) => {
     if (!readySave.current) return;
+    const next = payload ?? { ...saveSnapRef.current, updatedAt: Date.now() };
+    saveSnapRef.current = next;
+    writeLocal(next);
+  }, []);
+
+  useEffect(() => {
+    const cached = readLocal();
+    if (cached) applySave(cached);
+    readySave.current = true;
+    setHydrated(true);
+  }, [applySave]);
+
+  useEffect(() => {
+    if (!hydrated || !readySave.current) return;
     const payload: PlayerSave = {
       balance,
       betIndex,
@@ -272,12 +226,8 @@ export function useSlotGame(userId: string) {
       updatedAt: Date.now(),
     };
     saveSnapRef.current = payload;
-    writeLocal(userId, payload);
-    const t = window.setTimeout(() => {
-      void savePlayerSave({ data: payload }).catch(() => undefined);
-    }, 480);
-    return () => window.clearTimeout(t);
-  }, [userId, balance, betIndex, muted, turbo, quick, ante, bestWin, pityByBet, rp, rankPeak, rankShield]);
+    writeLocal(payload);
+  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, bestWin, pityByBet, rp, rankPeak, rankShield]);
 
   useEffect(() => {
     const onHide = () => flushSave();
@@ -1065,7 +1015,6 @@ export function useSlotGame(userId: string) {
   return {
     started,
     start,
-    saveReady,
     balance,
     bet,
     stake,
