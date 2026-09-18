@@ -179,6 +179,9 @@ export function useSlotGame() {
   const streakRef = useRef(0);
   const holdUsedRef = useRef(false);
   const poolLocalRef = useRef(POOL_SEED);
+  const poolHitsRef = useRef(0);
+  const poolGenRef = useRef(0);
+  const poolReadyRef = useRef(false);
   const reserveLocalRef = useRef(0);
   const reloadStreakRef = useRef(0);
   const spinsSinceReloadRef = useRef(0);
@@ -236,6 +239,7 @@ export function useSlotGame() {
     streakRef.current = s.winStreak;
     setWinStreak(s.winStreak);
     poolLocalRef.current = s.poolLocal || POOL_SEED;
+    poolHitsRef.current = 0;
     setPool(poolLocalRef.current);
     reloadStreakRef.current = s.reloadStreak ?? 0;
     spinsSinceReloadRef.current = s.spinsSinceReload ?? 0;
@@ -371,38 +375,49 @@ export function useSlotGame() {
     };
   }, [persistNow]);
 
+  const applyRemotePool = useCallback((s: PoolSnap, kind: "get" | "spin", gen?: number) => {
+    if (kind === "get" && gen !== undefined && gen !== poolGenRef.current) return;
+    if (
+      kind === "get" &&
+      poolReadyRef.current &&
+      s.hits <= poolHitsRef.current &&
+      s.pool + 0.009 < poolLocalRef.current
+    ) {
+      return;
+    }
+    poolReadyRef.current = true;
+    poolLocalRef.current = s.pool;
+    poolHitsRef.current = s.hits;
+    setPoolHits(s.hits);
+    if (!s.hit) {
+      setPool(s.pool);
+      setPoolHot(isPoolHot(s.pool));
+      if (!busyRef.current) setPoolShown(s.pool);
+    }
+  }, []);
+
   useEffect(() => {
     if (!hydrated) return;
+    const gen = poolGenRef.current;
     void withRetry(fetchParkPool)
-      .then((s) => {
-        setPool(s.pool);
-        setPoolHits(s.hits);
-        poolLocalRef.current = s.pool;
-        if (!busyRef.current) setPoolShown(s.pool);
-        setPoolHot(isPoolHot(s.pool));
-      })
+      .then((s) => applyRemotePool(s, "get", gen))
       .catch(() => {
         setPool(poolLocalRef.current);
       });
-  }, [hydrated]);
+  }, [hydrated, applyRemotePool]);
 
   useEffect(() => {
     if (!hydrated || !started) return;
     const tick = () => {
       if (busyRef.current) return;
+      const gen = poolGenRef.current;
       void withRetry(fetchParkPool)
-        .then((s) => {
-          setPool(s.pool);
-          setPoolHits(s.hits);
-          poolLocalRef.current = s.pool;
-          setPoolShown(s.pool);
-          setPoolHot(isPoolHot(s.pool));
-        })
+        .then((s) => applyRemotePool(s, "get", gen))
         .catch(() => {});
     };
     const id = window.setInterval(tick, 2500);
     return () => window.clearInterval(id);
-  }, [hydrated, started]);
+  }, [hydrated, started, applyRemotePool]);
 
   useEffect(() => {
     const onHide = () => flushSave();
@@ -577,17 +592,13 @@ export function useSlotGame() {
           skip: !!opts.skip,
         }),
       );
-      poolLocalRef.current = res.pool;
-      if (!res.hit) {
-        setPool(res.pool);
-        setPoolHot(isPoolHot(res.pool));
-      }
-      setPoolHits(res.hits);
+      poolGenRef.current += 1;
+      applyRemotePool(res, "spin");
       return res;
     } catch {
       return { ...emptySnap(), pool: poolLocalRef.current, reserve: reserveLocalRef.current };
     }
-  }, []);
+  }, [applyRemotePool]);
 
   const closeBanner = useCallback(() => {
     if (!bannerOpen.current && !bannerWait.current) return;
