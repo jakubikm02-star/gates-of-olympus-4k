@@ -90,7 +90,9 @@ export function Paytable({ open, onClose, bet }: Props) {
           </li>
           <li>
             Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bez účtu — po vymazaní dát prehliadača
-            sa zostatok resetuje. PARK POOL je globálny (jeden jackpot pre všetkých).
+            sa zostatok resetuje. PARK POOL je globálny (jeden jackpot pre všetkých). Bankrot +5000 berie
+            RP podľa stávky (max bet dump ≈ −800, opakované dobitie násobí). 80 platených spinov bez
+            dobitia sériu trestov vynuluje.
           </li>
           <li>
             Ranked liga 4ky: KREDIT → SLOBODA → SMART → 4KA TV → OPTIKA → DUO → 5G NA DOMA → NEKONEČNO.

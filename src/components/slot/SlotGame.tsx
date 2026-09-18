@@ -444,7 +444,8 @@ export function SlotGame() {
           {g.autoReason && !g.autoOn && <span className="auto-stop">{g.autoReason}</span>}
           {g.balance < g.stake && (
             <button type="button" className="chip-btn gold" onClick={g.refill}>
-              +{START_BALANCE} kredit
+              BANKROT +{START_BALANCE}
+              {g.reloadHit ? ` · ${g.reloadHit} RP` : ""}
             </button>
           )}
         </div>

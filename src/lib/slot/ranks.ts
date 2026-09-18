@@ -147,6 +147,7 @@ export interface RankBreakdown {
   fromBonus: number;
   fromStake: number;
   fromBuy: number;
+  fromReload: number;
 }
 
 export interface RankPerk {
@@ -332,6 +333,7 @@ export function settleBuyRank(s: {
     fromBonus: 0,
     fromStake: 0,
     fromBuy: 0,
+    fromReload: 0,
   };
   const cost = s.bet * s.buyX;
   const punish = buyTurnoverPunish(s.entry, s.buyX);
@@ -349,6 +351,45 @@ export function settleBuyRank(s: {
   return { delta: parts.total, parts };
 }
 
+export const RELOAD_GRANT = 5000;
+export const RELOAD_STABILIZE = 80;
+const RELOAD_RTP = 0.9769;
+
+export function reloadPunish(opts: {
+  bet: number;
+  rp: number;
+  streak: number;
+  maxBet: number;
+}): { delta: number; parts: RankBreakdown } {
+  const bet = Math.max(0.01, opts.bet);
+  const maxBet = Math.max(bet, opts.maxBet);
+  const t = Math.min(1, Math.log2(1 + bet) / Math.log2(1 + maxBet));
+  const avgX = RELOAD_RTP / BASE_HIT;
+  const avgSum = 9 * Math.log2(1 + avgX);
+  const maxStake = 2.8 * Math.log2(1 + maxBet);
+  const maxHits = (RELOAD_GRANT / maxBet) * BASE_HIT;
+  const maxFarm = maxHits * (avgSum + maxStake);
+  const minFee = 0.35 * DIV_RP;
+  const maxFee = Math.ceil(maxFarm * 1.28);
+  const rankW = 1 + standing(opts.rp).rankIndex * 0.12;
+  const streakW = 1 + Math.min(5, Math.max(0, opts.streak - 1)) * 0.55;
+  const raw = Math.round((minFee + (maxFee - minFee) * t) * rankW * streakW);
+  const delta = raw > 0 ? -raw : 0;
+  const empty: RankBreakdown = {
+    total: delta,
+    fromSum: 0,
+    fromMult: 0,
+    fromStreak: 0,
+    fromTumble: 0,
+    fromBanner: 0,
+    fromBonus: 0,
+    fromStake: 0,
+    fromBuy: 0,
+    fromReload: delta,
+  };
+  return { delta, parts: empty };
+}
+
 export const RANK_REWARDS = [
   { id: "sum", title: "Suma výhry", detail: "Log z násobku stávky. 10× ≈ 31 RP, 100× ≈ 60 RP — nie celý rank." },
   { id: "stake", title: "Výška stávky", detail: "Vyššia stávka = viac RP za rovnaký násobok. 1 € ≈ +3, 10 € ≈ +10, 100 € ≈ +19." },
@@ -358,6 +399,7 @@ export const RANK_REWARDS = [
   { id: "banner", title: "BIG / MEGA / EPIC / MAX", detail: "Popup: +4 / +8 / +12 / +18." },
   { id: "bonus", title: "Bonusy", detail: "FS total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Prírodzené FS idú z 1× stávky. Kúpa FS = 100 točení: výhra sa ráta voči cene kúpy, prehra berie entry ako mŕtve spiny (max 1 divízia)." },
   { id: "rank", title: "Aktívna liga", detail: "Herné perky: lacnejšie ante, pity, cashback, extra FS, zľava na buy, sticky plechovky. Liga nenásobí RP." },
+  { id: "reload", title: "Bankrot", detail: "Dobitie +5000 pri prázdnom kredite berie RP. Max bet dump je drahší ako farm — 100 € ≈ −800 RP, opakované dobitie násobí trest. 80 platených spinov bez dobitia sériu nuluje." },
 ] as const;
 
 export const RANK_RULES = RANK_REWARDS.map((r) => `${r.title} — ${r.detail}`);
@@ -381,6 +423,7 @@ export function rpFromSpin(s: RankSpin): RankBreakdown {
     fromBonus: 0,
     fromStake: 0,
     fromBuy: 0,
+    fromReload: 0,
   };
   if (s.cash <= 0 || s.bet <= 0) return empty;
 
@@ -415,6 +458,7 @@ export function rpFromSpin(s: RankSpin): RankBreakdown {
     fromBonus,
     fromStake,
     fromBuy: 0,
+    fromReload: 0,
   };
 }
 
@@ -428,6 +472,7 @@ export function rankBits(b: RankBreakdown): string[] {
   if (b.fromBanner) bits.push(`banner +${b.fromBanner}`);
   if (b.fromBonus) bits.push(`bonus +${b.fromBonus}`);
   if (b.fromBuy) bits.push(`kúpa ${b.fromBuy}`);
+  if (b.fromReload) bits.push(`bankrot ${b.fromReload}`);
   return bits;
 }
 
@@ -450,7 +495,7 @@ export interface RankSave {
   shield: boolean;
 }
 
-export type RankEvent = "up" | "down" | "shield" | null;
+export type RankEvent = "up" | "down" | "shield" | "bust" | null;
 
 export interface RankFlash {
   event: RankEvent;

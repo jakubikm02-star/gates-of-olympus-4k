@@ -10,11 +10,19 @@ export function RankToast({ flash, onDone }: Props) {
   if (!flash || !flash.event) return null;
   const stand = flash.after;
   const title =
-    flash.event === "up" ? "RANK UP" : flash.event === "down" ? "RANK DOWN" : "ŠTÍT";
+    flash.event === "up"
+      ? "RANK UP"
+      : flash.event === "down"
+        ? "RANK DOWN"
+        : flash.event === "bust"
+          ? "BANKROT"
+          : "ŠTÍT";
   const sub =
     flash.event === "shield"
       ? "Demotion hold — ďalšia prehra zhodí rank"
-      : `${flash.before.name}${flash.before.roman ? ` ${flash.before.roman}` : ""}  →  ${stand.name}${stand.roman ? ` ${stand.roman}` : ""}`;
+      : flash.event === "bust"
+        ? `Dobitie +5000 · ${flash.applied} RP`
+        : `${flash.before.name}${flash.before.roman ? ` ${flash.before.roman}` : ""}  →  ${stand.name}${stand.roman ? ` ${stand.roman}` : ""}`;
   const bits = flash.parts ? rankBits(flash.parts) : [];
   return (
     <button

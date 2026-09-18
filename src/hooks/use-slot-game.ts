@@ -30,7 +30,7 @@ import {
   zeusDropCount,
 } from "@/lib/slot/engine";
 import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, spendPity, type PickTile, type PityMap } from "@/lib/slot/pick-bonus";
-import { applyRankDelta, bannerFromX, buyXOf, fsSpinsOf, perkOf, rpFromSpin, settleBuyRank, standing, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
+import { applyRankDelta, bannerFromX, buyXOf, fsSpinsOf, perkOf, reloadPunish, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
@@ -166,6 +166,9 @@ export function useSlotGame() {
   const streakRef = useRef(0);
   const holdUsedRef = useRef(false);
   const poolLocalRef = useRef(POOL_SEED);
+  const reloadStreakRef = useRef(0);
+  const spinsSinceReloadRef = useRef(0);
+  const [reloadStreak, setReloadStreak] = useState(0);
 
   turboRef.current = turbo;
   quickRef.current = quick;
@@ -206,6 +209,9 @@ export function useSlotGame() {
     setWinStreak(s.winStreak);
     poolLocalRef.current = s.poolLocal || POOL_SEED;
     setPool(poolLocalRef.current);
+    reloadStreakRef.current = s.reloadStreak ?? 0;
+    spinsSinceReloadRef.current = s.spinsSinceReload ?? 0;
+    setReloadStreak(reloadStreakRef.current);
     saveSnapRef.current = s;
   }, []);
 
@@ -239,11 +245,13 @@ export function useSlotGame() {
       rankShield,
       winStreak,
       poolLocal: poolLocalRef.current,
+      reloadStreak: reloadStreakRef.current,
+      spinsSinceReload: spinsSinceReloadRef.current,
       updatedAt: Date.now(),
     };
     saveSnapRef.current = payload;
     writeLocal(payload);
-  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pool]);
+  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pool, reloadStreak]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -320,8 +328,43 @@ export function useSlotGame() {
   }, []);
 
   const refill = useCallback(() => {
-    setBalance((b) => b + START_BALANCE);
-    sfx.playWin();
+    if (busyRef.current) return;
+    const maxBet = BETS[BETS.length - 1];
+    const nextStreak = reloadStreakRef.current + 1;
+    const settled = reloadPunish({
+      bet: BETS[betIndexRef.current],
+      rp: rankRef.current.rp,
+      streak: nextStreak,
+      maxBet,
+    });
+    reloadStreakRef.current = nextStreak;
+    spinsSinceReloadRef.current = 0;
+    setReloadStreak(nextStreak);
+    rankRef.current = { ...rankRef.current, shield: false };
+    setRankShield(false);
+    streakRef.current = 0;
+    holdUsedRef.current = false;
+    setWinStreak(0);
+    const before = standing(rankRef.current.rp);
+    const res = applyRankDelta(rankRef.current, settled.delta);
+    rankRef.current = res.save;
+    setRp(res.save.rp);
+    setRankPeak(res.save.peak);
+    setRankShield(res.save.shield);
+    setRankDelta(res.applied || settled.delta);
+    setRankParts(settled.parts);
+    setRankFlash({
+      event: "bust",
+      before,
+      after: res.after,
+      applied: res.applied || settled.delta,
+      parts: settled.parts,
+    });
+    setBalance((b) => +(b + START_BALANCE).toFixed(2));
+    setSpinTape((t) => [{ label: "BANKROT", amount: `${settled.delta} RP` }, ...t].slice(0, 8));
+    setTopLine(settled.delta ? `BANKROT ${settled.delta} RP` : "BANKROT");
+    setMessage(`+${START_BALANCE} kredit · liga trest`);
+    sfx.playThunder();
   }, []);
 
   const pushRank = useCallback((delta: number, parts?: RankBreakdown | null) => {
@@ -562,7 +605,14 @@ export function useSlotGame() {
       sfx.startSpin();
       sfx.duckMusic(0.42);
 
-      if (cost > 0) setBalance((b) => +(b - cost).toFixed(2));
+      if (cost > 0) {
+        setBalance((b) => +(b - cost).toFixed(2));
+        spinsSinceReloadRef.current += 1;
+        if (spinsSinceReloadRef.current >= RELOAD_STABILIZE && reloadStreakRef.current > 0) {
+          reloadStreakRef.current = 0;
+          setReloadStreak(0);
+        }
+      }
 
       setStoppedCols(0);
       setAnticipate(false);
@@ -1332,6 +1382,12 @@ export function useSlotGame() {
     stopReels,
     buyBonus,
     refill,
+    reloadHit: reloadPunish({
+      bet,
+      rp,
+      streak: reloadStreak + 1,
+      maxBet: BETS[BETS.length - 1],
+    }).delta,
     bestWin,
     canSpin: started && !busy && !inFs && balance >= stake,
     canBuy: started && !busy && !inFs && balance >= +(bet * buyX).toFixed(2),

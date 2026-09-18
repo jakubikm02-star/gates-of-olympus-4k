@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { applyDrop, contribution, dropChance, POOL_ADD_MAX, POOL_SEED, shouldDrop } from "./jackpot.ts";
-import { buyTurnoverPunish, buyXOf, fsSpinsOf, perkOf, rpFromSpin, settleBuyRank } from "./ranks.ts";
+import { buyTurnoverPunish, buyXOf, fsSpinsOf, perkOf, reloadPunish, rpFromSpin, settleBuyRank } from "./ranks.ts";
 
 describe("park pool", () => {
   it("takes 1.2% of stake, capped", () => {
@@ -114,5 +114,23 @@ describe("rank stake + perk", () => {
     });
     assert.ok(half.delta > loss.delta);
     assert.ok(half.delta < 0);
+  });
+
+  it("reload at max bet costs more RP than one 5000 dump can farm", () => {
+    const max = reloadPunish({ bet: 100, rp: 0, streak: 1, maxBet: 100 });
+    const min = reloadPunish({ bet: 0.2, rp: 0, streak: 1, maxBet: 100 });
+    const mid = reloadPunish({ bet: 1, rp: 0, streak: 1, maxBet: 100 });
+    const farm =
+      50 *
+      0.3467 *
+      (9 * Math.log2(1 + 0.9769 / 0.3467) + 2.8 * Math.log2(101));
+    assert.ok(-max.delta > farm, `${-max.delta} should exceed farm ${farm}`);
+    assert.ok(-min.delta < 120);
+    assert.ok(-max.delta > -mid.delta);
+    assert.ok(-mid.delta > -min.delta);
+    const second = reloadPunish({ bet: 100, rp: 0, streak: 2, maxBet: 100 });
+    assert.ok(-second.delta > -max.delta);
+    const high = reloadPunish({ bet: 100, rp: 2700, streak: 1, maxBet: 100 });
+    assert.ok(-high.delta > -max.delta);
   });
 });

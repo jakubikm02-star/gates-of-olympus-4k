@@ -3384,7 +3384,8 @@
   font-size: 0.72rem;
 }
 
-.rank-toast.is-down b {
+.rank-toast.is-down b,
+.rank-toast.is-bust b {
   color: #ff7a7a;
 }
 
