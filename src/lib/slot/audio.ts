@@ -404,42 +404,11 @@ export function playMaxWin(): void {
 }
 
 export function startAmbience(): void {
-  if (!ctx || !music || musicTimer !== null) return;
-  const chords = [
-    [146.8, 220, 293.7],
-    [130.8, 196, 261.6],
-    [164.8, 246.9, 329.6],
-    [174.6, 220, 261.6],
-  ];
-  let i = 0;
-  const loop = () => {
-    if (!ctx || !music) {
-      musicTimer = window.setTimeout(loop, 3000);
-      return;
-    }
-    if (muted) {
-      musicTimer = window.setTimeout(loop, 3000);
-      return;
-    }
-    const now = ctx.currentTime;
-    const chord = chords[i % chords.length];
-    i += 1;
-    for (const freq of chord) {
-      const o = ctx.createOscillator();
-      o.type = "sine";
-      o.frequency.value = freq;
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0, now);
-      g.gain.linearRampToValueAtTime(0.028, now + 0.8);
-      g.gain.linearRampToValueAtTime(0.0001, now + 2.8);
-      o.connect(g);
-      g.connect(music);
-      o.start(now);
-      o.stop(now + 2.9);
-    }
-    musicTimer = window.setTimeout(loop, 2800);
-  };
-  loop();
+  if (musicTimer !== null) {
+    window.clearTimeout(musicTimer);
+    musicTimer = null;
+  }
+  if (music && ctx) music.gain.setTargetAtTime(0, ctx.currentTime, 0.04);
 }
 
 export function resumeIfNeeded(): void {
