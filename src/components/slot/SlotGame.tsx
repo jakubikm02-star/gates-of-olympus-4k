@@ -97,7 +97,14 @@ export function SlotGame() {
     g.phase === "max" ||
     Boolean(g.banner) ||
     Boolean(g.jpHit);
-  const winLinePrefix = g.displayWin > 0 ? "VÝHRA " : "GOOD LUCK!";
+  const winLine =
+    spinning && g.displayWin <= 0 && !g.payHint
+      ? g.message === "TOČÍ SA..."
+        ? "TOČÍ SA..."
+        : "GOOD LUCK!"
+      : g.displayWin > 0 || g.payHint
+        ? null
+        : "";
 
   return (
     <div
@@ -329,8 +336,16 @@ export function SlotGame() {
           </section>
 
           <aside className="ramp-col" aria-hidden="false">
-            <span className="led-sign">
-              POOL <b>{formatMoney(g.pots.stat.pool)}</b>
+            <span className={`led-sign ${g.seqMult > 1 || g.flies.length ? "is-multi" : ""}`}>
+              {g.inFs || g.seqMult > 1 || g.flies.length ? (
+                <>
+                  MULTI <b>{Math.max(1, g.globalMult || g.seqMult)}X</b>
+                </>
+              ) : (
+                <>
+                  POOL <b>{formatMoney(g.pots.stat.pool)}</b>
+                </>
+              )}
             </span>
             <img
               src="/art/ramp.png"
@@ -379,8 +394,10 @@ export function SlotGame() {
                 <>
                   VÝHRA <CountUp value={g.displayWin} />
                 </>
+              ) : g.payHint ? (
+                "VÝHRA"
               ) : (
-                winLinePrefix
+                winLine
               )}
             </p>
             {g.payHint && (
@@ -530,15 +547,7 @@ export function SlotGame() {
         </div>
       )}
 
-      {g.banner === "fs" && (
-        <div className="fs-intro" onClick={g.closeBanner} role="presentation">
-          <p>GRATULUJEM</p>
-          <b>15 FREE SPINS</b>
-          <span>ŤUKNI ĽUBOVOĽNE</span>
-        </div>
-      )}
-
-      {g.banner && g.banner !== "fs" && (
+      {g.banner && (
         <div className="banner" onClick={g.closeBanner} role="presentation">
           <div className={`banner-card ${g.banner}`} role="dialog" aria-label="Výhra">
             <header className="wb-title">
@@ -568,7 +577,9 @@ export function SlotGame() {
               </p>
               {g.banner !== "fsTotal" && <p className="wb-line dim">  status: running…</p>}
               <p className="wb-kicker">{BANNER_COPY[g.banner] ?? "WIN"}</p>
-              {g.banner === "fsTotal" ? (
+              {g.banner === "fs" ? (
+                <p className="wb-amt">free-spins: 15</p>
+              ) : g.banner === "fsTotal" ? (
                 <table className="wb-table">
                   <tbody>
                     <tr>
@@ -606,7 +617,7 @@ export function SlotGame() {
               {g.banner === "pool" && (
                 <p className="wb-line dim">PARK POOL · celý pot · seed 500 + reserve</p>
               )}
-              {g.banner !== "max" && g.banner !== "fsTotal" && (
+              {g.banner !== "max" && g.banner !== "fs" && g.banner !== "fsTotal" && (
                 <p className="wb-line dim">status: ok</p>
               )}
               <p className="wb-line">

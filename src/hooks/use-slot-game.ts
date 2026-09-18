@@ -374,7 +374,7 @@ export function useSlotGame() {
 
   const applyBoard = useCallback((s: BoardSnap) => {
     boardRef.current = s;
-    setPots(s.pots);
+    if (!busyRef.current) setPots(s.pots);
   }, []);
 
   useEffect(() => {
@@ -412,13 +412,16 @@ export function useSlotGame() {
 
   useEffect(() => {
     if (rankFlash) {
-      const t = window.setTimeout(() => setRankFlash(null), 900);
+      const t = window.setTimeout(() => setRankFlash(null), 800);
       return () => window.clearTimeout(t);
     }
-    if (busy) return;
-    const next = rankQ.current.shift();
-    if (next) setRankFlash(next);
-  }, [rankFlash, busy]);
+    if (busy || phase !== "idle") return;
+    const t = window.setTimeout(() => {
+      const next = rankQ.current.shift();
+      if (next) setRankFlash(next);
+    }, 800);
+    return () => window.clearTimeout(t);
+  }, [rankFlash, busy, phase]);
 
   useEffect(() => {
     if (!rankDelta) return;
@@ -509,13 +512,15 @@ export function useSlotGame() {
     setRp(res.save.rp);
     setRankPeak(res.save.peak);
     setRankShield(res.save.shield);
-    setRankDelta(res.applied);
-    setRankParts(delta > 0 && parts ? parts : null);
+    if (!busyRef.current) {
+      setRankDelta(res.applied);
+      setRankParts(delta > 0 && parts ? parts : null);
+    }
     if (res.event === "up") {
       const perk = perkOf(res.after.id);
       if (perk.dripX > 0) {
         const drip = +(BETS[betIndexRef.current] * perk.dripX).toFixed(2);
-        if (drip > 0) {
+        if (drip > 0 && !busyRef.current) {
           setBalance((b) => +(b + drip).toFixed(2));
           setSpinTape((t) => [{ label: "RANK DROP", amount: formatMoney(drip) }, ...t].slice(0, 8));
         }
@@ -531,6 +536,7 @@ export function useSlotGame() {
       };
       if (busyRef.current) rankQ.current.push(flash);
       else setRankFlash(flash);
+      if (busyRef.current) return;
       if (res.event === "up") sfx.playFsStart();
       else if (res.event === "down") sfx.playThunder();
       else sfx.playCollect();
@@ -798,7 +804,7 @@ export function useSlotGame() {
           setAnticipate(true);
           sfx.startAnticipate();
         }
-        const extra = landedScatters >= 2 && c >= 4 ? 250 : 0;
+        const extra = landedScatters >= 2 ? (c >= 4 ? 280 : 90) : 0;
         await wait(dur(STOPS[c] - tMark + extra), abort.current);
         tMark = STOPS[c];
         setStoppedCols(c + 1);
@@ -917,23 +923,22 @@ export function useSlotGame() {
             y: ((avgR + 0.5) / 5) * 100,
             amount: top.amount,
           });
-          setMessage(`${main.count}× ${payName(main.payId)} vypláca ${top.amount}`);
         }
 
         setPhase("win");
-        await wait(dur(100), abort.current);
+        await wait(dur(160), abort.current);
 
         const small = sequenceX * currentBet <= currentBet * 0.5;
         setSpinWin(cashNow);
         setDisplayWin(cashNow);
         setTopLine(`TUMBLE ${formatMoney(cashNow)}`);
-        await wait(dur(180), abort.current);
+        await wait(dur(240), abort.current);
         if (pendingFs && !fsNow && !fsAnnounced) {
           fsAnnounced = true;
           sfx.playThunder();
         } else if (tier < 1) sfx.playCoin();
         else sfx.playWin(tier >= 2 ? "full" : "spark");
-        await wait(dur(small ? 140 : Math.min(560, 280 + 8 * 24)), abort.current);
+        await wait(dur(small ? 280 : 480), abort.current);
         await wait(dur(80), abort.current);
 
         if (!willPop || tumbleN >= 4 || (pendingFs && !fsNow && scatterPeak >= FS_TRIGGER_SCATTERS)) {
@@ -944,12 +949,12 @@ export function useSlotGame() {
         setPhase("pop");
         setWinMask(tumbleMask);
         sfx.playPop();
-        await wait(dur(160), abort.current);
+        await wait(dur(240), abort.current);
         setGrid(punchHoles(board, tumbleMask));
         setWinMask(null);
         setClusterPay(null);
         setPayHint(null);
-        await wait(dur(33), abort.current);
+        await wait(dur(50), abort.current);
         board = tumble(board, tumbleMask, rng, fillAnte, fsNow);
         const more = zeusDropCount(rng, isFree || inFsRef.current, true);
         const moreN = more > 0 ? more + perk.orbBonus : 0;
@@ -963,10 +968,10 @@ export function useSlotGame() {
         sfx.playTumble(tumbleN);
         setGrid(cloneGrid(board));
         tumbleN += 1;
-        await wait(dur(200 * 0.93 ** (tumbleN - 1)), abort.current);
+        await wait(dur(280 * 0.93 ** (tumbleN - 1)), abort.current);
         setThrowBolt(false);
         setGrid((g) => g.map((row) => row.map((c) => ({ ...c, fall: 0, gone: false }))));
-        await wait(dur(40), abort.current);
+        await wait(dur(80), abort.current);
       }
 
       if (!fsNow && scatterPeak >= FS_TRIGGER_SCATTERS) pendingFs = true;
@@ -988,20 +993,12 @@ export function useSlotGame() {
         if (add > 0) {
           const nextMap = bumpPity(pityByBetRef.current, currentBet, add);
           const stored = readPity(nextMap, currentBet);
-          setPityDelta(add);
-          window.setTimeout(() => setPityDelta(0), 720);
           if (stored >= PITY_GOAL) {
             pityByBetRef.current = spendPity(nextMap, currentBet);
             kontrolaArmedRef.current = true;
             pendingPick = true;
-            setTopLine("PITY PLNÝ — KONTROLA");
-            setShake(true);
-            window.setTimeout(() => setShake(false), 400);
-            sfx.playThunder();
-            setPityByBet(pityByBetRef.current);
           } else {
             pityByBetRef.current = nextMap;
-            setPityByBet(nextMap);
           }
         }
       }
@@ -1045,23 +1042,18 @@ export function useSlotGame() {
         setPhase("mult");
         setActivatingMult(true);
         setThrowBolt(true);
-        setShake(true);
-        window.setTimeout(() => setShake(false), 420);
         sfx.playThunder();
-        setTopLine("ZÁVORA AKTIVUJE NÁSOBIČE");
-        await wait(dur(160), abort.current);
+        await wait(dur(200), abort.current);
         for (const orb of orbs) {
           setStrike({ r: orb.r, c: orb.c });
           setStruckUids((ids) => [...ids, orb.uid]);
           sfx.playZap();
-          if (isFree || inFsRef.current) {
-            const key = flyKey.current++;
-            setFlies((f) => [...f, { key, r: orb.r, c: orb.c, mult: orb.mult }]);
-            window.setTimeout(() => setFlies((f) => f.filter((x) => x.key !== key)), 820);
-          }
-          await wait(dur(260), abort.current);
+          const key = flyKey.current++;
+          setFlies((f) => [...f, { key, r: orb.r, c: orb.c, mult: orb.mult }]);
+          window.setTimeout(() => setFlies((f) => f.filter((x) => x.key !== key)), 900);
+          await wait(dur(380), abort.current);
           setStrike(null);
-          await wait(dur(40), abort.current);
+          await wait(dur(60), abort.current);
         }
         if (isFree || inFsRef.current) {
           const gm = globalMultRef.current + orbSum;
@@ -1071,16 +1063,21 @@ export function useSlotGame() {
         } else {
           applied = orbSum;
         }
+        const gone = expireOrbs(board, rng);
+        board = gone.grid;
+        setGrid(cloneGrid(board));
         setSeqMult(applied);
+        const baseCash = +(sequenceX * currentBet).toFixed(2);
         const boosted = +(sequenceX * applied * currentBet).toFixed(2);
+        setBaseWin(baseCash);
+        setSpinWin(baseCash);
+        setDisplayWin(baseCash);
+        await wait(dur(120), abort.current);
         setSpinWin(boosted);
         setDisplayWin(boosted);
-        setBaseWin(+(sequenceX * currentBet).toFixed(2));
-        setTopLine(`VÝHRA Z FUNKCIE TUMBLE  ×${applied}`);
-        setMessage(`Násobič ${applied}×`);
+        setTopLine(`TUMBLE ${formatMoney(boosted)}`);
         sfx.playMult();
-        sfx.playWin("full");
-        await wait(dur(420), abort.current);
+        await wait(dur(520), abort.current);
         setThrowBolt(false);
         setActivatingMult(false);
       } else if ((isFree || inFsRef.current) && sequenceX > 0 && globalMultRef.current > 1) {
@@ -1113,12 +1110,12 @@ export function useSlotGame() {
       }
 
       if (cash > 0) {
-        if (!isFree && !inFsRef.current) {
-          setBalance((b) => +(b + cash).toFixed(2));
-        }
         setBestWin((w) => Math.max(w, cash));
+      }
+      await wait(dur(400));
+      if (cash > 0 && !isFree && !inFsRef.current) {
+        setBalance((b) => +(b + cash).toFixed(2));
         sfx.playPayout();
-        await wait(dur(280), abort.current);
       }
       const x = lastPaidXRef.current;
       let kind: WinBanner = null;
@@ -1151,9 +1148,6 @@ export function useSlotGame() {
             const back = +(currentBet * perk.deadRebate).toFixed(2);
             if (back > 0) {
               setBalance((b) => +(b + back).toFixed(2));
-              setDisplayWin((w) => +(w + back).toFixed(2));
-              setSpinWin((w) => +(w + back).toFixed(2));
-              sfx.playCoin();
             }
           }
         }
@@ -1173,6 +1167,8 @@ export function useSlotGame() {
         });
         await payPoolHit(pot);
       }
+      setPots(boardRef.current.pots);
+      setPityByBet({ ...pityByBetRef.current });
 
       if (kind) {
         bannerOpen.current = true;

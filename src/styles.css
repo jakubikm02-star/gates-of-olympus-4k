@@ -4206,8 +4206,10 @@ html:-webkit-full-screen {
 
 .stage.is-resolving .pity-bar,
 .stage.is-resolving .rank-toast,
-.stage.is-resolving .jp-stack em {
-  visibility: hidden;
+.stage.is-resolving .jp-stack em,
+.stage.is-resolving .rank-delta,
+.stage.is-resolving .pity-plus {
+  display: none !important;
 }
 
 .jp-stack.is-hit {

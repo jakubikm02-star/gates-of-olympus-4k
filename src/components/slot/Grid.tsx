@@ -80,7 +80,7 @@ function CellView({
     ...(tumbleFall && !reduced
       ? {
           ["--fall"]: String(tumbleFall),
-          animation: `cell-drop 200ms cubic-bezier(0.42, 0, 1, 1) both`,
+          animation: `cell-drop 260ms cubic-bezier(0.42, 0, 1, 1) both`,
         }
       : {}),
   } as CSSProperties;
