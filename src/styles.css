@@ -1404,7 +1404,7 @@
     drop-shadow(0 0 16px #ffb020)
     drop-shadow(0 6px 8px rgb(0 0 0 / 0.55))
     brightness(1.12);
-  animation: scatter-idle 1.8s ease-in-out infinite;
+  animation: scatter-idle 1.2s ease-in-out infinite;
 }
 
 .cell.is-scatter::after {
@@ -1426,10 +1426,6 @@
       drop-shadow(0 0 20px #ffc14a)
       brightness(1.2);
   }
-}
-
-.cell.is-scatter .cell-img {
-  animation-duration: 1.2s;
 }
 
 .cell.is-hole {
@@ -1458,8 +1454,6 @@
   font-weight: 800;
   letter-spacing: 0.08em;
   color: var(--color-bolt);
-}
-  background: radial-gradient(circle, rgb(0 0 0 / 0.35), transparent 70%);
 }
 
 .pop-burst {
