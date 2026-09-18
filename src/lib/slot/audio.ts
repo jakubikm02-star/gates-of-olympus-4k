@@ -15,7 +15,7 @@ let brownBuf: AudioBuffer | null = null;
 let spinNodes: { stop: () => void; gain: GainNode } | null = null;
 let anticipateNodes: { stop: () => void } | null = null;
 const playing: Partial<Record<string, { stop: () => void }>> = {};
-const CUT_PREV = new Set(["win", "winFull", "payout", "bigwin", "tumble", "pop"]);
+const CUT_PREV = new Set(["win", "winFull", "payout", "bigwin", "tumble", "pop", "tableA", "tableB"]);
 const bufs: Record<string, AudioBuffer> = {};
 let loadStarted = false;
 
@@ -36,6 +36,8 @@ const FILES: Record<string, string> = {
   electric: "/sfx/electric.mp3?v=park1",
   thunder: "/sfx/thunder.mp3?v=park1",
   bigwin: "/sfx/bigwin.mp3",
+  tableA: "/sfx/table-a.mp3?v=glitch1",
+  tableB: "/sfx/table-b.mp3?v=fail1",
   siren: "/sfx/siren.mp3",
   harp: "/sfx/harp.mp3",
   kontrola: "/sfx/kontrola.mp3?v=ignition1",
@@ -401,13 +403,17 @@ export function playPickStart(): void {
 export function playBigWin(): void {
   stopSpin();
   duckMusic(0.35);
-  if (!playBuf("bigwin", { gain: 0.8 })) playBuf("winFull", { gain: 0.8 });
+  playing["tableA"]?.stop();
+  playing["tableB"]?.stop();
+  playing["bigwin"]?.stop();
+  const key = Math.random() < 0.5 ? "tableA" : "tableB";
+  if (!playBuf(key, { gain: 0.82 })) {
+    playBuf("bigwin", { gain: 0.8 }) || playBuf("winFull", { gain: 0.8 });
+  }
 }
 
 export function playMaxWin(): void {
   playBigWin();
-  playBuf("siren", { gain: 0.55 });
-  window.setTimeout(() => playThunder(), 160);
 }
 
 export function startAmbience(): void {

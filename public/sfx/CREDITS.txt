@@ -10,6 +10,10 @@ https://mixkit.co/license/#sfxFree
                https://mixkit.co/free-sound-effects/tools/
   kontrola.mp3 Mixkit 1540 — Failed car ignition (KONTROLA start)
                https://mixkit.co/free-sound-effects/car/
+  table-a.mp3  Mixkit 2950 — Intro text glitch (win table, random)
+               https://mixkit.co/free-sound-effects/glitch/
+  table-b.mp3  Mixkit 2939 — Futuristic device fail (win table, random)
+               https://mixkit.co/free-sound-effects/game/
   tumble.mp3   Mixkit 2166 — Cinematic whoosh fast transition
                https://mixkit.co/free-sound-effects/whoosh/
   win-full.mp3 Mixkit 2017 — Clinking coins
