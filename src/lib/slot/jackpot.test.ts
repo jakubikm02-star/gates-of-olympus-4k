@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { applyDrop, contribution, dropChance, POOL_ADD_MAX, POOL_SEED, shouldDrop } from "./jackpot.ts";
-import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
+import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 
 describe("park pool", () => {
   it("takes 1.2% of stake, capped", () => {
@@ -32,7 +32,7 @@ describe("park pool", () => {
 });
 
 describe("rank stake + perk", () => {
-  it("higher stake yields more RP at the same multiple", () => {
+  it("higher stake at the same multiple yields more RP because cash is larger", () => {
     const low = rpFromSpin({
       cash: 10,
       bet: 1,
@@ -51,9 +51,26 @@ describe("rank stake + perk", () => {
       banner: null,
       kind: "base",
     });
-    assert.equal(low.fromSum, high.fromSum);
+    assert.ok(high.fromSum > low.fromSum);
     assert.ok(high.fromStake > low.fromStake);
     assert.ok(high.total > low.total);
+  });
+
+  it("36 cents is far less RP than 75 euros", () => {
+    const chip = rpFromSpin({ cash: 0.36, bet: 100, mult: 1, tumbles: 0, streak: 1, banner: null, kind: "base" });
+    const fat = rpFromSpin({ cash: 75, bet: 100, mult: 1, tumbles: 0, streak: 1, banner: null, kind: "base" });
+    assert.ok(chip.total <= 8, `chip ${chip.total}`);
+    assert.ok(fat.total >= 40, `fat ${fat.total}`);
+    assert.ok(fat.total >= chip.total * 5);
+  });
+
+  it("dead spin is free in KREDIT and expensive at 100€ NEKONEČNO", () => {
+    assert.equal(rpFromDead(1, 0).total, 0);
+    const nekOne = rpFromDead(1, 10);
+    const nekMax = rpFromDead(100, 10);
+    assert.ok(nekMax.total <= -50, `max dead ${nekMax.total}`);
+    assert.ok(nekOne.total > nekMax.total);
+    assert.ok(nekOne.total < 0);
   });
 
   it("rank does not multiply RP", () => {
@@ -93,7 +110,7 @@ describe("rank stake + perk", () => {
     const vsBuy = rpFromSpin({ cash: 250, bet: 100, ...extras, kind: "fs" });
     assert.equal(win.delta, vsBuy.total);
     assert.ok(win.delta < asBase.total);
-    assert.equal(win.parts.fromSum, Math.round(9 * Math.log2(1 + 2.5)));
+    assert.ok(win.parts.fromSum > 20);
   });
 
   it("losing buy takes dead-spin turnover, capped at one division", () => {

@@ -1,7 +1,7 @@
 export const DIV_RP = 100;
 export const MASTER_RP = 300;
 export const PROMO_BUFFER = 40;
-export const WIN_RP_CAP = 90;
+export const WIN_RP_CAP = 200;
 
 const ANTE_BASE = 1.25;
 const BUY_BASE = 100;
@@ -410,11 +410,18 @@ export function reloadPunish(opts: {
   const bet = Math.max(0.01, opts.bet);
   const maxBet = Math.max(bet, opts.maxBet);
   const t = Math.min(1, Math.log2(1 + bet) / Math.log2(1 + maxBet));
-  const avgX = RELOAD_RTP / BASE_HIT;
-  const avgSum = 9 * Math.log2(1 + avgX);
-  const maxStake = 2.8 * Math.log2(1 + maxBet);
+  const avgCash = maxBet * (RELOAD_RTP / BASE_HIT);
+  const perHit = rpFromSpin({
+    cash: avgCash,
+    bet: maxBet,
+    mult: 1,
+    tumbles: 0,
+    streak: 1,
+    banner: null,
+    kind: "base",
+  }).total;
   const maxHits = (RELOAD_GRANT / maxBet) * BASE_HIT;
-  const maxFarm = maxHits * (avgSum + maxStake);
+  const maxFarm = maxHits * perHit;
   const minFee = 0.35 * DIV_RP;
   const maxFee = Math.ceil(maxFarm * 1.28);
   const rankW = 1 + standing(opts.rp).rankIndex * 0.12;
@@ -437,8 +444,8 @@ export function reloadPunish(opts: {
 }
 
 export const RANK_REWARDS = [
-  { id: "sum", title: "Suma výhry", detail: "Log z násobku stávky. 10× ≈ 31 RP, 100× ≈ 60 RP — nie celý rank." },
-  { id: "stake", title: "Výška stávky", detail: "Vyššia stávka = viac RP za rovnaký násobok. 1 € ≈ +3, 10 € ≈ +10, 100 € ≈ +19." },
+  { id: "sum", title: "Suma výhry", detail: "RP z reálnych eur, nie z násobku. 0.36 € ≈ 2 RP, 75 € ≈ 36 RP, 500 € ≈ 110 RP." },
+  { id: "stake", title: "Výška stávky", detail: "Vyššia stávka pri výhre pridá RP, pri mŕtvom spine berie. KREDIT má mŕtvy spin 0. NEKONEČNO na 100 € ≈ −57 RP za miss." },
   { id: "mult", title: "Násobič", detail: "Energy plechovky. ×2 ≈ +4, ×10 ≈ +12, ×50 ≈ +19." },
   { id: "streak", title: "Séria výhier", detail: "2. výhra +2, 3. +5, 4. +9, 5.+ max +14. Mŕtvy spin zhodí na 0 — od SLOBODY jeden hold." },
   { id: "tumble", title: "Tumble reťaz", detail: "Dva a viac pádov v jednom spine: +2 až +8 RP." },
@@ -459,6 +466,25 @@ export function bannerFromX(x: number, hitMax = false): RankBanner {
   return null;
 }
 
+export function rpFromDead(bet: number, entry: number): RankBreakdown {
+  const empty: RankBreakdown = {
+    total: 0,
+    fromSum: 0,
+    fromMult: 0,
+    fromStreak: 0,
+    fromTumble: 0,
+    fromBanner: 0,
+    fromBonus: 0,
+    fromStake: 0,
+    fromBuy: 0,
+    fromReload: 0,
+  };
+  if (entry <= 0) return empty;
+  const stake = Math.max(0, bet);
+  const delta = -Math.max(1, Math.round(entry * (0.9 + 0.72 * Math.log2(1 + stake))));
+  return { ...empty, total: delta, fromStake: delta };
+}
+
 export function rpFromSpin(s: RankSpin): RankBreakdown {
   const empty: RankBreakdown = {
     total: 0,
@@ -474,25 +500,28 @@ export function rpFromSpin(s: RankSpin): RankBreakdown {
   };
   if (s.cash <= 0 || s.bet <= 0) return empty;
 
-  const wx = s.cash / s.bet;
-  const fromSum = Math.round(9 * Math.log2(1 + wx));
+  const cash = Math.max(0, s.cash);
+  const wx = cash / s.bet;
+  const fromSum = Math.round(3 * Math.pow(cash, 0.58)) + Math.round(1.6 * Math.log2(1 + wx));
   const m = Math.max(1, s.mult);
-  const fromMult = m > 1 ? Math.round(1 + 3.2 * Math.log2(m)) : 0;
+  const fromMult = m > 1 ? Math.min(12, Math.round(1 + 2.4 * Math.log2(m))) : 0;
   const k = Math.max(0, s.streak - 1);
-  const fromStreak = k > 0 ? Math.min(14, Math.round(2 * k + 0.35 * k * k)) : 0;
-  const fromTumble = s.tumbles >= 2 ? Math.min(8, s.tumbles) : 0;
+  const fromStreak = k > 0 ? Math.min(8, Math.round(1.6 * k + 0.2 * k * k)) : 0;
+  const fromTumble = s.tumbles >= 2 ? Math.min(5, s.tumbles) : 0;
   const fromBanner =
-    s.banner === "max" ? 18 : s.banner === "epic" ? 12 : s.banner === "mega" ? 8 : s.banner === "big" ? 4 : 0;
+    s.banner === "max" ? 12 : s.banner === "epic" ? 8 : s.banner === "mega" ? 5 : s.banner === "big" ? 3 : 0;
   let fromBonus = 0;
-  if (s.kind === "fs") fromBonus += 6;
-  if (s.kind === "pick") fromBonus += 4;
+  if (s.kind === "fs") fromBonus += 4;
+  if (s.kind === "pick") fromBonus += 3;
   if (s.ante && s.kind === "base") fromBonus += 1;
   if ((s.scatters ?? 0) >= 3 && s.kind === "base") fromBonus += 2;
   const retriggers = s.retriggers ?? 0;
-  if (retriggers > 0) fromBonus += Math.min(10, retriggers * 5);
+  if (retriggers > 0) fromBonus += Math.min(8, retriggers * 4);
   const picks = s.picks ?? 0;
-  if (s.kind === "pick" && picks > 0) fromBonus += Math.min(6, picks);
-  const fromStake = Math.round(2.8 * Math.log2(1 + s.bet));
+  if (s.kind === "pick" && picks > 0) fromBonus += Math.min(5, picks);
+  const fromStake = Math.round(
+    Math.log2(1 + s.bet) * Math.min(2.6, 0.35 + 0.16 * Math.log2(1 + cash)),
+  );
   const core = fromSum + fromMult + fromStreak + fromTumble + fromBanner + fromBonus + fromStake;
 
   return {
@@ -511,8 +540,8 @@ export function rpFromSpin(s: RankSpin): RankBreakdown {
 
 export function rankBits(b: RankBreakdown): string[] {
   const bits: string[] = [];
-  if (b.fromSum) bits.push(`suma +${b.fromSum}`);
-  if (b.fromStake) bits.push(`stávka +${b.fromStake}`);
+  if (b.fromSum) bits.push(`suma ${b.fromSum > 0 ? "+" : ""}${b.fromSum}`);
+  if (b.fromStake) bits.push(`stávka ${b.fromStake > 0 ? "+" : ""}${b.fromStake}`);
   if (b.fromMult) bits.push(`× +${b.fromMult}`);
   if (b.fromStreak) bits.push(`séria +${b.fromStreak}`);
   if (b.fromTumble) bits.push(`tumble +${b.fromTumble}`);

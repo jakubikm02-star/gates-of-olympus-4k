@@ -30,7 +30,7 @@ import {
   zeusDropCount,
 } from "@/lib/slot/engine";
 import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, spendPity, type PickTile, type PityMap } from "@/lib/slot/pick-bonus";
-import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
+import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
@@ -688,7 +688,8 @@ export function useSlotGame() {
       pushRank(parts.total, parts);
     } else {
       noteResult(false);
-      pushRank(-standing(rankRef.current.rp).entry);
+      const dead = rpFromDead(betNow, standing(rankRef.current.rp).entry);
+      if (dead.total) pushRank(dead.total, dead);
     }
     pickOpenRef.current = false;
     setPickOpen(false);
@@ -1124,7 +1125,8 @@ export function useSlotGame() {
           pushRank(parts.total, parts);
         } else {
           noteResult(false);
-          pushRank(-standing(rankRef.current.rp).entry);
+          const dead = rpFromDead(currentBet, standing(rankRef.current.rp).entry);
+          if (dead.total) pushRank(dead.total, dead);
           if (perk.deadRebate > 0) {
             const back = +(currentBet * perk.deadRebate).toFixed(2);
             if (back > 0) {
@@ -1263,7 +1265,8 @@ export function useSlotGame() {
           pushRank(parts.total, parts);
         } else {
           noteResult(false);
-          pushRank(-standing(rankRef.current.rp).entry);
+          const dead = rpFromDead(betNow, standing(rankRef.current.rp).entry);
+          if (dead.total) pushRank(dead.total, dead);
         }
         fsSessionRef.current = {
           left: 0,

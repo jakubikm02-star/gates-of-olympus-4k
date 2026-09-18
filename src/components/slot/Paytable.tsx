@@ -98,10 +98,9 @@ export function Paytable({ open, onClose, bet }: Props) {
             Ranked liga 4ky: KREDIT → SLOBODA → SMART → 4KA TV → OPTIKA → DUO → 5G NA DOMA → NEKONEČNO.
             Raz za týždeň klesáš o jednu skupinu na IV predchádzajúcej ligy (4KA TV II → SMART IV). AFK max
             3 skupiny. Štít nechráni.
-            RP za sumu výhry, výšku stávky, násobič, sériu, tumble, BIG+ bannery, FS total, retrigger a
-            KONTROLU. Vyššia stávka priamo pridáva RP (1 € ≈ +3, 10 € ≈ +10, 100 € ≈ +19). Aktívna liga
-            dáva herný perk (lacnejšie ante, pity, cashback, extra FS, zľava na kúpu, sticky plechovky) — nenásobí RP. Ante pri výhre
-            +1. Mŕtvy spin berie nízke entry. 100× ťa nevyhodí o celý rank. Po postupe buffer 40 RP a štít.
+            RP za reálne vyhrané eurá a za stávku. 0.36 € dá ~2–5 RP, 75 € ~40–55 RP — nie rovnako.
+            Mŕtvy spin v KREDITE nič. Vo vyššej lige berie entry × stávku (NEKONEČNO na 100 € ≈ −57 RP).
+            S 1 € ideš z KREDITU von za ~100 spinov. Udržať NEKONEČNO na max bete je ťažké.
           </li>
           <li>
             PARK POOL: 1.2 % z každej platenej stávky (max 12) ide do spoločného jackpotu pre všetkých
