@@ -14,6 +14,8 @@ https://mixkit.co/license/#sfxFree
                https://mixkit.co/free-sound-effects/glitch/
   table-b.mp3  Mixkit 2939 — Futuristic device fail (win table, random)
                https://mixkit.co/free-sound-effects/game/
+  fs-start.mp3 Mixkit 811 — Sci-fi construction complete (GRATULUJEME FS)
+               https://mixkit.co/free-sound-effects/game/
   tumble.mp3   Mixkit 2166 — Cinematic whoosh fast transition
                https://mixkit.co/free-sound-effects/whoosh/
   win-full.mp3 Mixkit 2017 — Clinking coins

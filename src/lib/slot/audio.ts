@@ -41,6 +41,7 @@ const FILES: Record<string, string> = {
   siren: "/sfx/siren.mp3",
   harp: "/sfx/harp.mp3",
   kontrola: "/sfx/kontrola.mp3?v=ignition1",
+  fsStart: "/sfx/fs-start.mp3?v=build1",
 };
 
 export function isMuted(): boolean {
@@ -389,9 +390,12 @@ export function playMult(): void {
 }
 
 export function playFsStart(): void {
-  playThunder();
-  playBuf("harp", { gain: 0.7 });
-  playBuf("siren", { gain: 0.35 });
+  stopSpin();
+  duckMusic(0.4);
+  if (!playBuf("fsStart", { gain: 0.82 })) {
+    playThunder();
+    playBuf("harp", { gain: 0.7 });
+  }
 }
 
 export function playPickStart(): void {
