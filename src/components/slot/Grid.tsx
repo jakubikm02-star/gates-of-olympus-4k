@@ -42,28 +42,47 @@ function jaggedPath(x0: number, y0: number, x1: number, y1: number): string {
 
 function CellView({
   cell,
+  r,
+  c,
   win,
   popping,
   reduced,
-  spinning,
+  dumping,
+  waiting,
+  dropping,
   hot,
   dormant,
   tease,
   slam,
   expired,
+  tumbleFall,
 }: {
   cell: Cell;
+  r: number;
+  c: number;
   win: boolean;
   popping: boolean;
   reduced: boolean;
-  spinning: boolean;
+  dumping: boolean;
+  waiting: boolean;
+  dropping: boolean;
   hot: boolean;
   dormant: boolean;
   tease: boolean;
   slam: boolean;
   expired: boolean;
+  tumbleFall: number;
 }) {
-  const fall = cell.fall ?? 0;
+  const style = {
+    ["--r"]: String(r),
+    ["--c"]: String(c),
+    ...(tumbleFall && !reduced && !dumping && !waiting && !dropping
+      ? {
+          ["--fall"]: String(tumbleFall),
+          animation: `cell-drop ${240 + tumbleFall * 70}ms cubic-bezier(0.2, 0.9, 0.32, 1) both`,
+        }
+      : {}),
+  } as CSSProperties;
   return (
     <div
       className={[
@@ -77,15 +96,11 @@ function CellView({
         tease ? "is-tease" : "",
         slam ? "is-slam" : "",
         expired ? "is-expired" : "",
+        dumping && !reduced ? "is-dump" : "",
+        waiting && !reduced ? "is-wait" : "",
+        dropping && !reduced ? "is-drop" : "",
       ].join(" ")}
-      style={
-        fall && !reduced && !spinning
-          ? ({
-              ["--fall" as string]: String(fall),
-              animation: `cell-drop ${240 + fall * 70}ms cubic-bezier(0.2, 0.9, 0.32, 1) both`,
-            } as CSSProperties)
-          : undefined
-      }
+      style={style}
     >
       <img src={symbolSrc(cell)} alt="" draggable={false} className="cell-img" />
       {cell.kind === "scatter" && <span className="scatter-label">SCATTER</span>}
@@ -121,38 +136,47 @@ export function SlotGrid({
         className={`reel-window ${spinning ? "is-spinning" : ""} ${landing ? "is-landing" : ""} ${anticipate ? "is-anticipate" : ""} ${activatingMult ? "is-zeus-strike" : ""}`}
       >
         {Array.from({ length: COLS }, (_, c) => {
-          const visible = Array.from({ length: ROWS }, (_, r) => grid[r][c]);
-          const colSpin = spinning || (landing && c >= stoppedCols);
+          const waiting = landing && c >= stoppedCols;
+          const dropping = landing && c < stoppedCols;
           const colLand = landing && c === stoppedCols - 1;
-          const colAnti = anticipate && colSpin;
-          const strip = colSpin ? [...visible, ...visible, ...visible] : visible;
+          const colAnti = anticipate && waiting;
           return (
             <div
               key={c}
               className={[
                 "reel-col",
-                colSpin ? "is-spinning" : "",
+                spinning ? "is-dumping" : "",
+                waiting ? "is-waiting" : "",
+                dropping ? "is-filling" : "",
                 colLand ? "is-landing" : "",
                 colAnti ? "is-anticipate" : "",
               ].join(" ")}
               style={{ ["--c" as string]: String(c) } as CSSProperties}
             >
               <div className="strip">
-                {strip.map((cell, i) => (
-                  <CellView
-                    key={colSpin ? `${c}-${i}-${cell.uid}` : cell.uid}
-                    cell={cell}
-                    win={!colSpin && i < ROWS && !!winMask?.[i]?.[c]}
-                    popping={popping}
-                    reduced={reduced}
-                    spinning={colSpin}
-                    hot={struckUids.includes(cell.uid)}
-                    dormant={cell.kind === "mult" && !struckUids.includes(cell.uid) && !colSpin}
-                    tease={anticipate && !colSpin && cell.kind === "scatter"}
-                    slam={colLand && (cell.kind === "scatter" || cell.kind === "mult")}
-                    expired={expiredUids.includes(cell.uid)}
-                  />
-                ))}
+                {Array.from({ length: ROWS }, (_, r) => {
+                  const cell = grid[r][c];
+                  return (
+                    <CellView
+                      key={cell.uid}
+                      cell={cell}
+                      r={r}
+                      c={c}
+                      win={!spinning && !waiting && !!winMask?.[r]?.[c]}
+                      popping={popping}
+                      reduced={reduced}
+                      dumping={spinning}
+                      waiting={waiting}
+                      dropping={dropping}
+                      hot={struckUids.includes(cell.uid)}
+                      dormant={cell.kind === "mult" && !struckUids.includes(cell.uid) && !spinning && !waiting}
+                      tease={anticipate && !waiting && !spinning && cell.kind === "scatter"}
+                      slam={colLand && (cell.kind === "scatter" || cell.kind === "mult")}
+                      expired={expiredUids.includes(cell.uid)}
+                      tumbleFall={cell.fall ?? 0}
+                    />
+                  );
+                })}
               </div>
             </div>
           );

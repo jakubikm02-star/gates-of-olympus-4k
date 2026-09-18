@@ -298,6 +298,22 @@ export function useSlotGame() {
   }, [hydrated]);
 
   useEffect(() => {
+    if (!hydrated || !started) return;
+    const tick = () => {
+      if (busyRef.current) return;
+      void getParkPool()
+        .then((s) => {
+          setPool(s.pool);
+          setPoolHits(s.hits);
+          poolLocalRef.current = s.pool;
+        })
+        .catch(() => {});
+    };
+    const id = window.setInterval(tick, 9000);
+    return () => window.clearInterval(id);
+  }, [hydrated, started]);
+
+  useEffect(() => {
     const onHide = () => flushSave();
     const onVis = () => {
       if (document.visibilityState === "hidden") flushSave();
@@ -657,11 +673,12 @@ export function useSlotGame() {
         ? generateBuyGrid(rng)
         : generateGrid(rng, opts?.free ? false : anteRef.current);
 
-      await wait(dur(opts?.buy ? 720 : 620), abort.current);
-      setGrid(next);
-      await wait(dur(140), abort.current);
-
+      await wait(dur(opts?.buy ? 620 : 560), abort.current);
       setPhase("landing");
+      setGrid(next);
+      setStoppedCols(0);
+      await wait(dur(50), abort.current);
+
       let landedScatters = 0;
       let pendingFs = false;
       let pendingPick = false;
@@ -684,7 +701,7 @@ export function useSlotGame() {
             window.setTimeout(() => setShake(false), 320);
           }
         }
-        await wait(dur(92), abort.current);
+        await wait(dur(148), abort.current);
       }
       sfx.stopSpin();
       sfx.stopAnticipate();

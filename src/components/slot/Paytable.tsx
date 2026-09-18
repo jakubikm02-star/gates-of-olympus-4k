@@ -104,7 +104,8 @@ export function Paytable({ open, onClose, bet }: Props) {
             +1. Mŕtvy spin berie nízke entry. 100× ťa nevyhodí o celý rank. Po postupe buffer 40 RP a štít.
           </li>
           <li>
-            PARK POOL: 1.2 % z každej platenej stávky (max 12) ide do spoločného jackpotu. Seed 2 500,
+            PARK POOL: 1.2 % z každej platenej stávky (max 12) ide do spoločného jackpotu pre všetkých
+            hráčov na serveri. Seed 2 500,
             must-drop na 18 000. Šanca ~1/480 × lístky z tvojej ligy × škála stávky. Lístky: KREDIT 1 →
             NEKONEČNO 4. Výhra ide hráčovi, pool sa resetne na seed.
           </li>
