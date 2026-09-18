@@ -129,6 +129,7 @@ export interface RankSpin {
   retriggers?: number;
   /** Safe KONTROLA tiles before ODŤAH. */
   picks?: number;
+  rankId?: string;
 }
 
 export interface RankBreakdown {
@@ -139,15 +140,117 @@ export interface RankBreakdown {
   fromTumble: number;
   fromBanner: number;
   fromBonus: number;
+  fromStake: number;
+  fromRank: number;
+}
+
+export interface RankPerk {
+  id: string;
+  title: string;
+  detail: string;
+  rpMult: number;
+  pityBonus: number;
+  jackTicket: number;
+  streakHold: boolean;
+  dripX: number;
+}
+
+export const RANK_PERKS: RankPerk[] = [
+  {
+    id: "kredit",
+    title: "Štart",
+    detail: "1 lístok do PARK POOL. RP rastie aj s výškou stávky.",
+    rpMult: 1,
+    pityBonus: 0,
+    jackTicket: 1,
+    streakHold: false,
+    dripX: 0,
+  },
+  {
+    id: "sloboda",
+    title: "Séria hold",
+    detail: "Jeden mŕtvy v sérii ju nezhodí. 1 pool lístok.",
+    rpMult: 1,
+    pityBonus: 0,
+    jackTicket: 1,
+    streakHold: true,
+    dripX: 0,
+  },
+  {
+    id: "smart",
+    title: "+8 % RP",
+    detail: "Aktívny SMART násobí RP z výhry. 1 pool lístok.",
+    rpMult: 1.08,
+    pityBonus: 0,
+    jackTicket: 1,
+    streakHold: true,
+    dripX: 0,
+  },
+  {
+    id: "telka",
+    title: "Pity +1",
+    detail: "Mŕtvy spin +1 pity navyše. +12 % RP.",
+    rpMult: 1.12,
+    pityBonus: 1,
+    jackTicket: 1,
+    streakHold: true,
+    dripX: 0,
+  },
+  {
+    id: "optika",
+    title: "2 lístky",
+    detail: "Dva lístky do PARK POOL na spin. +16 % RP.",
+    rpMult: 1.16,
+    pityBonus: 1,
+    jackTicket: 2,
+    streakHold: true,
+    dripX: 0,
+  },
+  {
+    id: "duo",
+    title: "Rank drop",
+    detail: "Postup ligy +0.5× stávka. 2 lístky, +22 % RP.",
+    rpMult: 1.22,
+    pityBonus: 1,
+    jackTicket: 2,
+    streakHold: true,
+    dripX: 0.5,
+  },
+  {
+    id: "fiveg",
+    title: "3 lístky",
+    detail: "Postup +1× stávka. Pity +2. +30 % RP.",
+    rpMult: 1.3,
+    pityBonus: 2,
+    jackTicket: 3,
+    streakHold: true,
+    dripX: 1,
+  },
+  {
+    id: "nekonecno",
+    title: "PREDATOR",
+    detail: "4 lístky, postup +2× stávka, najvyšší drop na pool.",
+    rpMult: 1.4,
+    pityBonus: 2,
+    jackTicket: 4,
+    streakHold: true,
+    dripX: 2,
+  },
+];
+
+export function perkOf(rankId: string | undefined): RankPerk {
+  return RANK_PERKS.find((p) => p.id === rankId) ?? RANK_PERKS[0];
 }
 
 export const RANK_REWARDS = [
   { id: "sum", title: "Suma výhry", detail: "Log z násobku stávky. 10× ≈ 31 RP, 100× ≈ 60 RP — nie celý rank." },
+  { id: "stake", title: "Výška stávky", detail: "Vyššia stávka = viac RP za rovnaký násobok. 1 € ≈ +3, 10 € ≈ +10, 100 € ≈ +19." },
   { id: "mult", title: "Násobič", detail: "Energy plechovky. ×2 ≈ +4, ×10 ≈ +12, ×50 ≈ +19." },
-  { id: "streak", title: "Séria výhier", detail: "2. výhra +2, 3. +5, 4. +9, 5.+ max +14. Mŕtvy spin zhodí na 0." },
+  { id: "streak", title: "Séria výhier", detail: "2. výhra +2, 3. +5, 4. +9, 5.+ max +14. Mŕtvy spin zhodí na 0 — od SLOBODY jeden hold." },
   { id: "tumble", title: "Tumble reťaz", detail: "Dva a viac pádov v jednom spine: +2 až +8 RP." },
   { id: "banner", title: "BIG / MEGA / EPIC / MAX", detail: "Popup: +4 / +8 / +12 / +18." },
   { id: "bonus", title: "Bonusy", detail: "FS total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2." },
+  { id: "rank", title: "Aktívny rank", detail: "Každá liga má perk: RP %, pity, pool lístky, séria hold, drop pri postupe." },
 ] as const;
 
 export const RANK_RULES = RANK_REWARDS.map((r) => `${r.title} — ${r.detail}`);
@@ -169,6 +272,8 @@ export function rpFromSpin(s: RankSpin): RankBreakdown {
     fromTumble: 0,
     fromBanner: 0,
     fromBonus: 0,
+    fromStake: 0,
+    fromRank: 0,
   };
   if (s.cash <= 0 || s.bet <= 0) return empty;
 
@@ -190,27 +295,35 @@ export function rpFromSpin(s: RankSpin): RankBreakdown {
   if (retriggers > 0) fromBonus += Math.min(10, retriggers * 5);
   const picks = s.picks ?? 0;
   if (s.kind === "pick" && picks > 0) fromBonus += Math.min(6, picks);
+  const fromStake = Math.round(2.8 * Math.log2(1 + s.bet));
+  const perk = perkOf(s.rankId);
+  const core = fromSum + fromMult + fromStreak + fromTumble + fromBanner + fromBonus + fromStake;
+  const boosted = Math.round(core * perk.rpMult);
+  const fromRank = Math.max(0, boosted - core);
 
-  const raw = fromSum + fromMult + fromStreak + fromTumble + fromBanner + fromBonus;
   return {
-    total: Math.max(1, Math.min(WIN_RP_CAP, raw)),
+    total: Math.max(1, Math.min(WIN_RP_CAP, boosted)),
     fromSum,
     fromMult,
     fromStreak,
     fromTumble,
     fromBanner,
     fromBonus,
+    fromStake,
+    fromRank,
   };
 }
 
 export function rankBits(b: RankBreakdown): string[] {
   const bits: string[] = [];
   if (b.fromSum) bits.push(`suma +${b.fromSum}`);
+  if (b.fromStake) bits.push(`stávka +${b.fromStake}`);
   if (b.fromMult) bits.push(`× +${b.fromMult}`);
   if (b.fromStreak) bits.push(`séria +${b.fromStreak}`);
   if (b.fromTumble) bits.push(`tumble +${b.fromTumble}`);
   if (b.fromBanner) bits.push(`banner +${b.fromBanner}`);
   if (b.fromBonus) bits.push(`bonus +${b.fromBonus}`);
+  if (b.fromRank) bits.push(`liga +${b.fromRank}`);
   return bits;
 }
 

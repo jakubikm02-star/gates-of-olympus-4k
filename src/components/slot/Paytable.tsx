@@ -90,13 +90,19 @@ export function Paytable({ open, onClose, bet }: Props) {
           </li>
           <li>
             Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bez účtu — po vymazaní dát prehliadača
-            sa zostatok resetuje.
+            sa zostatok resetuje. PARK POOL je globálny (jeden jackpot pre všetkých).
           </li>
           <li>
             Ranked liga 4ky: KREDIT → SLOBODA → SMART → 4KA TV → OPTIKA → DUO → 5G NA DOMA → NEKONEČNO.
-            RP za sumu výhry, násobič, sériu výhier, tumble, BIG+ bannery, FS total, retrigger a KONTROLU
-            (plus standing). Ante pri výhre +1. Mŕtvy spin berie nízke entry a resetuje sériu. 100× ťa
-            nevyhodí o celý rank. Po postupe buffer 40 RP a štít.
+            RP za sumu výhry, výšku stávky, násobič, sériu, tumble, BIG+ bannery, FS total, retrigger a
+            KONTROLU. Vyššia stávka priamo pridáva RP (1 € ≈ +3, 10 € ≈ +10, 100 € ≈ +19). Aktívna liga
+            násobí RP a dáva perk (pity, lístky do poolu, hold série, drop pri postupe). Ante pri výhre
+            +1. Mŕtvy spin berie nízke entry. 100× ťa nevyhodí o celý rank. Po postupe buffer 40 RP a štít.
+          </li>
+          <li>
+            PARK POOL: 1.2 % z každej platenej stávky (max 12) ide do spoločného jackpotu. Seed 2 500,
+            must-drop na 18 000. Šanca ~1/480 × lístky z tvojej ligy × škála stávky. Lístky: KREDIT 1 →
+            NEKONEČNO 4. Výhra ide hráčovi, pool sa resetne na seed.
           </li>
           <li>
             Win popup ako na Olympuse: BIG WIN od 20× stávky, MEGA WIN od 35×, SUPER MEGA WIN od 50×.

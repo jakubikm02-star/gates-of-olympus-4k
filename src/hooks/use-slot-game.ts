@@ -33,10 +33,12 @@ import {
   zeusDropCount,
 } from "@/lib/slot/engine";
 import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, spendPity, type PickTile, type PityMap } from "@/lib/slot/pick-bonus";
-import { applyRankDelta, bannerFromX, rpFromSpin, standing, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
+import { applyRankDelta, bannerFromX, perkOf, rpFromSpin, standing, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
+import { applyDrop, contribution, emptySnap, POOL_SEED, shouldDrop, type PoolSnap } from "@/lib/slot/jackpot";
+import { getParkPool, spinParkPool } from "@/lib/slot/jackpot-fn";
 
 type Phase =
   | "boot"
@@ -53,7 +55,7 @@ type Phase =
   | "big"
   | "max";
 
-export type WinBanner = "win" | "big" | "mega" | "epic" | "max" | "fs" | "fsTotal" | null;
+export type WinBanner = "win" | "big" | "mega" | "epic" | "max" | "fs" | "fsTotal" | "pool" | null;
 
 export interface BannerMeta {
   spins: number;
@@ -115,6 +117,8 @@ export function useSlotGame() {
   const [rankOpen, setRankOpen] = useState(false);
   const [winStreak, setWinStreak] = useState(0);
   const [rankParts, setRankParts] = useState<RankBreakdown | null>(null);
+  const [pool, setPool] = useState(POOL_SEED);
+  const [poolHits, setPoolHits] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const [autoLeft, setAutoLeft] = useState(0);
   const [autoOn, setAutoOn] = useState(false);
@@ -163,6 +167,8 @@ export function useSlotGame() {
   const featureXRef = useRef(0);
   const rankRef = useRef({ rp: 0, peak: 0, shield: false });
   const streakRef = useRef(0);
+  const holdUsedRef = useRef(false);
+  const poolLocalRef = useRef(POOL_SEED);
 
   turboRef.current = turbo;
   quickRef.current = quick;
@@ -198,6 +204,8 @@ export function useSlotGame() {
     rankRef.current = { rp: s.rp, peak: s.rankPeak, shield: s.rankShield };
     streakRef.current = s.winStreak;
     setWinStreak(s.winStreak);
+    poolLocalRef.current = s.poolLocal || POOL_SEED;
+    setPool(poolLocalRef.current);
     saveSnapRef.current = s;
   }, []);
 
@@ -230,11 +238,25 @@ export function useSlotGame() {
       rankPeak,
       rankShield,
       winStreak,
+      poolLocal: poolLocalRef.current,
       updatedAt: Date.now(),
     };
     saveSnapRef.current = payload;
     writeLocal(payload);
-  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak]);
+  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pool]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    void getParkPool()
+      .then((s) => {
+        setPool(s.pool);
+        setPoolHits(s.hits);
+        poolLocalRef.current = s.pool;
+      })
+      .catch(() => {
+        setPool(poolLocalRef.current);
+      });
+  }, [hydrated]);
 
   useEffect(() => {
     const onHide = () => flushSave();
@@ -311,6 +333,16 @@ export function useSlotGame() {
     setRankShield(res.save.shield);
     setRankDelta(res.applied);
     setRankParts(delta > 0 && parts ? parts : null);
+    if (res.event === "up") {
+      const perk = perkOf(res.after.id);
+      if (perk.dripX > 0) {
+        const drip = +(BETS[betIndexRef.current] * perk.dripX).toFixed(2);
+        if (drip > 0) {
+          setBalance((b) => +(b + drip).toFixed(2));
+          setSpinTape((t) => [{ label: "RANK DROP", amount: formatMoney(drip) }, ...t].slice(0, 8));
+        }
+      }
+    }
     if (res.event) {
       setRankFlash({
         event: res.event,
@@ -325,18 +357,45 @@ export function useSlotGame() {
     }
   }, []);
 
-  const noteResult = useCallback(
-    (paid: boolean) => {
-      if (paid) {
-        streakRef.current += 1;
-      } else {
-        streakRef.current = 0;
+  const noteResult = useCallback((paid: boolean) => {
+    const perk = perkOf(standing(rankRef.current.rp).id);
+    if (paid) {
+      streakRef.current += 1;
+      holdUsedRef.current = false;
+    } else if (perk.streakHold && streakRef.current >= 2 && !holdUsedRef.current) {
+      holdUsedRef.current = true;
+    } else {
+      streakRef.current = 0;
+      holdUsedRef.current = false;
+    }
+    setWinStreak(streakRef.current);
+    return streakRef.current;
+  }, []);
+
+  const feedPool = useCallback(async (stake: number): Promise<PoolSnap> => {
+    const perk = perkOf(standing(rankRef.current.rp).id);
+    try {
+      const res = await spinParkPool({ data: { stake, tickets: perk.jackTicket } });
+      setPool(res.pool);
+      setPoolHits(res.hits);
+      poolLocalRef.current = res.pool;
+      return res;
+    } catch {
+      const add = contribution(stake);
+      poolLocalRef.current = +(poolLocalRef.current + add).toFixed(2);
+      if (shouldDrop(poolLocalRef.current, perk.jackTicket, stake, Math.random)) {
+        const { payout, next } = applyDrop(poolLocalRef.current);
+        if (payout > 0) {
+          poolLocalRef.current = next;
+          setPool(next);
+          setPoolHits((h) => h + 1);
+          return { pool: next, hits: 0, lastHit: payout, hit: true, payout };
+        }
       }
-      setWinStreak(streakRef.current);
-      return streakRef.current;
-    },
-    [],
-  );
+      setPool(poolLocalRef.current);
+      return { ...emptySnap(), pool: poolLocalRef.current };
+    }
+  }, []);
 
   const closeBanner = useCallback(() => {
     if (!bannerOpen.current && !bannerWait.current) return;
@@ -353,6 +412,28 @@ export function useSlotGame() {
       bannerWait.current = resolve;
     });
   }, []);
+
+  const payPoolHit = useCallback(
+    async (pot: PoolSnap) => {
+      if (!pot.hit || pot.payout <= 0) return;
+      setBalance((b) => +(b + pot.payout).toFixed(2));
+      setBestWin((w) => Math.max(w, pot.payout));
+      setSpinTape((t) => [{ label: "PARK POOL", amount: formatMoney(pot.payout) }, ...t].slice(0, 8));
+      if (autoRef.current) {
+        autoRef.current = false;
+        setAutoOn(false);
+        setAutoLeft(0);
+        setAutoReason("AUTO STOP · PARK POOL");
+      }
+      bannerOpen.current = true;
+      setBanner("pool");
+      setBannerAmount(pot.payout);
+      setPhase("big");
+      sfx.playMaxWin();
+      await waitForBanner();
+    },
+    [waitForBanner],
+  );
 
   const waitForPick = useCallback(() => {
     return new Promise<void>((resolve) => {
@@ -435,6 +516,7 @@ export function useSlotGame() {
         banner: bannerFromX(cash / betNow),
         kind: "pick",
         picks: pickTilesRef.current.filter((t, i) => pickRevealedRef.current[i] && t.kind !== "odtah").length,
+        rankId: standing(rankRef.current.rp).id,
       });
       pushRank(parts.total, parts);
     } else {
@@ -683,7 +765,8 @@ export function useSlotGame() {
       }
 
       if (!fsNow) {
-        const add = pityGain(scatterPeak, sequenceX <= 0);
+        const dead = sequenceX <= 0;
+        const add = pityGain(scatterPeak, dead) + (dead ? perkOf(standing(rankRef.current.rp).id).pityBonus : 0);
         if (add > 0) {
           const nextMap = bumpPity(pityByBetRef.current, currentBet, add);
           const stored = readPity(nextMap, currentBet);
@@ -822,6 +905,7 @@ export function useSlotGame() {
             kind: "base",
             ante: anteRef.current && !opts?.buy,
             scatters: scatterPeak,
+            rankId: standing(rankRef.current.rp).id,
           });
           pushRank(parts.total, parts);
         } else {
@@ -838,6 +922,11 @@ export function useSlotGame() {
         else sfx.playBigWin();
         setPhase(kind === "max" ? "max" : "big");
         await waitForBanner();
+      }
+
+      if (!isFree && cost > 0) {
+        const pot = await feedPool(cost);
+        await payPoolHit(pot);
       }
 
       setWinMask(null);
@@ -857,7 +946,7 @@ export function useSlotGame() {
       if (pendingPick) return "pick";
       return "ok";
     },
-    [dur, waitForBanner, pushRank, noteResult],
+    [dur, waitForBanner, pushRank, noteResult, feedPool, payPoolHit],
   );
 
   const playRound = useCallback(
@@ -977,6 +1066,7 @@ export function useSlotGame() {
             banner: bannerFromX(fx, hitCap),
             kind: "fs",
             retriggers: extraSpins > 0 ? Math.round(extraSpins / FS_RETRIGGER) : 0,
+            rankId: standing(rankRef.current.rp).id,
           });
           pushRank(parts.total, parts);
         } else {
@@ -1143,6 +1233,9 @@ export function useSlotGame() {
     setRankOpen,
     winStreak,
     rankParts,
+    perk: perkOf(standing(rp).id),
+    pool,
+    poolHits,
     clearRankFlash: () => setRankFlash(null),
     autoOn,
     autoLeft,

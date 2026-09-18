@@ -17,6 +17,7 @@ export interface PlayerSave {
   rankPeak: number;
   rankShield: boolean;
   winStreak: number;
+  poolLocal: number;
   updatedAt: number;
 }
 
@@ -34,6 +35,7 @@ export function emptyPlayerSave(): PlayerSave {
     rankPeak: 0,
     rankShield: false,
     winStreak: 0,
+    poolLocal: 2500,
     updatedAt: 0,
   };
 }
@@ -97,6 +99,7 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.rankPeak = Math.max(0, Math.floor(num(r.rankPeak, 0)));
   s.rankShield = bool(r.rankShield, false);
   s.winStreak = Math.min(99, Math.max(0, Math.floor(num(r.winStreak, 0))));
+  s.poolLocal = num(r.poolLocal, 2500, 0, 1_000_000_000);
   s.updatedAt = stampMs(r.updatedAt ?? r.updated_at);
   return s;
 }

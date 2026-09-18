@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { RankMark } from "./RankBadge";
-import { BANDS, NEKONECNO_FLOOR, RANK_REWARDS, RANKS, type Standing } from "@/lib/slot/ranks";
+import { BANDS, NEKONECNO_FLOOR, RANK_PERKS, RANK_REWARDS, RANKS, perkOf, type Standing } from "@/lib/slot/ranks";
 
 const ROMAN = ["", "I", "II", "III", "IV"];
 
@@ -26,6 +26,7 @@ export function RankPanel({ open, onClose, stand, peak, shield, streak = 0 }: Pr
   if (!open) return null;
 
   const pct = stand.need > 0 ? Math.min(100, (stand.into / stand.need) * 100) : 100;
+  const perk = perkOf(stand.id);
 
   return (
     <div className="modal-back rank-back" onClick={onClose} role="presentation">
@@ -42,8 +43,8 @@ export function RankPanel({ open, onClose, stand, peak, shield, streak = 0 }: Pr
           </button>
         </header>
         <p className="modal-lead">
-          RP rastú zo sumy, násobiča, série, tumble a bannerov. 100× ťa nevyhodí o celý rank.
-          Mŕtvy spin berie malé entry a zhodí sériu.
+          RP rastú zo sumy, výšky stávky, násobiča, série, tumble a bannerov. Vyššia stávka = viac RP.
+          Aktívna liga dáva perk. Mŕtvy spin berie malé entry.
         </p>
         {streak >= 2 && <p className="rank-now-streak">Séria {streak} výhier po sebe</p>}
 
@@ -69,8 +70,36 @@ export function RankPanel({ open, onClose, stand, peak, shield, streak = 0 }: Pr
                 : `${stand.into} / ${stand.need} RP`}
               {shield ? " · štít" : ""}
             </small>
+            <small className="rank-perk-now">
+              PERK · {perk.title} — {perk.detail}
+            </small>
           </div>
         </div>
+
+        <h3 className="rank-sec">Bonusy ligy</h3>
+        <ul className="rank-perks">
+          {RANK_PERKS.map((p) => {
+            const rank = RANKS.find((r) => r.id === p.id);
+            const current = p.id === stand.id;
+            return (
+              <li
+                key={p.id}
+                className={`rk-${p.id} ${current ? "is-now" : ""}`}
+                style={{ ["--rk" as string]: rank?.color ?? "#8d939b", ["--rk-ink" as string]: rank?.ink ?? "#e8eaee" }}
+              >
+                <span className="rank-shield sm" aria-hidden="true">
+                  <RankMark id={p.id} size={14} />
+                </span>
+                <div>
+                  <strong>
+                    {rank?.name} · {p.title}
+                  </strong>
+                  <span>{p.detail}</span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
 
         <ul className="rank-rewards">
           {RANK_REWARDS.map((row) => (
@@ -85,6 +114,7 @@ export function RankPanel({ open, onClose, stand, peak, shield, streak = 0 }: Pr
           {RANKS.map((r, i) => {
             const reached = peak >= (BANDS.find((b) => b.rankIndex === i)?.floor ?? 0);
             const current = stand.rankIndex === i;
+            const rowPerk = perkOf(r.id);
             return (
               <li
                 key={r.id}
@@ -96,7 +126,9 @@ export function RankPanel({ open, onClose, stand, peak, shield, streak = 0 }: Pr
                 </span>
                 <div className="rank-lad-meta">
                   <strong>{r.name}</strong>
-                  <em>{r.product}</em>
+                  <em>
+                    {r.product} · {rowPerk.title}
+                  </em>
                 </div>
                 {r.divisions > 1 ? (
                   <span className="rank-pips" aria-hidden="true">

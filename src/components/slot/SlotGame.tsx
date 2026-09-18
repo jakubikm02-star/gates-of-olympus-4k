@@ -21,6 +21,7 @@ const BANNER_COPY: Record<string, string> = {
   big: "BIG WIN",
   fs: "GRATULUJEME!",
   fsTotal: "TOTAL WIN",
+  pool: "PARK POOL HIT",
   win: "WIN",
 };
 
@@ -146,6 +147,18 @@ export function SlotGame() {
             <p className="ls-max">WIN UP TO 5000× BET</p>
           </div>
           <div className="head-end">
+            <div
+              className="pool-led"
+              aria-label={`Park pool ${formatMoney(g.pool)}, ${g.perk.jackTicket} lístkov`}
+            >
+              <span>PARK POOL</span>
+              <b>
+                <CountUp value={g.pool} />
+              </b>
+              <em>
+                {g.perk.jackTicket} líst. · liga {g.rank.name}
+              </em>
+            </div>
             <button
               type="button"
               className="icon-btn theater-btn"
@@ -282,7 +295,9 @@ export function SlotGame() {
           </section>
 
           <aside className="ramp-col" aria-hidden="false">
-            <span className="led-sign">P · OPEN</span>
+            <span className="led-sign">
+              POOL <b>{formatMoney(g.pool)}</b>
+            </span>
             <img
               src="/art/ramp.png"
               alt=""
@@ -487,7 +502,11 @@ export function SlotGame() {
             <div className="wb-term">
               <p className="wb-line dim">
                 [admin@parkizmus] {'>'}{" "}
-                {g.banner === "fsTotal" ? "/log print fs-summary" : "/system script run win.rsc"}
+                {g.banner === "fsTotal"
+                  ? "/log print fs-summary"
+                  : g.banner === "pool"
+                    ? "/log print park-pool"
+                    : "/system script run win.rsc"}
               </p>
               {g.banner !== "fsTotal" && <p className="wb-line dim">  status: running…</p>}
               <p className="wb-kicker">{BANNER_COPY[g.banner] ?? "WIN"}</p>
@@ -528,6 +547,9 @@ export function SlotGame() {
                 </p>
               )}
               {g.banner === "max" && <p className="wb-err">status: FEATURE TERMINATED</p>}
+              {g.banner === "pool" && (
+                <p className="wb-line dim">hits: {g.poolHits} · seed 2500 · 1.2% stake</p>
+              )}
               {g.banner !== "max" && g.banner !== "fs" && g.banner !== "fsTotal" && (
                 <p className="wb-line dim">status: ok</p>
               )}

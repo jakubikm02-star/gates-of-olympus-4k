@@ -1332,11 +1332,17 @@
   padding: 4px 10px;
   border-radius: 2px;
   font-family: var(--font-display);
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
   color: #0b0d10;
   background: #3ec6e0;
   box-shadow: 0 0 16px rgb(62 198 224 / 0.55);
+  white-space: nowrap;
+}
+
+.led-sign b {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .zeus,
@@ -2144,6 +2150,11 @@
   color: #ffd24a;
 }
 
+.banner-card.pool .wb-kicker {
+  color: var(--color-bolt);
+  text-shadow: 0 0 10px rgb(62 198 224 / 0.55);
+}
+
 .banner-card.fs .wb-kicker {
   color: var(--color-bolt);
   text-shadow: 0 0 10px rgb(62 198 224 / 0.55);
@@ -2899,6 +2910,47 @@
   gap: 6px;
 }
 
+.pool-led {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0;
+  min-width: 0;
+  padding: 3px 9px 4px;
+  background: linear-gradient(180deg, #123038, #071014);
+  border: 1px solid var(--color-bolt);
+  border-radius: 8px;
+  box-shadow: 0 0 12px rgb(62 198 224 / 0.28);
+  line-height: 1.05;
+  text-align: right;
+}
+
+.pool-led span {
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--color-bolt);
+}
+
+.pool-led b {
+  font-family: var(--font-display);
+  font-size: clamp(0.82rem, 2.2vh, 1.12rem);
+  font-weight: 700;
+  color: #d9f7ff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 8px rgb(62 198 224 / 0.45);
+}
+
+.pool-led em {
+  font-style: normal;
+  font-size: 0.5rem;
+  letter-spacing: 0.06em;
+  color: #9aa3ad;
+  white-space: nowrap;
+}
+
 .ls-max {
   display: none;
   margin: 0;
@@ -3109,7 +3161,64 @@
 }
 
 .rank-card {
-  width: min(420px, 100%);
+  width: min(460px, 100%);
+}
+
+.rank-perk-now {
+  margin-top: 4px;
+  color: var(--rk-ink) !important;
+  font-weight: 600;
+}
+
+.rank-sec {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  color: var(--color-gold);
+}
+
+.rank-perks {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.rank-perks li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid rgb(255 255 255 / 0.06);
+  background: rgb(255 255 255 / 0.03);
+  opacity: 0.72;
+}
+
+.rank-perks li.is-now {
+  opacity: 1;
+  border-color: var(--rk);
+  background: color-mix(in srgb, var(--rk) 16%, rgb(18 22 28));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--rk) 22%, transparent);
+}
+
+.rank-perks strong {
+  display: block;
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+  font-size: 0.78rem;
+  color: var(--rk-ink);
+}
+
+.rank-perks span {
+  display: block;
+  color: #c9d3dc;
+  font-size: 0.72rem;
+  line-height: 1.35;
 }
 
 .rank-hero {
@@ -3286,6 +3395,15 @@
   .table-head {
     gap: 4px;
   }
+  .pool-led {
+    padding: 2px 7px 3px;
+  }
+  .pool-led b {
+    font-size: 0.82rem;
+  }
+  .pool-led em {
+    display: none;
+  }
   .rank-chip {
     padding: 2px 8px 2px 2px;
     min-height: 32px;
@@ -3400,6 +3518,18 @@ html:-webkit-full-screen {
 
 .stage.is-ls .table-head > * {
   pointer-events: auto;
+}
+
+.stage.is-ls .pool-led {
+  padding: 2px 8px 3px;
+}
+
+.stage.is-ls .pool-led b {
+  font-size: clamp(0.78rem, 2.4vh, 1.05rem);
+}
+
+.stage.is-ls .pool-led em {
+  display: none;
 }
 
 .stage.is-ls .arena {
