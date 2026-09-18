@@ -80,7 +80,7 @@ function CellView({
     ...(tumbleFall && !reduced
       ? {
           ["--fall"]: String(tumbleFall),
-          animation: `cell-drop ${180 + tumbleFall * 18}ms cubic-bezier(0.42, 0, 0.2, 1) both`,
+          animation: `cell-drop 200ms cubic-bezier(0.42, 0, 1, 1) both`,
         }
       : {}),
   } as CSSProperties;
@@ -113,9 +113,10 @@ function CellView({
       {hot && <span className="orb-strike" aria-hidden="true" />}
       {popping && win && (
         <span className="pop-burst" aria-hidden="true">
-          {Array.from({ length: 12 }, (_, i) => (
+          {Array.from({ length: 16 }, (_, i) => (
             <i key={i} style={{ ["--i" as string]: String(i) } as CSSProperties} />
           ))}
+          <b className="pop-spiral" />
         </span>
       )}
     </div>
@@ -176,7 +177,7 @@ export function SlotGrid({
                 justLand ? "is-landing" : "",
                 colAnti ? "is-anticipate" : "",
               ].join(" ")}
-              style={{ ["--c" as string]: String(c), ["--desync" as string]: `${c * 36}ms` } as CSSProperties}
+              style={{ ["--c" as string]: String(c), ["--desync" as string]: `${c * 25}ms` } as CSSProperties}
             >
               {showSpin ? (
                 <div className={`strip strip-spin ${landed ? "is-exiting" : ""}`}>

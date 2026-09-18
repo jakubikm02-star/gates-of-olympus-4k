@@ -81,10 +81,13 @@ export function randomCell(rng: () => number, ante: boolean, fs = false): Cell {
   return randomPayCell(rng);
 }
 
-/** Tall looping column for the spin shot: 3× the same 5 so CSS % loop is seamless. */
+/** Tall looping column: 3×5 with empty track so the shot isn’t a packed icon wall. */
 export function makeSpinStrip(rng: () => number): Cell[] {
   const pat: Cell[] = [];
-  for (let i = 0; i < ROWS; i++) pat.push(randomPayCell(rng));
+  for (let i = 0; i < ROWS; i++) {
+    if (rng() < 0.28) pat.push({ uid: nextUid(), kind: "pay", payId: "rj45", gone: true });
+    else pat.push(randomPayCell(rng));
+  }
   return [...pat, ...pat, ...pat];
 }
 

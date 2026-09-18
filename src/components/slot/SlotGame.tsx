@@ -45,7 +45,7 @@ function HoldSpin({
   const down = (e: PointerEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
-    if (!g.started || g.inFs) return;
+    if (!g.started || g.inFs || g.buyAsk) return;
     if (g.busy) {
       return;
     }
@@ -61,7 +61,7 @@ function HoldSpin({
   const up = () => {
     window.clearTimeout(timer.current);
     timer.current = 0;
-    if (!g.started || g.inFs) return;
+    if (!g.started || g.inFs || g.buyAsk) return;
     if (held.current) return;
     if (g.busy) return;
     void g.spin();
@@ -74,7 +74,7 @@ function HoldSpin({
       onPointerDown={down}
       onPointerUp={up}
       onPointerCancel={up}
-      disabled={!g.started || g.inFs || g.busy}
+      disabled={!g.started || g.inFs || g.busy || g.buyAsk}
       aria-label={label ?? "Točiť"}
     >
       <RefreshCw size={34} strokeWidth={2.6} />
@@ -199,8 +199,17 @@ export function SlotGame() {
               onClick={() => void g.buyBonus()}
               disabled={!g.canBuy}
             >
-              <em>KÚPIŤ FREE SPINS</em>
-              <strong>{formatMoney(g.bet * g.buyX)}</strong>
+              {g.inFs ? (
+                <>
+                  <em>FREE SPINS</em>
+                  <strong>{g.fsLeft}</strong>
+                </>
+              ) : (
+                <>
+                  <em>KÚPIŤ FREE SPINS</em>
+                  <strong>{formatMoney(g.bet * g.buyX)}</strong>
+                </>
+              )}
             </button>
             <button
               type="button"
@@ -377,7 +386,7 @@ export function SlotGame() {
             {g.payHint && (
               <p className="pay-hint">
                 <img src={g.payHint.src} alt="" />
-                {g.payHint.count}× VYPLÁCA {g.payHint.amount}
+                {g.payHint.count}× {g.payHint.name} = {g.payHint.amount}
               </p>
             )}
           </div>
@@ -396,7 +405,7 @@ export function SlotGame() {
               type="button"
               className={`spin-btn hud-spin ${g.busy ? "is-busy" : ""} ${g.turbo ? "is-turbo" : ""}`}
               onClick={() => void g.spin()}
-              disabled={!g.started || g.inFs || g.busy}
+              disabled={!g.started || g.inFs || g.busy || g.buyAsk}
               aria-label="Točiť"
             >
               <RefreshCw size={34} strokeWidth={2.6} />
@@ -506,7 +515,30 @@ export function SlotGame() {
         />
       )}
 
-      {g.banner && (
+      {g.buyAsk && (
+        <div className="buy-ask" role="dialog" aria-label="Kúpiť free spins">
+          <p>KÚPIŤ FREE SPINS</p>
+          <strong>{formatMoney(g.bet * g.buyX)}</strong>
+          <div className="buy-ask-btns">
+            <button type="button" className="buy-x" onClick={g.cancelBuy} aria-label="Zrušiť">
+              ✕
+            </button>
+            <button type="button" className="buy-ok" onClick={() => void g.confirmBuy()} aria-label="Potvrdiť">
+              ✓
+            </button>
+          </div>
+        </div>
+      )}
+
+      {g.banner === "fs" && (
+        <div className="fs-intro" onClick={g.closeBanner} role="presentation">
+          <p>GRATULUJEM</p>
+          <b>15 FREE SPINS</b>
+          <span>ŤUKNI ĽUBOVOĽNE</span>
+        </div>
+      )}
+
+      {g.banner && g.banner !== "fs" && (
         <div className="banner" onClick={g.closeBanner} role="presentation">
           <div className={`banner-card ${g.banner}`} role="dialog" aria-label="Výhra">
             <header className="wb-title">
@@ -536,9 +568,7 @@ export function SlotGame() {
               </p>
               {g.banner !== "fsTotal" && <p className="wb-line dim">  status: running…</p>}
               <p className="wb-kicker">{BANNER_COPY[g.banner] ?? "WIN"}</p>
-              {g.banner === "fs" ? (
-                <p className="wb-amt">free-spins: 15</p>
-              ) : g.banner === "fsTotal" ? (
+              {g.banner === "fsTotal" ? (
                 <table className="wb-table">
                   <tbody>
                     <tr>
@@ -576,7 +606,7 @@ export function SlotGame() {
               {g.banner === "pool" && (
                 <p className="wb-line dim">PARK POOL · celý pot · seed 500 + reserve</p>
               )}
-              {g.banner !== "max" && g.banner !== "fs" && g.banner !== "fsTotal" && (
+              {g.banner !== "max" && g.banner !== "fsTotal" && (
                 <p className="wb-line dim">status: ok</p>
               )}
               <p className="wb-line">
