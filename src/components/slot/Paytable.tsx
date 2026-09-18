@@ -107,7 +107,7 @@ export function Paytable({ open, onClose, bet }: Props) {
             PARK POOL: 1.2 % z každej platenej stávky (max 12) ide do spoločného jackpotu pre všetkých
             hráčov na serveri. Seed 2 500,
             must-drop na 18 000. Šanca ~1/480 × lístky z tvojej ligy × škála stávky. Lístky: KREDIT 1 →
-            NEKONEČNO 4. Výhra ide hráčovi, pool sa resetne na seed.
+            NEKONEČNO 4. Trafaš JACKPOT = berieš celú zobrazenú sumu, pool sa resetne na 2 500.
           </li>
           <li>
             Win popup ako na Olympuse: BIG WIN od 20× stávky, MEGA WIN od 35×, SUPER MEGA WIN od 50×.

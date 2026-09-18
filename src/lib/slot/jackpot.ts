@@ -37,7 +37,7 @@ export function shouldDrop(pool: number, tickets: number, bet: number, rng: () =
 }
 
 export function applyDrop(pool: number): { payout: number; next: number } {
-  const payout = Math.max(0, Math.round((pool - POOL_SEED) * 100) / 100);
+  const payout = Math.max(0, Math.round(pool * 100) / 100);
   return { payout, next: POOL_SEED };
 }
 

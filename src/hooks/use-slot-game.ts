@@ -585,17 +585,17 @@ export function useSlotGame() {
       if (!pot.hit || pot.payout <= 0) return;
       setBalance((b) => +(b + pot.payout).toFixed(2));
       setBestWin((w) => Math.max(w, pot.payout));
-      setSpinTape((t) => [{ label: "PARK POOL", amount: formatMoney(pot.payout) }, ...t].slice(0, 8));
+      setSpinTape((t) => [{ label: "JACKPOT", amount: formatMoney(pot.payout) }, ...t].slice(0, 8));
       if (autoRef.current) {
         autoRef.current = false;
         setAutoOn(false);
         setAutoLeft(0);
-        setAutoReason("AUTO STOP · PARK POOL");
+        setAutoReason("AUTO STOP · JACKPOT");
       }
       bannerOpen.current = true;
       setBanner("pool");
       setBannerAmount(pot.payout);
-      setPhase("big");
+      setPhase("max");
       sfx.playMaxWin();
       await waitForBanner();
     },

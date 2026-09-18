@@ -16,10 +16,13 @@ describe("park pool", () => {
     assert.equal(shouldDrop(2500, 1, 1, () => 1), false);
   });
 
-  it("pays pool minus seed and resets", () => {
+  it("pays the full jackpot and resets to seed", () => {
     const { payout, next } = applyDrop(4312.5);
-    assert.equal(payout, 1812.5);
+    assert.equal(payout, 4312.5);
     assert.equal(next, POOL_SEED);
+    const seedHit = applyDrop(2500);
+    assert.equal(seedHit.payout, 2500);
+    assert.equal(seedHit.next, POOL_SEED);
   });
 
   it("tickets raise drop chance", () => {

@@ -21,7 +21,7 @@ const BANNER_COPY: Record<string, string> = {
   big: "BIG WIN",
   fs: "GRATULUJEME!",
   fsTotal: "TOTAL WIN",
-  pool: "PARK POOL HIT",
+  pool: "JACKPOT",
   win: "WIN",
 };
 
@@ -509,7 +509,7 @@ export function SlotGame() {
                 {g.banner === "fsTotal"
                   ? "/log print fs-summary"
                   : g.banner === "pool"
-                    ? "/log print park-pool"
+                    ? "/log print jackpot"
                     : "/system script run win.rsc"}
               </p>
               {g.banner !== "fsTotal" && <p className="wb-line dim">  status: running…</p>}
@@ -552,7 +552,7 @@ export function SlotGame() {
               )}
               {g.banner === "max" && <p className="wb-err">status: FEATURE TERMINATED</p>}
               {g.banner === "pool" && (
-                <p className="wb-line dim">hits: {g.poolHits} · seed 2500 · 1.2% stake</p>
+                <p className="wb-line dim">PARK POOL · celá suma · reset seed 2500</p>
               )}
               {g.banner !== "max" && g.banner !== "fs" && g.banner !== "fsTotal" && (
                 <p className="wb-line dim">status: ok</p>
