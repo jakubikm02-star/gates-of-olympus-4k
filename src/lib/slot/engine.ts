@@ -158,6 +158,7 @@ export function zeusDrop(
   for (let i = 0; i < take; i++) {
     const { r, c } = spots[i];
     const orb = randomOrb(rng, fs);
+    orb.fall = r + 1;
     next[r][c] = orb;
     drops.push({ r, c, mult: orb.mult ?? 2 });
   }
@@ -290,7 +291,9 @@ export function expireOrbs(grid: Cell[][], rng: () => number): { grid: Cell[][];
     for (let c = 0; c < COLS; c++) {
       if (next[r][c].kind === "mult") {
         expired.push(next[r][c].uid);
-        next[r][c] = randomPayCell(rng);
+        const fresh = randomPayCell(rng);
+        fresh.fall = 1;
+        next[r][c] = fresh;
       }
     }
   }

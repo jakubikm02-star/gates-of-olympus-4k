@@ -968,9 +968,11 @@ export function useSlotGame() {
         sfx.playTumble(tumbleN);
         setGrid(cloneGrid(board));
         tumbleN += 1;
-        await wait(dur(280 * 0.93 ** (tumbleN - 1)), abort.current);
+        await wait(280);
         setThrowBolt(false);
-        setGrid((g) => g.map((row) => row.map((c) => ({ ...c, fall: 0, gone: false }))));
+        setGrid((g) =>
+          g.map((row) => row.map((c) => (c.fall || c.gone ? { ...c, fall: 0, gone: false } : c))),
+        );
         await wait(dur(80), abort.current);
       }
 

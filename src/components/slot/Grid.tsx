@@ -77,12 +77,7 @@ function CellView({
   const style = {
     ["--r"]: String(r),
     ["--c"]: String(c),
-    ...(tumbleFall && !reduced
-      ? {
-          ["--fall"]: String(tumbleFall),
-          animation: `cell-drop 260ms cubic-bezier(0.42, 0, 1, 1) both`,
-        }
-      : {}),
+    ...(tumbleFall ? { ["--fall"]: String(tumbleFall) } : {}),
   } as CSSProperties;
   return (
     <div
@@ -100,6 +95,7 @@ function CellView({
         slam ? "is-slam" : "",
         expired ? "is-expired" : "",
         dumping && !reduced ? "is-dump" : "",
+        tumbleFall && !reduced ? "is-drop" : "",
       ].join(" ")}
       style={style}
     >
@@ -159,20 +155,18 @@ export function SlotGrid({
       >
         {Array.from({ length: COLS }, (_, c) => {
           const pending = cascading && c >= stoppedCols;
-          const landed = landing && c < stoppedCols;
           const justLand = landing && c === stoppedCols - 1;
           const reel = spinStrips?.[c] ?? [];
-          const showSpin = Boolean(holdGrid) && (pending || landed) && reel.length > 0;
-          const showNew = !spinning && (!landing || landed);
-          const dropNew = landed;
+          const showSpin = Boolean(holdGrid) && pending && reel.length > 0;
+          const showNew = !pending;
+          const dropNew = justLand;
           const colAnti = anticipate && pending;
           return (
             <div
               key={c}
               className={[
                 "reel-col",
-                showSpin && pending ? "is-charging" : "",
-                landed && showSpin ? "is-dumping" : "",
+                showSpin ? "is-charging" : "",
                 dropNew ? "is-filling" : "",
                 justLand ? "is-landing" : "",
                 colAnti ? "is-anticipate" : "",
@@ -180,10 +174,10 @@ export function SlotGrid({
               style={{ ["--c" as string]: String(c), ["--desync" as string]: `${c * 25}ms` } as CSSProperties}
             >
               {showSpin ? (
-                <div className={`strip strip-spin ${landed ? "is-exiting" : ""}`}>
+                <div className="strip strip-spin">
                   {reel.map((cell, i) => (
                     <CellView
-                      key={`s-${c}-${i}-${cell.uid}`}
+                      key={`s-${c}-${i}`}
                       cell={cell}
                       r={i % ROWS}
                       c={c}
@@ -207,7 +201,7 @@ export function SlotGrid({
                     const cell = grid[r][c];
                     return (
                       <CellView
-                        key={cell.uid}
+                        key={`${c}-${r}`}
                         cell={cell}
                         r={r}
                         c={c}
@@ -217,7 +211,7 @@ export function SlotGrid({
                         dumping={false}
                         hot={struckUids.includes(cell.uid)}
                         dormant={cell.kind === "mult" && !struckUids.includes(cell.uid) && !cascading}
-                        tease={anticipate && landed && cell.kind === "scatter"}
+                        tease={anticipate && !pending && cell.kind === "scatter"}
                         slam={justLand && cell.kind === "scatter"}
                         expired={expiredUids.includes(cell.uid)}
                         tumbleFall={cell.fall ?? 0}
