@@ -877,6 +877,9 @@
 
 .cell.is-win {
   z-index: 2;
+  outline: 2px solid rgb(255 225 90 / 0.85);
+  outline-offset: -3px;
+  box-shadow: inset 0 0 18px rgb(255 210 80 / 0.35);
 }
 
 .cell.is-win .cell-img {
@@ -957,21 +960,21 @@
     0 0 2px #000,
     0 0 14px #ff9a20;
   pointer-events: none;
-  animation: cluster-pop 0.55s cubic-bezier(0.22, 1.5, 0.36, 1) both;
+  animation: cluster-pop 0.7s cubic-bezier(0.22, 1.4, 0.36, 1) both;
 }
 
 @keyframes cluster-pop {
-  from {
-    transform: translate(-50%, -40%) scale(0.35);
+  0% {
+    transform: translate(-50%, -40%) scale(0.55);
     opacity: 0;
   }
-  45% {
-    transform: translate(-50%, -55%) scale(1.14);
+  28% {
+    transform: translate(-50%, -58%) scale(1.12);
     opacity: 1;
   }
-  to {
-    transform: translate(-50%, -72%) scale(1);
-    opacity: 1;
+  100% {
+    transform: translate(-50%, 220%) scale(0.42);
+    opacity: 0;
   }
 }
 
@@ -1249,18 +1252,81 @@
 
 @keyframes cell-drop {
   0% {
-    transform: translateY(calc(var(--fall, 5.4) * -100%)) scaleY(1.1);
-    filter: blur(0.55px);
+    transform: translateY(calc(var(--fall, 5.2) * -100%)) scaleY(1.12);
+    filter: blur(0.7px);
   }
-  72% {
-    transform: translateY(6%) scaleY(0.84) scaleX(1.08);
+  78% {
+    transform: translateY(7%) scaleY(0.82) scaleX(1.1);
     filter: blur(0);
   }
-  86% {
-    transform: translateY(-3%) scaleY(1.06) scaleX(0.97);
+  90% {
+    transform: translateY(-2.5%) scaleY(1.05) scaleX(0.97);
   }
   100% {
     transform: none;
+  }
+}
+
+.cell.is-scatter .cell-img {
+  width: 90%;
+  height: 90%;
+  filter:
+    drop-shadow(0 0 8px #5cf0ff)
+    drop-shadow(0 0 16px #ffb020)
+    drop-shadow(0 6px 8px rgb(0 0 0 / 0.55))
+    brightness(1.12);
+  animation: scatter-idle 1.8s ease-in-out infinite;
+}
+
+.cell.is-scatter::after {
+  content: "";
+  position: absolute;
+  inset: 6%;
+  border-radius: 18%;
+  border: 2px solid rgb(255 210 80 / 0.7);
+  box-shadow: 0 0 14px rgb(80 230 255 / 0.45);
+  pointer-events: none;
+  z-index: 1;
+}
+
+@keyframes scatter-idle {
+  50% {
+    transform: scale(1.06);
+    filter:
+      drop-shadow(0 0 12px #7af6ff)
+      drop-shadow(0 0 20px #ffc14a)
+      brightness(1.2);
+  }
+}
+
+.cell.is-hole {
+  background: radial-gradient(circle, rgb(0 0 0 / 0.35), transparent 70%);
+}
+
+.pop-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.pop-burst i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: #ffe9a0;
+  box-shadow: 0 0 6px #ffd24a;
+  animation: pop-shard 0.28s ease-out forwards;
+  transform: rotate(calc(var(--i) * 45deg)) translateY(-8px);
+}
+
+@keyframes pop-shard {
+  to {
+    transform: rotate(calc(var(--i) * 45deg)) translateY(-28px) scale(0.2);
+    opacity: 0;
   }
 }
 
@@ -1278,10 +1344,6 @@
   color: #ffe9a0;
   text-shadow: 0 1px 2px #000, 0 0 8px #ff9a20;
   pointer-events: none;
-}
-
-.cell.is-scatter .cell-img {
-  filter: drop-shadow(0 0 10px #ff9a20) drop-shadow(0 8px 10px rgb(0 0 0 / 0.5));
 }
 
 .cell.is-tease .cell-img {
@@ -3858,4 +3920,66 @@ html:-webkit-full-screen {
     width: min(148px, 20vw);
     top: 44px;
   }
+}
+
+.stage.is-resolving .rank-toast {
+  display: none;
+}
+
+.stage.is-resolving .pity-row,
+.stage.is-resolving .pool-led em,
+.stage.is-resolving .rank-badge .rank-delta {
+  opacity: 0.45;
+}
+
+.reel-window.is-anticipate {
+  box-shadow: inset 0 0 48px rgb(0 0 0 / 0.55), inset 0 0 28px rgb(255 196 60 / 0.22);
+}
+
+.reel-col.is-anticipate {
+  filter: brightness(0.72);
+}
+
+.stage.win-tier-1 .reel-frame {
+  animation: tier-punch 0.28s ease-out;
+}
+
+.stage.win-tier-2 {
+  animation: tier-zoom 0.45s ease-out;
+}
+
+.stage.win-tier-2 .stage-bg {
+  filter: saturate(0.7);
+}
+
+.stage.win-tier-3 .reel-frame {
+  animation: tier-slam 0.55s cubic-bezier(0.2, 1.4, 0.3, 1);
+}
+
+@keyframes tier-punch {
+  30% {
+    transform: scale(1.012);
+  }
+}
+
+@keyframes tier-zoom {
+  40% {
+    transform: scale(1.03);
+  }
+}
+
+@keyframes tier-slam {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.045);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.win-line.has-win {
+  letter-spacing: 0.04em;
 }

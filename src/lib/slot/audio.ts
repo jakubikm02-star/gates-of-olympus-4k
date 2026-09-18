@@ -312,9 +312,10 @@ export function playPayout(): void {
   if (!playBuf("payout", { gain: 0.46 })) playCoin();
 }
 
-export function playTumble(): void {
+export function playTumble(cascade = 0): void {
   playing["pop"]?.stop();
-  if (!playBuf("tumble", { gain: 0.95, rate: 0.94 + Math.random() * 0.1 })) {
+  const rate = Math.min(1.38, 0.9 + cascade * 0.07);
+  if (!playBuf("tumble", { gain: Math.min(1, 0.88 + cascade * 0.04), rate })) {
     noise("brown", 0.32, 0.11, 50, 900);
   }
 }

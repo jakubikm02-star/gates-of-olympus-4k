@@ -21,6 +21,8 @@ export interface Cell {
   mult?: number;
   /** Rows this cell just fell (presentation only). */
   fall?: number;
+  /** Just exploded — render as an empty hole for a beat. */
+  gone?: boolean;
 }
 
 export interface PaySymbol {

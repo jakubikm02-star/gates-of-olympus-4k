@@ -219,6 +219,10 @@ export function evaluate(grid: Cell[][]): {
   return { wins, winX, scatterCount, multipliers, winMask, nearMiss };
 }
 
+export function punchHoles(grid: Cell[][], winMask: boolean[][]): Cell[][] {
+  return grid.map((row, r) => row.map((cell, c) => (winMask[r][c] ? { ...cell, gone: true } : { ...cell, gone: false })));
+}
+
 export function tumble(grid: Cell[][], winMask: boolean[][], rng: () => number, ante: boolean): Cell[][] {
   const next: Cell[][] = Array.from({ length: ROWS }, () => Array(COLS).fill(null as unknown as Cell));
   for (let c = 0; c < COLS; c++) {

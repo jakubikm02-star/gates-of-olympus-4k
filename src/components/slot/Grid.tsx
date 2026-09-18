@@ -87,6 +87,7 @@ function CellView({
     <div
       className={[
         "cell",
+        cell.gone ? "is-hole" : "",
         win ? "is-win" : "",
         cell.kind === "scatter" ? "is-scatter" : "",
         cell.kind === "mult" ? "is-mult" : "",
@@ -101,11 +102,20 @@ function CellView({
       ].join(" ")}
       style={style}
     >
-      <img src={symbolSrc(cell)} alt="" draggable={false} className="cell-img" />
-      {cell.kind === "scatter" && <span className="scatter-label">SCATTER</span>}
-      {cell.kind === "mult" && <span className="mult-tag">{cell.mult}X</span>}
-      {win && <span className="win-fx" aria-hidden="true" />}
+      {!cell.gone && (
+        <img src={symbolSrc(cell)} alt="" draggable={false} className="cell-img" />
+      )}
+      {!cell.gone && cell.kind === "scatter" && <span className="scatter-label">SCATTER</span>}
+      {!cell.gone && cell.kind === "mult" && <span className="mult-tag">{cell.mult}X</span>}
+      {!cell.gone && win && <span className="win-fx" aria-hidden="true" />}
       {hot && <span className="orb-strike" aria-hidden="true" />}
+      {popping && win && (
+        <span className="pop-burst" aria-hidden="true">
+          {Array.from({ length: 8 }, (_, i) => (
+            <i key={i} style={{ ["--i" as string]: String(i) } as CSSProperties} />
+          ))}
+        </span>
+      )}
     </div>
   );
 }

@@ -13,11 +13,12 @@ export function CountUp({ value }: { value: number }) {
       return;
     }
     const t0 = performance.now();
-    const dur = Math.min(860, 220 + Math.abs(value - from) * 10);
+    const delta = Math.abs(value - from);
+    const dur = Math.min(1200, 360 + delta * 16);
     let id = 0;
     const tick = (t: number) => {
       const k = Math.min(1, (t - t0) / dur);
-      const e = 1 - (1 - k) ** 3;
+      const e = 1 - (1 - k) ** 2.4;
       setN(from + (value - from) * e);
       if (k < 1) id = requestAnimationFrame(tick);
       else setN(value);

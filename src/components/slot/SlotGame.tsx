@@ -46,7 +46,6 @@ function HoldSpin({
     e.currentTarget.setPointerCapture(e.pointerId);
     if (!g.started || g.inFs) return;
     if (g.busy) {
-      if (spinning) g.stopReels();
       return;
     }
     held.current = false;
@@ -74,8 +73,8 @@ function HoldSpin({
       onPointerDown={down}
       onPointerUp={up}
       onPointerCancel={up}
-      disabled={!g.started || g.inFs || (g.busy && !spinning)}
-      aria-label={label ?? (spinning ? "Zastaviť valce" : "Točiť")}
+      disabled={!g.started || g.inFs || g.busy}
+      aria-label={label ?? "Točiť"}
     >
       <RefreshCw size={34} strokeWidth={2.6} />
     </button>
@@ -86,11 +85,12 @@ export function SlotGame() {
   const g = useSlotGame();
   const theater = useTheater();
   const spinning = g.phase === "spinning" || g.phase === "landing";
+  const resolving = spinning || g.phase === "eval" || g.phase === "win" || g.phase === "pop" || g.phase === "tumble" || g.phase === "mult";
   const winLinePrefix =
     g.displayWin > 0
       ? "VÝHRA "
       : spinning
-        ? "ŤUKNI A ZASTAV VALCE!"
+        ? "TOČÍ SA…"
         : g.busy
           ? g.message || "GOOD LUCK!"
           : "GOOD LUCK!";
@@ -98,7 +98,7 @@ export function SlotGame() {
   return (
     <div
       ref={theater.ref}
-      className={`stage ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${theater.landscape ? "is-ls" : ""} ${theater.on ? "is-theater" : ""}`}
+      className={`stage ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""} ${theater.landscape ? "is-ls" : ""} ${theater.on ? "is-theater" : ""}`}
     >
       <div className="stage-bg" />
       <div className="stage-glow" />
@@ -281,7 +281,6 @@ export function SlotGame() {
               clusterPay={g.clusterPay}
               reduced={false}
               fast={g.reelFast}
-              onTap={spinning ? g.stopReels : undefined}
             />
             {g.flies.map((f) => (
               <span
@@ -308,7 +307,7 @@ export function SlotGame() {
             />
             {g.throwBolt && <span className="bolt" />}
             <div className="ls-spin">
-              <HoldSpin g={g} spinning={spinning} className={`spin-btn ls-hold ${g.busy ? "is-busy" : ""} ${spinning ? "is-stop" : ""} ${g.turbo ? "is-turbo" : ""}`} label={g.turbo ? "Turbo točenie" : "Točiť · drž pre turbo"} />
+              <HoldSpin g={g} spinning={spinning} className={`spin-btn ls-hold ${g.busy ? "is-busy" : ""} ${g.turbo ? "is-turbo" : ""}`} label={g.turbo ? "Turbo točenie" : "Točiť · drž pre turbo"} />
               <span>{g.turbo ? "TURBO" : "DRŽ PRE TURBO"}</span>
             </div>
           </aside>
@@ -372,10 +371,10 @@ export function SlotGame() {
             </button>
             <button
               type="button"
-              className={`spin-btn hud-spin ${g.busy ? "is-busy" : ""} ${spinning ? "is-stop" : ""}`}
+              className={`spin-btn hud-spin ${g.busy ? "is-busy" : ""} ${g.turbo ? "is-turbo" : ""}`}
               onClick={() => void g.spin()}
-              disabled={!g.started || g.inFs || (g.busy && !spinning)}
-              aria-label={spinning ? "Zastaviť valce" : "Točiť"}
+              disabled={!g.started || g.inFs || g.busy}
+              aria-label="Točiť"
             >
               <RefreshCw size={34} strokeWidth={2.6} />
             </button>
