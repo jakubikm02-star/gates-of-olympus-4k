@@ -24,7 +24,7 @@ const FILES: Record<string, string> = {
   land: "/sfx/land.mp3?v=park1",
   land2: "/sfx/land2.mp3?v=park1",
   click: "/sfx/click.mp3",
-  win: "/sfx/win.mp3?v=tumble2",
+  win: "/sfx/win.mp3?v=phaser1",
   winFull: "/sfx/win-full.mp3?v=tumble2",
   payout: "/sfx/payout.mp3",
   coin: "/sfx/coin.mp3",
