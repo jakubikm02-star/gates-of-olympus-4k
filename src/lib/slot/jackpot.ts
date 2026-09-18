@@ -1,10 +1,15 @@
-/** Shared PARK POOL math — client + server. */
+/** Local operator PARK POOL — one currency, one pot. */
 
-export const POOL_SEED = 2500;
-export const POOL_TAKE = 0.012;
-export const POOL_CAP = 18000;
-export const POOL_ADD_MAX = 12;
-const BASE_DROP = 1 / 480;
+export const POOL_SEED = 500;
+export const POOL_CAP = 10_000;
+export const POOL_MUST = 8_000;
+export const POOL_HOT = 7_000;
+export const POOL_ELIGIBLE_BET = 100;
+export const POOL_TAKE_BASE = 0.015;
+export const POOL_TAKE_ANTE = 0.02;
+export const POOL_TAKE_FEED = 0.005;
+export const POOL_RESERVE = 0.003;
+export const PARK_COLLECT = 3;
 
 export interface PoolSnap {
   pool: number;
@@ -12,35 +17,76 @@ export interface PoolSnap {
   lastHit: number;
   hit: boolean;
   payout: number;
+  reserve: number;
+}
+
+export interface PoolFeed {
+  stake: number;
+  ante: boolean;
+  eligible: boolean;
+  force: boolean;
+}
+
+function round2(n: number): number {
+  return Math.max(0, Math.round(n * 100) / 100);
 }
 
 export function parseMoney(v: unknown, fallback = 0): number {
   const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
   if (!Number.isFinite(n)) return fallback;
-  return Math.max(0, Math.round(n * 100) / 100);
+  return round2(n);
 }
 
-export function contribution(stake: number): number {
-  const raw = Math.max(0, stake) * POOL_TAKE;
-  return Math.min(POOL_ADD_MAX, Math.max(0.01, Math.round(raw * 100) / 100));
+export function isEligibleBet(bet: number): boolean {
+  return bet >= POOL_ELIGIBLE_BET;
 }
 
-export function dropChance(tickets: number, bet: number): number {
-  const tix = Math.max(1, Math.min(8, tickets));
-  const stake = Math.min(2.2, 0.62 + 0.32 * Math.log2(1 + Math.max(0, bet)));
-  return Math.min(0.07, BASE_DROP * tix * stake);
+export function contribution(stake: number, opts: { ante?: boolean; reduced?: boolean } = {}): number {
+  if (stake <= 0) return 0;
+  const rate = opts.reduced ? POOL_TAKE_FEED : opts.ante ? POOL_TAKE_ANTE : POOL_TAKE_BASE;
+  return round2(stake * rate);
 }
 
-export function shouldDrop(pool: number, tickets: number, bet: number, rng: () => number): boolean {
-  if (pool >= POOL_CAP) return true;
-  return rng() < dropChance(tickets, bet);
+export function reserveTake(stake: number): number {
+  if (stake <= 0) return 0;
+  return round2(stake * POOL_RESERVE);
 }
 
-export function applyDrop(pool: number): { payout: number; next: number } {
-  const payout = Math.max(0, Math.round(pool * 100) / 100);
-  return { payout, next: POOL_SEED };
+/** Mystery p after resolve. 0 if ineligible. 1 at cap. Linear ramp in must-drop zone. */
+export function mysteryChance(pool: number, opts: { eligible: boolean; ante?: boolean }): number {
+  if (!opts.eligible) return 0;
+  if (pool >= POOL_CAP) return 1;
+  if (pool >= POOL_MUST) {
+    const t = (pool - POOL_MUST) / (POOL_CAP - POOL_MUST);
+    return Math.min(1, 0.08 + 0.92 * t);
+  }
+  const span = POOL_MUST - POOL_SEED;
+  const progress = Math.max(0, (pool - POOL_SEED) / span);
+  const base = opts.ante ? 1 / 720 : 1 / 900;
+  return Math.min(0.07, base * (1 + 4 * progress));
+}
+
+export function shouldDrop(
+  pool: number,
+  opts: { eligible: boolean; ante?: boolean; force?: boolean; skip?: boolean },
+  rng: () => number,
+): boolean {
+  if (opts.force) return pool > 0;
+  if (opts.skip) return false;
+  if (pool >= POOL_CAP && opts.eligible) return true;
+  return rng() < mysteryChance(pool, opts);
+}
+
+export function applyDrop(pool: number, reserve = 0): { payout: number; next: number; reserve: number } {
+  const payout = round2(pool);
+  const drip = round2(reserve);
+  return { payout, next: round2(POOL_SEED + drip), reserve: 0 };
 }
 
 export function emptySnap(): PoolSnap {
-  return { pool: POOL_SEED, hits: 0, lastHit: 0, hit: false, payout: 0 };
+  return { pool: POOL_SEED, hits: 0, lastHit: 0, hit: false, payout: 0, reserve: 0 };
+}
+
+export function isPoolHot(pool: number): boolean {
+  return pool >= POOL_HOT;
 }

@@ -48,7 +48,7 @@ export function emptyPlayerSave(): PlayerSave {
     rankPeak: 0,
     rankShield: false,
     winStreak: 0,
-    poolLocal: 2500,
+    poolLocal: 500,
     reloadStreak: 0,
     spinsSinceReload: 0,
     lastDecayAt: 0,
@@ -125,7 +125,7 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.rankPeak = Math.max(0, Math.floor(num(r.rankPeak, 0)));
   s.rankShield = bool(r.rankShield, false);
   s.winStreak = Math.min(99, Math.max(0, Math.floor(num(r.winStreak, 0))));
-  s.poolLocal = num(r.poolLocal, 2500, 0, 1_000_000_000);
+  s.poolLocal = num(r.poolLocal, 500, 0, 1_000_000_000);
   s.reloadStreak = Math.min(20, Math.max(0, Math.floor(num(r.reloadStreak, 0))));
   s.spinsSinceReload = Math.min(10_000, Math.max(0, Math.floor(num(r.spinsSinceReload, 0))));
   s.lastDecayAt = stampMs(r.lastDecayAt);

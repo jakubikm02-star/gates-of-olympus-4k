@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+  <rect x="7" y="12" width="66" height="56" rx="7" fill="#14110c" stroke="#e2b01a" stroke-width="3.2"/>
+  <rect x="14" y="19" width="52" height="42" rx="4" fill="none" stroke="#7ae7ff" stroke-width="1.4" opacity="0.85"/>
+  <text x="40" y="46" text-anchor="middle" font-family="Oswald, Arial Black, sans-serif" font-size="15" font-weight="700" fill="#ffe56a" letter-spacing="1.5">PARK</text>
+</svg>

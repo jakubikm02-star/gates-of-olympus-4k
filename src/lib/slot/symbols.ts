@@ -12,7 +12,7 @@ export type PayId =
   | "pdf"
   | "dacia";
 
-export type CellKind = "pay" | "scatter" | "mult";
+export type CellKind = "pay" | "scatter" | "mult" | "park";
 
 export interface Cell {
   uid: number;
@@ -122,9 +122,18 @@ export const SCATTER = {
   weightAnte: 1.95,
 };
 
+export const PARK = {
+  id: "park" as const,
+  name: "PARK",
+  src: "/symbols/park.svg",
+  /** FS fill weight. 3+ after a bonus spin collects the whole pool. */
+  weight: 1.35,
+};
+
 export const ALL_ART: readonly string[] = [
   ...PAY_SYMBOLS.map((s) => s.src),
   SCATTER.src,
+  PARK.src,
   "/symbols/can.png",
   "/art/ramp.png",
   "/art/parking-bg.jpg",
@@ -214,6 +223,7 @@ export function scatterPay(count: number): number {
 
 export function symbolSrc(cell: Cell): string {
   if (cell.kind === "scatter") return SCATTER.src;
+  if (cell.kind === "park") return PARK.src;
   if (cell.kind === "mult") return "/symbols/can.png";
   const s = PAY_SYMBOLS.find((p) => p.id === cell.payId);
   return s?.src ?? PAY_SYMBOLS[0].src;
@@ -221,6 +231,7 @@ export function symbolSrc(cell: Cell): string {
 
 export function symbolName(cell: Cell): string {
   if (cell.kind === "scatter") return SCATTER.name;
+  if (cell.kind === "park") return PARK.name;
   if (cell.kind === "mult") return `x${cell.mult ?? 2}`;
   return PAY_SYMBOLS.find((p) => p.id === cell.payId)?.name ?? "";
 }

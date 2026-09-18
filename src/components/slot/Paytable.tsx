@@ -83,6 +83,7 @@ export function Paytable({ open, onClose, bet }: Props) {
           <li>Násobiče nepadajú z valca ako RJ45. Rampa ich pustí ako energy plechovky. Aktivujú sa až na konci reťaze, a len ak bola výhra.</li>
           <li>Base: súčet plechoviek × celá tumble sekvencia. Vo FS tečú do globálneho metra; bez výhry prepadnú.</li>
           <li>4 scatteri = 15 voľných točení. V bonuse 3+ scatteri = +5. Pay scatteru ostáva 4 / 5 / 6.</li>
+          <li>V free spinoch padá pečiatka PARK. 3 a viac na gride po tumble = celý PARK POOL. 4tv ostáva scatter, nie jackpot.</li>
           <li>Ante základ 1.25× stávka dvíha P(bonus). Od SMART ligy ante 1.20×. Vo FS sa ante vypína.</li>
           <li>
             KONTROLA má vlastný PITY meter na každú stávku (100). Iba mŕtvy spin (+2) a 3 / 4 scattere
@@ -103,10 +104,11 @@ export function Paytable({ open, onClose, bet }: Props) {
             S 1 € ideš z KREDITU von za ~100 spinov. Udržať NEKONEČNO na max bete je ťažké.
           </li>
           <li>
-            PARK POOL: 1.2 % z každej platenej stávky (max 12) ide do spoločného jackpotu pre všetkých
-            hráčov na serveri. Seed 2 500,
-            must-drop na 18 000. Šanca ~1/480 × lístky z tvojej ligy × škála stávky. Lístky: KREDIT 1 →
-            NEKONEČNO 4. Trafaš JACKPOT = berieš celú zobrazenú sumu, pool sa resetne na 2 500.
+            PARK POOL je samostatná hra: local operator pot, 1 mena. 1.5 % zo stávky (2.0 % s ante,
+            0.5 % pod 100 € — tie nesúťažia). Seed 500, strop 10 000, must-drop od 8 000. Eligible
+            stávka ≥ 100 €. Mystery až po resolve tumble. 3× PARK v free spinoch berie celý pot
+            a bije mystery. Po hite pot = 500 + reserve drip. HUD sa nehýbe počas tumble.
+            Pity = osobný meter na KONTROLU, nie jackpot.
           </li>
           <li>
             Win popup ako na Olympuse: BIG WIN od 20× stávky, MEGA WIN od 35×, SUPER MEGA WIN od 50×.
@@ -114,8 +116,8 @@ export function Paytable({ open, onClose, bet }: Props) {
           </li>
           <li>Kúpa FS = 100× základná stávka (95× od 5G, 90× v NEKONEČNE). Ante sa na kúpu nevzťahuje. Do ranku sa kúpa ráta ako 100 točení: výhra z FS ide voči cene kúpy (250 € z 100 € = 2.5×, nie 250×). Prehra berie entry ako mŕtve spiny, max jedna divízia. Max 5000× je cap celej feature — potom FEATURE TERMINATED.</li>
           <li>
-            Simulácia {MATH_NOTE.spins.toLocaleString("sk-SK")} spinov: RTP {(MATH_NOTE.rtp * 100).toFixed(1)} %,
-            hit {(MATH_NOTE.hit * 100).toFixed(1)} %, bonus 1/{MATH_NOTE.bonusEvery}, kúpa vracia{" "}
+            Simulácia {MATH_NOTE.spins.toLocaleString("sk-SK")} spinov: base RTP {(MATH_NOTE.rtp * 100).toFixed(1)} % +
+            jackpot ~1.7 % contribution = tvar 96.5. Hit {(MATH_NOTE.hit * 100).toFixed(1)} %, bonus 1/{MATH_NOTE.bonusEvery}, kúpa vracia{" "}
             {(MATH_NOTE.buyEv * 100).toFixed(0)}× z 100×. High-vol demo, nie certifikát 96.50 %.
           </li>
         </ul>

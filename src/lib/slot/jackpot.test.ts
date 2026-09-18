@@ -1,33 +1,38 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { applyDrop, contribution, dropChance, POOL_ADD_MAX, POOL_SEED, shouldDrop } from "./jackpot.ts";
+import { applyDrop, contribution, mysteryChance, POOL_CAP, POOL_SEED, shouldDrop } from "./jackpot.ts";
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 
 describe("park pool", () => {
-  it("takes 1.2% of stake, capped", () => {
-    assert.equal(contribution(1), 0.01);
-    assert.equal(contribution(10), 0.12);
-    assert.equal(contribution(100), 1.2);
-    assert.equal(contribution(2000), POOL_ADD_MAX);
+  it("takes 1.5% base, 2% ante, 0.5% ineligible", () => {
+    assert.equal(contribution(100), 1.5);
+    assert.equal(contribution(100, { ante: true }), 2);
+    assert.equal(contribution(10, { reduced: true }), 0.05);
+    assert.equal(contribution(0), 0);
   });
 
-  it("must drop at cap", () => {
-    assert.equal(shouldDrop(18000, 1, 1, () => 1), true);
-    assert.equal(shouldDrop(2500, 1, 1, () => 1), false);
+  it("must drop at cap for eligible, never for ineligible", () => {
+    assert.equal(shouldDrop(POOL_CAP, { eligible: true }, () => 1), true);
+    assert.equal(shouldDrop(POOL_SEED, { eligible: true }, () => 1), false);
+    assert.equal(shouldDrop(POOL_CAP, { eligible: false }, () => 0), false);
   });
 
-  it("pays the full jackpot and resets to seed", () => {
-    const { payout, next } = applyDrop(4312.5);
+  it("pays the full jackpot and refills seed + reserve", () => {
+    const { payout, next, reserve } = applyDrop(4312.5, 40);
     assert.equal(payout, 4312.5);
-    assert.equal(next, POOL_SEED);
-    const seedHit = applyDrop(2500);
-    assert.equal(seedHit.payout, 2500);
-    assert.equal(seedHit.next, POOL_SEED);
+    assert.equal(next, POOL_SEED + 40);
+    assert.equal(reserve, 0);
   });
 
-  it("tickets raise drop chance", () => {
-    assert.ok(dropChance(4, 10) > dropChance(1, 10));
-    assert.ok(dropChance(1, 100) > dropChance(1, 1));
+  it("mystery p ramps in must-drop zone", () => {
+    assert.ok(mysteryChance(8000, { eligible: true }) >= 0.08);
+    assert.ok(mysteryChance(9000, { eligible: true }) > mysteryChance(8000, { eligible: true }));
+    assert.equal(mysteryChance(500, { eligible: false }), 0);
+  });
+
+  it("force collect ignores skip", () => {
+    assert.equal(shouldDrop(1200, { eligible: true, force: true, skip: true }, () => 1), true);
+    assert.equal(shouldDrop(1200, { eligible: true, skip: true }, () => 0), false);
   });
 });
 

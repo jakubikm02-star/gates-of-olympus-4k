@@ -5,6 +5,7 @@ import {
   BASE_MULT_TABLE,
   PAY_SYMBOLS,
   SCATTER,
+  PARK,
   MAX_WIN_X,
   FS_TRIGGER_SCATTERS,
   FS_RETRIGGER_SCATTERS,
@@ -69,10 +70,14 @@ export function randomOrb(rng: () => number, fs = false): Cell {
 }
 
 /** Orbs are Zeus-drops, not fill-bag competitors. */
-export function randomCell(rng: () => number, ante: boolean): Cell {
+export function randomCell(rng: () => number, ante: boolean, fs = false): Cell {
   const scatterW = ante ? SCATTER.weightAnte : SCATTER.weight;
+  const parkW = fs ? PARK.weight : 0;
   const payW = PAY_SYMBOLS.reduce((s, p) => s + p.weight, 0);
-  if (rng() * (payW + scatterW) < scatterW) return { uid: nextUid(), kind: "scatter" };
+  const t = payW + scatterW + parkW;
+  const r = rng() * t;
+  if (r < parkW) return { uid: nextUid(), kind: "park" };
+  if (r < parkW + scatterW) return { uid: nextUid(), kind: "scatter" };
   return randomPayCell(rng);
 }
 
@@ -223,7 +228,13 @@ export function punchHoles(grid: Cell[][], winMask: boolean[][]): Cell[][] {
   return grid.map((row, r) => row.map((cell, c) => (winMask[r][c] ? { ...cell, gone: true } : { ...cell, gone: false })));
 }
 
-export function tumble(grid: Cell[][], winMask: boolean[][], rng: () => number, ante: boolean): Cell[][] {
+export function countParks(grid: Cell[][]): number {
+  let n = 0;
+  for (const row of grid) for (const cell of row) if (cell.kind === "park") n += 1;
+  return n;
+}
+
+export function tumble(grid: Cell[][], winMask: boolean[][], rng: () => number, ante: boolean, fs = false): Cell[][] {
   const next: Cell[][] = Array.from({ length: ROWS }, () => Array(COLS).fill(null as unknown as Cell));
   for (let c = 0; c < COLS; c++) {
     const surviving: { cell: Cell; from: number }[] = [];
@@ -237,7 +248,7 @@ export function tumble(grid: Cell[][], winMask: boolean[][], rng: () => number, 
     }
     const spawnOffset = dest + 1;
     for (let r = dest; r >= 0; r--) {
-      const cell = randomCell(rng, ante);
+      const cell = randomCell(rng, ante, fs);
       cell.fall = spawnOffset;
       next[r][c] = cell;
     }
@@ -329,10 +340,10 @@ export function resolvePaidSpin(
     }
     sequenceX += winX;
     const mask = ev.winMask.map((row, r) =>
-      row.map((v, c) => (board[r][c].kind === "scatter" ? false : v)),
+      row.map((v, c) => (board[r][c].kind === "scatter" || board[r][c].kind === "park" ? false : v)),
     );
     if (!mask.some((row) => row.some(Boolean))) break;
-    board = tumble(board, mask, rng, ante);
+    board = tumble(board, mask, rng, ante, !!opts.free);
     const n = zeusDropCount(rng, !!opts.free, true);
     if (n) board = zeusDrop(board, rng, n, !!opts.free).grid;
     tumbles += 1;

@@ -216,7 +216,7 @@ export const RANK_PERKS: RankPerk[] = [
   {
     id: "kredit",
     title: "Štart",
-    detail: "1 lístok do PARK POOL. Žiadny herný perk — šliap vyššie.",
+    detail: "1 lístok. Žiadny herný perk — šliap vyššie.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: false,

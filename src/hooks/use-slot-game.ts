@@ -16,6 +16,7 @@ import {
 } from "@/lib/slot/symbols";
 import {
   cloneGrid,
+  countParks,
   countScatters,
   createRng,
   emptyGrid,
@@ -35,7 +36,7 @@ import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneGroup, fs
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
-import { applyDrop, contribution, emptySnap, POOL_SEED, shouldDrop, type PoolSnap } from "@/lib/slot/jackpot";
+import { applyDrop, contribution, emptySnap, isEligibleBet, isPoolHot, PARK_COLLECT, POOL_SEED, reserveTake, shouldDrop, type PoolSnap } from "@/lib/slot/jackpot";
 import { getParkPool, spinParkPool } from "@/lib/slot/jackpot-fn";
 
 type Phase =
@@ -121,7 +122,9 @@ export function useSlotGame() {
   const [winStreak, setWinStreak] = useState(0);
   const [rankParts, setRankParts] = useState<RankBreakdown | null>(null);
   const [pool, setPool] = useState(POOL_SEED);
+  const [poolShown, setPoolShown] = useState(POOL_SEED);
   const [poolHits, setPoolHits] = useState(0);
+  const [poolHot, setPoolHot] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [autoLeft, setAutoLeft] = useState(0);
   const [autoOn, setAutoOn] = useState(false);
@@ -172,6 +175,7 @@ export function useSlotGame() {
   const streakRef = useRef(0);
   const holdUsedRef = useRef(false);
   const poolLocalRef = useRef(POOL_SEED);
+  const reserveLocalRef = useRef(0);
   const reloadStreakRef = useRef(0);
   const spinsSinceReloadRef = useRef(0);
   const lastDecayAtRef = useRef(0);
@@ -370,6 +374,8 @@ export function useSlotGame() {
         setPool(s.pool);
         setPoolHits(s.hits);
         poolLocalRef.current = s.pool;
+        if (!busyRef.current) setPoolShown(s.pool);
+        setPoolHot(isPoolHot(s.pool));
       })
       .catch(() => {
         setPool(poolLocalRef.current);
@@ -385,6 +391,8 @@ export function useSlotGame() {
           setPool(s.pool);
           setPoolHits(s.hits);
           poolLocalRef.current = s.pool;
+          setPoolShown(s.pool);
+          setPoolHot(isPoolHot(s.pool));
         })
         .catch(() => {});
     };
@@ -548,28 +556,46 @@ export function useSlotGame() {
     return streakRef.current;
   }, []);
 
-  const feedPool = useCallback(async (stake: number): Promise<PoolSnap> => {
-    const perk = perkOf(standing(rankRef.current.rp).id);
+  const feedPool = useCallback(async (opts: {
+    stake: number;
+    ante: boolean;
+    eligible: boolean;
+    force: boolean;
+    skip?: boolean;
+  }): Promise<PoolSnap> => {
     try {
-      const res = await spinParkPool({ data: { stake, tickets: perk.jackTicket } });
-      setPool(res.pool);
-      setPoolHits(res.hits);
+      const res = await spinParkPool({
+        data: { stake: opts.stake, ante: opts.ante, eligible: opts.eligible, force: opts.force, skip: !!opts.skip },
+      });
       poolLocalRef.current = res.pool;
+      if (!res.hit) {
+        setPool(res.pool);
+        setPoolHot(isPoolHot(res.pool));
+      }
+      setPoolHits(res.hits);
       return res;
     } catch {
-      const add = contribution(stake);
-      poolLocalRef.current = +(poolLocalRef.current + add).toFixed(2);
-      if (shouldDrop(poolLocalRef.current, perk.jackTicket, stake, Math.random)) {
-        const { payout, next } = applyDrop(poolLocalRef.current);
+      const add = contribution(opts.stake, { ante: opts.ante, reduced: !opts.eligible && !opts.force });
+      const resv = reserveTake(opts.stake);
+      reserveLocalRef.current = +(reserveLocalRef.current + resv).toFixed(2);
+      let nextPool = +(poolLocalRef.current + add).toFixed(2);
+      if (nextPool > 10_000) {
+        reserveLocalRef.current = +(reserveLocalRef.current + (nextPool - 10_000)).toFixed(2);
+        nextPool = 10_000;
+      }
+      poolLocalRef.current = nextPool;
+      if (shouldDrop(nextPool, opts, Math.random)) {
+        const { payout, next, reserve } = applyDrop(nextPool, reserveLocalRef.current);
         if (payout > 0) {
+          reserveLocalRef.current = reserve;
           poolLocalRef.current = next;
-          setPool(next);
           setPoolHits((h) => h + 1);
-          return { pool: next, hits: 0, lastHit: payout, hit: true, payout };
+          return { pool: next, hits: 0, lastHit: payout, hit: true, payout, reserve: 0 };
         }
       }
       setPool(poolLocalRef.current);
-      return { ...emptySnap(), pool: poolLocalRef.current };
+      setPoolHot(isPoolHot(poolLocalRef.current));
+      return { ...emptySnap(), pool: poolLocalRef.current, reserve: reserveLocalRef.current };
     }
   }, []);
 
@@ -592,6 +618,7 @@ export function useSlotGame() {
   const payPoolHit = useCallback(
     async (pot: PoolSnap) => {
       if (!pot.hit || pot.payout <= 0) return;
+      setPoolShown(pot.payout);
       setBalance((b) => +(b + pot.payout).toFixed(2));
       setBestWin((w) => Math.max(w, pot.payout));
       setSpinTape((t) => [{ label: "JACKPOT", amount: formatMoney(pot.payout) }, ...t].slice(0, 8));
@@ -607,6 +634,9 @@ export function useSlotGame() {
       setPhase("max");
       sfx.playMaxWin();
       await waitForBanner();
+      setPool(pot.pool);
+      setPoolShown(pot.pool);
+      setPoolHot(isPoolHot(pot.pool));
     },
     [waitForBanner],
   );
@@ -861,7 +891,10 @@ export function useSlotGame() {
         if (winX <= 0) break;
 
         const tumbleMask = ev.winMask.map((row, r) =>
-          row.map((v, c) => (board[r][c].kind === "scatter" ? false : v)),
+          row.map((v, c) => {
+            const k = board[r][c].kind;
+            return k === "scatter" || k === "park" ? false : v;
+          }),
         );
         const willPop = tumbleMask.some((row) => row.some(Boolean));
 
@@ -926,7 +959,7 @@ export function useSlotGame() {
         setClusterPay(null);
         setPayHint(null);
         await wait(dur(70), abort.current);
-        board = tumble(board, tumbleMask, rng, fillAnte);
+        board = tumble(board, tumbleMask, rng, fillAnte, fsNow);
         const more = zeusDropCount(rng, isFree || inFsRef.current, true);
         const moreN = more > 0 ? more + perk.orbBonus : 0;
         if (moreN > 0) {
@@ -1150,9 +1183,26 @@ export function useSlotGame() {
         await waitForBanner();
       }
 
-      if (!isFree && cost > 0) {
-        const pot = await feedPool(cost);
+      const parkCollect = fsNow && countParks(board) >= PARK_COLLECT;
+      if (parkCollect) {
+        const pot = await feedPool({ stake: 0, ante: false, eligible: true, force: true });
         await payPoolHit(pot);
+      } else if (!isFree && cost > 0 && !pendingFs) {
+        const pot = await feedPool({
+          stake: cost,
+          ante: !!(anteRef.current && !opts?.buy),
+          eligible: isEligibleBet(currentBet) || !!opts?.buy,
+          force: false,
+        });
+        await payPoolHit(pot);
+      } else if (!isFree && cost > 0 && pendingFs) {
+        await feedPool({
+          stake: cost,
+          ante: false,
+          eligible: isEligibleBet(currentBet) || !!opts?.buy,
+          force: false,
+          skip: true,
+        });
       }
 
       setWinMask(null);
@@ -1566,7 +1616,10 @@ export function useSlotGame() {
     weekDue,
     weekTarget: standing(dropOneGroup(rp)),
     pool,
+    poolShown,
     poolHits,
+    poolHot,
+    poolEligible: isEligibleBet(bet) || inFs,
     clearRankFlash: () => setRankFlash(null),
     autoOn,
     autoLeft,

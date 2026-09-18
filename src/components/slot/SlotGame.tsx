@@ -149,15 +149,21 @@ export function SlotGame() {
           </div>
           <div className="head-end">
             <div
-              className="pool-led"
-              aria-label={`Park pool ${formatMoney(g.pool)}, ${g.perk.jackTicket} lístkov`}
+              className={`pool-led ${g.poolHot ? "is-hot" : ""} ${g.banner === "pool" ? "is-hit" : ""} ${g.poolEligible ? "is-live" : "is-feed"}`}
+              aria-label={`Park pool ${formatMoney(g.poolShown)}`}
             >
               <span>PARK POOL</span>
               <b>
-                <CountUp value={g.pool} />
+                <CountUp value={g.poolShown} />
               </b>
               <em>
-                {g.perk.jackTicket} líst. · liga {g.rank.name}
+                {g.banner === "pool"
+                  ? "JACKPOT"
+                  : g.poolHot
+                    ? "MUST DROP"
+                    : g.poolEligible
+                      ? "ELIGIBLE"
+                      : "FEED 0.5 %"}
               </em>
             </div>
             <button
@@ -191,6 +197,7 @@ export function SlotGame() {
             >
               <em>ANTE BET</em>
               <strong>{g.perk.anteMul.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}×</strong>
+              <span className="ante-pool">Park Pool +</span>
               <span className={`ante-switch ${g.ante ? "on" : ""}`}>{g.ante ? "ON" : "OFF"}</span>
             </button>
             <ol className="win-log" aria-label="História výhier">
@@ -551,7 +558,7 @@ export function SlotGame() {
               )}
               {g.banner === "max" && <p className="wb-err">status: FEATURE TERMINATED</p>}
               {g.banner === "pool" && (
-                <p className="wb-line dim">PARK POOL · celá suma · reset seed 2500</p>
+                <p className="wb-line dim">PARK POOL · celý pot · seed 500 + reserve</p>
               )}
               {g.banner !== "max" && g.banner !== "fs" && g.banner !== "fsTotal" && (
                 <p className="wb-line dim">status: ok</p>
