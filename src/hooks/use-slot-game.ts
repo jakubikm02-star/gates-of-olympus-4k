@@ -83,6 +83,8 @@ export function useSlotGame() {
   const [ante, setAnte] = useState(false);
   const [bestWin, setBestWin] = useState(0);
   const [grid, setGrid] = useState<Cell[][]>(() => emptyGrid());
+  const [holdGrid, setHoldGrid] = useState<Cell[][] | null>(null);
+  const gridRef = useRef<Cell[][]>(emptyGrid());
   const [phase, setPhase] = useState<Phase>("boot");
   const [busy, setBusy] = useState(false);
   const [winMask, setWinMask] = useState<boolean[][] | null>(null);
@@ -181,6 +183,7 @@ export function useSlotGame() {
   betIndexRef.current = betIndex;
   autoRef.current = autoOn;
   busyRef.current = busy;
+  gridRef.current = grid;
   pityByBetRef.current = pityByBet;
 
   const bet = BETS[betIndex];
@@ -664,6 +667,7 @@ export function useSlotGame() {
 
       setStoppedCols(0);
       setAnticipate(false);
+      setHoldGrid(cloneGrid(gridRef.current));
       setPhase("spinning");
       setTopLine("ŤUKNI A ZASTAV VALCE!");
       setMessage(isFree ? "Voľné točenia" : "Točí sa…");
@@ -673,11 +677,11 @@ export function useSlotGame() {
         ? generateBuyGrid(rng)
         : generateGrid(rng, opts?.free ? false : anteRef.current);
 
-      await wait(dur(opts?.buy ? 620 : 560), abort.current);
+      await wait(dur(200), abort.current);
       setPhase("landing");
       setGrid(next);
       setStoppedCols(0);
-      await wait(dur(50), abort.current);
+      await wait(dur(40), abort.current);
 
       let landedScatters = 0;
       let pendingFs = false;
@@ -701,15 +705,16 @@ export function useSlotGame() {
             window.setTimeout(() => setShake(false), 320);
           }
         }
-        await wait(dur(148), abort.current);
+        await wait(dur(c >= 4 && landedScatters >= 2 ? 220 : 268), abort.current);
       }
       sfx.stopSpin();
       sfx.stopAnticipate();
       sfx.duckMusic(1);
       setAnticipate(false);
       setStoppedCols(6);
+      setHoldGrid(null);
       abort.current.skip = false;
-      await wait(dur(140), abort.current);
+      await wait(dur(90), abort.current);
 
       let board = next;
       const landDrop = zeusDropCount(rng, isFree || inFsRef.current, false);
@@ -829,7 +834,7 @@ export function useSlotGame() {
         setWinMask(tumbleMask);
         setClusterPay(null);
         sfx.playPop();
-        await wait(dur(240), abort.current);
+        await wait(dur(280), abort.current);
         board = tumble(board, tumbleMask, rng, fillAnte);
         const more = zeusDropCount(rng, isFree || inFsRef.current, true);
         const moreN = more > 0 ? more + perk.orbBonus : 0;
@@ -847,7 +852,7 @@ export function useSlotGame() {
         setGrid(cloneGrid(board));
         tumbleN += 1;
         if (hasOrb(board)) setTopLine("NÁSOBIČE ČAKAJÚ NA RAMPÚ");
-        await wait(dur(500 + Math.min(180, tumbleN * 20)), abort.current);
+        await wait(dur(420 + Math.min(120, tumbleN * 16)), abort.current);
         setThrowBolt(false);
         setGrid((g) => g.map((row) => row.map((c) => ({ ...c, fall: 0 }))));
         await wait(dur(40), abort.current);
@@ -1364,6 +1369,7 @@ export function useSlotGame() {
       }
     },
     grid,
+    holdGrid,
     phase,
     busy,
     winMask,

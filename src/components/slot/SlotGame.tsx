@@ -267,6 +267,7 @@ export function SlotGame() {
             <div className="board-stage-inner">
             <SlotGrid
               grid={g.grid}
+              holdGrid={g.holdGrid}
               winMask={g.winMask}
               spinning={g.phase === "spinning"}
               landing={g.phase === "landing"}

@@ -14,6 +14,7 @@ export interface Strike {
 
 interface Props {
   grid: Cell[][];
+  holdGrid: Cell[][] | null;
   winMask: boolean[][] | null;
   spinning: boolean;
   landing: boolean;
@@ -29,13 +30,13 @@ interface Props {
   onTap?: () => void;
 }
 
-function jaggedPath(x0: number, y0: number, x1: number, y1: number): string {
-  const n = 8;
+function jag(x0: number, y0: number, x1: number, y1: number): string {
+  const n = 7;
   let d = `M ${x0} ${y0}`;
   for (let i = 1; i <= n; i++) {
     const t = i / n;
-    const j = i < n ? (i % 2 === 0 ? 1 : -1) : 0;
-    d += ` L ${x0 + (x1 - x0) * t + j * 16} ${y0 + (y1 - y0) * t + j * -9}`;
+    const j = i < n ? (i % 2 === 0 ? 7 : -7) : 0;
+    d += ` L ${x0 + (x1 - x0) * t + j} ${y0 + (y1 - y0) * t}`;
   }
   return d;
 }
@@ -48,7 +49,6 @@ function CellView({
   popping,
   reduced,
   dumping,
-  waiting,
   dropping,
   hot,
   dormant,
@@ -64,7 +64,6 @@ function CellView({
   popping: boolean;
   reduced: boolean;
   dumping: boolean;
-  waiting: boolean;
   dropping: boolean;
   hot: boolean;
   dormant: boolean;
@@ -76,10 +75,10 @@ function CellView({
   const style = {
     ["--r"]: String(r),
     ["--c"]: String(c),
-    ...(tumbleFall && !reduced && !dumping && !waiting && !dropping
+    ...(tumbleFall && !reduced && !dumping && !dropping
       ? {
           ["--fall"]: String(tumbleFall),
-          animation: `cell-drop ${240 + tumbleFall * 70}ms cubic-bezier(0.2, 0.9, 0.32, 1) both`,
+          animation: `cell-drop ${280 + tumbleFall * 55}ms cubic-bezier(0.16, 0.84, 0.32, 1) both`,
         }
       : {}),
   } as CSSProperties;
@@ -97,7 +96,6 @@ function CellView({
         slam ? "is-slam" : "",
         expired ? "is-expired" : "",
         dumping && !reduced ? "is-dump" : "",
-        waiting && !reduced ? "is-wait" : "",
         dropping && !reduced ? "is-drop" : "",
       ].join(" ")}
       style={style}
@@ -113,6 +111,7 @@ function CellView({
 
 export function SlotGrid({
   grid,
+  holdGrid,
   winMask,
   spinning,
   landing,
@@ -128,7 +127,7 @@ export function SlotGrid({
   onTap,
 }: Props) {
   const bolt = strike
-    ? jaggedPath(640, 155, (strike.c + 0.5) * 100, (strike.r + 0.5) * 100)
+    ? jag((strike.c + 0.5) * 100, -8, (strike.c + 0.5) * 100, (strike.r + 0.5) * 100)
     : "";
   return (
     <div className="reel-frame" aria-label="Herné pole 6×5" onClick={onTap}>
@@ -136,48 +135,79 @@ export function SlotGrid({
         className={`reel-window ${spinning ? "is-spinning" : ""} ${landing ? "is-landing" : ""} ${anticipate ? "is-anticipate" : ""} ${activatingMult ? "is-zeus-strike" : ""}`}
       >
         {Array.from({ length: COLS }, (_, c) => {
-          const waiting = landing && c >= stoppedCols;
-          const dropping = landing && c < stoppedCols;
-          const colLand = landing && c === stoppedCols - 1;
-          const colAnti = anticipate && waiting;
+          const pending = landing && c >= stoppedCols;
+          const justLand = landing && c === stoppedCols - 1;
+          const showHold = Boolean(holdGrid) && (spinning || pending || justLand);
+          const dumpHold = justLand;
+          const showNew = !spinning && (!landing || c < stoppedCols);
+          const dropNew = justLand;
+          const colAnti = anticipate && pending;
+          const hold = holdGrid ?? grid;
           return (
             <div
               key={c}
               className={[
                 "reel-col",
-                spinning ? "is-dumping" : "",
-                waiting ? "is-waiting" : "",
-                dropping ? "is-filling" : "",
-                colLand ? "is-landing" : "",
+                spinning ? "is-charging" : "",
+                dumpHold && showHold ? "is-dumping" : "",
+                dropNew ? "is-filling" : "",
+                justLand ? "is-landing" : "",
                 colAnti ? "is-anticipate" : "",
               ].join(" ")}
               style={{ ["--c" as string]: String(c) } as CSSProperties}
             >
-              <div className="strip">
-                {Array.from({ length: ROWS }, (_, r) => {
-                  const cell = grid[r][c];
-                  return (
-                    <CellView
-                      key={cell.uid}
-                      cell={cell}
-                      r={r}
-                      c={c}
-                      win={!spinning && !waiting && !!winMask?.[r]?.[c]}
-                      popping={popping}
-                      reduced={reduced}
-                      dumping={spinning}
-                      waiting={waiting}
-                      dropping={dropping}
-                      hot={struckUids.includes(cell.uid)}
-                      dormant={cell.kind === "mult" && !struckUids.includes(cell.uid) && !spinning && !waiting}
-                      tease={anticipate && !waiting && !spinning && cell.kind === "scatter"}
-                      slam={colLand && (cell.kind === "scatter" || cell.kind === "mult")}
-                      expired={expiredUids.includes(cell.uid)}
-                      tumbleFall={cell.fall ?? 0}
-                    />
-                  );
-                })}
-              </div>
+              {showHold ? (
+                <div className={`strip strip-hold ${dumpHold ? "is-dumping" : ""}`}>
+                  {Array.from({ length: ROWS }, (_, r) => {
+                    const cell = hold[r][c];
+                    return (
+                      <CellView
+                        key={`h-${cell.uid}`}
+                        cell={cell}
+                        r={r}
+                        c={c}
+                        win={false}
+                        popping={false}
+                        reduced={reduced}
+                        dumping={dumpHold}
+                        dropping={false}
+                        hot={false}
+                        dormant={false}
+                        tease={false}
+                        slam={false}
+                        expired={false}
+                        tumbleFall={0}
+                      />
+                    );
+                  })}
+                </div>
+              ) : null}
+              {showNew ? (
+                <div className={`strip ${dropNew ? "is-filling" : ""}`}>
+                  {Array.from({ length: ROWS }, (_, r) => {
+                    const cell = grid[r][c];
+                    return (
+                      <CellView
+                        key={cell.uid}
+                        cell={cell}
+                        r={r}
+                        c={c}
+                        win={!spinning && !pending && !justLand && !!winMask?.[r]?.[c]}
+                        popping={popping}
+                        reduced={reduced}
+                        dumping={false}
+                        dropping={dropNew}
+                        hot={struckUids.includes(cell.uid)}
+                        dormant={cell.kind === "mult" && !struckUids.includes(cell.uid) && !spinning && !landing}
+                        tease={anticipate && !pending && !spinning && cell.kind === "scatter"}
+                        slam={justLand && (cell.kind === "scatter" || cell.kind === "mult")}
+                        expired={expiredUids.includes(cell.uid)}
+                        tumbleFall={cell.fall ?? 0}
+                      />
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
           );
         })}
@@ -190,8 +220,8 @@ export function SlotGrid({
         )}
         {strike && (
           <svg className="reel-bolt" viewBox="0 0 600 500" preserveAspectRatio="none" aria-hidden="true">
-            <path d={bolt} fill="none" stroke="#3ec6e0" strokeWidth="11" opacity="0.45" />
-            <path d={bolt} fill="none" stroke="#f0c419" strokeWidth="4.5" />
+            <path d={bolt} fill="none" stroke="#7ae7ff" strokeWidth="8" opacity="0.35" />
+            <path d={bolt} fill="none" stroke="#fff4b0" strokeWidth="2.6" />
           </svg>
         )}
         {clusterPay && (
