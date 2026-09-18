@@ -49,8 +49,6 @@ function CellView({
   win,
   popping,
   reduced,
-  dumping,
-  dropping,
   hot,
   dormant,
   tease,
@@ -64,8 +62,6 @@ function CellView({
   win: boolean;
   popping: boolean;
   reduced: boolean;
-  dumping: boolean;
-  dropping: boolean;
   hot: boolean;
   dormant: boolean;
   tease: boolean;
@@ -76,10 +72,10 @@ function CellView({
   const style = {
     ["--r"]: String(r),
     ["--c"]: String(c),
-    ...(tumbleFall && !reduced && !dumping && !dropping
+    ...(tumbleFall && !reduced
       ? {
           ["--fall"]: String(tumbleFall),
-          animation: `cell-drop ${280 + tumbleFall * 55}ms cubic-bezier(0.16, 0.84, 0.28, 1) both`,
+          animation: `cell-drop ${150 + tumbleFall * 95}ms cubic-bezier(0.22, 0.08, 0.18, 1) both`,
         }
       : {}),
   } as CSSProperties;
@@ -97,8 +93,6 @@ function CellView({
         tease ? "is-tease" : "",
         slam ? "is-slam" : "",
         expired ? "is-expired" : "",
-        dumping && !reduced ? "is-dump" : "",
-        dropping && !reduced ? "is-drop" : "",
       ].join(" ")}
       style={style}
     >
@@ -181,8 +175,6 @@ export function SlotGrid({
                       win={false}
                       popping={false}
                       reduced={reduced}
-                      dumping={dumpHold}
-                      dropping={false}
                       hot={false}
                       dormant={false}
                       tease={false}
@@ -206,8 +198,6 @@ export function SlotGrid({
                         win={!cascading && !!winMask?.[r]?.[c]}
                         popping={popping}
                         reduced={reduced}
-                        dumping={false}
-                        dropping={dropNew}
                         hot={struckUids.includes(cell.uid)}
                         dormant={cell.kind === "mult" && !struckUids.includes(cell.uid) && !cascading}
                         tease={anticipate && landed && cell.kind === "scatter"}

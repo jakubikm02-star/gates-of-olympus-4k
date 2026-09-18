@@ -775,6 +775,47 @@
   pointer-events: none;
 }
 
+.strip-hold.is-dumping {
+  animation: strip-dump 0.36s cubic-bezier(0.5, 0, 0.92, 0.18) both;
+}
+
+.strip.is-filling {
+  animation: strip-fill 0.44s cubic-bezier(0.2, 0.82, 0.2, 1) both;
+}
+
+@keyframes strip-dump {
+  0% {
+    transform: translateY(0);
+    filter: blur(0);
+  }
+  100% {
+    transform: translateY(112%);
+    filter: blur(0.35px);
+  }
+}
+
+@keyframes strip-fill {
+  0% {
+    transform: translateY(-112%);
+    filter: blur(0.25px);
+  }
+  76% {
+    transform: translateY(3.5%) scaleY(0.94);
+    filter: blur(0);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.reel-window.is-fast .strip-hold.is-dumping {
+  animation-duration: 0.22s;
+}
+
+.reel-window.is-fast .strip.is-filling {
+  animation-duration: 0.26s;
+}
+
 .reel-col.is-dumping,
 .reel-col.is-filling,
 .reel-col.is-charging {
@@ -800,46 +841,22 @@
   }
 }
 
-.cell.is-dump {
-  animation: cell-dump 0.44s cubic-bezier(0.45, 0, 0.92, 0.18) both;
-  animation-delay: calc(var(--r, 0) * 26ms);
-  z-index: 2;
-}
-
-@keyframes cell-dump {
-  0% {
-    transform: translateY(0) rotate(0deg);
-    filter: blur(0);
-  }
-  100% {
-    transform: translateY(calc((5.4 - var(--r, 0)) * 100%)) rotate(7deg);
-    filter: blur(0.4px);
-  }
-}
-
+.cell.is-dump,
 .cell.is-drop {
-  --fall: 5.2;
-  animation: cell-drop 0.52s cubic-bezier(0.16, 0.84, 0.28, 1) both;
-  animation-delay: calc(var(--r, 0) * 34ms);
+  animation: none;
 }
 
-.reel-window.is-fast .cell.is-dump {
-  animation-duration: 0.26s;
-  animation-delay: calc(var(--r, 0) * 10ms);
+.reel-window.is-spinning .strip-hold {
+  animation: strip-rumble 0.11s linear infinite;
 }
 
-.reel-window.is-fast .cell.is-drop {
-  animation-duration: 0.3s;
-  animation-delay: calc(var(--r, 0) * 12ms);
-}
-
-.reel-window.is-spinning .strip-hold .cell-img {
-  animation: spin-nudge 0.16s ease-in-out infinite;
-}
-
-@keyframes spin-nudge {
+@keyframes strip-rumble {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
   50% {
-    transform: translateY(6%);
+    transform: translateY(4%);
   }
 }
 
@@ -3550,6 +3567,9 @@
   .pk-pin.is-kill,
   .cell.is-dump,
   .cell.is-drop,
+  .strip-hold.is-dumping,
+  .strip.is-filling,
+  .reel-window.is-spinning .strip-hold,
   .reel-window.is-spinning .cell-img,
   .reel-col.is-landing::after,
   .cell.is-win .cell-img,
