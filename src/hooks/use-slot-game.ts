@@ -659,7 +659,7 @@ export function useSlotGame() {
     setPhase("pick");
     setTopLine("ZAPARKOVALI STE NESPRÁVNE");
     setMessage("Klikni na státie");
-    sfx.playFsStart();
+    sfx.playPickStart();
     kontrolaArmedRef.current = false;
     const betNow = BETS[betIndexRef.current];
     pityByBetRef.current = spendPity(pityByBetRef.current, betNow);
