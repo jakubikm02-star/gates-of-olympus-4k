@@ -20,7 +20,7 @@ const bufs: Record<string, AudioBuffer> = {};
 let loadStarted = false;
 
 const FILES: Record<string, string> = {
-  spin: "/sfx/spin.mp3",
+  spin: "/sfx/spin.mp3?v=trailer1",
   land: "/sfx/land.mp3?v=park1",
   land2: "/sfx/land2.mp3?v=park1",
   click: "/sfx/click.mp3",
@@ -224,7 +224,7 @@ export function startSpin(): void {
   if (!ctx || !sfx) return;
   stopSpin();
   duckMusic(0.45);
-  const sample = playBuf("spin", { gain: 0.42, loop: true, rate: 1.02 });
+  const sample = playBuf("spin", { gain: 0.62, loop: true, rate: 1 });
   if (sample) {
     spinNodes = { gain: sample.gain, stop: sample.stop };
     return;
@@ -261,7 +261,7 @@ export function startSpin(): void {
 export function setSpinEnergy(t: number): void {
   if (!ctx || !spinNodes) return;
   const x = Math.max(0, Math.min(1, t));
-  spinNodes.gain.gain.setTargetAtTime((bufs.spin ? 0.42 : 0.07) * x, ctx.currentTime, 0.05);
+  spinNodes.gain.gain.setTargetAtTime((bufs.spin ? 0.62 : 0.07) * x, ctx.currentTime, 0.05);
 }
 
 export function stopSpin(): void {
