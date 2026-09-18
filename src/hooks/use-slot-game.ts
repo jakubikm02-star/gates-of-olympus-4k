@@ -638,17 +638,18 @@ export function useSlotGame() {
         setAutoLeft(0);
         setAutoReason("AUTO STOP · JACKPOT");
       }
+      bannerOpen.current = true;
       setBanner("pool");
       setBannerAmount(pot.payout);
       setPhase("max");
       sfx.playMaxWin();
-      await wait(2500);
+      await waitForBanner();
       setBanner(null);
       setPool(pot.pool);
       setPoolShown(pot.pool);
       setPoolHot(isPoolHot(pot.pool));
     },
-    [],
+    [waitForBanner],
   );
 
   const waitForPick = useCallback(() => {
