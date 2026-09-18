@@ -114,6 +114,52 @@ export function rankStart(rankIndex: number): number {
   return b?.floor ?? 0;
 }
 
+export const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+export const WEEKLY_CATCHUP_MAX = 3;
+
+/** Land on IV (start) of the previous named group. 4KA TV II → SMART IV. */
+export function dropOneGroup(rp: number): number {
+  const s = standing(rp);
+  if (s.rankIndex <= 0) return 0;
+  return rankStart(s.rankIndex - 1);
+}
+
+export function applyWeeklyDecay(
+  rp: number,
+  lastDecayAt: number,
+  now = Date.now(),
+): {
+  rp: number;
+  lastDecayAt: number;
+  drops: number;
+  before: Standing;
+  after: Standing;
+} {
+  const before = standing(rp);
+  if (!lastDecayAt || lastDecayAt <= 0) {
+    return { rp, lastDecayAt: now, drops: 0, before, after: before };
+  }
+  const weeks = Math.min(WEEKLY_CATCHUP_MAX, Math.max(0, Math.floor((now - lastDecayAt) / WEEK_MS)));
+  if (weeks <= 0) {
+    return { rp, lastDecayAt, drops: 0, before, after: before };
+  }
+  let next = rp;
+  let drops = 0;
+  for (let i = 0; i < weeks; i++) {
+    const dropped = dropOneGroup(next);
+    if (dropped >= next) break;
+    next = dropped;
+    drops += 1;
+  }
+  return {
+    rp: next,
+    lastDecayAt: lastDecayAt + weeks * WEEK_MS,
+    drops,
+    before,
+    after: standing(next),
+  };
+}
+
 /** Win RP: log scale so 100× is ~½ division, not a full rank skip. */
 export type RankBanner = "big" | "mega" | "epic" | "max" | null;
 export type RankKind = "base" | "fs" | "pick";
@@ -400,6 +446,7 @@ export const RANK_REWARDS = [
   { id: "bonus", title: "Bonusy", detail: "FS total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Prírodzené FS idú z 1× stávky. Kúpa FS = 100 točení: výhra sa ráta voči cene kúpy, prehra berie entry ako mŕtve spiny (max 1 divízia)." },
   { id: "rank", title: "Aktívna liga", detail: "Herné perky: lacnejšie ante, pity, cashback, extra FS, zľava na buy, sticky plechovky. Liga nenásobí RP." },
   { id: "reload", title: "Bankrot", detail: "Dobitie +5000 pri prázdnom kredite berie RP. Max bet dump je drahší ako farm — 100 € ≈ −800 RP, opakované dobitie násobí trest. 80 platených spinov bez dobitia sériu nuluje." },
+  { id: "week", title: "Týždenný drop", detail: "Raz za 7 dní klesáš o jednu skupinu na IV predchádzajúcej ligy. 4KA TV II → SMART IV. AFK max 3 skupiny naraz. Štít nechráni." },
 ] as const;
 
 export const RANK_RULES = RANK_REWARDS.map((r) => `${r.title} — ${r.detail}`);
@@ -495,7 +542,7 @@ export interface RankSave {
   shield: boolean;
 }
 
-export type RankEvent = "up" | "down" | "shield" | "bust" | null;
+export type RankEvent = "up" | "down" | "shield" | "bust" | "week" | null;
 
 export interface RankFlash {
   event: RankEvent;

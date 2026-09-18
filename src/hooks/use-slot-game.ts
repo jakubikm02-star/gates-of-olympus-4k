@@ -30,7 +30,7 @@ import {
   zeusDropCount,
 } from "@/lib/slot/engine";
 import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, spendPity, type PickTile, type PityMap } from "@/lib/slot/pick-bonus";
-import { applyRankDelta, bannerFromX, buyXOf, fsSpinsOf, perkOf, reloadPunish, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
+import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
@@ -168,7 +168,9 @@ export function useSlotGame() {
   const poolLocalRef = useRef(POOL_SEED);
   const reloadStreakRef = useRef(0);
   const spinsSinceReloadRef = useRef(0);
+  const lastDecayAtRef = useRef(0);
   const [reloadStreak, setReloadStreak] = useState(0);
+  const [weekDue, setWeekDue] = useState(0);
 
   turboRef.current = turbo;
   quickRef.current = quick;
@@ -212,6 +214,8 @@ export function useSlotGame() {
     reloadStreakRef.current = s.reloadStreak ?? 0;
     spinsSinceReloadRef.current = s.spinsSinceReload ?? 0;
     setReloadStreak(reloadStreakRef.current);
+    lastDecayAtRef.current = s.lastDecayAt ?? 0;
+    setWeekDue(lastDecayAtRef.current > 0 ? lastDecayAtRef.current + WEEK_MS : 0);
     saveSnapRef.current = s;
   }, []);
 
@@ -222,12 +226,38 @@ export function useSlotGame() {
     writeLocal(next);
   }, []);
 
+  const runWeeklyDecay = useCallback(() => {
+    const now = Date.now();
+    const res = applyWeeklyDecay(rankRef.current.rp, lastDecayAtRef.current, now);
+    lastDecayAtRef.current = res.lastDecayAt;
+    setWeekDue(res.lastDecayAt > 0 ? res.lastDecayAt + WEEK_MS : now + WEEK_MS);
+    if (res.drops <= 0) return false;
+    rankRef.current = { rp: res.rp, peak: rankRef.current.peak, shield: false };
+    setRp(res.rp);
+    setRankShield(false);
+    setRankDelta(res.rp - res.before.rp);
+    setRankFlash({
+      event: "week",
+      before: res.before,
+      after: res.after,
+      applied: res.rp - res.before.rp,
+    });
+    setTopLine(
+      res.drops > 1
+        ? `TÝŽDENNÝ DROP · ${res.drops} skupiny · ${res.after.name}`
+        : `TÝŽDENNÝ DROP · ${res.before.name} → ${res.after.name}`,
+    );
+    sfx.playThunder();
+    return true;
+  }, []);
+
   useEffect(() => {
     const cached = readLocal();
     if (cached) applySave(cached);
     readySave.current = true;
+    runWeeklyDecay();
     setHydrated(true);
-  }, [applySave]);
+  }, [applySave, runWeeklyDecay]);
 
   useEffect(() => {
     if (!hydrated || !readySave.current) return;
@@ -247,11 +277,12 @@ export function useSlotGame() {
       poolLocal: poolLocalRef.current,
       reloadStreak: reloadStreakRef.current,
       spinsSinceReload: spinsSinceReloadRef.current,
+      lastDecayAt: lastDecayAtRef.current,
       updatedAt: Date.now(),
     };
     saveSnapRef.current = payload;
     writeLocal(payload);
-  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pool, reloadStreak]);
+  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pool, reloadStreak, weekDue]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -270,6 +301,7 @@ export function useSlotGame() {
     const onHide = () => flushSave();
     const onVis = () => {
       if (document.visibilityState === "hidden") flushSave();
+      if (document.visibilityState === "visible") runWeeklyDecay();
     };
     window.addEventListener("pagehide", onHide);
     document.addEventListener("visibilitychange", onVis);
@@ -277,7 +309,7 @@ export function useSlotGame() {
       window.removeEventListener("pagehide", onHide);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [flushSave]);
+  }, [flushSave, runWeeklyDecay]);
 
   useEffect(() => {
     if (!rankFlash) return;
@@ -1353,6 +1385,8 @@ export function useSlotGame() {
     rankParts,
     perk,
     buyX,
+    weekDue,
+    weekTarget: standing(dropOneGroup(rp)),
     pool,
     poolHits,
     clearRankFlash: () => setRankFlash(null),

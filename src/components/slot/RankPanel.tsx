@@ -11,9 +11,11 @@ interface Props {
   peak: number;
   shield: boolean;
   streak?: number;
+  weekDue?: number;
+  weekTarget?: Standing;
 }
 
-export function RankPanel({ open, onClose, stand, peak, shield, streak = 0 }: Props) {
+export function RankPanel({ open, onClose, stand, peak, shield, streak = 0, weekDue = 0, weekTarget }: Props) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -45,7 +47,14 @@ export function RankPanel({ open, onClose, stand, peak, shield, streak = 0 }: Pr
         <p className="modal-lead">
           RP rastú zo sumy, výšky stávky, násobiča, série, tumble a bannerov. Vyššia stávka = viac RP.
           Aktívna liga dáva herný perk (ante, pity, cashback, extra FS, zľava na buy) — nie extra RP.
+          Každý týždeň klesáš o jednu skupinu na IV predchádzajúcej ligy (4KA TV II → SMART IV).
         </p>
+        {weekDue > 0 && weekTarget && stand.rankIndex > 0 && (
+          <p className="rank-now-streak">
+            Ďalší drop o {Math.max(0, Math.ceil((weekDue - Date.now()) / 86_400_000))} d. → {weekTarget.name}
+            {weekTarget.roman ? ` ${weekTarget.roman}` : ""}
+          </p>
+        )}
         {streak >= 2 && <p className="rank-now-streak">Séria {streak} výhier po sebe</p>}
 
         <div

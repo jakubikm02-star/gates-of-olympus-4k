@@ -578,6 +578,8 @@ export function SlotGame() {
         peak={g.rankPeak}
         shield={g.rankShield}
         streak={g.winStreak}
+        weekDue={g.weekDue}
+        weekTarget={g.weekTarget}
       />
       <RankToast flash={g.rankFlash} onDone={g.clearRankFlash} />
     </div>

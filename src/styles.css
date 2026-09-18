@@ -3385,7 +3385,8 @@
 }
 
 .rank-toast.is-down b,
-.rank-toast.is-bust b {
+.rank-toast.is-bust b,
+.rank-toast.is-week b {
   color: #ff7a7a;
 }
 

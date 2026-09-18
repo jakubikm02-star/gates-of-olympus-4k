@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { applyDrop, contribution, dropChance, POOL_ADD_MAX, POOL_SEED, shouldDrop } from "./jackpot.ts";
-import { buyTurnoverPunish, buyXOf, fsSpinsOf, perkOf, reloadPunish, rpFromSpin, settleBuyRank } from "./ranks.ts";
+import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 
 describe("park pool", () => {
   it("takes 1.2% of stake, capped", () => {
@@ -132,5 +132,25 @@ describe("rank stake + perk", () => {
     assert.ok(-second.delta > -max.delta);
     const high = reloadPunish({ bet: 100, rp: 2700, streak: 1, maxBet: 100 });
     assert.ok(-high.delta > -max.delta);
+  });
+
+  it("weekly drop sends 4KA TV II to SMART IV", () => {
+    const tv2 = standing(1400);
+    assert.equal(tv2.id, "telka");
+    assert.equal(tv2.roman, "II");
+    const next = standing(dropOneGroup(1400));
+    assert.equal(next.id, "smart");
+    assert.equal(next.roman, "IV");
+    const kredit = dropOneGroup(50);
+    assert.equal(kredit, 0);
+    const now = 1_000_000_000_000;
+    const fresh = applyWeeklyDecay(1400, 0, now);
+    assert.equal(fresh.drops, 0);
+    assert.equal(fresh.rp, 1400);
+    const week = applyWeeklyDecay(1400, now - WEEK_MS - 1000, now);
+    assert.equal(week.drops, 1);
+    assert.equal(week.after.id, "smart");
+    const afk = applyWeeklyDecay(1400, now - WEEK_MS * 10, now);
+    assert.equal(afk.drops, 3);
   });
 });

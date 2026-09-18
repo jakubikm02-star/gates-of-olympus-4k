@@ -96,6 +96,8 @@ export function Paytable({ open, onClose, bet }: Props) {
           </li>
           <li>
             Ranked liga 4ky: KREDIT → SLOBODA → SMART → 4KA TV → OPTIKA → DUO → 5G NA DOMA → NEKONEČNO.
+            Raz za týždeň klesáš o jednu skupinu na IV predchádzajúcej ligy (4KA TV II → SMART IV). AFK max
+            3 skupiny. Štít nechráni.
             RP za sumu výhry, výšku stávky, násobič, sériu, tumble, BIG+ bannery, FS total, retrigger a
             KONTROLU. Vyššia stávka priamo pridáva RP (1 € ≈ +3, 10 € ≈ +10, 100 € ≈ +19). Aktívna liga
             dáva herný perk (lacnejšie ante, pity, cashback, extra FS, zľava na kúpu, sticky plechovky) — nenásobí RP. Ante pri výhre

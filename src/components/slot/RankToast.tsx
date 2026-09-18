@@ -16,7 +16,9 @@ export function RankToast({ flash, onDone }: Props) {
         ? "RANK DOWN"
         : flash.event === "bust"
           ? "BANKROT"
-          : "ŠTÍT";
+          : flash.event === "week"
+            ? "TÝŽDENNÝ DROP"
+            : "ŠTÍT";
   const sub =
     flash.event === "shield"
       ? "Demotion hold — ďalšia prehra zhodí rank"
