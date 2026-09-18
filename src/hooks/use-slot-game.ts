@@ -1256,6 +1256,8 @@ export function useSlotGame() {
       abort.current.aborted = false;
       if (!opts?.buy && !opts?.resumeFs && !inFsRef.current) setDisplayWin(0);
 
+      try {
+
       const playFsSpins = async () => {
         const sess = fsSessionRef.current;
         let hitCap = false;
@@ -1488,10 +1490,19 @@ export function useSlotGame() {
         }
         await runPick();
       }
-
+    } catch {
+      setBanner(null);
+      setPhase("idle");
+      setAnticipate(false);
+      setHoldGrid(null);
+      setSpinStrips(null);
+    } finally {
       busyRef.current = false;
       setBusy(false);
-    },
+      abort.current.skip = false;
+      abort.current.aborted = false;
+    }
+  },
     [dur, runSequence, waitForBanner, runPick, pushRank, noteResult, persistNow],
   );
 

@@ -400,15 +400,22 @@ export function resolvePaidSpin(
 export function wait(ms: number, signal?: { aborted?: boolean; skip?: boolean }): Promise<void> {
   if (ms <= 0) return Promise.resolve();
   return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resolve();
+    };
     const t0 = performance.now();
     const tick = (t: number) => {
       const cap = signal?.skip ? Math.min(ms, 40) : ms;
       if (signal?.aborted || t - t0 >= cap) {
-        resolve();
+        finish();
         return;
       }
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
+    window.setTimeout(finish, ms + 80);
   });
 }

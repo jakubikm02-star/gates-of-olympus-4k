@@ -26,22 +26,29 @@ function snapFromRpc(raw: unknown): PoolSnap {
 }
 
 async function rpc(name: string, body?: Record<string, unknown>): Promise<unknown> {
-  const res = await fetch(`${SUPA_URL}/rest/v1/rpc/${name}`, {
-    method: "POST",
-    headers: {
-      apikey: SUPA_ANON,
-      Authorization: `Bearer ${SUPA_ANON}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body ?? {}),
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`pool rpc ${name} ${res.status} ${text.slice(0, 180)}`);
+  const ctrl = new AbortController();
+  const kill = setTimeout(() => ctrl.abort(), 2500);
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/rpc/${name}`, {
+      method: "POST",
+      headers: {
+        apikey: SUPA_ANON,
+        Authorization: `Bearer ${SUPA_ANON}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body ?? {}),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`pool rpc ${name} ${res.status} ${text.slice(0, 180)}`);
+    }
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("json")) throw new Error(`pool rpc ${name} not json`);
+    return res.json();
+  } finally {
+    clearTimeout(kill);
   }
-  const ct = res.headers.get("content-type") || "";
-  if (!ct.includes("json")) throw new Error(`pool rpc ${name} not json`);
-  return res.json();
 }
 
 export async function fetchParkPool(): Promise<PoolSnap> {
