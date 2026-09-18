@@ -53,7 +53,7 @@ describe("rank stake + perk", () => {
     assert.ok(high.total > low.total);
   });
 
-  it("nekonecno perk boosts RP vs kredit", () => {
+  it("rank does not multiply RP", () => {
     const base = {
       cash: 50,
       bet: 1,
@@ -65,8 +65,7 @@ describe("rank stake + perk", () => {
     };
     const kredit = rpFromSpin({ ...base, rankId: "kredit" });
     const top = rpFromSpin({ ...base, rankId: "nekonecno" });
-    assert.ok(top.fromRank > 0);
-    assert.ok(top.total > kredit.total);
+    assert.equal(top.total, kredit.total);
     assert.equal(perkOf("nekonecno").jackTicket, 4);
     assert.equal(perkOf("sloboda").streakHold, true);
   });

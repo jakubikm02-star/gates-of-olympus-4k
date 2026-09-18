@@ -141,14 +141,12 @@ export interface RankBreakdown {
   fromBanner: number;
   fromBonus: number;
   fromStake: number;
-  fromRank: number;
 }
 
 export interface RankPerk {
   id: string;
   title: string;
   detail: string;
-  rpMult: number;
   pityBonus: number;
   jackTicket: number;
   streakHold: boolean;
@@ -159,8 +157,7 @@ export const RANK_PERKS: RankPerk[] = [
   {
     id: "kredit",
     title: "Štart",
-    detail: "1 lístok do PARK POOL. RP rastie aj s výškou stávky.",
-    rpMult: 1,
+    detail: "1 lístok do PARK POOL. RP rastie z hry, nie z ligy.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: false,
@@ -170,7 +167,6 @@ export const RANK_PERKS: RankPerk[] = [
     id: "sloboda",
     title: "Séria hold",
     detail: "Jeden mŕtvy v sérii ju nezhodí. 1 pool lístok.",
-    rpMult: 1,
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
@@ -178,9 +174,8 @@ export const RANK_PERKS: RankPerk[] = [
   },
   {
     id: "smart",
-    title: "+8 % RP",
-    detail: "Aktívny SMART násobí RP z výhry. 1 pool lístok.",
-    rpMult: 1.08,
+    title: "Hold + lístok",
+    detail: "Hold série a 1 pool lístok. Liga nenásobí RP.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
@@ -189,8 +184,7 @@ export const RANK_PERKS: RankPerk[] = [
   {
     id: "telka",
     title: "Pity +1",
-    detail: "Mŕtvy spin +1 pity navyše. +12 % RP.",
-    rpMult: 1.12,
+    detail: "Mŕtvy spin +1 pity navyše. 1 pool lístok.",
     pityBonus: 1,
     jackTicket: 1,
     streakHold: true,
@@ -199,8 +193,7 @@ export const RANK_PERKS: RankPerk[] = [
   {
     id: "optika",
     title: "2 lístky",
-    detail: "Dva lístky do PARK POOL na spin. +16 % RP.",
-    rpMult: 1.16,
+    detail: "Dva lístky do PARK POOL na spin.",
     pityBonus: 1,
     jackTicket: 2,
     streakHold: true,
@@ -209,8 +202,7 @@ export const RANK_PERKS: RankPerk[] = [
   {
     id: "duo",
     title: "Rank drop",
-    detail: "Postup ligy +0.5× stávka. 2 lístky, +22 % RP.",
-    rpMult: 1.22,
+    detail: "Postup ligy +0.5× stávka. 2 lístky.",
     pityBonus: 1,
     jackTicket: 2,
     streakHold: true,
@@ -219,8 +211,7 @@ export const RANK_PERKS: RankPerk[] = [
   {
     id: "fiveg",
     title: "3 lístky",
-    detail: "Postup +1× stávka. Pity +2. +30 % RP.",
-    rpMult: 1.3,
+    detail: "Postup +1× stávka. Pity +2.",
     pityBonus: 2,
     jackTicket: 3,
     streakHold: true,
@@ -230,7 +221,6 @@ export const RANK_PERKS: RankPerk[] = [
     id: "nekonecno",
     title: "PREDATOR",
     detail: "4 lístky, postup +2× stávka, najvyšší drop na pool.",
-    rpMult: 1.4,
     pityBonus: 2,
     jackTicket: 4,
     streakHold: true,
@@ -250,7 +240,7 @@ export const RANK_REWARDS = [
   { id: "tumble", title: "Tumble reťaz", detail: "Dva a viac pádov v jednom spine: +2 až +8 RP." },
   { id: "banner", title: "BIG / MEGA / EPIC / MAX", detail: "Popup: +4 / +8 / +12 / +18." },
   { id: "bonus", title: "Bonusy", detail: "FS total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Kúpa FS: do ranku ide čistý výsledok (trigger + FS − 100×). Pod nulu = entry ako mŕtvy spin." },
-  { id: "rank", title: "Aktívny rank", detail: "Každá liga má perk: RP %, pity, pool lístky, séria hold, drop pri postupe." },
+  { id: "rank", title: "Aktívna liga", detail: "Perky sú pity, lístky do poolu, hold série a drop pri postupe. Liga nenásobí RP — rovnaká výhra dá rovnaké body v KREDITE aj v NEKONEČNE." },
 ] as const;
 
 export const RANK_RULES = RANK_REWARDS.map((r) => `${r.title} — ${r.detail}`);
@@ -273,7 +263,6 @@ export function rpFromSpin(s: RankSpin): RankBreakdown {
     fromBanner: 0,
     fromBonus: 0,
     fromStake: 0,
-    fromRank: 0,
   };
   if (s.cash <= 0 || s.bet <= 0) return empty;
 
@@ -296,13 +285,10 @@ export function rpFromSpin(s: RankSpin): RankBreakdown {
   const picks = s.picks ?? 0;
   if (s.kind === "pick" && picks > 0) fromBonus += Math.min(6, picks);
   const fromStake = Math.round(2.8 * Math.log2(1 + s.bet));
-  const perk = perkOf(s.rankId);
   const core = fromSum + fromMult + fromStreak + fromTumble + fromBanner + fromBonus + fromStake;
-  const boosted = Math.round(core * perk.rpMult);
-  const fromRank = Math.max(0, boosted - core);
 
   return {
-    total: Math.max(1, Math.min(WIN_RP_CAP, boosted)),
+    total: Math.max(1, Math.min(WIN_RP_CAP, core)),
     fromSum,
     fromMult,
     fromStreak,
@@ -310,7 +296,6 @@ export function rpFromSpin(s: RankSpin): RankBreakdown {
     fromBanner,
     fromBonus,
     fromStake,
-    fromRank,
   };
 }
 
@@ -323,7 +308,6 @@ export function rankBits(b: RankBreakdown): string[] {
   if (b.fromTumble) bits.push(`tumble +${b.fromTumble}`);
   if (b.fromBanner) bits.push(`banner +${b.fromBanner}`);
   if (b.fromBonus) bits.push(`bonus +${b.fromBonus}`);
-  if (b.fromRank) bits.push(`liga +${b.fromRank}`);
   return bits;
 }
 

@@ -96,7 +96,7 @@ export function Paytable({ open, onClose, bet }: Props) {
             Ranked liga 4ky: KREDIT → SLOBODA → SMART → 4KA TV → OPTIKA → DUO → 5G NA DOMA → NEKONEČNO.
             RP za sumu výhry, výšku stávky, násobič, sériu, tumble, BIG+ bannery, FS total, retrigger a
             KONTROLU. Vyššia stávka priamo pridáva RP (1 € ≈ +3, 10 € ≈ +10, 100 € ≈ +19). Aktívna liga
-            násobí RP a dáva perk (pity, lístky do poolu, hold série, drop pri postupe). Ante pri výhre
+            dáva perk (pity, lístky do poolu, hold série, drop pri postupe) — nenásobí RP. Ante pri výhre
             +1. Mŕtvy spin berie nízke entry. 100× ťa nevyhodí o celý rank. Po postupe buffer 40 RP a štít.
           </li>
           <li>

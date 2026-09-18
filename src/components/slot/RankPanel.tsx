@@ -44,7 +44,7 @@ export function RankPanel({ open, onClose, stand, peak, shield, streak = 0 }: Pr
         </header>
         <p className="modal-lead">
           RP rastú zo sumy, výšky stávky, násobiča, série, tumble a bannerov. Vyššia stávka = viac RP.
-          Aktívna liga dáva perk. Mŕtvy spin berie malé entry.
+          Aktívna liga dáva perk (pity, lístky, hold) — nie extra RP. Mŕtvy spin berie malé entry.
         </p>
         {streak >= 2 && <p className="rank-now-streak">Séria {streak} výhier po sebe</p>}
 
