@@ -788,14 +788,14 @@ export function useSlotGame() {
             window.setTimeout(() => setShake(false), 280);
           }
         }
-        await wait(dur(c === 5 ? 260 : 210), abort.current);
+        await wait(dur(c === 5 ? 480 : 360), abort.current);
       }
       sfx.stopSpin();
       sfx.stopAnticipate();
       sfx.duckMusic(1);
       setAnticipate(false);
       setStoppedCols(6);
-      await wait(dur(220));
+      await wait(dur(560));
       setHoldGrid(null);
       setReelFast(false);
       abort.current.skip = false;

@@ -776,11 +776,12 @@
 }
 
 .strip-hold.is-dumping {
-  animation: strip-dump 0.36s cubic-bezier(0.5, 0, 0.92, 0.18) both;
+  animation: none;
 }
 
 .strip.is-filling {
-  animation: strip-fill 0.44s cubic-bezier(0.2, 0.82, 0.2, 1) both;
+  animation: strip-fill 0.46s cubic-bezier(0.2, 0.82, 0.2, 1) both;
+  animation-delay: 0.26s;
 }
 
 @keyframes strip-dump {
@@ -808,12 +809,9 @@
   }
 }
 
-.reel-window.is-fast .strip-hold.is-dumping {
-  animation-duration: 0.22s;
-}
-
 .reel-window.is-fast .strip.is-filling {
-  animation-duration: 0.26s;
+  animation-duration: 0.28s;
+  animation-delay: 0.12s;
 }
 
 .reel-col.is-dumping,
@@ -841,9 +839,32 @@
   }
 }
 
-.cell.is-dump,
+.cell.is-dump {
+  z-index: 4;
+  animation: cell-dump 0.3s cubic-bezier(0.42, 0, 0.9, 0.12) both;
+  animation-delay: calc((4 - var(--r, 0)) * 90ms);
+}
+
+@keyframes cell-dump {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    transform: translateY(145%);
+    opacity: 0;
+    filter: blur(0.3px);
+  }
+}
+
 .cell.is-drop {
   animation: none;
+}
+
+.reel-window.is-fast .cell.is-dump {
+  animation-duration: 0.2s;
+  animation-delay: calc((4 - var(--r, 0)) * 42ms);
 }
 
 .reel-window.is-spinning .strip-hold {

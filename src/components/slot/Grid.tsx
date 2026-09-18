@@ -49,6 +49,7 @@ function CellView({
   win,
   popping,
   reduced,
+  dumping,
   hot,
   dormant,
   tease,
@@ -62,6 +63,7 @@ function CellView({
   win: boolean;
   popping: boolean;
   reduced: boolean;
+  dumping: boolean;
   hot: boolean;
   dormant: boolean;
   tease: boolean;
@@ -93,6 +95,7 @@ function CellView({
         tease ? "is-tease" : "",
         slam ? "is-slam" : "",
         expired ? "is-expired" : "",
+        dumping && !reduced ? "is-dump" : "",
       ].join(" ")}
       style={style}
     >
@@ -175,6 +178,7 @@ export function SlotGrid({
                       win={false}
                       popping={false}
                       reduced={reduced}
+                      dumping={dumpHold}
                       hot={false}
                       dormant={false}
                       tease={false}
@@ -198,6 +202,7 @@ export function SlotGrid({
                         win={!cascading && !!winMask?.[r]?.[c]}
                         popping={popping}
                         reduced={reduced}
+                        dumping={false}
                         hot={struckUids.includes(cell.uid)}
                         dormant={cell.kind === "mult" && !struckUids.includes(cell.uid) && !cascading}
                         tease={anticipate && landed && cell.kind === "scatter"}
