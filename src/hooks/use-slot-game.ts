@@ -36,8 +36,8 @@ import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneGroup, fs
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
-import { applyDrop, contribution, emptySnap, isEligibleBet, isPoolHot, PARK_COLLECT, POOL_SEED, reserveTake, shouldDrop, type PoolSnap } from "@/lib/slot/jackpot";
-import { getParkPool, spinParkPool } from "@/lib/slot/jackpot-fn";
+import { emptySnap, isEligibleBet, isPoolHot, PARK_COLLECT, POOL_SEED, type PoolSnap } from "@/lib/slot/jackpot";
+import { fetchParkPool, postParkSpin, withRetry } from "@/lib/slot/jackpot-api";
 
 type Phase =
   | "boot"
@@ -371,7 +371,7 @@ export function useSlotGame() {
 
   useEffect(() => {
     if (!hydrated) return;
-    void getParkPool()
+    void withRetry(fetchParkPool)
       .then((s) => {
         setPool(s.pool);
         setPoolHits(s.hits);
@@ -388,7 +388,7 @@ export function useSlotGame() {
     if (!hydrated || !started) return;
     const tick = () => {
       if (busyRef.current) return;
-      void getParkPool()
+      void withRetry(fetchParkPool)
         .then((s) => {
           setPool(s.pool);
           setPoolHits(s.hits);
@@ -398,7 +398,7 @@ export function useSlotGame() {
         })
         .catch(() => {});
     };
-    const id = window.setInterval(tick, 9000);
+    const id = window.setInterval(tick, 2500);
     return () => window.clearInterval(id);
   }, [hydrated, started]);
 
@@ -566,9 +566,15 @@ export function useSlotGame() {
     skip?: boolean;
   }): Promise<PoolSnap> => {
     try {
-      const res = await spinParkPool({
-        data: { stake: opts.stake, ante: opts.ante, eligible: opts.eligible, force: opts.force, skip: !!opts.skip },
-      });
+      const res = await withRetry(() =>
+        postParkSpin({
+          stake: opts.stake,
+          ante: opts.ante,
+          eligible: opts.eligible,
+          force: opts.force,
+          skip: !!opts.skip,
+        }),
+      );
       poolLocalRef.current = res.pool;
       if (!res.hit) {
         setPool(res.pool);
@@ -577,26 +583,6 @@ export function useSlotGame() {
       setPoolHits(res.hits);
       return res;
     } catch {
-      const add = contribution(opts.stake, { ante: opts.ante, reduced: !opts.eligible && !opts.force });
-      const resv = reserveTake(opts.stake);
-      reserveLocalRef.current = +(reserveLocalRef.current + resv).toFixed(2);
-      let nextPool = +(poolLocalRef.current + add).toFixed(2);
-      if (nextPool > 10_000) {
-        reserveLocalRef.current = +(reserveLocalRef.current + (nextPool - 10_000)).toFixed(2);
-        nextPool = 10_000;
-      }
-      poolLocalRef.current = nextPool;
-      if (shouldDrop(nextPool, opts, Math.random)) {
-        const { payout, next, reserve } = applyDrop(nextPool, reserveLocalRef.current);
-        if (payout > 0) {
-          reserveLocalRef.current = reserve;
-          poolLocalRef.current = next;
-          setPoolHits((h) => h + 1);
-          return { pool: next, hits: 0, lastHit: payout, hit: true, payout, reserve: 0 };
-        }
-      }
-      setPool(poolLocalRef.current);
-      setPoolHot(isPoolHot(poolLocalRef.current));
       return { ...emptySnap(), pool: poolLocalRef.current, reserve: reserveLocalRef.current };
     }
   }, []);

@@ -155,8 +155,8 @@ export function SlotGame() {
                   : g.poolHot
                     ? "MUST DROP"
                     : g.poolEligible
-                      ? "ELIGIBLE"
-                      : "FEED 0.5 %"}
+                      ? `LIVE · ${g.poolHits} hit`
+                      : `FEED 0.5 % · ${g.poolHits} hit`}
               </em>
             </div>
             <button
