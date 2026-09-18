@@ -70,4 +70,38 @@ describe("rank stake + perk", () => {
     assert.equal(perkOf("nekonecno").jackTicket, 4);
     assert.equal(perkOf("sloboda").streakHold, true);
   });
+
+  it("buy FS ranks net of 100× cost, not gross FS", () => {
+    const bet = 1;
+    const gross = rpFromSpin({
+      cash: 250,
+      bet,
+      mult: 8,
+      tumbles: 0,
+      streak: 1,
+      banner: null,
+      kind: "fs",
+    });
+    const net = rpFromSpin({
+      cash: 250 + 12 - 100,
+      bet,
+      mult: 8,
+      tumbles: 0,
+      streak: 1,
+      banner: null,
+      kind: "fs",
+    });
+    assert.equal(net.fromSum, Math.round(9 * Math.log2(1 + 162)));
+    assert.ok(net.fromSum < gross.fromSum);
+    const loss = rpFromSpin({
+      cash: 40 - 100,
+      bet,
+      mult: 1,
+      tumbles: 0,
+      streak: 1,
+      banner: null,
+      kind: "fs",
+    });
+    assert.equal(loss.total, 0);
+  });
 });

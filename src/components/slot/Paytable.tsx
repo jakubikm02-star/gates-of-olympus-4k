@@ -108,7 +108,7 @@ export function Paytable({ open, onClose, bet }: Props) {
             Win popup ako na Olympuse: BIG WIN od 20× stávky, MEGA WIN od 35×, SUPER MEGA WIN od 50×.
             MAX WIN 5000× ukončí feature.
           </li>
-          <li>Kúpa FS = 100× základná stávka. Ante sa na kúpu nevzťahuje. Max 5000× je cap celej feature, nie jedného spinu — potom FEATURE TERMINATED.</li>
+          <li>Kúpa FS = 100× základná stávka. Ante sa na kúpu nevzťahuje. Do ranku ide čistý výsledok: výhra z kúpeného triggeru + FS mínus 100×. Ak kúpa nie je v pluse, berie sa len entry ako mŕtvy spin. Max 5000× je cap celej feature, nie jedného spinu — potom FEATURE TERMINATED.</li>
           <li>
             Simulácia {MATH_NOTE.spins.toLocaleString("sk-SK")} spinov: RTP {(MATH_NOTE.rtp * 100).toFixed(1)} %,
             hit {(MATH_NOTE.hit * 100).toFixed(1)} %, bonus 1/{MATH_NOTE.bonusEvery}, kúpa vracia{" "}

@@ -892,7 +892,7 @@ export function useSlotGame() {
       else if (x >= WIN_POP_X.mega) kind = "mega";
       else if (x >= WIN_POP_X.big) kind = "big";
 
-      if (!isFree) {
+      if (!isFree && !opts?.buy) {
         if (cash > 0) {
           const streak = noteResult(true);
           const parts = rpFromSpin({
@@ -958,6 +958,9 @@ export function useSlotGame() {
       if (!opts?.buy && !inFsRef.current) setDisplayWin(0);
 
       const r = await runSequence(opts);
+      const betNow = BETS[betIndexRef.current];
+      const triggerCash = +(lastPaidXRef.current * betNow).toFixed(2);
+      const buyCost = +(betNow * BUY_COST_X).toFixed(2);
 
       if (autoRef.current) {
         if (r === "fs") {
@@ -1006,7 +1009,6 @@ export function useSlotGame() {
         let extraSpins = 0;
         let peakMult = 0;
         let hitCap = false;
-        const betNow = BETS[betIndexRef.current];
 
         while (left > 0) {
           left -= 1;
@@ -1054,11 +1056,12 @@ export function useSlotGame() {
         setMessage(fsCash > 0 ? `TOTAL WIN ${formatMoney(fsCash)}` : "Koniec voľných točení");
         if (fsCash > 0 || hitCap) sfx.playBigWin();
         else sfx.playPayout();
-        if (fsCash > 0) {
+        const rankCash = opts?.buy ? +(fsCash + triggerCash - buyCost).toFixed(2) : fsCash;
+        if (rankCash > 0) {
           const streak = noteResult(true);
-          const fx = betNow > 0 ? fsCash / betNow : 0;
+          const fx = betNow > 0 ? rankCash / betNow : 0;
           const parts = rpFromSpin({
-            cash: fsCash,
+            cash: rankCash,
             bet: betNow,
             mult: Math.max(1, peakMult),
             tumbles: 0,
@@ -1077,6 +1080,26 @@ export function useSlotGame() {
         setBannerMeta(null);
         setPhase("idle");
         setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
+      } else if (opts?.buy) {
+        const net = +(triggerCash - buyCost).toFixed(2);
+        if (net > 0) {
+          const streak = noteResult(true);
+          const fx = betNow > 0 ? net / betNow : 0;
+          const parts = rpFromSpin({
+            cash: net,
+            bet: betNow,
+            mult: 1,
+            tumbles: 0,
+            streak,
+            banner: bannerFromX(fx, r === "max"),
+            kind: "fs",
+            rankId: standing(rankRef.current.rp).id,
+          });
+          pushRank(parts.total, parts);
+        } else {
+          noteResult(false);
+          pushRank(-standing(rankRef.current.rp).entry);
+        }
       }
 
       if (r === "max") {

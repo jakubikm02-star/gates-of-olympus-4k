@@ -249,7 +249,7 @@ export const RANK_REWARDS = [
   { id: "streak", title: "Séria výhier", detail: "2. výhra +2, 3. +5, 4. +9, 5.+ max +14. Mŕtvy spin zhodí na 0 — od SLOBODY jeden hold." },
   { id: "tumble", title: "Tumble reťaz", detail: "Dva a viac pádov v jednom spine: +2 až +8 RP." },
   { id: "banner", title: "BIG / MEGA / EPIC / MAX", detail: "Popup: +4 / +8 / +12 / +18." },
-  { id: "bonus", title: "Bonusy", detail: "FS total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2." },
+  { id: "bonus", title: "Bonusy", detail: "FS total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Kúpa FS: do ranku ide čistý výsledok (trigger + FS − 100×). Pod nulu = entry ako mŕtvy spin." },
   { id: "rank", title: "Aktívny rank", detail: "Každá liga má perk: RP %, pity, pool lístky, séria hold, drop pri postupe." },
 ] as const;
 
