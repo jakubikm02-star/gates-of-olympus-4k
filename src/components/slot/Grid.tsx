@@ -79,7 +79,7 @@ function CellView({
     ...(tumbleFall && !reduced && !dumping && !dropping
       ? {
           ["--fall"]: String(tumbleFall),
-          animation: `cell-drop ${320 + tumbleFall * 70}ms cubic-bezier(0.16, 0.84, 0.28, 1) both`,
+          animation: `cell-drop ${280 + tumbleFall * 55}ms cubic-bezier(0.16, 0.84, 0.28, 1) both`,
         }
       : {}),
   } as CSSProperties;
@@ -138,12 +138,13 @@ export function SlotGrid({
         className={`reel-window ${spinning ? "is-spinning" : ""} ${landing ? "is-landing" : ""} ${anticipate ? "is-anticipate" : ""} ${activatingMult ? "is-zeus-strike" : ""} ${fast ? "is-fast" : ""}`}
       >
         {Array.from({ length: COLS }, (_, c) => {
-          const inWave = c < stoppedCols;
-          const pending = cascading && !inWave;
-          const dropping = landing && inWave;
-          const dumpHold = cascading && inWave;
-          const showHold = Boolean(holdGrid) && cascading;
-          const showNew = !spinning && (!landing || inWave);
+          const pending = cascading && c >= stoppedCols;
+          const landed = landing && c < stoppedCols;
+          const justLand = landing && c === stoppedCols - 1;
+          const showHold = Boolean(holdGrid) && (spinning || pending || landed);
+          const dumpHold = landed;
+          const showNew = !spinning && (!landing || landed);
+          const dropNew = landed;
           const colAnti = anticipate && pending;
           const hold = holdGrid ?? grid;
           return (
@@ -151,14 +152,16 @@ export function SlotGrid({
               key={c}
               className={[
                 "reel-col",
+                spinning && pending ? "is-charging" : "",
                 dumpHold && showHold ? "is-dumping" : "",
-                dropping ? "is-filling is-landing" : "",
+                dropNew ? "is-filling" : "",
+                justLand ? "is-landing" : "",
                 colAnti ? "is-anticipate" : "",
               ].join(" ")}
               style={{ ["--c" as string]: String(c) } as CSSProperties}
             >
               {showHold ? (
-                <div className="strip strip-hold">
+                <div className={`strip strip-hold ${dumpHold ? "is-dumping" : ""}`}>
                   {Array.from({ length: ROWS }, (_, r) => (
                     <CellView
                       key={`h-${hold[r][c].uid}`}
@@ -181,7 +184,7 @@ export function SlotGrid({
                 </div>
               ) : null}
               {showNew ? (
-                <div className="strip">
+                <div className={`strip ${dropNew ? "is-filling" : ""}`}>
                   {Array.from({ length: ROWS }, (_, r) => {
                     const cell = grid[r][c];
                     return (
@@ -194,11 +197,11 @@ export function SlotGrid({
                         popping={popping}
                         reduced={reduced}
                         dumping={false}
-                        dropping={dropping}
+                        dropping={dropNew}
                         hot={struckUids.includes(cell.uid)}
                         dormant={cell.kind === "mult" && !struckUids.includes(cell.uid) && !cascading}
-                        tease={anticipate && dropping && cell.kind === "scatter"}
-                        slam={dropping && (cell.kind === "scatter" || cell.kind === "mult")}
+                        tease={anticipate && landed && cell.kind === "scatter"}
+                        slam={justLand && (cell.kind === "scatter" || cell.kind === "mult")}
                         expired={expiredUids.includes(cell.uid)}
                         tumbleFall={cell.fall ?? 0}
                       />

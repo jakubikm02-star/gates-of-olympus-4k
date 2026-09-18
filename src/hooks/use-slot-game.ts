@@ -196,6 +196,17 @@ export function useSlotGame() {
 
   const saveSnapRef = useRef<PlayerSave>(emptyPlayerSave());
   const readySave = useRef(false);
+  const fsSessionRef = useRef({
+    left: 0,
+    total: 0,
+    cash: 0,
+    played: 0,
+    extra: 0,
+    peak: 0,
+    bought: false,
+    triggerCash: 0,
+  });
+  const resumeOnce = useRef(false);
 
   const applySave = useCallback((s: PlayerSave) => {
     setBalance(s.balance);
@@ -220,12 +231,53 @@ export function useSlotGame() {
     setReloadStreak(reloadStreakRef.current);
     lastDecayAtRef.current = s.lastDecayAt ?? 0;
     setWeekDue(lastDecayAtRef.current > 0 ? lastDecayAtRef.current + WEEK_MS : 0);
+    setInFs(Boolean(s.inFs && s.fsLeft > 0));
+    inFsRef.current = Boolean(s.inFs && s.fsLeft > 0);
+    setFsLeft(s.fsLeft ?? 0);
+    setFsTotal(s.fsTotal ?? 0);
+    setGlobalMult(s.globalMult ?? 0);
+    globalMultRef.current = s.globalMult ?? 0;
+    fsSessionRef.current = {
+      left: s.fsLeft ?? 0,
+      total: s.fsTotal ?? 0,
+      cash: s.fsCash ?? 0,
+      played: s.fsPlayed ?? 0,
+      extra: s.fsExtra ?? 0,
+      peak: s.fsPeak ?? 0,
+      bought: Boolean(s.fsBought),
+      triggerCash: s.fsTriggerCash ?? 0,
+    };
     saveSnapRef.current = s;
   }, []);
 
   const flushSave = useCallback((payload?: PlayerSave) => {
     if (!readySave.current) return;
     const next = payload ?? { ...saveSnapRef.current, updatedAt: Date.now() };
+    saveSnapRef.current = next;
+    writeLocal(next);
+  }, []);
+
+  const persistNow = useCallback(() => {
+    if (!readySave.current) return;
+    const sess = fsSessionRef.current;
+    const next: PlayerSave = {
+      ...saveSnapRef.current,
+      balance: balanceRef.current,
+      inFs: inFsRef.current,
+      fsLeft: sess.left,
+      fsTotal: sess.total,
+      fsCash: sess.cash,
+      fsPlayed: sess.played,
+      fsExtra: sess.extra,
+      fsPeak: sess.peak,
+      fsBought: sess.bought,
+      fsTriggerCash: sess.triggerCash,
+      globalMult: globalMultRef.current,
+      rp: rankRef.current.rp,
+      rankPeak: rankRef.current.peak,
+      rankShield: rankRef.current.shield,
+      updatedAt: Date.now(),
+    };
     saveSnapRef.current = next;
     writeLocal(next);
   }, []);
@@ -283,10 +335,30 @@ export function useSlotGame() {
       spinsSinceReload: spinsSinceReloadRef.current,
       lastDecayAt: lastDecayAtRef.current,
       updatedAt: Date.now(),
+      inFs: inFsRef.current,
+      fsLeft: fsSessionRef.current.left,
+      fsTotal: fsSessionRef.current.total,
+      fsCash: fsSessionRef.current.cash,
+      fsPlayed: fsSessionRef.current.played,
+      fsExtra: fsSessionRef.current.extra,
+      fsPeak: fsSessionRef.current.peak,
+      fsBought: fsSessionRef.current.bought,
+      fsTriggerCash: fsSessionRef.current.triggerCash,
+      globalMult: globalMultRef.current,
     };
     saveSnapRef.current = payload;
     writeLocal(payload);
-  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pool, reloadStreak, weekDue]);
+  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pool, reloadStreak, weekDue, fsLeft, inFs, globalMult]);
+
+  useEffect(() => {
+    const onHide = () => persistNow();
+    window.addEventListener("pagehide", onHide);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, [persistNow]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -361,7 +433,7 @@ export function useSlotGame() {
       img.src = src;
     }
     setStarted(true);
-    setPhase("idle");
+    setPhase(inFsRef.current && fsSessionRef.current.left > 0 ? "fs" : "idle");
   }, [muted]);
 
   const toggleMute = useCallback(() => {
@@ -670,37 +742,45 @@ export function useSlotGame() {
       setStoppedCols(0);
       setAnticipate(false);
       setHoldGrid(cloneGrid(gridRef.current));
+      setPhase("spinning");
+      setTopLine("ŤUKNI A ZASTAV VALCE!");
+      setMessage(isFree ? "Voľné točenia" : "Točí sa…");
 
       const rng = createRng();
       const next = opts?.buy
         ? generateBuyGrid(rng)
         : generateGrid(rng, opts?.free ? false : anteRef.current);
 
-      const motion = (ms: number) => {
-        const t = abort.current.skip ? Math.max(200, Math.round(ms * 0.42)) : ms;
-        return new Promise<void>((r) => window.setTimeout(r, t));
-      };
-
-      const leftScatters = next.reduce(
-        (n, row) => n + row.slice(0, 4).filter((cell) => cell.kind === "scatter").length,
-        0,
-      );
-      const firstWave = leftScatters >= 2 ? 4 : 6;
-
-      setStoppedCols(firstWave);
-      setPhase("spinning");
-      setTopLine("ŤUKNI A ZASTAV VALCE!");
-      setMessage(isFree ? "Voľné točenia" : "Točí sa…");
-
-      await motion(dur(90));
+      await wait(dur(180), abort.current);
       setGrid(next);
       setPhase("landing");
 
       let landedScatters = 0;
       let pendingFs = false;
       let pendingPick = false;
-      for (let c = 0; c < firstWave; c++) {
+      for (let c = 0; c < 6; c++) {
+        if (abort.current.skip) {
+          setReelFast(true);
+          setStoppedCols(6);
+          for (let k = c; k < 6; k++) {
+            const colN = next.reduce((n, row) => n + (row[k].kind === "scatter" ? 1 : 0), 0);
+            sfx.playLand(k);
+            if (colN > 0) {
+              landedScatters += colN;
+              sfx.playScatter(landedScatters);
+            }
+          }
+          await wait(dur(280));
+          break;
+        }
         const colN = next.reduce((n, row) => n + (row[c].kind === "scatter" ? 1 : 0), 0);
+        if (landedScatters >= 2) {
+          setAnticipate(true);
+          setTopLine(landedScatters >= 3 ? "EŠTE JEDEN SCATTER…" : "SCATTER…");
+          sfx.startAnticipate();
+          await wait(dur(c >= 4 ? 640 : 380), abort.current);
+        }
+        setStoppedCols(c + 1);
         sfx.setSpinEnergy(1 - (c + 1) / 6);
         sfx.playLand(c);
         if (colN > 0) {
@@ -711,40 +791,17 @@ export function useSlotGame() {
             window.setTimeout(() => setShake(false), 320);
           }
         }
+        await wait(dur(c >= 4 && landedScatters >= 2 ? 240 : 300), abort.current);
       }
-
-      await motion(dur(firstWave === 6 ? 640 : 520));
-
-      if (firstWave < 6) {
-        setAnticipate(true);
-        setTopLine(landedScatters >= 3 ? "EŠTE JEDEN SCATTER…" : "SCATTER…");
-        sfx.startAnticipate();
-        await motion(dur(abort.current.skip ? 180 : 420));
-        setStoppedCols(6);
-        for (let c = 4; c < 6; c++) {
-          const colN = next.reduce((n, row) => n + (row[c].kind === "scatter" ? 1 : 0), 0);
-          sfx.playLand(c);
-          if (colN > 0) {
-            landedScatters += colN;
-            sfx.playScatter(landedScatters);
-            if (landedScatters >= 3) {
-              setShake(true);
-              window.setTimeout(() => setShake(false), 320);
-            }
-          }
-        }
-        await motion(dur(560));
-      }
-
       sfx.stopSpin();
       sfx.stopAnticipate();
       sfx.duckMusic(1);
       setAnticipate(false);
       setStoppedCols(6);
+      await wait(dur(220));
       setHoldGrid(null);
       setReelFast(false);
       abort.current.skip = false;
-      await wait(dur(80), abort.current);
 
       let board = next;
       const landDrop = zeusDropCount(rng, isFree || inFsRef.current, false);
@@ -1115,12 +1172,164 @@ export function useSlotGame() {
   );
 
   const playRound = useCallback(
-    async (opts?: { buy?: boolean }) => {
+    async (opts?: { buy?: boolean; resumeFs?: boolean }) => {
       if (busyRef.current) return;
       busyRef.current = true;
       setBusy(true);
       abort.current.aborted = false;
-      if (!opts?.buy && !inFsRef.current) setDisplayWin(0);
+      if (!opts?.buy && !opts?.resumeFs && !inFsRef.current) setDisplayWin(0);
+
+      const playFsSpins = async () => {
+        const sess = fsSessionRef.current;
+        let hitCap = false;
+        persistNow();
+        while (sess.left > 0) {
+          sess.left -= 1;
+          setFsLeft(sess.left);
+          sess.played += 1;
+          persistNow();
+          const inner = await runSequence({ free: true });
+          const betNow = BETS[betIndexRef.current];
+          sess.cash = +(sess.cash + lastPaidXRef.current * betNow).toFixed(2);
+          sess.peak = Math.max(sess.peak, globalMultRef.current);
+          if (extraFsRef.current > 0) {
+            const add = extraFsRef.current;
+            extraFsRef.current = 0;
+            sess.extra += add;
+            sess.left += add;
+            sess.total += add;
+            setFsLeft(sess.left);
+            setFsTotal(sess.total);
+            setMessage(`+${add} voľných točení`);
+            sfx.playScatter(4);
+            persistNow();
+            await wait(dur(720), abort.current);
+          }
+          persistNow();
+          if (inner === "max") {
+            hitCap = true;
+            break;
+          }
+          await wait(dur(160), abort.current);
+        }
+        return hitCap;
+      };
+
+      const closeFs = async (hitCap: boolean, applyBoughtRank: (returned: number, extra: { mult: number; bannerHit: boolean; retriggers?: number }) => void) => {
+        const sess = fsSessionRef.current;
+        const betNow = BETS[betIndexRef.current];
+        const fsCash = sess.cash;
+        setInFs(false);
+        inFsRef.current = false;
+        setFsLeft(0);
+        setGlobalMult(0);
+        globalMultRef.current = 0;
+        setDisplayWin(fsCash);
+        setSpinWin(fsCash);
+        setBannerMeta({
+          spins: sess.played,
+          extra: sess.extra,
+          peakMult: sess.peak,
+          terminated: hitCap,
+        });
+        bannerOpen.current = true;
+        setBanner("fsTotal");
+        setBannerAmount(fsCash);
+        setPhase(hitCap ? "max" : "big");
+        setTopLine("KONIEC VOĽNÝCH TOČENÍ");
+        setMessage(fsCash > 0 ? `TOTAL WIN ${formatMoney(fsCash)}` : "Koniec voľných točení");
+        if (fsCash > 0 || hitCap) sfx.playBigWin();
+        else sfx.playPayout();
+        if (sess.bought) {
+          applyBoughtRank(+(fsCash + sess.triggerCash).toFixed(2), {
+            mult: Math.max(1, sess.peak),
+            bannerHit: hitCap,
+            retriggers: sess.extra > 0 ? Math.round(sess.extra / FS_RETRIGGER) : 0,
+          });
+        } else if (fsCash > 0) {
+          const streak = noteResult(true);
+          const fx = betNow > 0 ? fsCash / betNow : 0;
+          const parts = rpFromSpin({
+            cash: fsCash,
+            bet: betNow,
+            mult: Math.max(1, sess.peak),
+            tumbles: 0,
+            streak,
+            banner: bannerFromX(fx, hitCap),
+            kind: "fs",
+            retriggers: sess.extra > 0 ? Math.round(sess.extra / FS_RETRIGGER) : 0,
+            rankId: standing(rankRef.current.rp).id,
+          });
+          pushRank(parts.total, parts);
+        } else {
+          noteResult(false);
+          pushRank(-standing(rankRef.current.rp).entry);
+        }
+        fsSessionRef.current = {
+          left: 0,
+          total: 0,
+          cash: 0,
+          played: 0,
+          extra: 0,
+          peak: 0,
+          bought: false,
+          triggerCash: 0,
+        };
+        persistNow();
+        await waitForBanner();
+        setBannerMeta(null);
+        setPhase("idle");
+        setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
+      };
+
+      const makeApplyBought = (betNow: number, buyCost: number, buyXNow: number, rankIdNow: string) =>
+        (returned: number, extra: { mult: number; bannerHit: boolean; retriggers?: number }) => {
+          const profit = returned >= buyCost;
+          const streak = noteResult(profit);
+          const wx = buyCost > 0 ? returned / buyCost : 0;
+          const settled = settleBuyRank({
+            returned,
+            bet: betNow,
+            buyX: buyXNow,
+            entry: standing(rankRef.current.rp).entry,
+            extras: {
+              mult: extra.mult,
+              tumbles: 0,
+              streak,
+              banner: bannerFromX(wx, extra.bannerHit),
+              retriggers: extra.retriggers,
+              rankId: rankIdNow,
+            },
+          });
+          if (settled.delta) pushRank(settled.delta, settled.parts);
+        };
+
+      if (opts?.resumeFs) {
+        const sess = fsSessionRef.current;
+        if (sess.left <= 0) {
+          busyRef.current = false;
+          setBusy(false);
+          return;
+        }
+        const betNow = BETS[betIndexRef.current];
+        const rankIdNow = standing(rankRef.current.rp).id;
+        const buyXNow = buyXOf(rankIdNow);
+        const buyCost = +(betNow * buyXNow).toFixed(2);
+        setInFs(true);
+        inFsRef.current = true;
+        setPhase("fs");
+        setFsLeft(sess.left);
+        setFsTotal(sess.total);
+        setDisplayWin(sess.cash);
+        setMessage(`${sess.left} voľných točení`);
+        setTopLine(`POKRAČUJEŠ · ${sess.left} FREE SPINS`);
+        persistNow();
+        const hitCap = await playFsSpins();
+        await closeFs(hitCap, makeApplyBought(betNow, buyCost, buyXNow, rankIdNow));
+        busyRef.current = false;
+        setBusy(false);
+        return;
+      }
 
       const r = await runSequence(opts);
       const betNow = BETS[betIndexRef.current];
@@ -1129,30 +1338,7 @@ export function useSlotGame() {
       const buyXNow = buyXOf(rankIdNow);
       const buyCost = +(betNow * buyXNow).toFixed(2);
       const fsCount = fsSpinsOf(rankIdNow);
-
-      const applyBoughtRank = (
-        returned: number,
-        extra: { mult: number; bannerHit: boolean; retriggers?: number },
-      ) => {
-        const profit = returned >= buyCost;
-        const streak = noteResult(profit);
-        const wx = buyCost > 0 ? returned / buyCost : 0;
-        const settled = settleBuyRank({
-          returned,
-          bet: betNow,
-          buyX: buyXNow,
-          entry: standing(rankRef.current.rp).entry,
-          extras: {
-            mult: extra.mult,
-            tumbles: 0,
-            streak,
-            banner: bannerFromX(wx, extra.bannerHit),
-            retriggers: extra.retriggers,
-            rankId: rankIdNow,
-          },
-        });
-        if (settled.delta) pushRank(settled.delta, settled.parts);
-      };
+      const applyBoughtRank = makeApplyBought(betNow, buyCost, buyXNow, rankIdNow);
 
       if (autoRef.current) {
         if (r === "fs") {
@@ -1179,16 +1365,26 @@ export function useSlotGame() {
       }
 
       if (r === "fs") {
+        fsSessionRef.current = {
+          left: fsCount,
+          total: fsCount,
+          cash: 0,
+          played: 0,
+          extra: 0,
+          peak: 0,
+          bought: Boolean(opts?.buy),
+          triggerCash,
+        };
         setInFs(true);
         inFsRef.current = true;
         setPhase("fs");
         setDisplayWin(0);
         setGlobalMult(0);
         globalMultRef.current = 0;
-        let left = fsCount;
-        setFsLeft(left);
-        setFsTotal(left);
+        setFsLeft(fsCount);
+        setFsTotal(fsCount);
         setMessage(`${fsCount} voľných točení`);
+        persistNow();
         sfx.playFsStart();
         bannerOpen.current = true;
         setBanner("fs");
@@ -1196,87 +1392,8 @@ export function useSlotGame() {
         setTopLine("GRATULUJEME!");
         await waitForBanner();
 
-        let fsCash = 0;
-        let played = 0;
-        let extraSpins = 0;
-        let peakMult = 0;
-        let hitCap = false;
-
-        while (left > 0) {
-          left -= 1;
-          setFsLeft(left);
-          played += 1;
-          const inner = await runSequence({ free: true });
-          fsCash = +(fsCash + lastPaidXRef.current * betNow).toFixed(2);
-          peakMult = Math.max(peakMult, globalMultRef.current);
-          if (extraFsRef.current > 0) {
-            const add = extraFsRef.current;
-            extraFsRef.current = 0;
-            extraSpins += add;
-            left += add;
-            setFsLeft(left);
-            setFsTotal((t) => t + add);
-            setMessage(`+${add} voľných točení`);
-            sfx.playScatter(4);
-            await wait(dur(720), abort.current);
-          }
-          if (inner === "max") {
-            hitCap = true;
-            break;
-          }
-          await wait(dur(160), abort.current);
-        }
-
-        setInFs(false);
-        inFsRef.current = false;
-        setFsLeft(0);
-        setGlobalMult(0);
-        globalMultRef.current = 0;
-        setDisplayWin(fsCash);
-        setSpinWin(fsCash);
-        setBannerMeta({
-          spins: played,
-          extra: extraSpins,
-          peakMult,
-          terminated: hitCap,
-        });
-        bannerOpen.current = true;
-        setBanner("fsTotal");
-        setBannerAmount(fsCash);
-        setPhase(hitCap ? "max" : "big");
-        setTopLine("KONIEC VOĽNÝCH TOČENÍ");
-        setMessage(fsCash > 0 ? `TOTAL WIN ${formatMoney(fsCash)}` : "Koniec voľných točení");
-        if (fsCash > 0 || hitCap) sfx.playBigWin();
-        else sfx.playPayout();
-        if (opts?.buy) {
-          applyBoughtRank(+(fsCash + triggerCash).toFixed(2), {
-            mult: Math.max(1, peakMult),
-            bannerHit: hitCap,
-            retriggers: extraSpins > 0 ? Math.round(extraSpins / FS_RETRIGGER) : 0,
-          });
-        } else if (fsCash > 0) {
-          const streak = noteResult(true);
-          const fx = betNow > 0 ? fsCash / betNow : 0;
-          const parts = rpFromSpin({
-            cash: fsCash,
-            bet: betNow,
-            mult: Math.max(1, peakMult),
-            tumbles: 0,
-            streak,
-            banner: bannerFromX(fx, hitCap),
-            kind: "fs",
-            retriggers: extraSpins > 0 ? Math.round(extraSpins / FS_RETRIGGER) : 0,
-            rankId: standing(rankRef.current.rp).id,
-          });
-          pushRank(parts.total, parts);
-        } else {
-          noteResult(false);
-          pushRank(-standing(rankRef.current.rp).entry);
-        }
-        await waitForBanner();
-        setBannerMeta(null);
-        setPhase("idle");
-        setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
+        const hitCap = await playFsSpins();
+        await closeFs(hitCap, applyBoughtRank);
       } else if (opts?.buy) {
         applyBoughtRank(triggerCash, { mult: 1, bannerHit: r === "max" });
       }
@@ -1297,8 +1414,15 @@ export function useSlotGame() {
       busyRef.current = false;
       setBusy(false);
     },
-    [dur, runSequence, waitForBanner, runPick, pushRank, noteResult],
+    [dur, runSequence, waitForBanner, runPick, pushRank, noteResult, persistNow],
   );
+
+  useEffect(() => {
+    if (!started || !hydrated || resumeOnce.current) return;
+    if (!inFsRef.current || fsSessionRef.current.left <= 0) return;
+    resumeOnce.current = true;
+    void playRound({ resumeFs: true });
+  }, [started, hydrated, playRound]);
 
   const stopReels = useCallback(() => {
     abort.current.skip = true;

@@ -801,8 +801,8 @@
 }
 
 .cell.is-dump {
-  animation: cell-dump 0.58s cubic-bezier(0.4, 0, 0.95, 0.2) both;
-  animation-delay: calc(var(--r, 0) * 32ms + var(--c, 0) * 18ms);
+  animation: cell-dump 0.44s cubic-bezier(0.45, 0, 0.92, 0.18) both;
+  animation-delay: calc(var(--r, 0) * 26ms);
   z-index: 2;
 }
 
@@ -812,34 +812,34 @@
     filter: blur(0);
   }
   100% {
-    transform: translateY(calc((5.6 - var(--r, 0)) * 100%)) rotate(8deg);
-    filter: blur(0.45px);
+    transform: translateY(calc((5.4 - var(--r, 0)) * 100%)) rotate(7deg);
+    filter: blur(0.4px);
   }
 }
 
 .cell.is-drop {
-  --fall: 5.4;
-  animation: cell-drop 0.62s cubic-bezier(0.18, 0.82, 0.22, 1) both;
-  animation-delay: calc(var(--r, 0) * 42ms + var(--c, 0) * 28ms);
+  --fall: 5.2;
+  animation: cell-drop 0.52s cubic-bezier(0.16, 0.84, 0.28, 1) both;
+  animation-delay: calc(var(--r, 0) * 34ms);
 }
 
 .reel-window.is-fast .cell.is-dump {
-  animation-duration: 0.28s;
-  animation-delay: calc(var(--r, 0) * 12ms);
+  animation-duration: 0.26s;
+  animation-delay: calc(var(--r, 0) * 10ms);
 }
 
 .reel-window.is-fast .cell.is-drop {
-  animation-duration: 0.34s;
-  animation-delay: calc(var(--r, 0) * 16ms + var(--c, 0) * 10ms);
+  animation-duration: 0.3s;
+  animation-delay: calc(var(--r, 0) * 12ms);
 }
 
-.reel-window.is-spinning .cell-img {
-  animation: none;
+.reel-window.is-spinning .strip-hold .cell-img {
+  animation: spin-nudge 0.16s ease-in-out infinite;
 }
 
 @keyframes spin-nudge {
   50% {
-    transform: translateY(7%);
+    transform: translateY(6%);
   }
 }
 

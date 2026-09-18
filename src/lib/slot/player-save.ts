@@ -22,6 +22,16 @@ export interface PlayerSave {
   spinsSinceReload: number;
   lastDecayAt: number;
   updatedAt: number;
+  inFs: boolean;
+  fsLeft: number;
+  fsTotal: number;
+  fsCash: number;
+  fsPlayed: number;
+  fsExtra: number;
+  fsPeak: number;
+  fsBought: boolean;
+  fsTriggerCash: number;
+  globalMult: number;
 }
 
 export function emptyPlayerSave(): PlayerSave {
@@ -43,6 +53,16 @@ export function emptyPlayerSave(): PlayerSave {
     spinsSinceReload: 0,
     lastDecayAt: 0,
     updatedAt: 0,
+    inFs: false,
+    fsLeft: 0,
+    fsTotal: 0,
+    fsCash: 0,
+    fsPlayed: 0,
+    fsExtra: 0,
+    fsPeak: 0,
+    fsBought: false,
+    fsTriggerCash: 0,
+    globalMult: 0,
   };
 }
 
@@ -110,6 +130,20 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.spinsSinceReload = Math.min(10_000, Math.max(0, Math.floor(num(r.spinsSinceReload, 0))));
   s.lastDecayAt = stampMs(r.lastDecayAt);
   s.updatedAt = stampMs(r.updatedAt ?? r.updated_at);
+  s.inFs = bool(r.inFs, false);
+  s.fsLeft = Math.min(500, Math.max(0, Math.floor(num(r.fsLeft, 0))));
+  s.fsTotal = Math.min(500, Math.max(0, Math.floor(num(r.fsTotal, 0))));
+  s.fsCash = num(r.fsCash, 0, 0, 1_000_000_000);
+  s.fsPlayed = Math.min(500, Math.max(0, Math.floor(num(r.fsPlayed, 0))));
+  s.fsExtra = Math.min(500, Math.max(0, Math.floor(num(r.fsExtra, 0))));
+  s.fsPeak = num(r.fsPeak, 0, 0, 1_000_000);
+  s.fsBought = bool(r.fsBought, false);
+  s.fsTriggerCash = num(r.fsTriggerCash, 0, 0, 1_000_000_000);
+  s.globalMult = num(r.globalMult, 0, 0, 1_000_000);
+  if (!s.inFs || s.fsLeft <= 0) {
+    s.inFs = false;
+    s.fsLeft = 0;
+  }
   return s;
 }
 
