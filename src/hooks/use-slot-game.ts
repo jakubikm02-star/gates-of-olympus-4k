@@ -85,6 +85,7 @@ export function useSlotGame() {
   const [grid, setGrid] = useState<Cell[][]>(() => emptyGrid());
   const [holdGrid, setHoldGrid] = useState<Cell[][] | null>(null);
   const gridRef = useRef<Cell[][]>(emptyGrid());
+  const [reelFast, setReelFast] = useState(false);
   const [phase, setPhase] = useState<Phase>("boot");
   const [busy, setBusy] = useState(false);
   const [winMask, setWinMask] = useState<boolean[][] | null>(null);
@@ -651,6 +652,7 @@ export function useSlotGame() {
       setFlies([]);
       extraFsRef.current = 0;
       abort.current.skip = false;
+      setReelFast(false);
       if (!isFree) featureXRef.current = 0;
       sfx.unlockAudio();
       sfx.startSpin();
@@ -668,33 +670,37 @@ export function useSlotGame() {
       setStoppedCols(0);
       setAnticipate(false);
       setHoldGrid(cloneGrid(gridRef.current));
-      setPhase("spinning");
-      setTopLine("ŤUKNI A ZASTAV VALCE!");
-      setMessage(isFree ? "Voľné točenia" : "Točí sa…");
 
       const rng = createRng();
       const next = opts?.buy
         ? generateBuyGrid(rng)
         : generateGrid(rng, opts?.free ? false : anteRef.current);
 
-      await wait(dur(200), abort.current);
-      setPhase("landing");
+      const motion = (ms: number) => {
+        const t = abort.current.skip ? Math.max(200, Math.round(ms * 0.42)) : ms;
+        return new Promise<void>((r) => window.setTimeout(r, t));
+      };
+
+      const leftScatters = next.reduce(
+        (n, row) => n + row.slice(0, 4).filter((cell) => cell.kind === "scatter").length,
+        0,
+      );
+      const firstWave = leftScatters >= 2 ? 4 : 6;
+
+      setStoppedCols(firstWave);
+      setPhase("spinning");
+      setTopLine("ŤUKNI A ZASTAV VALCE!");
+      setMessage(isFree ? "Voľné točenia" : "Točí sa…");
+
+      await motion(dur(90));
       setGrid(next);
-      setStoppedCols(0);
-      await wait(dur(40), abort.current);
+      setPhase("landing");
 
       let landedScatters = 0;
       let pendingFs = false;
       let pendingPick = false;
-      for (let c = 0; c < 6; c++) {
+      for (let c = 0; c < firstWave; c++) {
         const colN = next.reduce((n, row) => n + (row[c].kind === "scatter" ? 1 : 0), 0);
-        if (landedScatters >= 2 && !abort.current.skip) {
-          setAnticipate(true);
-          setTopLine(landedScatters >= 3 ? "EŠTE JEDEN SCATTER…" : "SCATTER…");
-          sfx.startAnticipate();
-          await wait(dur(c >= 4 ? 780 : 520), abort.current);
-        }
-        setStoppedCols(c + 1);
         sfx.setSpinEnergy(1 - (c + 1) / 6);
         sfx.playLand(c);
         if (colN > 0) {
@@ -705,16 +711,40 @@ export function useSlotGame() {
             window.setTimeout(() => setShake(false), 320);
           }
         }
-        await wait(dur(c >= 4 && landedScatters >= 2 ? 220 : 268), abort.current);
       }
+
+      await motion(dur(firstWave === 6 ? 640 : 520));
+
+      if (firstWave < 6) {
+        setAnticipate(true);
+        setTopLine(landedScatters >= 3 ? "EŠTE JEDEN SCATTER…" : "SCATTER…");
+        sfx.startAnticipate();
+        await motion(dur(abort.current.skip ? 180 : 420));
+        setStoppedCols(6);
+        for (let c = 4; c < 6; c++) {
+          const colN = next.reduce((n, row) => n + (row[c].kind === "scatter" ? 1 : 0), 0);
+          sfx.playLand(c);
+          if (colN > 0) {
+            landedScatters += colN;
+            sfx.playScatter(landedScatters);
+            if (landedScatters >= 3) {
+              setShake(true);
+              window.setTimeout(() => setShake(false), 320);
+            }
+          }
+        }
+        await motion(dur(560));
+      }
+
       sfx.stopSpin();
       sfx.stopAnticipate();
       sfx.duckMusic(1);
       setAnticipate(false);
       setStoppedCols(6);
       setHoldGrid(null);
+      setReelFast(false);
       abort.current.skip = false;
-      await wait(dur(90), abort.current);
+      await wait(dur(80), abort.current);
 
       let board = next;
       const landDrop = zeusDropCount(rng, isFree || inFsRef.current, false);
@@ -1272,6 +1302,7 @@ export function useSlotGame() {
 
   const stopReels = useCallback(() => {
     abort.current.skip = true;
+    setReelFast(true);
     sfx.stopAnticipate();
   }, []);
 
@@ -1424,6 +1455,7 @@ export function useSlotGame() {
     setPaytableOpen,
     message,
     stoppedCols,
+    reelFast,
     anticipate,
     activatingMult,
     struckUids,

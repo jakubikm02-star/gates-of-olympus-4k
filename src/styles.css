@@ -801,28 +801,40 @@
 }
 
 .cell.is-dump {
-  animation: cell-dump 0.4s cubic-bezier(0.45, 0, 0.92, 0.18) both;
-  animation-delay: calc(var(--r, 0) * 22ms);
+  animation: cell-dump 0.58s cubic-bezier(0.4, 0, 0.95, 0.2) both;
+  animation-delay: calc(var(--r, 0) * 32ms + var(--c, 0) * 18ms);
   z-index: 2;
 }
 
 @keyframes cell-dump {
   0% {
-    transform: translateY(0) rotate(0deg) scale(1);
+    transform: translateY(0) rotate(0deg);
+    filter: blur(0);
   }
   100% {
-    transform: translateY(calc((5 - var(--r, 0) + 1.35) * 100%)) rotate(5deg) scale(0.96);
+    transform: translateY(calc((5.6 - var(--r, 0)) * 100%)) rotate(8deg);
+    filter: blur(0.45px);
   }
 }
 
 .cell.is-drop {
-  --fall: 5;
-  animation: cell-drop 0.46s cubic-bezier(0.16, 0.84, 0.28, 1) both;
-  animation-delay: calc(var(--r, 0) * 28ms);
+  --fall: 5.4;
+  animation: cell-drop 0.62s cubic-bezier(0.18, 0.82, 0.22, 1) both;
+  animation-delay: calc(var(--r, 0) * 42ms + var(--c, 0) * 28ms);
+}
+
+.reel-window.is-fast .cell.is-dump {
+  animation-duration: 0.28s;
+  animation-delay: calc(var(--r, 0) * 12ms);
+}
+
+.reel-window.is-fast .cell.is-drop {
+  animation-duration: 0.34s;
+  animation-delay: calc(var(--r, 0) * 16ms + var(--c, 0) * 10ms);
 }
 
 .reel-window.is-spinning .cell-img {
-  animation: spin-nudge 0.16s ease-in-out infinite;
+  animation: none;
 }
 
 @keyframes spin-nudge {
@@ -844,7 +856,7 @@
   width: 100%;
   display: grid;
   place-items: center;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .cell-img {
@@ -874,29 +886,17 @@
 
 .win-fx {
   position: absolute;
-  inset: 4%;
+  inset: 8%;
   pointer-events: none;
   z-index: 3;
-  background:
-    radial-gradient(circle, rgb(255 230 140 / 0.28), transparent 62%);
-  filter: drop-shadow(0 0 8px #ffd24a);
+  border-radius: 18%;
+  background: radial-gradient(circle, rgb(255 230 140 / 0.38), transparent 68%);
+  box-shadow: 0 0 18px rgb(255 210 80 / 0.35);
 }
 
 .win-fx::before,
 .win-fx::after {
-  content: "";
-  position: absolute;
-  inset: 6%;
-  background: conic-gradient(from var(--a, 0deg), transparent 0 62%, #ffe14a 70%, transparent 80%);
-  mix-blend-mode: screen;
-  animation: bolt-flicker 0.16s steps(2) infinite;
-  clip-path: polygon(48% 0, 58% 28%, 92% 18%, 64% 48%, 100% 72%, 58% 62%, 50% 100%, 42% 62%, 0 78%, 36% 48%, 8% 14%, 42% 28%);
-}
-
-.win-fx::after {
-  --a: 90deg;
-  animation-delay: 80ms;
-  opacity: 0.7;
+  content: none;
 }
 
 @keyframes bolt-flicker {
@@ -1249,15 +1249,15 @@
 
 @keyframes cell-drop {
   0% {
-    transform: translateY(calc(var(--fall, 5) * -110%)) scaleY(1.08);
-    filter: blur(0.35px);
+    transform: translateY(calc(var(--fall, 5.4) * -100%)) scaleY(1.1);
+    filter: blur(0.55px);
   }
-  68% {
-    transform: translateY(5%) scaleY(0.86) scaleX(1.07);
+  72% {
+    transform: translateY(6%) scaleY(0.84) scaleX(1.08);
     filter: blur(0);
   }
-  84% {
-    transform: translateY(-2.4%) scaleY(1.05) scaleX(0.98);
+  86% {
+    transform: translateY(-3%) scaleY(1.06) scaleX(0.97);
   }
   100% {
     transform: none;

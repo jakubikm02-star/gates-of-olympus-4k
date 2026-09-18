@@ -280,6 +280,7 @@ export function SlotGame() {
               expiredUids={g.expiredUids}
               clusterPay={g.clusterPay}
               reduced={false}
+              fast={g.reelFast}
               onTap={spinning ? g.stopReels : undefined}
             />
             {g.flies.map((f) => (
