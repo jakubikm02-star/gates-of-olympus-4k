@@ -81,6 +81,13 @@ export function randomCell(rng: () => number, ante: boolean, fs = false): Cell {
   return randomPayCell(rng);
 }
 
+/** Tall looping column for the spin shot: 3× the same 5 so CSS % loop is seamless. */
+export function makeSpinStrip(rng: () => number): Cell[] {
+  const pat: Cell[] = [];
+  for (let i = 0; i < ROWS; i++) pat.push(randomPayCell(rng));
+  return [...pat, ...pat, ...pat];
+}
+
 export function generateGrid(rng: () => number, ante: boolean): Cell[][] {
   const g: Cell[][] = [];
   for (let r = 0; r < ROWS; r++) {

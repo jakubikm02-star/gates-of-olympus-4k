@@ -283,6 +283,7 @@ export function SlotGame() {
               fast={g.reelFast}
               cam={g.cam}
               spinPace={g.spinPace ?? undefined}
+              spinStrips={g.spinStrips}
             />
             {g.flies.map((f) => (
               <span

@@ -31,6 +31,7 @@ interface Props {
   onTap?: () => void;
   cam?: "stop" | "scatter" | "tumble" | null;
   spinPace?: "up" | "full";
+  spinStrips?: Cell[][] | null;
 }
 
 function jag(x0: number, y0: number, x1: number, y1: number): string {
@@ -140,6 +141,7 @@ export function SlotGrid({
   onTap,
   cam,
   spinPace,
+  spinStrips,
 }: Props) {
   const cascading = spinning || landing;
   const bolt = strike
@@ -158,9 +160,8 @@ export function SlotGrid({
           const pending = cascading && c >= stoppedCols;
           const landed = landing && c < stoppedCols;
           const justLand = landing && c === stoppedCols - 1;
-          const hold = holdGrid ?? grid;
-          const showSpin = Boolean(holdGrid) && pending;
-          const dumpHold = landed && Boolean(holdGrid);
+          const reel = spinStrips?.[c] ?? [];
+          const showSpin = Boolean(holdGrid) && (pending || landed) && reel.length > 0;
           const showNew = !spinning && (!landing || landed);
           const dropNew = landed;
           const colAnti = anticipate && pending;
@@ -169,46 +170,21 @@ export function SlotGrid({
               key={c}
               className={[
                 "reel-col",
-                showSpin ? "is-charging" : "",
-                dumpHold ? "is-dumping" : "",
+                showSpin && pending ? "is-charging" : "",
+                landed && showSpin ? "is-dumping" : "",
                 dropNew ? "is-filling" : "",
                 justLand ? "is-landing" : "",
                 colAnti ? "is-anticipate" : "",
               ].join(" ")}
-              style={{ ["--c" as string]: String(c), ["--desync" as string]: `${c * 32}ms` } as CSSProperties}
+              style={{ ["--c" as string]: String(c), ["--desync" as string]: `${c * 36}ms` } as CSSProperties}
             >
               {showSpin ? (
-                <div className="strip strip-spin">
-                  {Array.from({ length: 15 }, (_, i) => {
-                    const r = i % ROWS;
-                    return (
-                      <CellView
-                        key={`s-${c}-${i}-${hold[r][c].uid}`}
-                        cell={hold[r][c]}
-                        r={r}
-                        c={c}
-                        win={false}
-                        popping={false}
-                        reduced={reduced}
-                        dumping={false}
-                        hot={false}
-                        dormant={false}
-                        tease={false}
-                        slam={false}
-                        expired={false}
-                        tumbleFall={0}
-                      />
-                    );
-                  })}
-                </div>
-              ) : null}
-              {dumpHold ? (
-                <div className="strip strip-hold is-dumping">
-                  {Array.from({ length: ROWS }, (_, r) => (
+                <div className={`strip strip-spin ${landed ? "is-exiting" : ""}`}>
+                  {reel.map((cell, i) => (
                     <CellView
-                      key={`h-${hold[r][c].uid}`}
-                      cell={hold[r][c]}
-                      r={r}
+                      key={`s-${c}-${i}-${cell.uid}`}
+                      cell={cell}
+                      r={i % ROWS}
                       c={c}
                       win={false}
                       popping={false}

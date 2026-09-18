@@ -25,6 +25,7 @@ import {
   generateBuyGrid,
   generateGrid,
   listOrbs,
+  makeSpinStrip,
   punchHoles,
   tumble,
   wait,
@@ -90,6 +91,7 @@ export function useSlotGame() {
   const [reelFast, setReelFast] = useState(false);
   const [spinPace, setSpinPace] = useState<"up" | "full" | null>(null);
   const [cam, setCam] = useState<"stop" | "scatter" | "tumble" | null>(null);
+  const [spinStrips, setSpinStrips] = useState<Cell[][] | null>(null);
   const [phase, setPhase] = useState<Phase>("boot");
   const [busy, setBusy] = useState(false);
   const [winMask, setWinMask] = useState<boolean[][] | null>(null);
@@ -771,6 +773,8 @@ export function useSlotGame() {
       setStoppedCols(0);
       setAnticipate(false);
       setHoldGrid(cloneGrid(gridRef.current));
+      const spinRng = createRng();
+      setSpinStrips(Array.from({ length: 6 }, () => makeSpinStrip(spinRng)));
       setPhase("spinning");
       setSpinPace("up");
       setCam(null);
@@ -782,21 +786,21 @@ export function useSlotGame() {
         ? generateBuyGrid(rng)
         : generateGrid(rng, opts?.free ? false : anteRef.current);
 
-      await wait(dur(180), abort.current);
+      await wait(dur(280), abort.current);
       setSpinPace("full");
-      await wait(dur(340), abort.current);
+      await wait(dur(620), abort.current);
       setGrid(next);
       setPhase("landing");
 
       let landedScatters = 0;
       let pendingFs = false;
       let pendingPick = false;
-      const gaps = [100, 110, 120, 140, 190];
+      const gaps = [180, 190, 200, 220, 280];
       for (let c = 0; c < 6; c++) {
         if (landedScatters >= 2) {
           setAnticipate(true);
           sfx.startAnticipate();
-          if (c >= 4) await wait(dur(260), abort.current);
+          if (c >= 4) await wait(dur(280), abort.current);
         }
         setStoppedCols(c + 1);
         sfx.setSpinEnergy(1 - (c + 1) / 6);
@@ -812,7 +816,7 @@ export function useSlotGame() {
           window.setTimeout(() => setCam(null), 80);
         }
         if (c < 5) await wait(dur(gaps[c]), abort.current);
-        else await wait(dur(90));
+        else await wait(dur(420));
       }
       sfx.stopSpin();
       sfx.stopAnticipate();
@@ -820,8 +824,9 @@ export function useSlotGame() {
       setAnticipate(false);
       setSpinPace(null);
       setStoppedCols(6);
-      await wait(dur(40));
+      await wait(dur(90));
       setHoldGrid(null);
+      setSpinStrips(null);
       setReelFast(false);
       abort.current.skip = false;
 
@@ -1631,6 +1636,7 @@ export function useSlotGame() {
     reelFast,
     spinPace,
     cam,
+    spinStrips,
     winTier,
     anticipate,
     activatingMult,
