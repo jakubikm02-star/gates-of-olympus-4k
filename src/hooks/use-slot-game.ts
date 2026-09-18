@@ -613,6 +613,13 @@ export function useSlotGame() {
   const waitForBanner = useCallback(() => {
     return new Promise<void>((resolve) => {
       bannerWait.current = resolve;
+      window.setTimeout(() => {
+        if (bannerWait.current !== resolve) return;
+        bannerOpen.current = false;
+        setBanner(null);
+        bannerWait.current = null;
+        resolve();
+      }, 2800);
     });
   }, []);
 
@@ -620,6 +627,8 @@ export function useSlotGame() {
     async (pot: PoolSnap) => {
       if (!pot.hit || pot.payout <= 0) return;
       setPoolShown(pot.payout);
+      setDisplayWin((w) => +(w + pot.payout).toFixed(2));
+      setSpinWin((w) => +(w + pot.payout).toFixed(2));
       setBalance((b) => +(b + pot.payout).toFixed(2));
       setBestWin((w) => Math.max(w, pot.payout));
       setSpinTape((t) => [{ label: "JACKPOT", amount: formatMoney(pot.payout) }, ...t].slice(0, 8));
@@ -629,17 +638,17 @@ export function useSlotGame() {
         setAutoLeft(0);
         setAutoReason("AUTO STOP · JACKPOT");
       }
-      bannerOpen.current = true;
       setBanner("pool");
       setBannerAmount(pot.payout);
       setPhase("max");
       sfx.playMaxWin();
-      await waitForBanner();
+      await wait(2500);
+      setBanner(null);
       setPool(pot.pool);
       setPoolShown(pot.pool);
       setPoolHot(isPoolHot(pot.pool));
     },
-    [waitForBanner],
+    [],
   );
 
   const waitForPick = useCallback(() => {
@@ -1185,16 +1194,6 @@ export function useSlotGame() {
         }
       }
 
-      if (kind) {
-        bannerOpen.current = true;
-        setBanner(kind);
-        setBannerAmount(cash);
-        if (kind === "max") sfx.playMaxWin();
-        else sfx.playBigWin();
-        setPhase(kind === "max" ? "max" : "big");
-        await waitForBanner();
-      }
-
       const parkCollect = fsNow && countParks(board) >= PARK_COLLECT;
       if (parkCollect) {
         const pot = await feedPool({ stake: 0, ante: false, eligible: true, force: true });
@@ -1215,6 +1214,16 @@ export function useSlotGame() {
           force: false,
           skip: true,
         });
+      }
+
+      if (kind) {
+        bannerOpen.current = true;
+        setBanner(kind);
+        setBannerAmount(cash);
+        if (kind === "max") sfx.playMaxWin();
+        else sfx.playBigWin();
+        setPhase(kind === "max" ? "max" : "big");
+        await waitForBanner();
       }
 
       setWinMask(null);

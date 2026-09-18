@@ -24,10 +24,11 @@ describe("park pool", () => {
     assert.equal(reserve, 0);
   });
 
-  it("mystery p ramps in must-drop zone", () => {
-    assert.ok(mysteryChance(8000, { eligible: true }) >= 0.08);
-    assert.ok(mysteryChance(9000, { eligible: true }) > mysteryChance(8000, { eligible: true }));
-    assert.equal(mysteryChance(500, { eligible: false }), 0);
+  it("mystery at 2500 / 100 is ~1 in 1667, not a scratch ticket", () => {
+    const p = mysteryChance(2500, { eligible: true, stake: 100 });
+    assert.ok(p > 0.00055 && p < 0.00065, `p=${p}`);
+    assert.equal(mysteryChance(2500, { eligible: false, stake: 100 }), 0);
+    assert.ok(mysteryChance(8000, { eligible: true, stake: 100 }) < 0.01);
   });
 
   it("force collect ignores skip", () => {

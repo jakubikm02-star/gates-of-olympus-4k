@@ -52,23 +52,28 @@ export function reserveTake(stake: number): number {
   return round2(stake * POOL_RESERVE);
 }
 
-/** Mystery p after resolve. 0 if ineligible. 1 at cap. Linear ramp in must-drop zone. */
-export function mysteryChance(pool: number, opts: { eligible: boolean; ante?: boolean }): number {
+/** Mystery p after resolve. RTP-neutral: contribution / pot. ~1/1667 at 2500/100. */
+export function mysteryChance(
+  pool: number,
+  opts: { eligible: boolean; ante?: boolean; stake?: number },
+): number {
   if (!opts.eligible) return 0;
   if (pool >= POOL_CAP) return 1;
   if (pool >= POOL_MUST) {
     const t = (pool - POOL_MUST) / (POOL_CAP - POOL_MUST);
-    return Math.min(1, 0.08 + 0.92 * t);
+    return Math.min(1, 0.002 + 0.998 * t);
   }
-  const span = POOL_MUST - POOL_SEED;
-  const progress = Math.max(0, (pool - POOL_SEED) / span);
-  const base = opts.ante ? 1 / 720 : 1 / 900;
-  return Math.min(0.07, base * (1 + 4 * progress));
+  const stake = opts.stake && opts.stake > 0 ? opts.stake : POOL_ELIGIBLE_BET;
+  const add = contribution(stake, { ante: opts.ante });
+  if (pool <= 0 || add <= 0) return 0;
+  let p = add / pool;
+  if (opts.ante) p *= 1.35;
+  return Math.min(0.004, p);
 }
 
 export function shouldDrop(
   pool: number,
-  opts: { eligible: boolean; ante?: boolean; force?: boolean; skip?: boolean },
+  opts: { eligible: boolean; ante?: boolean; force?: boolean; skip?: boolean; stake?: number },
   rng: () => number,
 ): boolean {
   if (opts.force) return pool > 0;
@@ -79,8 +84,8 @@ export function shouldDrop(
 
 export function applyDrop(pool: number, reserve = 0): { payout: number; next: number; reserve: number } {
   const payout = round2(pool);
-  const drip = round2(reserve);
-  return { payout, next: round2(POOL_SEED + drip), reserve: 0 };
+  const drip = round2(Math.max(0, reserve));
+  return { payout, next: round2(Math.max(POOL_SEED, POOL_SEED + drip)), reserve: 0 };
 }
 
 export function emptySnap(): PoolSnap {

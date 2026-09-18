@@ -85,7 +85,16 @@ export function SlotGame() {
   const g = useSlotGame();
   const theater = useTheater();
   const spinning = g.phase === "spinning" || g.phase === "landing";
-  const resolving = spinning || g.phase === "eval" || g.phase === "win" || g.phase === "pop" || g.phase === "tumble" || g.phase === "mult";
+  const resolving =
+    spinning ||
+    g.phase === "eval" ||
+    g.phase === "win" ||
+    g.phase === "pop" ||
+    g.phase === "tumble" ||
+    g.phase === "mult" ||
+    g.phase === "big" ||
+    g.phase === "max" ||
+    Boolean(g.banner);
   const winLinePrefix = g.displayWin > 0 ? "VÝHRA " : "GOOD LUCK!";
 
   return (
@@ -142,12 +151,12 @@ export function SlotGame() {
           </div>
           <div className="head-end">
             <div
-              className={`pool-led ${g.poolHot ? "is-hot" : ""} ${g.banner === "pool" ? "is-hit" : ""} ${g.poolEligible ? "is-live" : "is-feed"}`}
+              className={`pool-led ${g.poolHot ? "is-hot" : ""} ${g.banner === "pool" ? "is-shot is-hit" : ""} ${g.poolEligible ? "is-live" : "is-feed"}`}
               aria-label={`Park pool ${formatMoney(g.poolShown)}`}
             >
               <span>PARK POOL</span>
               <b>
-                <CountUp value={g.poolShown} />
+                <CountUp value={g.poolShown} meter />
               </b>
               <em>
                 {g.banner === "pool"
@@ -190,7 +199,7 @@ export function SlotGame() {
             >
               <em>ANTE BET</em>
               <strong>{g.perk.anteMul.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}×</strong>
-              <span className="ante-pool">Park Pool +</span>
+              {g.ante ? <span className="ante-pool">Park Pool +</span> : null}
               <span className={`ante-switch ${g.ante ? "on" : ""}`}>{g.ante ? "ON" : "OFF"}</span>
             </button>
             <ol className="win-log" aria-label="História výhier">
@@ -336,7 +345,7 @@ export function SlotGame() {
             </button>
             <div className="credit-stack">
               <p>
-                KREDIT <b>{formatMoney(g.balance)}</b>
+                KREDIT <b><CountUp value={g.balance} meter /></b>
               </p>
               <p>
                 STÁVKA <b>{formatMoney(g.stake)}</b>
@@ -486,90 +495,40 @@ export function SlotGame() {
         />
       )}
 
-      {g.banner && (
+      {g.banner && g.banner !== "pool" && (
         <div className="banner" onClick={g.closeBanner} role="presentation">
           <div className={`banner-card ${g.banner}`} role="dialog" aria-label="Výhra">
-            <header className="wb-title">
-              <span className="wb-ico" aria-hidden="true" />
-              <span className="wb-title-text">WinBox — New Terminal [admin@parkizmus]</span>
-              <span className="wb-winbtns" aria-hidden="true">
-                <i className="wb-min" />
-                <i className="wb-max" />
-                <i className="wb-x" />
-              </span>
-            </header>
-            <nav className="wb-menu" aria-hidden="true">
-              <span>File</span>
-              <span>New Terminal</span>
-              <span>IP</span>
-              <span>System</span>
-              <span>Help</span>
-            </nav>
-            <div className="wb-term">
-              <p className="wb-line dim">
-                [admin@parkizmus] {'>'}{" "}
-                {g.banner === "fsTotal"
-                  ? "/log print fs-summary"
-                  : g.banner === "pool"
-                    ? "/log print jackpot"
-                    : "/system script run win.rsc"}
+            <p className="wb-kicker">{BANNER_COPY[g.banner] ?? "WIN"}</p>
+            {g.banner === "fs" ? (
+              <p className="wb-amt">15 FREE SPINS</p>
+            ) : g.banner === "fsTotal" ? (
+              <table className="wb-table">
+                <tbody>
+                  <tr>
+                    <td>FREE SPINS</td>
+                    <td>{g.bannerMeta?.spins ?? 15}</td>
+                  </tr>
+                  <tr>
+                    <td>RETRIGGER</td>
+                    <td>+{g.bannerMeta?.extra ?? 0}</td>
+                  </tr>
+                  <tr>
+                    <td>PEAK</td>
+                    <td>{g.bannerMeta?.peakMult ?? 0}X</td>
+                  </tr>
+                  <tr className="total">
+                    <td>TOTAL WIN</td>
+                    <td>
+                      <CountUp value={g.bannerAmount} />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            ) : (
+              <p className="wb-amt">
+                <CountUp value={g.bannerAmount} />
               </p>
-              {g.banner !== "fsTotal" && <p className="wb-line dim">  status: running…</p>}
-              <p className="wb-kicker">{BANNER_COPY[g.banner] ?? "WIN"}</p>
-              {g.banner === "fs" ? (
-                <p className="wb-amt">free-spins: 15</p>
-              ) : g.banner === "fsTotal" ? (
-                <table className="wb-table">
-                  <tbody>
-                    <tr>
-                      <td>free-spins</td>
-                      <td>{g.bannerMeta?.spins ?? 15}</td>
-                    </tr>
-                    <tr>
-                      <td>retrigger</td>
-                      <td>+{g.bannerMeta?.extra ?? 0}</td>
-                    </tr>
-                    <tr>
-                      <td>peak-mult</td>
-                      <td>{g.bannerMeta?.peakMult ?? 0}X</td>
-                    </tr>
-                    {g.bannerMeta?.terminated && (
-                      <tr className="err">
-                        <td>status</td>
-                        <td>FEATURE TERMINATED</td>
-                      </tr>
-                    )}
-                    <tr className="total">
-                      <td>TOTAL WIN</td>
-                      <td>
-                        <CountUp value={g.bannerAmount} />
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              ) : (
-                <p className="wb-amt">
-                  credit-out: <CountUp value={g.bannerAmount} />
-                </p>
-              )}
-              {g.banner === "max" && <p className="wb-err">status: FEATURE TERMINATED</p>}
-              {g.banner === "pool" && (
-                <p className="wb-line dim">PARK POOL · celý pot · seed 500 + reserve</p>
-              )}
-              {g.banner !== "max" && g.banner !== "fs" && g.banner !== "fsTotal" && (
-                <p className="wb-line dim">status: ok</p>
-              )}
-              <p className="wb-line">
-                [admin@parkizmus] {'>'} <span className="wb-hint">ťukni sem — okno ostane kým neklikneš</span>
-                <span className="wb-caret" aria-hidden="true" />
-              </p>
-            </div>
-            <footer className="wb-status">
-              <span>connected</span>
-              <span>192.168.88.1</span>
-              <span>ether1</span>
-              <span>8291</span>
-            </footer>
+            )}
           </div>
         </div>
       )}
