@@ -2,6 +2,7 @@ import { useRef, type PointerEvent } from "react";
 import { Volume2, VolumeX, Info, RefreshCw, Menu, Maximize2, Minimize2, RotateCw } from "lucide-react";
 import { START_BALANCE, BETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
+import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { useTheater } from "@/hooks/use-theater";
 import { SlotGrid } from "./Grid";
@@ -94,7 +95,8 @@ export function SlotGame() {
     g.phase === "mult" ||
     g.phase === "big" ||
     g.phase === "max" ||
-    Boolean(g.banner);
+    Boolean(g.banner) ||
+    Boolean(g.jpHit);
   const winLinePrefix = g.displayWin > 0 ? "VÝHRA " : "GOOD LUCK!";
 
   return (
@@ -151,21 +153,30 @@ export function SlotGame() {
           </div>
           <div className="head-end">
             <div
-              className={`pool-led ${g.poolHot ? "is-hot" : ""} ${g.banner === "pool" ? "is-hit" : ""} ${g.poolEligible ? "is-live" : "is-feed"}`}
-              aria-label={`Park pool ${formatMoney(g.poolShown)}`}
+              className={`jp-stack ${g.jpHit ? "is-hit" : ""} ${g.poolEligible ? "is-live" : "is-feed"}`}
+              aria-label="Park jackpoty"
             >
-              <span>PARK POOL</span>
-              <b>
-                <CountUp value={g.poolShown} meter />
-              </b>
+              {(["stat", "kraj", "okres", "ulica"] as const).map((id) => {
+                const t = g.pots[id];
+                const def = TIER_BY_ID[id];
+                return (
+                  <div
+                    key={id}
+                    className={`jp-row ${id} ${isTierHot(def, t.pool) ? "is-hot" : ""} ${g.jpHit?.id === id ? "is-win" : ""}`}
+                  >
+                    <span>{def.name}</span>
+                    <b>
+                      <CountUp value={t.pool} meter />
+                    </b>
+                  </div>
+                );
+              })}
               <em>
-                {g.banner === "pool"
-                  ? "JACKPOT"
-                  : g.poolHot
-                    ? "MUST DROP"
-                    : g.poolEligible
-                      ? `LIVE · ${g.poolHits} hit`
-                      : `FEED 0.5 % · ${g.poolHits} hit`}
+                {g.jpHit
+                  ? `${g.jpHit.name} WIN`
+                  : g.poolEligible
+                    ? "LIVE · 3 hráči"
+                    : "LEN 100+ BET"}
               </em>
             </div>
             <button
@@ -310,7 +321,7 @@ export function SlotGame() {
 
           <aside className="ramp-col" aria-hidden="false">
             <span className="led-sign">
-              POOL <b>{formatMoney(g.pool)}</b>
+              POOL <b>{formatMoney(g.pots.stat.pool)}</b>
             </span>
             <img
               src="/art/ramp.png"

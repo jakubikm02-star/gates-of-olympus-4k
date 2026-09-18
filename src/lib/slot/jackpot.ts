@@ -1,30 +1,57 @@
-/** Local operator PARK POOL — one currency, one pot. */
+/** Four operator pots. One table. Hidden threshold, never mystery-on-tumble. */
 
-export const POOL_SEED = 500;
-export const POOL_CAP = 10_000;
-export const POOL_MUST = 8_000;
-export const POOL_HOT = 7_000;
 export const POOL_ELIGIBLE_BET = 100;
-export const POOL_TAKE_BASE = 0.015;
-export const POOL_TAKE_ANTE = 0.02;
-export const POOL_TAKE_FEED = 0.005;
-export const POOL_RESERVE = 0.003;
+export const RESERVE_RATE = 0.003;
 export const PARK_COLLECT = 3;
 
-export interface PoolSnap {
+export type TierId = "ulica" | "okres" | "kraj" | "stat";
+
+export interface TierDef {
+  id: TierId;
+  name: string;
+  seed: number;
+  cap: number;
+  contrib: number;
+  winnerShare: number;
+}
+
+export const TIERS: readonly TierDef[] = [
+  { id: "ulica", name: "ULICA", seed: 500, cap: 1_800, contrib: 0.008, winnerShare: 1 },
+  { id: "okres", name: "OKRES", seed: 4_000, cap: 14_000, contrib: 0.006, winnerShare: 1 },
+  { id: "kraj", name: "KRAJ", seed: 28_000, cap: 90_000, contrib: 0.005, winnerShare: 1 },
+  { id: "stat", name: "ŠTÁT", seed: 120_000, cap: 220_000, contrib: 0.004, winnerShare: 0.7 },
+] as const;
+
+export const TIER_BY_ID: Record<TierId, TierDef> = {
+  ulica: TIERS[0],
+  okres: TIERS[1],
+  kraj: TIERS[2],
+  stat: TIERS[3],
+};
+
+export const POOL_SEED = TIER_BY_ID.stat.seed;
+
+export interface TierSnap {
+  id: TierId;
   pool: number;
   hits: number;
   lastHit: number;
   hit: boolean;
   payout: number;
-  reserve: number;
 }
 
-export interface PoolFeed {
-  stake: number;
-  ante: boolean;
-  eligible: boolean;
-  force: boolean;
+export interface JackpotHit {
+  id: TierId;
+  name: string;
+  payout: number;
+  table: number;
+}
+
+export interface BoardSnap {
+  pots: Record<TierId, TierSnap>;
+  reserve: number;
+  hits: JackpotHit[];
+  credit: number;
 }
 
 function round2(n: number): number {
@@ -41,57 +68,73 @@ export function isEligibleBet(bet: number): boolean {
   return bet >= POOL_ELIGIBLE_BET;
 }
 
-export function contribution(stake: number, opts: { ante?: boolean; reduced?: boolean } = {}): number {
+export function hiddenFloor(tier: TierDef): number {
+  return round2(tier.seed + 0.15 * (tier.cap - tier.seed));
+}
+
+export function rollHidden(tier: TierDef, rng: () => number): number {
+  const lo = hiddenFloor(tier);
+  return round2(lo + rng() * (tier.cap - lo));
+}
+
+export function isTierHot(tier: TierDef, pool: number): boolean {
+  if (tier.id === "stat") return pool >= 140_000;
+  const span = tier.cap - tier.seed;
+  if (span <= 0) return false;
+  return (pool - tier.seed) / span >= 0.7;
+}
+
+export function emptyPots(): Record<TierId, TierSnap> {
+  return {
+    ulica: { id: "ulica", pool: 500, hits: 0, lastHit: 0, hit: false, payout: 0 },
+    okres: { id: "okres", pool: 4_000, hits: 0, lastHit: 0, hit: false, payout: 0 },
+    kraj: { id: "kraj", pool: 28_000, hits: 0, lastHit: 0, hit: false, payout: 0 },
+    stat: { id: "stat", pool: 120_000, hits: 0, lastHit: 0, hit: false, payout: 0 },
+  };
+}
+
+export function emptyBoard(): BoardSnap {
+  return { pots: emptyPots(), reserve: 0, hits: [], credit: 0 };
+}
+
+export function contribution(stake: number): number {
   if (stake <= 0) return 0;
-  const rate = opts.reduced ? POOL_TAKE_FEED : opts.ante ? POOL_TAKE_ANTE : POOL_TAKE_BASE;
-  return round2(stake * rate);
+  return round2(stake * TIERS.reduce((s, t) => s + t.contrib, 0));
 }
 
 export function reserveTake(stake: number): number {
   if (stake <= 0) return 0;
-  return round2(stake * POOL_RESERVE);
+  return round2(stake * RESERVE_RATE);
 }
 
-/** Mystery p after resolve. RTP-neutral: contribution / pot. ~1/1667 at 2500/100. */
-export function mysteryChance(
-  pool: number,
-  opts: { eligible: boolean; ante?: boolean; stake?: number },
-): number {
-  if (!opts.eligible) return 0;
-  if (pool >= POOL_CAP) return 1;
-  if (pool >= POOL_MUST) {
-    const t = (pool - POOL_MUST) / (POOL_CAP - POOL_MUST);
-    return Math.min(1, 0.002 + 0.998 * t);
+export interface SimPot {
+  id: TierId;
+  pool: number;
+  hidden: number;
+  hits: number;
+}
+
+/** 3 players × N resolved spins. Hidden threshold, no mystery p. */
+export function simulateTable(spins: number, players = 3, bet = 100, rng: () => number = Math.random): SimPot[] {
+  const pots: SimPot[] = TIERS.map((t) => ({
+    id: t.id,
+    pool: t.seed,
+    hidden: rollHidden(t, rng),
+    hits: 0,
+  }));
+  for (let s = 0; s < spins; s++) {
+    for (let p = 0; p < players; p++) {
+      for (let i = 0; i < TIERS.length; i++) {
+        const t = TIERS[i];
+        const pot = pots[i];
+        pot.pool = round2(Math.min(t.cap, pot.pool + bet * t.contrib));
+        if (pot.pool >= pot.hidden) {
+          pot.hits += 1;
+          pot.pool = t.seed;
+          pot.hidden = rollHidden(t, rng);
+        }
+      }
+    }
   }
-  const stake = opts.stake && opts.stake > 0 ? opts.stake : POOL_ELIGIBLE_BET;
-  const add = contribution(stake, { ante: opts.ante });
-  if (pool <= 0 || add <= 0) return 0;
-  let p = add / pool;
-  if (opts.ante) p *= 1.35;
-  return Math.min(0.004, p);
-}
-
-export function shouldDrop(
-  pool: number,
-  opts: { eligible: boolean; ante?: boolean; force?: boolean; skip?: boolean; stake?: number },
-  rng: () => number,
-): boolean {
-  if (opts.force) return pool > 0;
-  if (opts.skip) return false;
-  if (pool >= POOL_CAP && opts.eligible) return true;
-  return rng() < mysteryChance(pool, opts);
-}
-
-export function applyDrop(pool: number, reserve = 0): { payout: number; next: number; reserve: number } {
-  const payout = round2(pool);
-  const drip = round2(Math.max(0, reserve));
-  return { payout, next: round2(Math.max(POOL_SEED, POOL_SEED + drip)), reserve: 0 };
-}
-
-export function emptySnap(): PoolSnap {
-  return { pool: POOL_SEED, hits: 0, lastHit: 0, hit: false, payout: 0, reserve: 0 };
-}
-
-export function isPoolHot(pool: number): boolean {
-  return pool >= POOL_HOT;
+  return pots;
 }

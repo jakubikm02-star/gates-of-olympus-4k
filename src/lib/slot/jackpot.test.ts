@@ -1,39 +1,66 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { applyDrop, contribution, mysteryChance, POOL_CAP, POOL_SEED, shouldDrop } from "./jackpot.ts";
+import {
+  contribution,
+  hiddenFloor,
+  isEligibleBet,
+  reserveTake,
+  rollHidden,
+  simulateTable,
+  TIER_BY_ID,
+  TIERS,
+} from "./jackpot.ts";
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 
-describe("park pool", () => {
-  it("takes 1.5% base, 2% ante, 0.5% ineligible", () => {
-    assert.equal(contribution(100), 1.5);
-    assert.equal(contribution(100, { ante: true }), 2);
-    assert.equal(contribution(10, { reduced: true }), 0.05);
+describe("park jackpots", () => {
+  it("takes 2.3% visible + 0.3% reserve", () => {
+    assert.equal(contribution(100), 2.3);
+    assert.equal(reserveTake(100), 0.3);
     assert.equal(contribution(0), 0);
+    assert.ok(isEligibleBet(100));
+    assert.ok(!isEligibleBet(99));
   });
 
-  it("must drop at cap for eligible, never for ineligible", () => {
-    assert.equal(shouldDrop(POOL_CAP, { eligible: true }, () => 1), true);
-    assert.equal(shouldDrop(POOL_SEED, { eligible: true }, () => 1), false);
-    assert.equal(shouldDrop(POOL_CAP, { eligible: false }, () => 0), false);
+  it("hidden sits between seed+15% range and cap", () => {
+    const t = TIER_BY_ID.stat;
+    const lo = hiddenFloor(t);
+    assert.equal(lo, 135_000);
+    for (let i = 0; i < 40; i++) {
+      const h = rollHidden(t, () => i / 39);
+      assert.ok(h >= lo && h <= t.cap, `h=${h}`);
+    }
   });
 
-  it("pays the full jackpot and refills seed + reserve", () => {
-    const { payout, next, reserve } = applyDrop(4312.5, 40);
-    assert.equal(payout, 4312.5);
-    assert.equal(next, POOL_SEED + 40);
-    assert.equal(reserve, 0);
+  it("1 spin × 3 players: ŠTÁT stays on hundreds of thousands, ULICA ticks", () => {
+    const pots = simulateTable(1, 3, 100, () => 0.5);
+    const ulica = pots.find((p) => p.id === "ulica")!;
+    const stat = pots.find((p) => p.id === "stat")!;
+    assert.equal(stat.hits, 0);
+    assert.ok(stat.pool >= 120_000 && stat.pool < 121_000, `stat ${stat.pool}`);
+    assert.ok(ulica.pool > 500 && ulica.pool < 520, `ulica ${ulica.pool}`);
   });
 
-  it("mystery at 2500 / 100 is ~1 in 1667, not a scratch ticket", () => {
-    const p = mysteryChance(2500, { eligible: true, stake: 100 });
-    assert.ok(p > 0.00055 && p < 0.00065, `p=${p}`);
-    assert.equal(mysteryChance(2500, { eligible: false, stake: 100 }), 0);
-    assert.ok(mysteryChance(8000, { eligible: true, stake: 100 }) < 0.01);
+  it("500 spins × 3: ULICA drops, ŠTÁT does not", () => {
+    let s = 1;
+    const rng = () => {
+      s = (s * 1664525 + 1013904223) >>> 0;
+      return s / 0x100000000;
+    };
+    const pots = simulateTable(500, 3, 100, rng);
+    const ulica = pots.find((p) => p.id === "ulica")!;
+    const stat = pots.find((p) => p.id === "stat")!;
+    assert.ok(ulica.hits >= 1, `ulica hits ${ulica.hits}`);
+    assert.equal(stat.hits, 0);
+    assert.ok(stat.pool >= 120_000, `stat ${stat.pool}`);
+    assert.ok(stat.pool < 140_000, `stat grew too fast ${stat.pool}`);
   });
 
-  it("force collect ignores skip", () => {
-    assert.equal(shouldDrop(1200, { eligible: true, force: true, skip: true }, () => 1), true);
-    assert.equal(shouldDrop(1200, { eligible: true, skip: true }, () => 0), false);
+  it("tier contrib rates match the table", () => {
+    assert.equal(TIERS[0].contrib, 0.008);
+    assert.equal(TIERS[1].contrib, 0.006);
+    assert.equal(TIERS[2].contrib, 0.005);
+    assert.equal(TIERS[3].contrib, 0.004);
+    assert.equal(TIERS[3].winnerShare, 0.7);
   });
 });
 

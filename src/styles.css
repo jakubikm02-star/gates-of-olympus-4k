@@ -3155,6 +3155,71 @@
   gap: 6px;
 }
 
+.jp-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  min-width: 0;
+  padding: 4px 9px 5px;
+  background: linear-gradient(180deg, #123038, #071014);
+  border: 1px solid var(--color-bolt);
+  border-radius: 8px;
+  box-shadow: 0 0 12px rgb(62 198 224 / 0.28);
+  text-align: right;
+  animation: pool-breathe 2.6s ease-in-out infinite;
+}
+
+.jp-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  line-height: 1.05;
+}
+
+.jp-row span {
+  font-size: 0.42rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--color-bolt);
+}
+
+.jp-row b {
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #d9f7ff;
+  font-variant-numeric: tabular-nums;
+}
+
+.jp-row.stat b {
+  font-size: clamp(0.88rem, 2.4vh, 1.18rem);
+  color: #ffe56a;
+  text-shadow: 0 0 8px rgb(240 196 25 / 0.4);
+}
+
+.jp-row.stat span {
+  color: #ffe56a;
+  font-size: 0.5rem;
+}
+
+.jp-row.is-hot span,
+.jp-row.is-hot b {
+  color: #ffe56a;
+}
+
+.jp-stack em {
+  font-style: normal;
+  font-size: 0.46rem;
+  letter-spacing: 0.06em;
+  color: #9aa3ad;
+}
+
+.jp-stack.is-hit {
+  border-color: #ffe56a;
+  box-shadow: 0 0 18px rgb(240 196 25 / 0.5);
+}
+
 .pool-led {
   display: flex;
   flex-direction: column;
@@ -3829,15 +3894,15 @@ html:-webkit-full-screen {
   pointer-events: auto;
 }
 
-.stage.is-ls .pool-led {
+.stage.is-ls .jp-stack {
   padding: 2px 8px 3px;
 }
 
-.stage.is-ls .pool-led b {
+.stage.is-ls .jp-row.stat b {
   font-size: clamp(0.78rem, 2.4vh, 1.05rem);
 }
 
-.stage.is-ls .pool-led em {
+.stage.is-ls .jp-stack em {
   display: none;
 }
 

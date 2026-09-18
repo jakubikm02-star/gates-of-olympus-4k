@@ -1,27 +1,64 @@
-import { parseMoney, POOL_SEED, type PoolSnap } from "./jackpot";
+import {
+  emptyBoard,
+  emptyPots,
+  parseMoney,
+  TIER_BY_ID,
+  type BoardSnap,
+  type JackpotHit,
+  type TierId,
+  type TierSnap,
+} from "./jackpot";
 
-/** One public operator pot. Every client hits this row. */
 const SUPA_URL = "https://xgpnmxkquxzbhgktjipa.supabase.co";
 const SUPA_ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhncG5teGtxdXh6Ymhna3RqaXBhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzMzI1MDgsImV4cCI6MjEwMTkwODUwOH0.KrNERJS8gxc1663oN73CaZ2ZqXZOQTX-AnoMwCmWQUo";
 
+const TIER_IDS: TierId[] = ["ulica", "okres", "kraj", "stat"];
+
 export interface PoolSpinInput {
   stake: number;
-  ante: boolean;
   eligible: boolean;
-  force: boolean;
   skip?: boolean;
+  player: string;
 }
 
-function snapFromRpc(raw: unknown): PoolSnap {
+function potFrom(raw: unknown, id: TierId): TierSnap {
   const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const def = TIER_BY_ID[id];
   return {
-    pool: parseMoney(o.pool, POOL_SEED),
+    id,
+    pool: parseMoney(o.pool, def.seed),
     hits: Math.max(0, Math.floor(Number(o.hits) || 0)),
     lastHit: parseMoney(o.lastHit ?? o.last_hit, 0),
     hit: Boolean(o.hit),
     payout: parseMoney(o.payout, 0),
+  };
+}
+
+function boardFromRpc(raw: unknown): BoardSnap {
+  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const potsRaw = o.pots && typeof o.pots === "object" ? (o.pots as Record<string, unknown>) : {};
+  const pots = emptyPots();
+  for (const id of TIER_IDS) pots[id] = potFrom(potsRaw[id], id);
+  const hitsRaw = Array.isArray(o.hits) ? o.hits : [];
+  const hits: JackpotHit[] = hitsRaw
+    .map((h) => {
+      const x = h && typeof h === "object" ? (h as Record<string, unknown>) : {};
+      const id = String(x.id || "") as TierId;
+      if (!TIER_BY_ID[id]) return null;
+      return {
+        id,
+        name: TIER_BY_ID[id].name,
+        payout: parseMoney(x.payout, 0),
+        table: parseMoney(x.table, 0),
+      };
+    })
+    .filter((h): h is JackpotHit => Boolean(h && h.payout > 0));
+  return {
+    pots,
     reserve: parseMoney(o.reserve, 0),
+    hits,
+    credit: parseMoney(o.credit, 0),
   };
 }
 
@@ -51,18 +88,17 @@ async function rpc(name: string, body?: Record<string, unknown>): Promise<unknow
   }
 }
 
-export async function fetchParkPool(): Promise<PoolSnap> {
-  return snapFromRpc(await rpc("park_pool_get"));
+export async function fetchParkPool(): Promise<BoardSnap> {
+  return boardFromRpc(await rpc("park_jackpot_get"));
 }
 
-export async function postParkSpin(input: PoolSpinInput): Promise<PoolSnap> {
-  return snapFromRpc(
-    await rpc("park_pool_spin", {
+export async function postParkSpin(input: PoolSpinInput): Promise<BoardSnap> {
+  return boardFromRpc(
+    await rpc("park_jackpot_spin", {
       p_stake: input.stake,
-      p_ante: input.ante,
       p_eligible: input.eligible,
-      p_force: input.force,
       p_skip: Boolean(input.skip),
+      p_player: input.player.slice(0, 64),
     }),
   );
 }
@@ -74,3 +110,5 @@ export async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
     return await fn();
   }
 }
+
+export { emptyBoard };

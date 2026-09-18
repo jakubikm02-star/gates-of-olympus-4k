@@ -1,8 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { fetchParkPool, postParkSpin } from "./jackpot-api";
-import type { PoolSnap } from "./jackpot";
+import type { BoardSnap } from "./jackpot";
 
-export const getParkPool = createServerFn({ method: "GET" }).handler(async (): Promise<PoolSnap> => {
+export const getParkPool = createServerFn({ method: "GET" }).handler(async (): Promise<BoardSnap> => {
   return fetchParkPool();
 });
 
@@ -13,12 +13,11 @@ export const spinParkPool = createServerFn({ method: "POST" })
     if (!Number.isFinite(stake) || stake < 0 || stake > 20000) throw new Error("bad stake");
     return {
       stake,
-      ante: Boolean(o.ante),
       eligible: Boolean(o.eligible),
-      force: Boolean(o.force),
       skip: Boolean(o.skip),
+      player: String(o.player ?? "").slice(0, 64),
     };
   })
-  .handler(async ({ data }): Promise<PoolSnap> => {
+  .handler(async ({ data }): Promise<BoardSnap> => {
     return postParkSpin(data);
   });

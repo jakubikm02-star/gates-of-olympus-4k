@@ -32,6 +32,7 @@ export interface PlayerSave {
   fsBought: boolean;
   fsTriggerCash: number;
   globalMult: number;
+  playerId: string;
 }
 
 export function emptyPlayerSave(): PlayerSave {
@@ -63,6 +64,7 @@ export function emptyPlayerSave(): PlayerSave {
     fsBought: false,
     fsTriggerCash: 0,
     globalMult: 0,
+    playerId: "",
   };
 }
 
@@ -140,6 +142,7 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.fsBought = bool(r.fsBought, false);
   s.fsTriggerCash = num(r.fsTriggerCash, 0, 0, 1_000_000_000);
   s.globalMult = num(r.globalMult, 0, 0, 1_000_000);
+  s.playerId = typeof r.playerId === "string" && r.playerId.length >= 8 ? r.playerId.slice(0, 64) : "";
   if (!s.inFs || s.fsLeft <= 0) {
     s.inFs = false;
     s.fsLeft = 0;
