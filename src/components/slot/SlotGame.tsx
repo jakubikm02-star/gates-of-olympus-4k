@@ -86,14 +86,7 @@ export function SlotGame() {
   const theater = useTheater();
   const spinning = g.phase === "spinning" || g.phase === "landing";
   const resolving = spinning || g.phase === "eval" || g.phase === "win" || g.phase === "pop" || g.phase === "tumble" || g.phase === "mult";
-  const winLinePrefix =
-    g.displayWin > 0
-      ? "VÝHRA "
-      : spinning
-        ? "TOČÍ SA…"
-        : g.busy
-          ? g.message || "GOOD LUCK!"
-          : "GOOD LUCK!";
+  const winLinePrefix = g.displayWin > 0 ? "VÝHRA " : "GOOD LUCK!";
 
   return (
     <div
@@ -288,6 +281,8 @@ export function SlotGame() {
               clusterPay={g.clusterPay}
               reduced={false}
               fast={g.reelFast}
+              cam={g.cam}
+              spinPace={g.spinPace ?? undefined}
             />
             {g.flies.map((f) => (
               <span

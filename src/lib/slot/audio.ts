@@ -276,11 +276,11 @@ export function stopSpin(): void {
 
 export function playLand(col = 0): void {
   const pan = (col / 5) * 1.3 - 0.65;
-  const rate = 0.9 + col * 0.035 + Math.random() * 0.04;
+  const rate = 1.02 - col * 0.045;
   const name = col % 2 === 0 ? "land" : "land2";
-  if (!playBuf(name, { gain: 0.8, rate, pan })) {
+  if (!playBuf(name, { gain: 0.82, rate, pan })) {
     noise("white", 0.055, 0.13, 1800, 7000, undefined, pan);
-    tone("sine", 92 + col * 22, 0.14, 0.09, 48, undefined, pan);
+    tone("sine", 118 - col * 8, 0.14, 0.09, 48, undefined, pan);
   }
 }
 
@@ -314,7 +314,7 @@ export function playPayout(): void {
 
 export function playTumble(cascade = 0): void {
   playing["pop"]?.stop();
-  const rate = Math.min(1.38, 0.9 + cascade * 0.07);
+  const rate = Math.min(1.42, 0.92 * 1.05946 ** cascade);
   if (!playBuf("tumble", { gain: Math.min(1, 0.88 + cascade * 0.04), rate })) {
     noise("brown", 0.32, 0.11, 50, 900);
   }

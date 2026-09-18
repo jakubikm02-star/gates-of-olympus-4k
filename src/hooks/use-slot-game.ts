@@ -88,6 +88,8 @@ export function useSlotGame() {
   const [holdGrid, setHoldGrid] = useState<Cell[][] | null>(null);
   const gridRef = useRef<Cell[][]>(emptyGrid());
   const [reelFast, setReelFast] = useState(false);
+  const [spinPace, setSpinPace] = useState<"up" | "full" | null>(null);
+  const [cam, setCam] = useState<"stop" | "scatter" | "tumble" | null>(null);
   const [phase, setPhase] = useState<Phase>("boot");
   const [busy, setBusy] = useState(false);
   const [winMask, setWinMask] = useState<boolean[][] | null>(null);
@@ -784,52 +786,58 @@ export function useSlotGame() {
       setAnticipate(false);
       setHoldGrid(cloneGrid(gridRef.current));
       setPhase("spinning");
-      setTopLine("TOČÍ SA…");
-      setMessage(isFree ? "Voľné točenia" : "Točí sa…");
+      setSpinPace("up");
+      setCam(null);
+      setTopLine("");
+      setMessage(isFree ? "Voľné točenia" : "");
 
       const rng = createRng();
       const next = opts?.buy
         ? generateBuyGrid(rng)
         : generateGrid(rng, opts?.free ? false : anteRef.current);
 
-      await wait(dur(480), abort.current);
+      await wait(dur(180), abort.current);
+      setSpinPace("full");
+      await wait(dur(340), abort.current);
       setGrid(next);
       setPhase("landing");
 
       let landedScatters = 0;
       let pendingFs = false;
       let pendingPick = false;
+      const gaps = [100, 110, 120, 140, 190];
       for (let c = 0; c < 6; c++) {
-        const colN = next.reduce((n, row) => n + (row[c].kind === "scatter" ? 1 : 0), 0);
         if (landedScatters >= 2) {
           setAnticipate(true);
-          setTopLine(landedScatters >= 3 ? "EŠTE JEDEN SCATTER…" : "SCATTER…");
           sfx.startAnticipate();
-          await wait(dur(c >= 4 ? 720 : 420), abort.current);
+          if (c >= 4) await wait(dur(260), abort.current);
         }
         setStoppedCols(c + 1);
         sfx.setSpinEnergy(1 - (c + 1) / 6);
         sfx.playLand(c);
+        const colN = next.reduce((n, row) => n + (row[c].kind === "scatter" ? 1 : 0), 0);
         if (colN > 0) {
           landedScatters += colN;
           sfx.playScatter(landedScatters);
-          if (landedScatters >= 3) {
-            setShake(true);
-            window.setTimeout(() => setShake(false), 280);
-          }
+          setCam("scatter");
+          window.setTimeout(() => setCam(null), 120);
+        } else {
+          setCam("stop");
+          window.setTimeout(() => setCam(null), 80);
         }
-        await wait(dur(c === 5 ? 480 : 360), abort.current);
+        if (c < 5) await wait(dur(gaps[c]), abort.current);
+        else await wait(dur(90));
       }
       sfx.stopSpin();
       sfx.stopAnticipate();
       sfx.duckMusic(1);
       setAnticipate(false);
+      setSpinPace(null);
       setStoppedCols(6);
-      await wait(dur(560));
+      await wait(dur(40));
       setHoldGrid(null);
       setReelFast(false);
       abort.current.skip = false;
-      await wait(dur(80));
 
       let board = next;
       const landDrop = zeusDropCount(rng, isFree || inFsRef.current, false);
@@ -901,8 +909,6 @@ export function useSlotGame() {
         setWinMask(ev.winMask);
         sequenceX += winX;
         const cashNow = +(sequenceX * currentBet).toFixed(2);
-        setSpinWin(cashNow);
-        setDisplayWin(cashNow);
         setBaseWin(cashNow);
         const tier = sequenceX >= 50 ? 3 : sequenceX >= 20 ? 2 : sequenceX >= 5 ? 1 : 0;
         setWinTier(tier);
@@ -928,24 +934,26 @@ export function useSlotGame() {
             y: ((avgR + 0.5) / 5) * 100,
             amount: top.amount,
           });
-          if (pendingFs) setTopLine(`${scatterPeak}× SCATTER — FREE SPINS`);
-          else setTopLine("VÝHRA Z FUNKCIE TUMBLE");
           setMessage(`${main.count}× ${payName(main.payId)} vypláca ${top.amount}`);
         }
 
-        if (pendingFs && !fsNow && !fsAnnounced) {
-          fsAnnounced = true;
-          sfx.playThunder();
-          setShake(true);
-          window.setTimeout(() => setShake(false), 520);
-        } else {
-          sfx.playWin(tier >= 2 ? "full" : "spark");
-        }
         setPhase("win");
-        const countMs = Math.min(720, 280 + winX * currentBet * 8);
-        await wait(dur(Math.max(220, countMs)), abort.current);
+        await wait(dur(100), abort.current);
 
-        if (!willPop) {
+        const finishPay = async () => {
+          setSpinWin(cashNow);
+          setDisplayWin(cashNow);
+          if (pendingFs && !fsNow && !fsAnnounced) {
+            fsAnnounced = true;
+            sfx.playThunder();
+          } else if (tier < 1) sfx.playCoin();
+          else sfx.playWin(tier >= 2 ? "full" : "spark");
+          const countMs = Math.min(560, 280 + Math.min(12, 8) * 24);
+          await wait(dur(countMs), abort.current);
+        };
+
+        if (!willPop || tumbleN >= 4) {
+          await finishPay();
           setClusterPay(null);
           break;
         }
@@ -953,12 +961,12 @@ export function useSlotGame() {
         setPhase("pop");
         setWinMask(tumbleMask);
         sfx.playPop();
-        await wait(dur(200), abort.current);
+        await wait(dur(160), abort.current);
         setGrid(punchHoles(board, tumbleMask));
         setWinMask(null);
         setClusterPay(null);
         setPayHint(null);
-        await wait(dur(70), abort.current);
+        await wait(dur(33), abort.current);
         board = tumble(board, tumbleMask, rng, fillAnte, fsNow);
         const more = zeusDropCount(rng, isFree || inFsRef.current, true);
         const moreN = more > 0 ? more + perk.orbBonus : 0;
@@ -967,18 +975,19 @@ export function useSlotGame() {
           sfx.playZap();
           const dropped = zeusDrop(board, rng, moreN, isFree || inFsRef.current);
           board = dropped.grid;
-          setTopLine("RAMPA PÚŠŤA NÁSOBIČE");
         }
         setPhase("tumble");
+        setCam("tumble");
+        window.setTimeout(() => setCam(null), 50);
         sfx.playTumble(tumbleN);
         setGrid(cloneGrid(board));
         tumbleN += 1;
-        if (hasOrb(board)) setTopLine("NÁSOBIČE ČAKAJÚ NA RAMPÚ");
-        const dropMs = Math.max(240, (380 - tumbleN * 28) * (tier >= 2 ? 0.92 : 1));
+        const dropMs = Math.max(180, 210 * 0.93 ** (tumbleN - 1));
         await wait(dur(dropMs), abort.current);
         setThrowBolt(false);
         setGrid((g) => g.map((row) => row.map((c) => ({ ...c, fall: 0, gone: false }))));
-        await wait(dur(50), abort.current);
+        await finishPay();
+        await wait(dur(40), abort.current);
       }
 
       if (!fsNow && scatterPeak >= FS_TRIGGER_SCATTERS) pendingFs = true;
@@ -1166,8 +1175,9 @@ export function useSlotGame() {
             const back = +(currentBet * perk.deadRebate).toFixed(2);
             if (back > 0) {
               setBalance((b) => +(b + back).toFixed(2));
-              setSpinTape((t) => [{ label: "LIGA VRACIA", amount: formatMoney(back) }, ...t].slice(0, 8));
-              setTopLine(`LIGA VRACIA ${formatMoney(back)}`);
+              setDisplayWin((w) => +(w + back).toFixed(2));
+              setSpinWin((w) => +(w + back).toFixed(2));
+              sfx.playCoin();
             }
           }
         }
@@ -1633,6 +1643,8 @@ export function useSlotGame() {
     message,
     stoppedCols,
     reelFast,
+    spinPace,
+    cam,
     winTier,
     anticipate,
     activatingMult,
