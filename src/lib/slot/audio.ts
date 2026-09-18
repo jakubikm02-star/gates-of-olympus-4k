@@ -31,7 +31,7 @@ const FILES: Record<string, string> = {
   scatter: "/sfx/scatter.mp3",
   collect: "/sfx/collect.mp3",
   tumble: "/sfx/tumble.mp3?v=tumble2",
-  pop: "/sfx/pop.mp3",
+  pop: "/sfx/pop.mp3?v=pneumatic1",
   zap: "/sfx/zap.mp3?v=park1",
   electric: "/sfx/electric.mp3?v=park1",
   thunder: "/sfx/thunder.mp3?v=park1",

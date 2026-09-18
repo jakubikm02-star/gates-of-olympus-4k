@@ -6,6 +6,8 @@ https://mixkit.co/license/#sfxFree
                https://mixkit.co/free-sound-effects/trailer/
   win.mp3      Mixkit 3132 — Robotic phaser game touch (cluster win)
                https://mixkit.co/free-sound-effects/game/
+  pop.mp3      Mixkit 817 — Garage pneumatic screwer (symbol pop)
+               https://mixkit.co/free-sound-effects/tools/
   tumble.mp3   Mixkit 2166 — Cinematic whoosh fast transition
                https://mixkit.co/free-sound-effects/whoosh/
   win-full.mp3 Mixkit 2017 — Clinking coins
