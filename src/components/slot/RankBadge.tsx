@@ -22,18 +22,19 @@ interface Props {
   delta?: number;
   streak?: number;
   parts?: RankBreakdown | null;
+  perkTitle?: string;
   onOpen: () => void;
 }
 
-export function RankBadge({ stand, delta = 0, streak = 0, parts = null, onOpen }: Props) {
+export function RankBadge({ stand, delta = 0, streak = 0, parts = null, perkTitle, onOpen }: Props) {
   const pct = stand.need > 0 ? Math.min(100, (stand.into / stand.need) * 100) : 100;
-  const hint = parts && parts.total > 0 ? rankBits(parts).join(" · ") : undefined;
+  const hint = parts && parts.total !== 0 ? rankBits(parts).join(" · ") : perkTitle;
   return (
     <button
       type="button"
       className={`rank-chip rk-${stand.id}`}
       onClick={onOpen}
-      aria-label={`Rank ${stand.name} ${stand.roman}`.trim()}
+      aria-label={`Rank ${stand.name} ${stand.roman} ${perkTitle ?? ""}`.trim()}
       title={hint}
       style={{ ["--rk" as string]: stand.color, ["--rk-ink" as string]: stand.ink }}
     >
@@ -45,6 +46,7 @@ export function RankBadge({ stand, delta = 0, streak = 0, parts = null, onOpen }
           {stand.name}
           {stand.roman ? ` ${stand.roman}` : ""}
         </em>
+        {perkTitle ? <span className="rank-perk-tag">{perkTitle}</span> : null}
         <i className="rank-mini">
           <b style={{ width: `${pct}%` }} />
         </i>

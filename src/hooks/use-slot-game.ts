@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ALL_ART,
-  ANTE_COST,
   BETS,
-  BUY_COST_X,
   FS_RETRIGGER,
   FS_RETRIGGER_SCATTERS,
-  FS_SPINS,
   FS_TRIGGER_SCATTERS,
   MAX_WIN_X,
   WIN_POP_X,
@@ -33,7 +30,7 @@ import {
   zeusDropCount,
 } from "@/lib/slot/engine";
 import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, spendPity, type PickTile, type PityMap } from "@/lib/slot/pick-bonus";
-import { applyRankDelta, bannerFromX, perkOf, rpFromSpin, standing, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
+import { applyRankDelta, bannerFromX, buyXOf, fsSpinsOf, perkOf, rpFromSpin, settleBuyRank, standing, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
@@ -182,7 +179,10 @@ export function useSlotGame() {
   pityByBetRef.current = pityByBet;
 
   const bet = BETS[betIndex];
-  const stake = ante ? +(bet * ANTE_COST).toFixed(2) : bet;
+  const rankId = standing(rp).id;
+  const perk = perkOf(rankId);
+  const stake = ante ? +(bet * perk.anteMul).toFixed(2) : bet;
+  const buyX = buyXOf(rankId);
   const pity = readPity(pityByBet, bet);
 
   const saveSnapRef = useRef<PlayerSave>(emptyPlayerSave());
@@ -533,9 +533,10 @@ export function useSlotGame() {
   const runSequence = useCallback(
     async (opts?: { buy?: boolean; free?: boolean }): Promise<"fs" | "ok" | "max" | "pick"> => {
       const currentBet = BETS[betIndexRef.current];
-      const currentStake = anteRef.current ? +(currentBet * ANTE_COST).toFixed(2) : currentBet;
+      const perk = perkOf(standing(rankRef.current.rp).id);
+      const currentStake = anteRef.current ? +(currentBet * perk.anteMul).toFixed(2) : currentBet;
       const isFree = !!opts?.free;
-      const cost = opts?.buy ? +(currentBet * BUY_COST_X).toFixed(2) : isFree ? 0 : currentStake;
+      const cost = opts?.buy ? +(currentBet * buyXOf(perk.id)).toFixed(2) : isFree ? 0 : currentStake;
 
       if (!isFree && balanceRef.current < cost) {
         setMessage("Nedostatok kreditu — doplň demo zostatok");
@@ -613,12 +614,13 @@ export function useSlotGame() {
 
       let board = next;
       const landDrop = zeusDropCount(rng, isFree || inFsRef.current, false);
-      if (landDrop > 0) {
+      const landN = landDrop > 0 ? landDrop + perk.orbBonus : 0;
+      if (landN > 0) {
         setPhase("mult");
         setThrowBolt(true);
         sfx.playThunder();
         setTopLine("RAMPA PÚŠŤA NÁSOBIČE");
-        const dropped = zeusDrop(board, rng, landDrop, isFree || inFsRef.current);
+        const dropped = zeusDrop(board, rng, landN, isFree || inFsRef.current);
         board = dropped.grid;
         setGrid(cloneGrid(board));
         await wait(dur(480), abort.current);
@@ -731,10 +733,11 @@ export function useSlotGame() {
         await wait(dur(240), abort.current);
         board = tumble(board, tumbleMask, rng, fillAnte);
         const more = zeusDropCount(rng, isFree || inFsRef.current, true);
-        if (more > 0) {
+        const moreN = more > 0 ? more + perk.orbBonus : 0;
+        if (moreN > 0) {
           setThrowBolt(true);
           sfx.playZap();
-          const dropped = zeusDrop(board, rng, more, isFree || inFsRef.current);
+          const dropped = zeusDrop(board, rng, moreN, isFree || inFsRef.current);
           board = dropped.grid;
           setTopLine("RAMPA PÚŠŤA NÁSOBIČE");
         }
@@ -794,13 +797,33 @@ export function useSlotGame() {
       }
 
       if ((isFree || inFsRef.current) && sequenceX <= 0 && hasOrb(board)) {
-        setTopLine("BEZ VÝHRY PLECHOVKY PREPADNÚ");
-        const gone = expireOrbs(board, rng);
-        setExpiredUids(gone.expired);
-        await wait(dur(560), abort.current);
-        board = gone.grid;
-        setGrid(cloneGrid(board));
-        setExpiredUids([]);
+        if (perk.stickyOrbs) {
+          const leftover = listOrbs(board);
+          const add = leftover.reduce((s, o) => s + o.mult, 0);
+          setTopLine("PREDATOR · PLECHOVKY DRŽIA");
+          setPhase("mult");
+          for (const orb of leftover) {
+            const key = flyKey.current++;
+            setFlies((f) => [...f, { key, r: orb.r, c: orb.c, mult: orb.mult }]);
+            window.setTimeout(() => setFlies((f) => f.filter((x) => x.key !== key)), 820);
+            await wait(dur(180), abort.current);
+          }
+          const gm = globalMultRef.current + add;
+          globalMultRef.current = gm;
+          setGlobalMult(gm);
+          const gone = expireOrbs(board, rng);
+          board = gone.grid;
+          setGrid(cloneGrid(board));
+        } else {
+          setTopLine("BEZ VÝHRY PLECHOVKY PREPADNÚ");
+          const gone = expireOrbs(board, rng);
+          setExpiredUids(gone.expired);
+          board = gone.grid;
+          setGrid(cloneGrid(board));
+          sfx.playPop();
+          await wait(dur(360), abort.current);
+          setExpiredUids([]);
+        }
       }
 
       const orbs = listOrbs(board);
@@ -911,6 +934,14 @@ export function useSlotGame() {
         } else {
           noteResult(false);
           pushRank(-standing(rankRef.current.rp).entry);
+          if (perk.deadRebate > 0) {
+            const back = +(currentBet * perk.deadRebate).toFixed(2);
+            if (back > 0) {
+              setBalance((b) => +(b + back).toFixed(2));
+              setSpinTape((t) => [{ label: "LIGA VRACIA", amount: formatMoney(back) }, ...t].slice(0, 8));
+              setTopLine(`LIGA VRACIA ${formatMoney(back)}`);
+            }
+          }
         }
       }
 
@@ -960,7 +991,34 @@ export function useSlotGame() {
       const r = await runSequence(opts);
       const betNow = BETS[betIndexRef.current];
       const triggerCash = +(lastPaidXRef.current * betNow).toFixed(2);
-      const buyCost = +(betNow * BUY_COST_X).toFixed(2);
+      const rankIdNow = standing(rankRef.current.rp).id;
+      const buyXNow = buyXOf(rankIdNow);
+      const buyCost = +(betNow * buyXNow).toFixed(2);
+      const fsCount = fsSpinsOf(rankIdNow);
+
+      const applyBoughtRank = (
+        returned: number,
+        extra: { mult: number; bannerHit: boolean; retriggers?: number },
+      ) => {
+        const profit = returned >= buyCost;
+        const streak = noteResult(profit);
+        const wx = buyCost > 0 ? returned / buyCost : 0;
+        const settled = settleBuyRank({
+          returned,
+          bet: betNow,
+          buyX: buyXNow,
+          entry: standing(rankRef.current.rp).entry,
+          extras: {
+            mult: extra.mult,
+            tumbles: 0,
+            streak,
+            banner: bannerFromX(wx, extra.bannerHit),
+            retriggers: extra.retriggers,
+            rankId: rankIdNow,
+          },
+        });
+        if (settled.delta) pushRank(settled.delta, settled.parts);
+      };
 
       if (autoRef.current) {
         if (r === "fs") {
@@ -993,10 +1051,10 @@ export function useSlotGame() {
         setDisplayWin(0);
         setGlobalMult(0);
         globalMultRef.current = 0;
-        let left = FS_SPINS;
+        let left = fsCount;
         setFsLeft(left);
         setFsTotal(left);
-        setMessage("15 voľných točení");
+        setMessage(`${fsCount} voľných točení`);
         sfx.playFsStart();
         bannerOpen.current = true;
         setBanner("fs");
@@ -1056,12 +1114,17 @@ export function useSlotGame() {
         setMessage(fsCash > 0 ? `TOTAL WIN ${formatMoney(fsCash)}` : "Koniec voľných točení");
         if (fsCash > 0 || hitCap) sfx.playBigWin();
         else sfx.playPayout();
-        const rankCash = opts?.buy ? +(fsCash + triggerCash - buyCost).toFixed(2) : fsCash;
-        if (rankCash > 0) {
+        if (opts?.buy) {
+          applyBoughtRank(+(fsCash + triggerCash).toFixed(2), {
+            mult: Math.max(1, peakMult),
+            bannerHit: hitCap,
+            retriggers: extraSpins > 0 ? Math.round(extraSpins / FS_RETRIGGER) : 0,
+          });
+        } else if (fsCash > 0) {
           const streak = noteResult(true);
-          const fx = betNow > 0 ? rankCash / betNow : 0;
+          const fx = betNow > 0 ? fsCash / betNow : 0;
           const parts = rpFromSpin({
-            cash: rankCash,
+            cash: fsCash,
             bet: betNow,
             mult: Math.max(1, peakMult),
             tumbles: 0,
@@ -1081,25 +1144,7 @@ export function useSlotGame() {
         setPhase("idle");
         setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
       } else if (opts?.buy) {
-        const net = +(triggerCash - buyCost).toFixed(2);
-        if (net > 0) {
-          const streak = noteResult(true);
-          const fx = betNow > 0 ? net / betNow : 0;
-          const parts = rpFromSpin({
-            cash: net,
-            bet: betNow,
-            mult: 1,
-            tumbles: 0,
-            streak,
-            banner: bannerFromX(fx, r === "max"),
-            kind: "fs",
-            rankId: standing(rankRef.current.rp).id,
-          });
-          pushRank(parts.total, parts);
-        } else {
-          noteResult(false);
-          pushRank(-standing(rankRef.current.rp).entry);
-        }
+        applyBoughtRank(triggerCash, { mult: 1, bannerHit: r === "max" });
       }
 
       if (r === "max") {
@@ -1256,7 +1301,8 @@ export function useSlotGame() {
     setRankOpen,
     winStreak,
     rankParts,
-    perk: perkOf(standing(rp).id),
+    perk,
+    buyX,
     pool,
     poolHits,
     clearRankFlash: () => setRankFlash(null),
@@ -1288,6 +1334,6 @@ export function useSlotGame() {
     refill,
     bestWin,
     canSpin: started && !busy && !inFs && balance >= stake,
-    canBuy: started && !busy && !inFs && balance >= +(bet * BUY_COST_X).toFixed(2),
+    canBuy: started && !busy && !inFs && balance >= +(bet * buyX).toFixed(2),
   };
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { applyDrop, contribution, dropChance, POOL_ADD_MAX, POOL_SEED, shouldDrop } from "./jackpot.ts";
-import { perkOf, rpFromSpin } from "./ranks.ts";
+import { buyTurnoverPunish, buyXOf, fsSpinsOf, perkOf, rpFromSpin, settleBuyRank } from "./ranks.ts";
 
 describe("park pool", () => {
   it("takes 1.2% of stake, capped", () => {
@@ -68,39 +68,51 @@ describe("rank stake + perk", () => {
     assert.equal(top.total, kredit.total);
     assert.equal(perkOf("nekonecno").jackTicket, 4);
     assert.equal(perkOf("sloboda").streakHold, true);
+    assert.equal(perkOf("smart").anteMul, 1.2);
+    assert.equal(perkOf("optika").deadRebate, 0.05);
+    assert.equal(perkOf("nekonecno").stickyOrbs, true);
+    assert.equal(buyXOf("fiveg"), 95);
+    assert.equal(buyXOf("nekonecno"), 90);
+    assert.equal(fsSpinsOf("duo"), 16);
+    assert.equal(fsSpinsOf("nekonecno"), 18);
   });
 
-  it("buy FS ranks net of 100× cost, not gross FS", () => {
-    const bet = 1;
-    const gross = rpFromSpin({
-      cash: 250,
-      bet,
-      mult: 8,
-      tumbles: 0,
-      streak: 1,
-      banner: null,
-      kind: "fs",
+  it("buy FS ranks against the 100× turnover, not the 1€ bet", () => {
+    const extras = { mult: 8, tumbles: 0, streak: 1, banner: null };
+    const win = settleBuyRank({
+      returned: 250,
+      bet: 1,
+      buyX: 100,
+      entry: 5,
+      extras,
     });
-    const net = rpFromSpin({
-      cash: 250 + 12 - 100,
-      bet,
-      mult: 8,
-      tumbles: 0,
-      streak: 1,
-      banner: null,
-      kind: "fs",
+    const asBase = rpFromSpin({ cash: 250, bet: 1, ...extras, kind: "fs" });
+    const vsBuy = rpFromSpin({ cash: 250, bet: 100, ...extras, kind: "fs" });
+    assert.equal(win.delta, vsBuy.total);
+    assert.ok(win.delta < asBase.total);
+    assert.equal(win.parts.fromSum, Math.round(9 * Math.log2(1 + 2.5)));
+  });
+
+  it("losing buy takes dead-spin turnover, capped at one division", () => {
+    assert.equal(buyTurnoverPunish(0, 100), 0);
+    assert.equal(buyTurnoverPunish(5, 100), 100);
+    const loss = settleBuyRank({
+      returned: 40,
+      bet: 1,
+      buyX: 100,
+      entry: 5,
+      extras: { mult: 1, tumbles: 0, streak: 0, banner: null },
     });
-    assert.equal(net.fromSum, Math.round(9 * Math.log2(1 + 162)));
-    assert.ok(net.fromSum < gross.fromSum);
-    const loss = rpFromSpin({
-      cash: 40 - 100,
-      bet,
-      mult: 1,
-      tumbles: 0,
-      streak: 1,
-      banner: null,
-      kind: "fs",
+    assert.ok(loss.delta < 0);
+    assert.ok(loss.delta >= -100);
+    const half = settleBuyRank({
+      returned: 50,
+      bet: 1,
+      buyX: 100,
+      entry: 5,
+      extras: { mult: 1, tumbles: 0, streak: 0, banner: null },
     });
-    assert.equal(loss.total, 0);
+    assert.ok(half.delta > loss.delta);
+    assert.ok(half.delta < 0);
   });
 });

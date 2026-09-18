@@ -1,6 +1,6 @@
 import { useRef, type PointerEvent } from "react";
 import { Volume2, VolumeX, Info, RefreshCw, Menu, Maximize2, Minimize2, RotateCw } from "lucide-react";
-import { BUY_COST_X, START_BALANCE, BETS } from "@/lib/slot/symbols";
+import { START_BALANCE, BETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { useTheater } from "@/hooks/use-theater";
@@ -120,7 +120,7 @@ export function SlotGame() {
             </p>
             <div className="boot-rank">
               <span className="boot-rank-kicker">LIGA 4KY</span>
-              <RankBadge stand={g.rank} streak={g.winStreak} parts={g.rankParts} onOpen={() => g.setRankOpen(true)} />
+              <RankBadge stand={g.rank} streak={g.winStreak} parts={g.rankParts} perkTitle={g.perk.title} onOpen={() => g.setRankOpen(true)} />
             </div>
             <button type="button" className="cta" onClick={g.start}>
               HRAŤ
@@ -136,6 +136,7 @@ export function SlotGame() {
             delta={g.rankDelta}
             streak={g.winStreak}
             parts={g.rankParts}
+            perkTitle={g.perk.title}
             onOpen={() => g.setRankOpen(true)}
           />
           <div className="head-center">
@@ -180,7 +181,7 @@ export function SlotGame() {
               disabled={!g.canBuy}
             >
               <em>KÚPIŤ FREE SPINS</em>
-              <strong>{formatMoney(g.bet * BUY_COST_X)}</strong>
+              <strong>{formatMoney(g.bet * g.buyX)}</strong>
             </button>
             <button
               type="button"
@@ -189,7 +190,7 @@ export function SlotGame() {
               disabled={g.busy}
             >
               <em>ANTE BET</em>
-              <strong>1.25×</strong>
+              <strong>{g.perk.anteMul.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}×</strong>
               <span className={`ante-switch ${g.ante ? "on" : ""}`}>{g.ante ? "ON" : "OFF"}</span>
             </button>
             <ol className="win-log" aria-label="História výhier">

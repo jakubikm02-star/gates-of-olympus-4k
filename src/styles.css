@@ -3051,6 +3051,18 @@
   color: var(--rk-ink);
 }
 
+.rank-perk-tag {
+  display: block;
+  font-size: 0.52rem;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: color-mix(in srgb, var(--rk-ink) 72%, #9aa);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+}
+
 .rank-mini {
   display: block;
   height: 4px;
@@ -3406,8 +3418,11 @@
   }
   .rank-chip {
     padding: 2px 8px 2px 2px;
-    min-height: 32px;
+    min-height: 36px;
     gap: 6px;
+  }
+  .rank-perk-tag {
+    font-size: 0.46rem;
   }
   .rank-meta em {
     font-size: 0.62rem;

@@ -83,7 +83,7 @@ export function Paytable({ open, onClose, bet }: Props) {
           <li>Násobiče nepadajú z valca ako RJ45. Rampa ich pustí ako energy plechovky. Aktivujú sa až na konci reťaze, a len ak bola výhra.</li>
           <li>Base: súčet plechoviek × celá tumble sekvencia. Vo FS tečú do globálneho metra; bez výhry prepadnú.</li>
           <li>4 scatteri = 15 voľných točení. V bonuse 3+ scatteri = +5. Pay scatteru ostáva 4 / 5 / 6.</li>
-          <li>Ante 1.25× stávka dvíha P(bonus) približne na dvojnásobok cez binom, nie surový ×2 na bunke. Vo FS sa ante vypína.</li>
+          <li>Ante základ 1.25× stávka dvíha P(bonus). Od SMART ligy ante 1.20×. Vo FS sa ante vypína.</li>
           <li>
             KONTROLA má vlastný PITY meter na každú stávku (100). Iba mŕtvy spin (+2) a 3 / 4 scattere
             (+20 / +35) na tej stávke. Po spustení bar padne na 0 — pretečenie sa neprenáša. Kúpiť sa nedá.
@@ -96,7 +96,7 @@ export function Paytable({ open, onClose, bet }: Props) {
             Ranked liga 4ky: KREDIT → SLOBODA → SMART → 4KA TV → OPTIKA → DUO → 5G NA DOMA → NEKONEČNO.
             RP za sumu výhry, výšku stávky, násobič, sériu, tumble, BIG+ bannery, FS total, retrigger a
             KONTROLU. Vyššia stávka priamo pridáva RP (1 € ≈ +3, 10 € ≈ +10, 100 € ≈ +19). Aktívna liga
-            dáva perk (pity, lístky do poolu, hold série, drop pri postupe) — nenásobí RP. Ante pri výhre
+            dáva herný perk (lacnejšie ante, pity, cashback, extra FS, zľava na kúpu, sticky plechovky) — nenásobí RP. Ante pri výhre
             +1. Mŕtvy spin berie nízke entry. 100× ťa nevyhodí o celý rank. Po postupe buffer 40 RP a štít.
           </li>
           <li>
@@ -108,7 +108,7 @@ export function Paytable({ open, onClose, bet }: Props) {
             Win popup ako na Olympuse: BIG WIN od 20× stávky, MEGA WIN od 35×, SUPER MEGA WIN od 50×.
             MAX WIN 5000× ukončí feature.
           </li>
-          <li>Kúpa FS = 100× základná stávka. Ante sa na kúpu nevzťahuje. Do ranku ide čistý výsledok: výhra z kúpeného triggeru + FS mínus 100×. Ak kúpa nie je v pluse, berie sa len entry ako mŕtvy spin. Max 5000× je cap celej feature, nie jedného spinu — potom FEATURE TERMINATED.</li>
+          <li>Kúpa FS = 100× základná stávka (95× od 5G, 90× v NEKONEČNE). Ante sa na kúpu nevzťahuje. Do ranku sa kúpa ráta ako 100 točení: výhra z FS ide voči cene kúpy (250 € z 100 € = 2.5×, nie 250×). Prehra berie entry ako mŕtve spiny, max jedna divízia. Max 5000× je cap celej feature — potom FEATURE TERMINATED.</li>
           <li>
             Simulácia {MATH_NOTE.spins.toLocaleString("sk-SK")} spinov: RTP {(MATH_NOTE.rtp * 100).toFixed(1)} %,
             hit {(MATH_NOTE.hit * 100).toFixed(1)} %, bonus 1/{MATH_NOTE.bonusEvery}, kúpa vracia{" "}

@@ -3,6 +3,11 @@ export const MASTER_RP = 300;
 export const PROMO_BUFFER = 40;
 export const WIN_RP_CAP = 90;
 
+const ANTE_BASE = 1.25;
+const BUY_BASE = 100;
+const FS_BASE = 15;
+const BASE_HIT = 0.3467;
+
 export interface RankDef {
   id: string;
   name: string;
@@ -141,6 +146,7 @@ export interface RankBreakdown {
   fromBanner: number;
   fromBonus: number;
   fromStake: number;
+  fromBuy: number;
 }
 
 export interface RankPerk {
@@ -151,85 +157,196 @@ export interface RankPerk {
   jackTicket: number;
   streakHold: boolean;
   dripX: number;
+  anteMul: number;
+  fsExtra: number;
+  buyOff: number;
+  deadRebate: number;
+  stickyOrbs: boolean;
+  orbBonus: number;
 }
 
 export const RANK_PERKS: RankPerk[] = [
   {
     id: "kredit",
     title: "Štart",
-    detail: "1 lístok do PARK POOL. RP rastie z hry, nie z ligy.",
+    detail: "1 lístok do PARK POOL. Žiadny herný perk — šliap vyššie.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: false,
     dripX: 0,
+    anteMul: ANTE_BASE,
+    fsExtra: 0,
+    buyOff: 0,
+    deadRebate: 0,
+    stickyOrbs: false,
+    orbBonus: 0,
   },
   {
     id: "sloboda",
-    title: "Séria hold",
-    detail: "Jeden mŕtvy v sérii ju nezhodí. 1 pool lístok.",
+    title: "Hold série",
+    detail: "Jeden mŕtvy spin sériu výhier nezhodí.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
     dripX: 0,
+    anteMul: ANTE_BASE,
+    fsExtra: 0,
+    buyOff: 0,
+    deadRebate: 0,
+    stickyOrbs: false,
+    orbBonus: 0,
   },
   {
     id: "smart",
-    title: "Hold + lístok",
-    detail: "Hold série a 1 pool lístok. Liga nenásobí RP.",
+    title: "Ante 1.20×",
+    detail: "Ante stojí 1.20× namiesto 1.25×. Držíš viac kreditu na točenie.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
     dripX: 0,
+    anteMul: 1.2,
+    fsExtra: 0,
+    buyOff: 0,
+    deadRebate: 0,
+    stickyOrbs: false,
+    orbBonus: 0,
   },
   {
     id: "telka",
     title: "Pity +1",
-    detail: "Mŕtvy spin +1 pity navyše. 1 pool lístok.",
+    detail: "Mŕtvy spin +1 pity navyše. KONTROLA sa nabíja rýchlejšie. Ante 1.20×.",
     pityBonus: 1,
     jackTicket: 1,
     streakHold: true,
     dripX: 0,
+    anteMul: 1.2,
+    fsExtra: 0,
+    buyOff: 0,
+    deadRebate: 0,
+    stickyOrbs: false,
+    orbBonus: 0,
   },
   {
     id: "optika",
-    title: "2 lístky",
-    detail: "Dva lístky do PARK POOL na spin.",
+    title: "5 % späť",
+    detail: "Mŕtvy spin vráti 5 % stávky. 2 lístky do poolu. Ante 1.20×.",
     pityBonus: 1,
     jackTicket: 2,
     streakHold: true,
     dripX: 0,
+    anteMul: 1.2,
+    fsExtra: 0,
+    buyOff: 0,
+    deadRebate: 0.05,
+    stickyOrbs: false,
+    orbBonus: 0,
   },
   {
     id: "duo",
-    title: "Rank drop",
-    detail: "Postup ligy +0.5× stávka. 2 lístky.",
+    title: "+1 FS",
+    detail: "Bonus má 16 voľných točení. 5 % späť, 2 lístky, postup +0.5× stávka.",
     pityBonus: 1,
     jackTicket: 2,
     streakHold: true,
     dripX: 0.5,
+    anteMul: 1.2,
+    fsExtra: 1,
+    buyOff: 0,
+    deadRebate: 0.05,
+    stickyOrbs: false,
+    orbBonus: 0,
   },
   {
     id: "fiveg",
-    title: "3 lístky",
-    detail: "Postup +1× stávka. Pity +2.",
+    title: "Kúpa 95×",
+    detail: "Buy FS za 95× a 17 točení. Pity +2, 3 lístky, 5 % späť.",
     pityBonus: 2,
     jackTicket: 3,
     streakHold: true,
     dripX: 1,
+    anteMul: 1.2,
+    fsExtra: 2,
+    buyOff: 5,
+    deadRebate: 0.05,
+    stickyOrbs: false,
+    orbBonus: 0,
   },
   {
     id: "nekonecno",
     title: "PREDATOR",
-    detail: "4 lístky, postup +2× stávka, najvyšší drop na pool.",
+    detail: "Buy 90×, 18 FS, mŕtvy FS pripočíta plechovky do násobiča, 10 % späť, extra rampa, 4 lístky.",
     pityBonus: 2,
     jackTicket: 4,
     streakHold: true,
     dripX: 2,
+    anteMul: 1.2,
+    fsExtra: 3,
+    buyOff: 10,
+    deadRebate: 0.1,
+    stickyOrbs: true,
+    orbBonus: 1,
   },
 ];
 
 export function perkOf(rankId: string | undefined): RankPerk {
   return RANK_PERKS.find((p) => p.id === rankId) ?? RANK_PERKS[0];
+}
+
+export function buyXOf(rankId?: string): number {
+  return Math.max(80, BUY_BASE - perkOf(rankId).buyOff);
+}
+
+export function anteMulOf(rankId?: string): number {
+  return perkOf(rankId).anteMul;
+}
+
+export function fsSpinsOf(rankId?: string): number {
+  return FS_BASE + perkOf(rankId).fsExtra;
+}
+
+/** Expected dead spins if you turned over `buyX` bets in the base game. */
+export function buyDeadEquiv(buyX: number): number {
+  return Math.max(1, Math.round(buyX * (1 - BASE_HIT)));
+}
+
+/** Rank punishment for a buy, capped at one division so a 100× buy cannot dump 3 ranks. */
+export function buyTurnoverPunish(entry: number, buyX: number): number {
+  if (entry <= 0) return 0;
+  return Math.min(DIV_RP, entry * buyDeadEquiv(buyX));
+}
+
+export function settleBuyRank(s: {
+  returned: number;
+  bet: number;
+  buyX: number;
+  entry: number;
+  extras: Omit<RankSpin, "cash" | "bet" | "kind">;
+}): { delta: number; parts: RankBreakdown } {
+  const empty: RankBreakdown = {
+    total: 0,
+    fromSum: 0,
+    fromMult: 0,
+    fromStreak: 0,
+    fromTumble: 0,
+    fromBanner: 0,
+    fromBonus: 0,
+    fromStake: 0,
+    fromBuy: 0,
+  };
+  const cost = s.bet * s.buyX;
+  const punish = buyTurnoverPunish(s.entry, s.buyX);
+  if (s.returned < cost) {
+    const frac = cost > 0 ? Math.max(0, 1 - s.returned / cost) : 1;
+    const delta = punish > 0 ? -Math.max(1, Math.round(punish * frac)) : 0;
+    return { delta, parts: { ...empty, total: delta, fromBuy: delta } };
+  }
+  const parts = rpFromSpin({
+    ...s.extras,
+    cash: s.returned,
+    bet: cost,
+    kind: "fs",
+  });
+  return { delta: parts.total, parts };
 }
 
 export const RANK_REWARDS = [
@@ -239,8 +356,8 @@ export const RANK_REWARDS = [
   { id: "streak", title: "Séria výhier", detail: "2. výhra +2, 3. +5, 4. +9, 5.+ max +14. Mŕtvy spin zhodí na 0 — od SLOBODY jeden hold." },
   { id: "tumble", title: "Tumble reťaz", detail: "Dva a viac pádov v jednom spine: +2 až +8 RP." },
   { id: "banner", title: "BIG / MEGA / EPIC / MAX", detail: "Popup: +4 / +8 / +12 / +18." },
-  { id: "bonus", title: "Bonusy", detail: "FS total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Kúpa FS: do ranku ide čistý výsledok (trigger + FS − 100×). Pod nulu = entry ako mŕtvy spin." },
-  { id: "rank", title: "Aktívna liga", detail: "Perky sú pity, lístky do poolu, hold série a drop pri postupe. Liga nenásobí RP — rovnaká výhra dá rovnaké body v KREDITE aj v NEKONEČNE." },
+  { id: "bonus", title: "Bonusy", detail: "FS total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Prírodzené FS idú z 1× stávky. Kúpa FS = 100 točení: výhra sa ráta voči cene kúpy, prehra berie entry ako mŕtve spiny (max 1 divízia)." },
+  { id: "rank", title: "Aktívna liga", detail: "Herné perky: lacnejšie ante, pity, cashback, extra FS, zľava na buy, sticky plechovky. Liga nenásobí RP." },
 ] as const;
 
 export const RANK_RULES = RANK_REWARDS.map((r) => `${r.title} — ${r.detail}`);
@@ -263,6 +380,7 @@ export function rpFromSpin(s: RankSpin): RankBreakdown {
     fromBanner: 0,
     fromBonus: 0,
     fromStake: 0,
+    fromBuy: 0,
   };
   if (s.cash <= 0 || s.bet <= 0) return empty;
 
@@ -296,6 +414,7 @@ export function rpFromSpin(s: RankSpin): RankBreakdown {
     fromBanner,
     fromBonus,
     fromStake,
+    fromBuy: 0,
   };
 }
 
@@ -308,6 +427,7 @@ export function rankBits(b: RankBreakdown): string[] {
   if (b.fromTumble) bits.push(`tumble +${b.fromTumble}`);
   if (b.fromBanner) bits.push(`banner +${b.fromBanner}`);
   if (b.fromBonus) bits.push(`bonus +${b.fromBonus}`);
+  if (b.fromBuy) bits.push(`kúpa ${b.fromBuy}`);
   return bits;
 }
 
