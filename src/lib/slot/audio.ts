@@ -22,8 +22,9 @@ let loadStarted = false;
 
 const FILES: Record<string, string> = {
   spin: "/sfx/spin.mp3?v=trailer1",
-  land: "/sfx/land.mp3?v=park1",
-  land2: "/sfx/land2.mp3?v=park1",
+  land: "/sfx/land.mp3?v=keys1",
+  land2: "/sfx/land2.mp3?v=keys1",
+  land3: "/sfx/land3.mp3?v=keys1",
   click: "/sfx/click.mp3",
   win: "/sfx/win.mp3?v=phaser1",
   winFull: "/sfx/win-full.mp3?v=tumble2",
@@ -275,11 +276,16 @@ export function stopSpin(): void {
   stopAnticipate();
 }
 
+const LAND_KEYS = ["land", "land2", "land3"] as const;
+let lastLand = -1;
+
 export function playLand(col = 0): void {
   const pan = (col / 5) * 1.3 - 0.65;
-  const rate = 1.02 - col * 0.045;
-  const name = col % 2 === 0 ? "land" : "land2";
-  if (!playBuf(name, { gain: 0.82, rate, pan })) {
+  let pick = Math.floor(Math.random() * LAND_KEYS.length);
+  if (pick === lastLand) pick = (pick + 1 + Math.floor(Math.random() * 2)) % LAND_KEYS.length;
+  lastLand = pick;
+  const name = LAND_KEYS[pick];
+  if (!playBuf(name, { gain: 0.78, rate: 0.97 + Math.random() * 0.06, pan })) {
     noise("white", 0.055, 0.13, 1800, 7000, undefined, pan);
     tone("sine", 118 - col * 8, 0.14, 0.09, 48, undefined, pan);
   }
