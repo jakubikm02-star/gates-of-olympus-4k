@@ -1056,7 +1056,7 @@ export function useSlotGame() {
         for (const orb of orbs) {
           setStrike({ r: orb.r, c: orb.c });
           setStruckUids((ids) => [...ids, orb.uid]);
-          sfx.playZap();
+          sfx.playMult();
           const key = flyKey.current++;
           setFlies((f) => [...f, { key, r: orb.r, c: orb.c, mult: orb.mult }]);
           window.setTimeout(() => setFlies((f) => f.filter((x) => x.key !== key)), 700);
