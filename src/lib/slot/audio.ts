@@ -44,6 +44,7 @@ const FILES: Record<string, string> = {
   harp: "/sfx/harp.mp3",
   kontrola: "/sfx/kontrola.mp3?v=ignition1",
   fsStart: "/sfx/fs-start.mp3?v=build1",
+  anticipate: "/sfx/anticipate.mp3?v=bass1",
 };
 
 export function isMuted(): boolean {
@@ -273,7 +274,6 @@ export function setSpinEnergy(t: number): void {
 export function stopSpin(): void {
   spinNodes?.stop();
   spinNodes = null;
-  stopAnticipate();
 }
 
 const LAND_KEYS = ["land", "land2", "land3"] as const;
@@ -349,62 +349,30 @@ export function playScatter(n = 1): void {
 
 export function startAnticipate(): void {
   if (!ctx || !sfx || anticipateNodes) return;
-  duckMusic(0.22);
+  duckMusic(0.16);
   const t = ctx.currentTime;
-  const stops: Array<() => void> = [];
-
-  const harp = playBuf("harp", { gain: 0.08, rate: 0.82, loop: true });
+  const bed = playBuf("anticipate", { gain: 0.01, loop: true, rate: 1 });
+  if (bed) {
+    bed.gain.gain.setValueAtTime(0.01, t);
+    bed.gain.gain.linearRampToValueAtTime(0.72, t + 0.35);
+    anticipateNodes = {
+      stop: () => {
+        bed.gain.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.18);
+        window.setTimeout(bed.stop, 380);
+      },
+    };
+    return;
+  }
+  const harp = playBuf("harp", { gain: 0.12, rate: 0.82, loop: true });
   if (harp) {
-    harp.gain.gain.setValueAtTime(0.08, t);
-    harp.gain.gain.linearRampToValueAtTime(0.5, t + 1.8);
-    stops.push(() => {
-      harp.gain.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.22);
-      window.setTimeout(harp.stop, 420);
-    });
+    harp.gain.gain.linearRampToValueAtTime(0.4, t + 1.2);
+    anticipateNodes = {
+      stop: () => {
+        harp.gain.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.2);
+        window.setTimeout(harp.stop, 400);
+      },
+    };
   }
-
-  const whoosh = playBuf("electric", { gain: 0.04, rate: 0.52, loop: true });
-  if (whoosh) {
-    whoosh.gain.gain.setValueAtTime(0.04, t);
-    whoosh.gain.gain.linearRampToValueAtTime(0.2, t + 1.5);
-    stops.push(() => {
-      whoosh.gain.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.2);
-      window.setTimeout(whoosh.stop, 400);
-    });
-  }
-
-  if (brownBuf) {
-    const src = ctx.createBufferSource();
-    src.buffer = brownBuf;
-    src.loop = true;
-    const lp = ctx.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.setValueAtTime(70, t);
-    lp.frequency.linearRampToValueAtTime(240, t + 1.6);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.03, t);
-    g.gain.linearRampToValueAtTime(0.14, t + 1.6);
-    src.connect(lp);
-    lp.connect(g);
-    g.connect(sfx);
-    src.start();
-    stops.push(() => {
-      g.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.2);
-      window.setTimeout(() => {
-        try {
-          src.stop();
-        } catch {
-          /* already */
-        }
-      }, 400);
-    });
-  }
-
-  anticipateNodes = {
-    stop: () => {
-      for (const s of stops) s();
-    },
-  };
 }
 
 export function stopAnticipate(): void {

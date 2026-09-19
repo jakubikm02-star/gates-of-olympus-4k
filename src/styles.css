@@ -825,7 +825,11 @@
 }
 
 .reel-col.is-anticipate .strip-spin {
-  animation-duration: 0.58s;
+  animation-duration: 0.16s;
+}
+
+.reel-col.is-anticipate .strip-spin .cell-img {
+  filter: blur(5px) brightness(1.35) saturate(1.35) drop-shadow(0 0 10px #ffd24a);
 }
 
 @keyframes reel-scroll {
@@ -1004,9 +1008,9 @@
 
 .reel-col.is-anticipate {
   box-shadow:
-    inset 0 0 28px rgb(255 210 80 / 0.28),
-    inset -1px 0 0 rgb(0 0 0 / 0.45);
-  filter: brightness(0.82);
+    inset 0 0 34px rgb(255 210 80 / 0.55),
+    0 0 22px rgb(255 196 25 / 0.4);
+  filter: brightness(1.22) saturate(1.18);
 }
 
 .cell {
@@ -4365,11 +4369,11 @@ html:-webkit-full-screen {
 }
 
 .reel-window.is-anticipate {
-  box-shadow: inset 0 0 90px rgb(0 0 0 / 0.22), inset 0 0 28px rgb(255 196 60 / 0.1);
+  box-shadow: inset 0 0 70px rgb(255 196 60 / 0.16), inset 0 0 28px rgb(255 140 20 / 0.1);
 }
 
 .reel-col.is-anticipate {
-  filter: brightness(0.82);
+  filter: brightness(1.22) saturate(1.18);
 }
 
 .stage.win-tier-1 .reel-frame {
