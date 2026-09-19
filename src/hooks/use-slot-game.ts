@@ -800,16 +800,16 @@ export function useSlotGame() {
       let pityAdd = 0;
       let tMark = STOPS[0];
       for (let c = 1; c < 6; c++) {
-        if (landedScatters >= 3) {
+        if (landedScatters >= 2) {
           setAnticipate(true);
           setReelFast(true);
           sfx.startAnticipate();
         }
-        const extra = landedScatters >= 3 ? 560 : landedScatters >= 2 ? 90 : 0;
-        await wait(dur(STOPS[c] - tMark + extra), abort.current);
+        const tease = landedScatters >= 3 ? 900 : landedScatters >= 2 ? 720 : 0;
+        await wait(dur(STOPS[c] - tMark) + tease, abort.current);
         tMark = STOPS[c];
         setStoppedCols(c + 1);
-        sfx.setSpinEnergy(landedScatters >= 3 ? 1 : 1 - (c + 1) / 6);
+        sfx.setSpinEnergy(landedScatters >= 2 ? 1 : 1 - (c + 1) / 6);
         sfx.playLand(c);
         const colN = next.reduce((n, row) => n + (row[c].kind === "scatter" ? 1 : 0), 0);
         if (colN > 0) {

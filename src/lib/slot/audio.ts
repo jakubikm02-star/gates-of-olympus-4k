@@ -354,7 +354,7 @@ export function startAnticipate(): void {
   const bed = playBuf("anticipate", { gain: 0.01, loop: true, rate: 1 });
   if (bed) {
     bed.gain.gain.setValueAtTime(0.01, t);
-    bed.gain.gain.linearRampToValueAtTime(0.72, t + 0.35);
+    bed.gain.gain.linearRampToValueAtTime(0.88, t + 0.2);
     anticipateNodes = {
       stop: () => {
         bed.gain.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.18);
