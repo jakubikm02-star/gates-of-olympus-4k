@@ -31,7 +31,7 @@ const FILES: Record<string, string> = {
   coin: "/sfx/coin.mp3",
   scatter: "/sfx/scatter.mp3",
   collect: "/sfx/collect.mp3",
-  tumble: "/sfx/tumble.mp3?v=tumble2",
+  tumble: "/sfx/tumble.mp3?v=heart1",
   pop: "/sfx/pop.mp3?v=pneumatic1",
   zap: "/sfx/zap.mp3?v=park1",
   electric: "/sfx/electric.mp3?v=park1",
@@ -315,8 +315,8 @@ export function playPayout(): void {
 
 export function playTumble(cascade = 0): void {
   playing["pop"]?.stop();
-  const rate = Math.min(1.42, 0.92 * 1.05946 ** cascade);
-  if (!playBuf("tumble", { gain: Math.min(1, 0.88 + cascade * 0.04), rate })) {
+  const rate = Math.min(1.12, 0.96 + cascade * 0.03);
+  if (!playBuf("tumble", { gain: Math.min(0.9, 0.62 + cascade * 0.06), rate })) {
     noise("brown", 0.32, 0.11, 50, 900);
   }
 }
