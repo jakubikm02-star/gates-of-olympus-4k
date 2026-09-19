@@ -11,6 +11,7 @@ import { CountUp } from "./CountUp";
 import { RankBadge } from "./RankBadge";
 import { RankPanel } from "./RankPanel";
 import { RankToast } from "./RankToast";
+import { SpendSheet } from "./SpendSheet";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
 
@@ -94,7 +95,8 @@ export function SlotGame() {
     g.phase === "big" ||
     g.phase === "max" ||
     Boolean(g.banner) ||
-    Boolean(g.jpHit);
+    Boolean(g.jpHit) ||
+    g.ticketLock;
   const winLine =
     g.inFs
       ? "PARKNET LIVE"
@@ -108,7 +110,7 @@ export function SlotGame() {
 
   return (
     <div
-      className={`stage ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""}`}
+      className={`stage ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""}`}
     >
       <div className="stage-bg" />
       <div className="stage-glow" />
@@ -179,9 +181,9 @@ export function SlotGame() {
               })}
               <em>
                 {g.jpHit
-                  ? `${g.jpHit.name} WIN`
+                  ? `${g.jpHit.name} · ${formatMoney(g.jpHit.payout)}`
                   : g.poolEligible
-                    ? "LIVE · 3 hráči"
+                    ? "LÍSTOK · 4 POTY"
                     : "LEN 100+ BET"}
               </em>
             </div>
@@ -207,7 +209,7 @@ export function SlotGame() {
             >
               <em>ANTE BET</em>
               <strong>{g.perk.anteMul.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}×</strong>
-              {g.ante ? <span className="ante-pool">Park Pool +</span> : null}
+              {g.ante ? <span className="ante-pool">4tv ×2</span> : null}
               <span className={`ante-switch ${g.ante ? "on" : ""}`}>{g.ante ? "ON" : "OFF"}</span>
             </button>
             <ol className="win-log" aria-label="História výhier">
@@ -303,6 +305,7 @@ export function SlotGame() {
               cam={g.cam}
               spinPace={g.spinPace ?? undefined}
               spinStrips={g.spinStrips}
+              ticketLock={g.ticketLock}
             />
             {g.flies.map((f) => (
               <span
@@ -316,6 +319,22 @@ export function SlotGame() {
             ))}
             </div>
             </div>
+            {g.job && !g.inFs && (
+              <div className={`job-chip ${g.jobToast ? "is-hot" : ""}`}>
+                <span>{g.job.title}</span>
+                <b>
+                  {g.job.have}/{g.job.need}
+                </b>
+                <em>
+                  {g.job.spun}/{g.job.limit}
+                </em>
+              </div>
+            )}
+            {g.shift && !g.inFs && (
+              <div className="shift-chip">
+                {g.shift.name} · {g.shift.left}
+              </div>
+            )}
           </section>
 
           <aside className="ramp-col" aria-hidden="false">
@@ -467,6 +486,11 @@ export function SlotGame() {
           >
             TURBO
           </button>
+          {g.surplus && !g.inFs && (
+            <button type="button" className="chip-btn gold" onClick={g.openSpend} disabled={g.busy}>
+              MÍŇAŤ
+            </button>
+          )}
           {g.autoReason && !g.autoOn && <span className="auto-stop">{g.autoReason}</span>}
           {g.balance < g.stake && (
             <button type="button" className="chip-btn gold" onClick={g.refill}>
@@ -573,9 +597,6 @@ export function SlotGame() {
                 </p>
               )}
               {g.banner === "max" && <p className="wb-err">status: FEATURE TERMINATED</p>}
-              {g.banner === "pool" && (
-                <p className="wb-line dim">PARK POOL · celý pot · seed 500 + reserve</p>
-              )}
               {g.banner !== "max" && g.banner !== "fs" && g.banner !== "fsTotal" && (
                 <p className="wb-line dim">status: ok</p>
               )}
@@ -595,6 +616,36 @@ export function SlotGame() {
       )}
 
       <Paytable open={g.paytableOpen} onClose={() => g.setPaytableOpen(false)} bet={g.bet} />
+      <SpendSheet
+        open={g.spendOpen}
+        onClose={() => g.setSpendOpen(false)}
+        credit={g.balance}
+        bet={g.bet}
+        shift={g.shift}
+        job={g.job}
+        offer={g.jobOffer}
+        topupAmt={g.topupAmt}
+        shifts={g.shifts}
+        topupTiers={g.topupTiers}
+        topupAmounts={g.topupAmounts}
+        rerollCost={g.rerollCost}
+        onShift={g.buyShift}
+        onTopup={g.topupPot}
+        onJob={g.takeJob}
+        onReroll={g.rerollJobs}
+      />
+      {g.jpHit && (
+        <div className="ticket-banner" aria-live="assertive">
+          <strong>
+            {g.jpHit.name} · {formatMoney(g.jpHit.payout)}
+          </strong>
+        </div>
+      )}
+      {g.jobToast && !g.jpHit && (
+        <div className="job-toast" aria-live="polite">
+          {g.jobToast}
+        </div>
+      )}
       <RankPanel
         open={g.rankOpen}
         onClose={() => g.setRankOpen(false)}

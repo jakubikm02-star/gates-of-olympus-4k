@@ -35,7 +35,17 @@ function potFrom(raw: unknown, id: TierId): TierSnap {
   };
 }
 
-function boardFromRpc(raw: unknown): BoardSnap {
+export interface PoolSpinResult extends BoardSnap {
+  ticket: TierId | null;
+  force: boolean;
+}
+
+function ticketFrom(raw: unknown): TierId | null {
+  const id = typeof raw === "string" ? raw : "";
+  return TIER_BY_ID[id as TierId] ? (id as TierId) : null;
+}
+
+function boardFromRpc(raw: unknown): PoolSpinResult {
   const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const potsRaw = o.pots && typeof o.pots === "object" ? (o.pots as Record<string, unknown>) : {};
   const pots = emptyPots();
@@ -59,6 +69,8 @@ function boardFromRpc(raw: unknown): BoardSnap {
     reserve: parseMoney(o.reserve, 0),
     hits,
     credit: parseMoney(o.credit, 0),
+    ticket: ticketFrom(o.ticket),
+    force: Boolean(o.force),
   };
 }
 
@@ -88,17 +100,26 @@ async function rpc(name: string, body?: Record<string, unknown>): Promise<unknow
   }
 }
 
-export async function fetchParkPool(): Promise<BoardSnap> {
+export async function fetchParkPool(): Promise<PoolSpinResult> {
   return boardFromRpc(await rpc("park_jackpot_get"));
 }
 
-export async function postParkSpin(input: PoolSpinInput): Promise<BoardSnap> {
+export async function postParkSpin(input: PoolSpinInput): Promise<PoolSpinResult> {
   return boardFromRpc(
     await rpc("park_jackpot_spin", {
       p_stake: input.stake,
       p_eligible: input.eligible,
       p_skip: Boolean(input.skip),
       p_player: input.player.slice(0, 64),
+    }),
+  );
+}
+
+export async function postParkClaim(tier: TierId, player: string): Promise<PoolSpinResult> {
+  return boardFromRpc(
+    await rpc("park_jackpot_claim", {
+      p_tier: tier,
+      p_player: player.slice(0, 64),
     }),
   );
 }

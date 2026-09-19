@@ -12,6 +12,7 @@ import {
   scatterPay,
   type Cell,
   type PayId,
+  type TicketId,
 } from "./symbols";
 
 let uidSeq = 1000;
@@ -71,7 +72,7 @@ export function randomOrb(rng: () => number, fs = false): Cell {
   return { uid: nextUid(), kind: "mult", mult: m };
 }
 
-/** Orbs in LIVE ride the strip. PORT keeps them as ramp drops. No jackpot symbol in LIVE. */
+/** Orbs in LIVE ride the strip. Tickets are planted once per spin, not per cell. */
 export function randomCell(rng: () => number, ante: boolean, live = false): Cell {
   if (live) {
     const scatterW = 3.2;
@@ -256,6 +257,36 @@ export function evaluate(grid: Cell[][]): {
 
 export function punchHoles(grid: Cell[][], winMask: boolean[][]): Cell[][] {
   return grid.map((row, r) => row.map((cell, c) => (winMask[r][c] ? { ...cell, gone: true } : { ...cell, gone: false })));
+}
+
+export function findTicket(grid: Cell[][]): { r: number; c: number; ticket: TicketId } | null {
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = grid[r][c];
+      if (cell.kind === "park" && cell.ticket) return { r, c, ticket: cell.ticket };
+    }
+  }
+  return null;
+}
+
+export function plantTicket(grid: Cell[][], ticket: TicketId, rng: () => number): Cell[][] {
+  if (findTicket(grid)) return grid;
+  const low = new Set(["rj45", "router", "hap", "roof"]);
+  const spots: { r: number; c: number; low: boolean }[] = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = grid[r][c];
+      if (cell.kind === "scatter" || cell.kind === "mult" || cell.kind === "park") continue;
+      spots.push({ r, c, low: Boolean(cell.payId && low.has(cell.payId)) });
+    }
+  }
+  const bag = spots.filter((s) => s.low);
+  const pool = bag.length ? bag : spots;
+  if (!pool.length) return grid;
+  const pick = pool[Math.floor(rng() * pool.length)];
+  const next = cloneGrid(grid);
+  next[pick.r][pick.c] = { uid: nextUid(), kind: "park", ticket };
+  return next;
 }
 
 export function countParks(grid: Cell[][]): number {

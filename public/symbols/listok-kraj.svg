@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+  <rect x="8" y="14" width="64" height="52" rx="6" fill="#1a1024" stroke="#c86bff" stroke-width="3"/>
+  <rect x="14" y="20" width="52" height="40" rx="3" fill="none" stroke="#e0a8ff" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <text x="40" y="38" text-anchor="middle" font-family="Oswald, Arial Black, sans-serif" font-size="9" font-weight="700" fill="#e0a8ff" letter-spacing="1.4">LÍSTOK</text>
+  <text x="40" y="54" text-anchor="middle" font-family="Oswald, Arial Black, sans-serif" font-size="11" font-weight="700" fill="#f6e5ff" letter-spacing="1">KRAJ</text>
+</svg>

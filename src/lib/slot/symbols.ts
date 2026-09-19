@@ -14,11 +14,14 @@ export type PayId =
 
 export type CellKind = "pay" | "scatter" | "mult" | "park";
 
+export type TicketId = "ulica" | "okres" | "kraj" | "stat";
+
 export interface Cell {
   uid: number;
   kind: CellKind;
   payId?: PayId;
   mult?: number;
+  ticket?: TicketId;
   /** Rows this cell just fell (presentation only). */
   fall?: number;
   /** Just exploded — render as an empty hole for a beat. */
@@ -124,16 +127,22 @@ export const SCATTER = {
 
 export const PARK = {
   id: "park" as const,
-  name: "PARK",
-  src: "/symbols/park.svg",
-  /** FS fill weight. 3+ after a bonus spin collects the whole pool. */
-  weight: 1.35,
+  name: "LÍSTOK",
+  src: "/symbols/listok-stat.svg",
+  weight: 0,
+};
+
+export const TICKETS: Record<TicketId, { name: string; src: string; ink: string }> = {
+  ulica: { name: "ULICA", src: "/symbols/listok-ulica.svg", ink: "#c5ccd4" },
+  okres: { name: "OKRES", src: "/symbols/listok-okres.svg", ink: "#6ea8ff" },
+  kraj: { name: "KRAJ", src: "/symbols/listok-kraj.svg", ink: "#c86bff" },
+  stat: { name: "ŠTÁT", src: "/symbols/listok-stat.svg", ink: "#e2b01a" },
 };
 
 export const ALL_ART: readonly string[] = [
   ...PAY_SYMBOLS.map((s) => s.src),
   SCATTER.src,
-  PARK.src,
+  ...Object.values(TICKETS).map((t) => t.src),
   "/symbols/can.png",
   "/art/ramp.png",
   "/art/parking-bg.jpg",
@@ -209,7 +218,7 @@ export function scatterPay(count: number): number {
 
 export function symbolSrc(cell: Cell): string {
   if (cell.kind === "scatter") return SCATTER.src;
-  if (cell.kind === "park") return PARK.src;
+  if (cell.kind === "park") return TICKETS[cell.ticket ?? "stat"].src;
   if (cell.kind === "mult") return "/symbols/can.png";
   const s = PAY_SYMBOLS.find((p) => p.id === cell.payId);
   return s?.src ?? PAY_SYMBOLS[0].src;
@@ -217,7 +226,7 @@ export function symbolSrc(cell: Cell): string {
 
 export function symbolName(cell: Cell): string {
   if (cell.kind === "scatter") return SCATTER.name;
-  if (cell.kind === "park") return PARK.name;
+  if (cell.kind === "park") return `LÍSTOK ${TICKETS[cell.ticket ?? "stat"].name}`;
   if (cell.kind === "mult") return `x${cell.mult ?? 2}`;
   return PAY_SYMBOLS.find((p) => p.id === cell.payId)?.name ?? "";
 }

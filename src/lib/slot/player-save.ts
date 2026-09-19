@@ -1,8 +1,16 @@
 import { BETS, START_BALANCE } from "./symbols";
 import type { PityMap } from "./pick-bonus";
+import type { TierId } from "./jackpot";
+import { SHIFTS, type JobCard, type JobFloor, type ShiftId } from "./spend";
 
 export const SAVE_KEY = "parkizmus-v1";
 const LEGACY_KEYS = ["olympus4k-v1"];
+
+export interface ShiftSave {
+  id: ShiftId;
+  left: number;
+  name: string;
+}
 
 export interface PlayerSave {
   balance: number;
@@ -33,6 +41,10 @@ export interface PlayerSave {
   fsTriggerCash: number;
   globalMult: number;
   playerId: string;
+  shift: ShiftSave | null;
+  job: JobCard | null;
+  topupAmt: Partial<Record<TierId, number>>;
+  pendingLiveTicket: TierId | null;
 }
 
 export function emptyPlayerSave(): PlayerSave {
@@ -65,6 +77,10 @@ export function emptyPlayerSave(): PlayerSave {
     fsTriggerCash: 0,
     globalMult: 0,
     playerId: "",
+    shift: null,
+    job: null,
+    topupAmt: {},
+    pendingLiveTicket: null,
   };
 }
 
@@ -111,6 +127,61 @@ function stampMs(v: unknown): number {
   return 0;
 }
 
+const TIERS: TierId[] = ["ulica", "okres", "kraj", "stat"];
+const FLOORS: JobFloor[] = ["lacna", "stred", "draha"];
+const KINDS: JobCard["kind"][] = ["wins", "deads", "tumbles", "live", "ticket", "pdf", "signal", "dry"];
+
+function shiftSave(raw: unknown): ShiftSave | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const id = String(r.id || "") as ShiftId;
+  const def = SHIFTS.find((s) => s.id === id);
+  if (!def) return null;
+  const left = Math.min(40, Math.max(0, Math.floor(num(r.left, 0))));
+  if (left <= 0) return null;
+  return { id, left, name: def.name };
+}
+
+function jobSave(raw: unknown): JobCard | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const floor = FLOORS.includes(r.floor as JobFloor) ? (r.floor as JobFloor) : null;
+  const kind = KINDS.includes(r.kind as JobCard["kind"]) ? (r.kind as JobCard["kind"]) : null;
+  if (!floor || !kind) return null;
+  const need = Math.min(40, Math.max(1, Math.floor(num(r.need, 1))));
+  return {
+    id: typeof r.id === "string" ? r.id.slice(0, 64) : "job",
+    floor,
+    template: typeof r.template === "string" ? r.template.slice(0, 24) : kind,
+    title: typeof r.title === "string" ? r.title.slice(0, 24) : "ZÁKAZKA",
+    detail: typeof r.detail === "string" ? r.detail.slice(0, 80) : "",
+    stake: num(r.stake, 1000, 1, 200000),
+    payout: num(r.payout, 1800, 1, 400000),
+    need,
+    have: Math.min(need, Math.max(0, Math.floor(num(r.have, 0)))),
+    limit: Math.min(400, Math.max(need, Math.floor(num(r.limit, need * 8)))),
+    spun: Math.min(400, Math.max(0, Math.floor(num(r.spun, 0)))),
+    kind,
+  };
+}
+
+function topupSave(raw: unknown): Partial<Record<TierId, number>> {
+  if (!raw || typeof raw !== "object") return {};
+  const r = raw as Record<string, unknown>;
+  const out: Partial<Record<TierId, number>> = {};
+  for (const id of TIERS) {
+    if (id === "stat") continue;
+    const n = num(r[id], 0, 0, 200000);
+    if (n > 0) out[id] = n;
+  }
+  return out;
+}
+
+function ticketSave(raw: unknown): TierId | null {
+  const id = typeof raw === "string" ? raw : "";
+  return TIERS.includes(id as TierId) ? (id as TierId) : null;
+}
+
 export function sanitizePlayerSave(raw: unknown): PlayerSave {
   const s = emptyPlayerSave();
   if (!raw || typeof raw !== "object") return s;
@@ -143,9 +214,14 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.fsTriggerCash = num(r.fsTriggerCash, 0, 0, 1_000_000_000);
   s.globalMult = num(r.globalMult, 0, 0, 1_000_000);
   s.playerId = typeof r.playerId === "string" && r.playerId.length >= 8 ? r.playerId.slice(0, 64) : "";
+  s.shift = shiftSave(r.shift);
+  s.job = jobSave(r.job);
+  s.topupAmt = topupSave(r.topupAmt);
+  s.pendingLiveTicket = ticketSave(r.pendingLiveTicket);
   if (!s.inFs || s.fsLeft <= 0) {
     s.inFs = false;
     s.fsLeft = 0;
+    s.pendingLiveTicket = null;
   }
   return s;
 }

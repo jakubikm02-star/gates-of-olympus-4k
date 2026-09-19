@@ -29,7 +29,35 @@ export const TIER_BY_ID: Record<TierId, TierDef> = {
   stat: TIERS[3],
 };
 
-export const POOL_SEED = TIER_BY_ID.stat.seed;
+export const TICKET_ODDS: Record<TierId, number> = {
+  ulica: 1 / 2400,
+  okres: 1 / 8000,
+  kraj: 1 / 22000,
+  stat: 1 / 80000,
+};
+
+export const MUST_HIT_SPINS = 15;
+
+export function rollTicket(rng: () => number, force?: TierId | null): TierId | null {
+  if (force) return force;
+  const r = rng();
+  let acc = 0;
+  for (const t of TIERS) {
+    acc += TICKET_ODDS[t.id];
+    if (r < acc) return t.id;
+  }
+  return null;
+}
+
+export function ticketResolve(
+  pendingFs: boolean,
+  inLive: boolean,
+  ticket: TierId | null,
+): "stash" | "claim" | "none" {
+  if (!ticket) return "none";
+  if (pendingFs || inLive) return "stash";
+  return "claim";
+}
 
 export interface TierSnap {
   id: TierId;
@@ -114,24 +142,36 @@ export interface SimPot {
   hits: number;
 }
 
-/** 3 players × N resolved spins. Hidden threshold, no mystery p. */
+/** Natural ticket + must-hit window. Hidden cross does not pay. */
 export function simulateTable(spins: number, players = 3, bet = 100, rng: () => number = Math.random): SimPot[] {
-  const pots: SimPot[] = TIERS.map((t) => ({
+  const pots: (SimPot & { left: number | null })[] = TIERS.map((t) => ({
     id: t.id,
     pool: t.seed,
     hidden: rollHidden(t, rng),
     hits: 0,
+    left: null as number | null,
   }));
   for (let s = 0; s < spins; s++) {
     for (let p = 0; p < players; p++) {
+      let ticket: TierId | null = null;
       for (let i = 0; i < TIERS.length; i++) {
         const t = TIERS[i];
         const pot = pots[i];
         pot.pool = round2(Math.min(t.cap, pot.pool + bet * t.contrib));
-        if (pot.pool >= pot.hidden) {
+        if (pot.pool >= pot.hidden && pot.left == null) pot.left = MUST_HIT_SPINS;
+        if (pot.left != null) pot.left -= 1;
+        if (pot.left === 0 && !ticket) ticket = t.id;
+      }
+      if (!ticket) ticket = rollTicket(rng);
+      if (ticket) {
+        const pot = pots.find((x) => x.id === ticket);
+        const def = TIER_BY_ID[ticket];
+        if (pot) {
           pot.hits += 1;
-          pot.pool = t.seed;
-          pot.hidden = rollHidden(t, rng);
+          pot.pool = round2(def.seed + pot.pool * 0); // reseed
+          pot.pool = def.seed;
+          pot.hidden = rollHidden(def, rng);
+          pot.left = null;
         }
       }
     }

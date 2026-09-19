@@ -4,14 +4,19 @@ import {
   contribution,
   hiddenFloor,
   isEligibleBet,
+  MUST_HIT_SPINS,
   reserveTake,
   rollHidden,
+  rollTicket,
   simulateTable,
+  ticketResolve,
   TIER_BY_ID,
   TIERS,
+  TICKET_ODDS,
 } from "./jackpot.ts";
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain } from "./pick-bonus.ts";
+import { canSpend, dealJobs, jobStatus, tickJob, SURPLUS_X } from "./spend.ts";
 
 describe("park jackpots", () => {
   it("takes 2.3% visible + 0.3% reserve", () => {
@@ -216,5 +221,109 @@ describe("kontrola pity", () => {
     assert.equal(pityGain(0, true), 2);
     assert.equal(pityGain(3, false), 30);
     assert.equal(pityGain(4, true), 0);
+  });
+});
+
+describe("lístok", () => {
+  it("grey is rarer than PDF 8+ anchor 1/100", () => {
+    assert.ok(TICKET_ODDS.ulica < 1 / 100);
+    assert.ok(TICKET_ODDS.ulica <= 1 / 2400 + 1e-12);
+    assert.ok(TICKET_ODDS.stat <= 1 / 80000 + 1e-12);
+  });
+
+  it("rollTicket returns at most one color", () => {
+    assert.equal(rollTicket(() => 0), "ulica");
+    assert.equal(rollTicket(() => 0.999), null);
+    assert.equal(rollTicket(() => 0.5, "stat"), "stat");
+  });
+
+  it("4tv trigger stashes the ticket, LIVE defers claim", () => {
+    assert.equal(ticketResolve(true, false, "ulica"), "stash");
+    assert.equal(ticketResolve(false, true, "kraj"), "stash");
+    assert.equal(ticketResolve(false, false, "okres"), "claim");
+    assert.equal(ticketResolve(false, false, null), "none");
+  });
+
+  it("crossing hidden does not pay until the window + force", () => {
+    const rng = () => 0.999;
+    const pots = simulateTable(80, 1, 100, rng);
+    const ulica = pots.find((p) => p.id === "ulica")!;
+    assert.equal(ulica.hits, 0, "80 spins without tickets must not mystery-pay");
+    const forced = simulateTable(2000, 1, 100, rng);
+    const hit = forced.find((p) => p.id === "ulica")!;
+    assert.ok(hit.hits >= 1, `must-hit should force after window, hits=${hit.hits}`);
+  });
+
+  it("must-hit window is 15 then force on 16", () => {
+    assert.equal(MUST_HIT_SPINS, 15);
+  });
+});
+
+describe("míňať", () => {
+  it("surplus is 500× bet and jobs use three floors", () => {
+    assert.equal(SURPLUS_X, 500);
+    assert.equal(canSpend(49999, 100), false);
+    assert.equal(canSpend(50000, 100), true);
+    let s = 1;
+    const rng = () => {
+      s = (s * 1664525 + 1013904223) >>> 0;
+      return s / 0x100000000;
+    };
+    const jobs = dealJobs(rng);
+    assert.equal(jobs.length, 3);
+    assert.deepEqual(
+      jobs.map((j) => j.floor),
+      ["lacna", "stred", "draha"],
+    );
+    const titles = new Set(jobs.map((j) => j.template));
+    assert.equal(titles.size, 3);
+    const cheap = jobs[0].stake;
+    const mid = jobs[1].stake;
+    const dear = jobs[2].stake;
+    assert.ok(cheap >= 1000 && cheap <= 2500);
+    assert.ok(mid >= 8000 && mid <= 15000);
+    assert.ok(dear >= 40000 && dear <= 90000);
+  });
+
+  it("POT job needs a grey ticket, not a silent must-hit", () => {
+    const job = dealJobs(() => 0.1).find((j) => j.kind === "ticket") ?? {
+      id: "pot",
+      floor: "lacna" as const,
+      template: "pot",
+      title: "POT",
+      detail: "",
+      stake: 1000,
+      payout: 2000,
+      need: 1,
+      have: 0,
+      limit: 40,
+      spun: 0,
+      kind: "ticket" as const,
+    };
+    const miss = tickJob(job, {
+      win: true,
+      dead: false,
+      tumbles: 0,
+      live: false,
+      ticket: "stat",
+      pdf: false,
+      signal: 0,
+      clusters: 1,
+      orbs: false,
+    });
+    assert.equal(miss.have, 0);
+    const hit = tickJob(job, {
+      win: false,
+      dead: true,
+      tumbles: 0,
+      live: false,
+      ticket: "ulica",
+      pdf: false,
+      signal: 0,
+      clusters: 0,
+      orbs: false,
+    });
+    assert.equal(hit.have, 1);
+    assert.equal(jobStatus(hit), "ok");
   });
 });

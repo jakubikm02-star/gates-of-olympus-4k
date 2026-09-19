@@ -32,6 +32,7 @@ interface Props {
   cam?: "stop" | "scatter" | "tumble" | null;
   spinPace?: "up" | "full";
   spinStrips?: Cell[][] | null;
+  ticketLock?: boolean;
 }
 
 function jag(x0: number, y0: number, x1: number, y1: number): string {
@@ -59,6 +60,7 @@ function CellView({
   slam,
   expired,
   tumbleFall,
+  ticketLock,
 }: {
   cell: Cell;
   r: number;
@@ -73,6 +75,7 @@ function CellView({
   slam: boolean;
   expired: boolean;
   tumbleFall: number;
+  ticketLock?: boolean;
 }) {
   const style = {
     ["--r"]: String(r),
@@ -86,8 +89,10 @@ function CellView({
         cell.gone ? "is-hole" : "",
         win ? "is-win" : "",
         cell.kind === "scatter" ? "is-scatter" : "",
-        cell.kind === "park" ? "is-park" : "",
+        cell.kind === "park" ? `is-park is-ticket-${cell.ticket ?? "stat"}` : "",
         cell.kind === "mult" ? "is-mult" : "",
+        ticketLock && cell.kind !== "park" ? "is-dim" : "",
+        ticketLock && cell.kind === "park" ? "is-lock" : "",
         hot ? "is-struck" : "",
         dormant ? "is-dormant" : "",
         popping && win ? "is-pop" : "",
@@ -103,7 +108,7 @@ function CellView({
         <img src={symbolSrc(cell)} alt="" draggable={false} className="cell-img" />
       )}
       {!cell.gone && cell.kind === "scatter" && <span className="scatter-label">SCATTER</span>}
-      {!cell.gone && cell.kind === "park" && <span className="scatter-label">JACKPOT</span>}
+      {!cell.gone && cell.kind === "park" && <span className="scatter-label">LÍSTOK</span>}
       {!cell.gone && cell.kind === "mult" && <span className="mult-tag">{cell.mult}X</span>}
       {!cell.gone && win && <span className="win-fx" aria-hidden="true" />}
       {hot && <span className="orb-strike" aria-hidden="true" />}
@@ -139,6 +144,7 @@ export function SlotGrid({
   cam,
   spinPace,
   spinStrips,
+  ticketLock,
 }: Props) {
   const cascading = spinning || landing;
   const bolt = strike
@@ -191,6 +197,7 @@ export function SlotGrid({
                       slam={false}
                       expired={false}
                       tumbleFall={0}
+                      ticketLock={false}
                     />
                   ))}
                 </div>
@@ -215,6 +222,7 @@ export function SlotGrid({
                         slam={justLand && cell.kind === "scatter"}
                         expired={expiredUids.includes(cell.uid)}
                         tumbleFall={cell.fall ?? 0}
+                        ticketLock={ticketLock}
                       />
                     );
                   })}

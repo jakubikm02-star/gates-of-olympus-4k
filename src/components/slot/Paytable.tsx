@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { MATH_NOTE, PAY_SYMBOLS, SCATTER } from "@/lib/slot/symbols";
+import { MATH_NOTE, PAY_SYMBOLS, SCATTER, TICKETS } from "@/lib/slot/symbols";
 
 interface Props {
   open: boolean;
@@ -72,55 +72,63 @@ export function Paytable({ open, onClose, bet }: Props) {
               <div className="pay-quip">Štyri obrazovky a rampa ide hore.</div>
             </div>
           </div>
+          <div className="pay-row">
+            <img src={TICKETS.ulica.src} alt="" className="pay-ico" />
+            <div>
+              <div className="pay-name">LÍSTOK · jediný kľúč k potu</div>
+              <div className="pay-vals">
+                <span>SIVÝ ULICA</span>
+                <span>MODRÝ OKRES</span>
+                <span>FIALOVÝ KRAJ</span>
+                <span>ZLATÝ ŠTÁT</span>
+              </div>
+              <div className="pay-quip">Neplatí 8+. Neskáče do SIGNÁL. Max 1 na spin.</div>
+            </div>
+          </div>
         </div>
         <ul className="rules">
           <li>
-            Štyri jackpoty na jednom stole: ULICA 500, OKRES 4 000, KRAJ 28 000, ŠTÁT 120 000.
-            Padnú keď meter prekročí skrytý prah po resolve — nie počas tumble. ŠTÁT 70 / 15 / 15.
+            Štyri poty: ULICA 500 / 1 800, OKRES 4 000 / 14 000, KRAJ 28 000 / 90 000, ŠTÁT 120 000 / 220 000.
+            Padnú len cez LÍSTOK po resolve tumble — nikdy mystery mid-tumble, nikdy 8+, nikdy SIGNÁL.
+            Must-hit: keď meter prekročí skrytý prah, tá farba je do 15 spinov, 16. spin ju donúti. ŠTÁT 70 / 15 / 15.
           </li>
           <li>
             4 a viac scatterov kdekoľvek na obrazovke — aj počas tumble — spustí 15 free spins.
-            Scatter ostane na poli, kým bonus nezačne.
+            Scatter ostane na poli, kým bonus nezačne. 4tv trigger bije lístok: ceremónia čaká.
           </li>
-          <li>Výherné symboly zmiznú, nové spadnú zhora (tumble). Plechovky a scatter tumble prežijú.</li>
+          <li>Výherné symboly zmiznú, nové spadnú zhora (tumble). Plechovky, scatter aj lístok tumble prežijú.</li>
           <li>Násobiče nepadajú z valca ako RJ45. Rampa ich pustí ako energy plechovky. Aktivujú sa až na konci reťaze, a len ak bola výhra.</li>
-          <li>Base: súčet plechoviek × celá tumble sekvencia. Vo FS tečú do globálneho metra; bez výhry prepadnú.</li>
+          <li>Base: súčet plechoviek × celá tumble sekvencia. Vo FS tečú do SIGNÁL; bez výhry prepadnú.</li>
           <li>4 scatteri = 15 voľných točení. V bonuse 3+ scatteri = +5. Pay scatteru ostáva 4 / 5 / 6.</li>
-          <li>V free spinoch padá pečiatka PARK. 3 a viac na gride po tumble = celý PARK POOL. 4tv ostáva scatter, nie jackpot.</li>
-          <li>Ante základ 1.25× stávka dvíha P(bonus). Od SMART ligy ante 1.20×. Vo FS sa ante vypína.</li>
+          <li>
+            Lístok vo feature smie padnúť, ceremónia ide až po SIEŤ SPADLA. Banner je{" "}
+            <code>ULICA · 1 742,20</code> — žiadny WinBox, žiadny terminál.
+          </li>
+          <li>Ante 1.20× zdvojnásobí 4tv, nie šancu lístka. Buy 100× = LIVE so SIGNÁL 0×. Pity je IDLE meter, nikdy jackpot.</li>
           <li>
             KONTROLA má vlastný PITY meter na každú stávku (100). Iba mŕtvy spin (+2) a 3 / 4 scattere
-            (+20 / +35) na tej stávke. Po spustení bar padne na 0 — pretečenie sa neprenáša. Kúpiť sa nedá.
+            (+30). Po spustení bar padne na 0. Kúpiť sa nedá.
           </li>
           <li>
-            Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bez účtu — po vymazaní dát prehliadača
-            sa zostatok resetuje. PARK POOL je globálny (jeden jackpot pre všetkých). Bankrot +5000 berie
-            RP podľa stávky (max bet dump ≈ −800, opakované dobitie násobí). 80 platených spinov bez
-            dobitia sériu trestov vynuluje.
+            Od kreditu ≥ 500× stávka pribudne MÍŇAŤ: jedna smena 20–30 spinov, dobiť ULICA/OKRES/KRAJ 1:1
+            raz za reláciu (ŠTÁT nie), jedna zákazka z troch poschodí. TVRDÝ PORT zdvojnásobí contrib, nie drop rate.
+          </li>
+          <li>
+            Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bankrot +5000 berie RP podľa stávky.
+            80 platených spinov bez dobitia sériu trestov vynuluje.
           </li>
           <li>
             Ranked liga 4ky: KREDIT → SLOBODA → SMART → 4KA TV → OPTIKA → DUO → 5G NA DOMA → NEKONEČNO.
-            Raz za týždeň klesáš o jednu skupinu na IV predchádzajúcej ligy (4KA TV II → SMART IV). AFK max
-            3 skupiny. Štít nechráni.
-            RP za reálne vyhrané eurá a za stávku. 0.36 € dá ~2–5 RP, 75 € ~40–55 RP — nie rovnako.
-            Mŕtvy spin v KREDITE nič. Vo vyššej lige berie entry × stávku (NEKONEČNO na 100 € ≈ −57 RP).
-            S 1 € ideš z KREDITU von za ~100 spinov. Udržať NEKONEČNO na max bete je ťažké.
-          </li>
-          <li>
-            PARK POOL je samostatná hra: local operator pot, 1 mena. 1.5 % zo stávky (2.0 % s ante,
-            0.5 % pod 100 € — tie nesúťažia). Seed 500, strop 10 000, must-drop od 8 000. Eligible
-            stávka ≥ 100 €. Mystery až po resolve tumble. 3× PARK v free spinoch berie celý pot
-            a bije mystery. Po hite pot = 500 + reserve drip. HUD sa nehýbe počas tumble.
-            Pity = osobný meter na KONTROLU, nie jackpot.
+            Raz za týždeň klesáš o jednu skupinu. RP za reálne vyhrané eurá a za stávku.
           </li>
           <li>
             Win popup ako na Olympuse: BIG WIN od 20× stávky, MEGA WIN od 35×, SUPER MEGA WIN od 50×.
             MAX WIN 5000× ukončí feature.
           </li>
-          <li>Kúpa FS = 100× základná stávka (95× od 5G, 90× v NEKONEČNE). Ante sa na kúpu nevzťahuje. Do ranku sa kúpa ráta ako 100 točení: výhra z FS ide voči cene kúpy (250 € z 100 € = 2.5×, nie 250×). Prehra berie entry ako mŕtve spiny, max jedna divízia. Max 5000× je cap celej feature — potom FEATURE TERMINATED.</li>
+          <li>Kúpa FS = 100× základná stávka (95× od 5G, 90× v NEKONEČNE). Ante sa na kúpu nevzťahuje. Do ranku sa kúpa ráta ako 100 točení. Max 5000× je cap celej feature — potom FEATURE TERMINATED.</li>
           <li>
             Simulácia {MATH_NOTE.spins.toLocaleString("sk-SK")} spinov: base RTP {(MATH_NOTE.rtp * 100).toFixed(1)} % +
-            jackpot ~1.7 % contribution = tvar 96.5. Hit {(MATH_NOTE.hit * 100).toFixed(1)} %, bonus 1/{MATH_NOTE.bonusEvery}, kúpa vracia{" "}
+            jackpot ~2.3 % contribution = tvar 96.5. Hit {(MATH_NOTE.hit * 100).toFixed(1)} %, bonus 1/{MATH_NOTE.bonusEvery}, kúpa vracia{" "}
             {(MATH_NOTE.buyEv * 100).toFixed(0)}× z 100×. High-vol demo, nie certifikát 96.50 %.
           </li>
         </ul>
