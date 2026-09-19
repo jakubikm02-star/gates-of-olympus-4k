@@ -437,9 +437,6 @@ export function useSlotGame() {
 
   useEffect(() => {
     if (rankFlash) {
-      if (rankFlash.event === "up") sfx.playFsStart();
-      else if (rankFlash.event === "shield") sfx.playCollect();
-      else if (rankFlash.event) sfx.playThunder();
       const t = window.setTimeout(() => setRankFlash(null), 1400);
       return () => window.clearTimeout(t);
     }
