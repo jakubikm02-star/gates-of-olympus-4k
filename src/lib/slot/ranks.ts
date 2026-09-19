@@ -109,6 +109,15 @@ export function standing(rp: number): Standing {
   };
 }
 
+/** 0 = KREDIT IV, 1 = NEKONEČNO. Needle sits inside the current rank wedge. */
+export function ladderNeedle(stand: Standing): number {
+  const n = RANKS.length;
+  const base = stand.rankIndex / n;
+  const span = 1 / n;
+  if (stand.need <= 0) return 1;
+  return Math.min(1, base + span * Math.max(0, Math.min(1, stand.into / stand.need)));
+}
+
 export function rankStart(rankIndex: number): number {
   const b = BANDS.find((x) => x.rankIndex === rankIndex);
   return b?.floor ?? 0;

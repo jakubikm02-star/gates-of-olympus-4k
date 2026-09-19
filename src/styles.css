@@ -107,6 +107,7 @@
     repeating-linear-gradient(118deg, transparent 0 16px, rgb(62 198 224 / 0.07) 16px 18px);
 }
 
+.stage.in-fs .rank-chip,
 .stage.in-fs .rank-badge,
 .stage.in-fs .parchment.buy,
 .stage.in-fs .parchment.ante,
@@ -3215,7 +3216,7 @@
 .table-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
+  align-items: start;
   gap: 6px;
   flex-shrink: 0;
   z-index: 5;
@@ -3440,8 +3441,95 @@
   position: relative;
 }
 
+.rank-chip.rank-gauge {
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  align-content: start;
+  gap: 0;
+  width: 132px;
+  padding: 4px 6px 6px;
+  border-radius: 12px 12px 8px 8px;
+  border: 1px solid color-mix(in srgb, var(--color-gold) 42%, #3a3010);
+  background:
+    linear-gradient(180deg, #222a32 0%, #12171c 55%, #0a0d10 100%);
+  box-shadow:
+    0 8px 18px rgb(0 0 0 / 0.45),
+    inset 0 1px 0 rgb(255 230 120 / 0.18),
+    inset 0 -8px 12px rgb(0 0 0 / 0.35);
+  min-height: 0;
+}
+
+.rank-dial {
+  width: 124px;
+  height: 70px;
+  display: block;
+  overflow: visible;
+}
+
+.rank-dial path.is-now {
+  filter: brightness(1.2) saturate(1.2);
+}
+
+.rank-needle {
+  transform: rotate(var(--needle, -90deg));
+  transform-origin: 100px 108px;
+  transition: transform 0.5s cubic-bezier(0.18, 0.84, 0.24, 1);
+}
+
+.rank-needle polygon {
+  fill: #14181c;
+  stroke: #f0c419;
+  stroke-width: 0.9;
+}
+
+.rank-needle circle:nth-of-type(1) {
+  fill: #1c2228;
+  stroke: #f0c419;
+  stroke-width: 1.7;
+}
+
+.rank-needle circle:nth-of-type(2) {
+  fill: var(--rk, #f0c419);
+}
+
+.rank-hub {
+  position: absolute;
+  left: 50%;
+  top: 54px;
+  width: 18px;
+  height: 18px;
+  transform: translateX(-50%);
+  display: grid;
+  place-items: center;
+  color: #0c1014;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.rank-gauge .rank-meta {
+  margin-top: 2px;
+  align-items: center;
+  text-align: center;
+  gap: 1px;
+}
+
+.rank-gauge .rank-meta em {
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  color: var(--color-gold-2);
+}
+
+.rank-gauge .rank-perk-tag {
+  color: color-mix(in srgb, var(--rk-ink) 70%, #aaa);
+}
+
 .rank-chip:hover {
   border-color: var(--rk);
+}
+
+.rank-gauge:hover {
+  border-color: var(--color-gold);
 }
 
 .rank-shield {
@@ -3854,9 +3942,25 @@
   .pool-led em {
     display: none;
   }
+  .rank-chip.rank-gauge {
+    width: 108px;
+    padding: 2px 4px 4px;
+  }
+  .rank-dial {
+    width: 100px;
+    height: 56px;
+  }
+  .rank-hub {
+    top: 42px;
+    width: 16px;
+    height: 16px;
+  }
+  .rank-gauge .rank-meta em {
+    font-size: 0.54rem;
+  }
   .rank-chip {
     padding: 2px 8px 2px 2px;
-    min-height: 36px;
+    min-height: 0;
     gap: 6px;
   }
   .rank-perk-tag {
@@ -3891,6 +3995,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .rank-needle {
+    transition: none;
+  }
   .reel-window,
   .reel-window.is-anticipate {
     transform: none !important;
