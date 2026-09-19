@@ -189,7 +189,6 @@ export function useSlotGame() {
   quickRef.current = quick;
   anteRef.current = ante;
   inFsRef.current = inFs;
-  globalMultRef.current = globalMult;
   balanceRef.current = balance;
   betIndexRef.current = betIndex;
   autoRef.current = autoOn;
@@ -1013,33 +1012,14 @@ export function useSlotGame() {
       }
 
       if ((isFree || inFsRef.current) && sequenceX <= 0 && hasOrb(board)) {
-        if (perk.stickyOrbs) {
-          const leftover = listOrbs(board);
-          const add = leftover.reduce((s, o) => s + o.mult, 0);
-          setTopLine("PREDATOR · PLECHOVKY DRŽIA");
-          setPhase("mult");
-          for (const orb of leftover) {
-            const key = flyKey.current++;
-            setFlies((f) => [...f, { key, r: orb.r, c: orb.c, mult: orb.mult }]);
-            window.setTimeout(() => setFlies((f) => f.filter((x) => x.key !== key)), 820);
-            await wait(dur(180), abort.current);
-          }
-          const gm = globalMultRef.current + add;
-          globalMultRef.current = gm;
-          setGlobalMult(gm);
-          const gone = expireOrbs(board, rng);
-          board = gone.grid;
-          setGrid(cloneGrid(board));
-        } else {
-          setTopLine("BEZ VÝHRY PLECHOVKY PREPADNÚ");
-          const gone = expireOrbs(board, rng);
-          setExpiredUids(gone.expired);
-          board = gone.grid;
-          setGrid(cloneGrid(board));
-          sfx.playPop();
-          await wait(dur(360), abort.current);
-          setExpiredUids([]);
-        }
+        setTopLine("BEZ VÝHRY PLECHOVKY PREPADNÚ");
+        const gone = expireOrbs(board, rng);
+        setExpiredUids(gone.expired);
+        board = gone.grid;
+        setGrid(cloneGrid(board));
+        sfx.playPop();
+        await wait(dur(360), abort.current);
+        setExpiredUids([]);
       }
 
       const orbs = listOrbs(board);
