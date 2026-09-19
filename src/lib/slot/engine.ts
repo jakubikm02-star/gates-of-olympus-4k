@@ -1,8 +1,7 @@
 import {
   COLS,
   ROWS,
-  MULT_TABLE,
-  BASE_MULT_TABLE,
+  ORB_TABLE,
   PAY_SYMBOLS,
   SCATTER,
   MAX_WIN_X,
@@ -67,29 +66,19 @@ function randomPayCell(rng: () => number, live = false): Cell {
   return { uid: nextUid(), kind: "pay", payId: s.id };
 }
 
-export function randomOrb(rng: () => number, fs = false): Cell {
-  const m = pickWeighted(fs ? MULT_TABLE : BASE_MULT_TABLE, rng).value;
+export function randomOrb(rng: () => number, _fs = false): Cell {
+  const m = pickWeighted(ORB_TABLE, rng).value;
   return { uid: nextUid(), kind: "mult", mult: m };
 }
 
-/** Orbs in LIVE ride the strip. Tickets are planted once per spin, not per cell. */
+/** Cans never ride the strip — rampa drops them after the stop / tumble. */
 export function randomCell(rng: () => number, ante: boolean, live = false): Cell {
-  if (live) {
-    const scatterW = 3.2;
-    const orbW = 7.8;
-    const payW = PAY_SYMBOLS.reduce((s, p) => s + p.weight, 0);
-    const t = payW + scatterW + orbW;
-    const r = rng() * t;
-    if (r < orbW) return randomOrb(rng, true);
-    if (r < orbW + scatterW) return { uid: nextUid(), kind: "scatter" };
-    return randomPayCell(rng, true);
-  }
-  const scatterW = ante ? SCATTER.weightAnte : SCATTER.weight;
+  const scatterW = live ? 3.2 : ante ? SCATTER.weightAnte : SCATTER.weight;
   const payW = PAY_SYMBOLS.reduce((s, p) => s + p.weight, 0);
   const t = payW + scatterW;
   const r = rng() * t;
   if (r < scatterW) return { uid: nextUid(), kind: "scatter" };
-  return randomPayCell(rng);
+  return randomPayCell(rng, live);
 }
 
 /** Tall looping column: 3×5 with empty track so the shot isn’t a packed icon wall. */
@@ -140,15 +129,16 @@ export function generateBuyGrid(rng: () => number): Cell[][] {
 }
 
 export function zeusDropCount(rng: () => number, fs: boolean, afterTumble: boolean): number {
-  const p = afterTumble ? (fs ? 0.22 : 0.082) : fs ? 0.155 : 0.05;
-  if (rng() > p) return 0;
+  // Base: ~18 % of spins show a can. LIVE: ~8 cans / 15 FS, never from the strip.
+  const p = afterTumble ? (fs ? 0.16 : 0.1) : fs ? 0.32 : 0.155;
+  if (rng() >= p) return 0;
   const r = rng();
   if (fs) {
-    if (r < 0.7) return 1;
-    if (r < 0.92) return 2;
+    if (r < 0.72) return 1;
+    if (r < 0.94) return 2;
     return 3;
   }
-  if (r < 0.84) return 1;
+  if (r < 0.86) return 1;
   if (r < 0.97) return 2;
   return 3;
 }

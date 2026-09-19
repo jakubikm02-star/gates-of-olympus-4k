@@ -2,25 +2,6 @@ import type { TierId } from "./jackpot";
 
 export const SURPLUS_X = 500;
 export const REROLL_COST = 1000;
-export const TOPUP_AMOUNTS = [1000, 2500, 5000] as const;
-
-export type ShiftId = "nocny" | "pdf" | "signal" | "siet" | "tvrdy";
-
-export interface ShiftDef {
-  id: ShiftId;
-  name: string;
-  spins: [number, number];
-  costX: number;
-  note: string;
-}
-
-export const SHIFTS: readonly ShiftDef[] = [
-  { id: "nocny", name: "NOČNÝ DROP", spins: [20, 30], costX: 25, note: "Low clustre častejšie." },
-  { id: "pdf", name: "PDF HUNT", spins: [20, 30], costX: 40, note: "PDF váha ×2." },
-  { id: "signal", name: "SIGNÁL 5", spins: [20, 30], costX: 50, note: "LIVE začína na 5×." },
-  { id: "siet", name: "DLHÁ SIEŤ", spins: [20, 30], costX: 35, note: "LIVE +5 spinov." },
-  { id: "tvrdy", name: "TVRDÝ PORT", spins: [20, 30], costX: 30, note: "Contrib ×2. Drop rate nie." },
-] as const;
 
 export type JobFloor = "lacna" | "stred" | "draha";
 
@@ -45,23 +26,42 @@ const FLOOR: Record<JobFloor, { stake: [number, number]; pay: [number, number] }
   draha: { stake: [40000, 90000], pay: [70000, 180000] },
 };
 
-const TEMPLATES: { id: string; title: string; kind: JobCard["kind"]; need: [number, number]; line: string }[] = [
-  { id: "zber", title: "ZBER", kind: "wins", need: [8, 14], line: "Výherných spinov" },
-  { id: "balik", title: "BALÍK", kind: "tumbles", need: [6, 12], line: "Tumble reťazí" },
-  { id: "siet", title: "SIEŤ", kind: "live", need: [1, 1], line: "Spustiť PARKNET LIVE" },
-  { id: "signal", title: "SIGNÁL", kind: "signal", need: [10, 25], line: "SIGNÁL dosiahnuť" },
-  { id: "retaz", title: "REŤAZ", kind: "wins", need: [4, 8], line: "Séria výhier v rade" },
-  { id: "plechovky", title: "PLECHOVKY", kind: "tumbles", need: [3, 7], line: "Spiny s násobičom" },
-  { id: "tv", title: "4TV", kind: "live", need: [1, 1], line: "4tv trigger" },
-  { id: "plus", title: "PLUS", kind: "wins", need: [12, 20], line: "Akýchkoľvek výhier" },
-  { id: "pot", title: "POT", kind: "ticket", need: [1, 1], line: "Sivý lístok ULICA" },
-  { id: "sucho", title: "SUCHO", kind: "deads", need: [10, 18], line: "Mŕtvych spinov" },
-  { id: "vynos", title: "VÝNOS", kind: "pdf", need: [1, 2], line: "PDF 8+" },
-  { id: "duo", title: "DUO", kind: "wins", need: [2, 4], line: "Dva clustre na spine" },
+const TEMPLATES: {
+  id: string;
+  title: string;
+  kind: JobCard["kind"];
+  need: [number, number];
+  until: number;
+  line: string;
+}[] = [
+  { id: "zber", title: "ZBER", kind: "wins", need: [8, 14], until: 50, line: "výherných spinov" },
+  { id: "balik", title: "BALÍK", kind: "tumbles", need: [6, 12], until: 40, line: "tumble reťazí" },
+  { id: "siet", title: "SIEŤ", kind: "live", need: [1, 1], until: 40, line: "spustiť PARKNET LIVE" },
+  { id: "signal", title: "SIGNÁL", kind: "signal", need: [10, 25], until: 50, line: "SIGNÁL dosiahnuť" },
+  { id: "retaz", title: "REŤAZ", kind: "wins", need: [4, 8], until: 25, line: "výhier v rade" },
+  { id: "plechovky", title: "PLECHOVKY", kind: "tumbles", need: [3, 7], until: 30, line: "spinov s násobičom" },
+  { id: "tv", title: "4TV", kind: "live", need: [1, 1], until: 40, line: "4tv trigger" },
+  { id: "plus", title: "PLUS", kind: "wins", need: [12, 20], until: 50, line: "akýchkoľvek výhier" },
+  { id: "pot", title: "POT", kind: "ticket", need: [1, 1], until: 40, line: "sivý lístok ULICA" },
+  { id: "sucho", title: "SUCHO", kind: "deads", need: [10, 18], until: 25, line: "mŕtvych spinov" },
+  { id: "vynos", title: "VÝNOS", kind: "pdf", need: [1, 2], until: 40, line: "PDF 8+" },
+  { id: "duo", title: "DUO", kind: "wins", need: [2, 4], until: 30, line: "dva clustre na spine" },
 ];
 
 function rngRange(rng: () => number, a: number, b: number): number {
   return Math.round(a + rng() * (b - a));
+}
+
+export function jobLeft(job: JobCard): number {
+  return Math.max(0, job.limit - job.spun);
+}
+
+export function jobClock(job: JobCard): string {
+  if (job.have >= job.need) return "SPLNEŇÁ";
+  const left = jobLeft(job);
+  if (left <= 0) return "TERMÍN PREŠIEL";
+  if (left === 1) return "posledné točenie";
+  return `ešte ${left} točení`;
 }
 
 export function dealJobs(rng: () => number): JobCard[] {
@@ -79,18 +79,17 @@ export function dealJobs(rng: () => number): JobCard[] {
     const stake = rngRange(rng, f.stake[0], f.stake[1]);
     const payout = rngRange(rng, f.pay[0], f.pay[1]);
     const need = t.need[0] === t.need[1] ? t.need[0] : rngRange(rng, t.need[0], t.need[1]);
-    const limit = need === 1 ? rngRange(rng, 25, 80) : rngRange(rng, need * 4, need * 10);
     return {
       id: `${t.id}-${floor}-${Math.floor(rng() * 1e6)}`,
       floor,
       template: t.id,
       title: t.title,
-      detail: `${t.line} · ${need}`,
+      detail: `${need}× ${t.line}`,
       stake,
       payout,
       need,
       have: 0,
-      limit,
+      limit: t.until,
       spun: 0,
       kind: t.kind,
     };
@@ -141,14 +140,4 @@ export function jobStatus(job: JobCard): "run" | "ok" | "fail" {
 
 export function canSpend(credit: number, bet: number): boolean {
   return bet > 0 && credit >= SURPLUS_X * bet;
-}
-
-export function shiftLen(def: ShiftDef, rng: () => number): number {
-  return rngRange(rng, def.spins[0], def.spins[1]);
-}
-
-export const TOPUP_TIERS: TierId[] = ["ulica", "okres", "kraj"];
-
-export function shiftById(id: string): ShiftDef | undefined {
-  return SHIFTS.find((s) => s.id === id);
 }

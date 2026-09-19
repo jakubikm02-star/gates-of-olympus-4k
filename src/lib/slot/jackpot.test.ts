@@ -16,7 +16,8 @@ import {
 } from "./jackpot.ts";
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain } from "./pick-bonus.ts";
-import { canSpend, dealJobs, jobStatus, tickJob, SURPLUS_X } from "./spend.ts";
+import { canSpend, dealJobs, jobClock, jobLeft, jobStatus, tickJob, SURPLUS_X } from "./spend.ts";
+import { ORB_TABLE, ORB_VALUES } from "./symbols.ts";
 
 describe("park jackpots", () => {
   it("takes 2.3% visible + 0.3% reserve", () => {
@@ -215,12 +216,38 @@ describe("rank stake + perk", () => {
 });
 
 describe("kontrola pity", () => {
-  it("charges every PORT spin, not only dead ones", () => {
+  it("dead spin is always +2, wins give 0, 3 scatters +30", () => {
     assert.equal(pityGain(0, false), 0);
     assert.equal(pityGain(1, false), 0);
     assert.equal(pityGain(0, true), 2);
     assert.equal(pityGain(3, false), 30);
     assert.equal(pityGain(4, true), 0);
+    assert.equal(perkOf("nekonecno").pityBonus, 0);
+    assert.equal(perkOf("fiveg").pityBonus, 0);
+    assert.equal(perkOf("telka").pityBonus, 0);
+    assert.equal(perkOf("telka").jackTicket, 2);
+  });
+});
+
+describe("plechovky", () => {
+  const tot = ORB_TABLE.reduce((s, o) => s + o.w, 0);
+  const share = (lo: number, hi: number) =>
+    ORB_TABLE.filter((o) => o.value >= lo && o.value <= hi).reduce((s, o) => s + o.w, 0) / tot;
+  const mean = ORB_TABLE.reduce((s, o) => s + o.value * o.w, 0) / tot;
+
+  it("uses the official 15-value pool", () => {
+    assert.deepEqual(ORB_TABLE.map((o) => o.value), [...ORB_VALUES]);
+    assert.equal(new Set(ORB_VALUES).size, 15);
+  });
+
+  it("low cans dominate, mean ~7×, 500× rarer than PDF 8+", () => {
+    assert.ok(share(2, 5) > 0.68 && share(2, 5) < 0.76, `2-5 ${share(2, 5)}`);
+    assert.ok(share(6, 15) > 0.16 && share(6, 15) < 0.26, `6-15 ${share(6, 15)}`);
+    assert.ok(share(50, 100) < 0.04, `50-100 ${share(50, 100)}`);
+    assert.ok(share(250, 500) < 0.008, `250-500 ${share(250, 500)}`);
+    assert.ok(mean > 6 && mean < 9, `mean ${mean}`);
+    const p500 = (ORB_TABLE.find((o) => o.value === 500)?.w ?? 0) / tot;
+    assert.ok(p500 < 1 / 100);
   });
 });
 
@@ -283,6 +310,12 @@ describe("míňať", () => {
     assert.ok(cheap >= 1000 && cheap <= 2500);
     assert.ok(mid >= 8000 && mid <= 15000);
     assert.ok(dear >= 40000 && dear <= 90000);
+    for (const j of jobs) {
+      assert.equal(j.limit % 5, 0);
+      assert.ok(j.limit >= 25 && j.limit <= 50);
+      assert.equal(jobLeft(j), j.limit);
+      assert.equal(jobClock(j), `ešte ${j.limit} točení`);
+    }
   });
 
   it("POT job needs a grey ticket, not a silent must-hit", () => {

@@ -46,7 +46,7 @@ export function RankPanel({ open, onClose, stand, peak, shield, streak = 0, week
         </header>
         <p className="modal-lead">
           RP rastú zo sumy, výšky stávky, násobiča, série, tumble a bannerov. Vyššia stávka = viac RP.
-          Aktívna liga dáva herný perk (ante, pity, cashback, extra FS, zľava na buy) — nie extra RP.
+          Aktívna liga dáva herný perk (ante, cashback, extra FS, zľava na buy, lístky) — nie extra RP.
           Každý týždeň klesáš o jednu skupinu na IV predchádzajúcej ligy (4KA TV II → SMART IV).
         </p>
         {weekDue > 0 && weekTarget && stand.rankIndex > 0 && (

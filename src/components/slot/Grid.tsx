@@ -29,7 +29,6 @@ interface Props {
   reduced: boolean;
   fast?: boolean;
   onTap?: () => void;
-  cam?: "stop" | "scatter" | "tumble" | null;
   spinPace?: "up" | "full";
   spinStrips?: Cell[][] | null;
   ticketLock?: boolean;
@@ -141,7 +140,6 @@ export function SlotGrid({
   reduced,
   fast,
   onTap,
-  cam,
   spinPace,
   spinStrips,
   ticketLock,
@@ -152,7 +150,7 @@ export function SlotGrid({
     : "";
   return (
     <div
-      className={`reel-frame ${cam === "stop" ? "cam-stop" : ""} ${cam === "scatter" ? "cam-scatter" : ""} ${cam === "tumble" ? "cam-tumble" : ""}`}
+      className="reel-frame"
       aria-label="Herné pole 6×5"
       onClick={onTap}
     >

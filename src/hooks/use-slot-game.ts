@@ -38,23 +38,17 @@ import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneGroup, fs
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
-import { emptyBoard, isEligibleBet, ticketResolve, TIER_BY_ID, type BoardSnap, type JackpotHit, type TierId } from "@/lib/slot/jackpot";
+import { emptyBoard, isEligibleBet, ticketResolve, type BoardSnap, type JackpotHit, type TierId } from "@/lib/slot/jackpot";
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
 import {
   canSpend,
   dealJobs,
   jobStatus,
-  shiftById,
-  shiftLen,
   tickJob,
   REROLL_COST,
-  SHIFTS,
   SURPLUS_X,
-  TOPUP_AMOUNTS,
-  TOPUP_TIERS,
   type JobCard,
   type JobEvent,
-  type ShiftId,
 } from "@/lib/slot/spend";
 
 type Phase =
@@ -146,14 +140,10 @@ export function useSlotGame() {
   const [jpHit, setJpHit] = useState<JackpotHit | null>(null);
   const [ticketLock, setTicketLock] = useState(false);
   const pendingLiveTicketRef = useRef<TierId | null>(null);
-  const [shift, setShift] = useState<{ id: ShiftId; left: number; name: string } | null>(null);
-  const shiftRef = useRef<{ id: ShiftId; left: number; name: string } | null>(null);
   const [job, setJob] = useState<JobCard | null>(null);
   const jobRef = useRef<JobCard | null>(null);
   const [jobOffer, setJobOffer] = useState<JobCard[] | null>(null);
   const [spendOpen, setSpendOpen] = useState(false);
-  const [topupAmt, setTopupAmt] = useState<Partial<Record<TierId, number>>>({});
-  const topupAmtRef = useRef<Partial<Record<TierId, number>>>({});
   const [jobToast, setJobToast] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [autoLeft, setAutoLeft] = useState(0);
@@ -223,9 +213,7 @@ export function useSlotGame() {
   autoRef.current = autoOn;
   busyRef.current = busy;
   gridRef.current = grid;
-  shiftRef.current = shift;
   jobRef.current = job;
-  topupAmtRef.current = topupAmt;
 
   const bet = BETS[betIndex];
   const rankId = standing(rp).id;
@@ -287,12 +275,8 @@ export function useSlotGame() {
       bought: Boolean(s.fsBought),
       triggerCash: s.fsTriggerCash ?? 0,
     };
-    setShift(s.shift);
-    shiftRef.current = s.shift;
     setJob(s.job);
     jobRef.current = s.job;
-    setTopupAmt(s.topupAmt ?? {});
-    topupAmtRef.current = s.topupAmt ?? {};
     pendingLiveTicketRef.current = s.pendingLiveTicket;
     saveSnapRef.current = s;
   }, []);
@@ -324,9 +308,7 @@ export function useSlotGame() {
       rp: rankRef.current.rp,
       rankPeak: rankRef.current.peak,
       rankShield: rankRef.current.shield,
-      shift: shiftRef.current,
       job: jobRef.current,
-      topupAmt: { ...topupAmtRef.current },
       pendingLiveTicket: pendingLiveTicketRef.current,
       updatedAt: Date.now(),
     };
@@ -398,14 +380,12 @@ export function useSlotGame() {
       fsBought: fsSessionRef.current.bought,
       fsTriggerCash: fsSessionRef.current.triggerCash,
       globalMult: globalMultRef.current,
-      shift: shiftRef.current,
       job: jobRef.current,
-      topupAmt: { ...topupAmtRef.current },
       pendingLiveTicket: pendingLiveTicketRef.current,
     };
     saveSnapRef.current = payload;
     writeLocal(payload);
-  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pots, reloadStreak, weekDue, fsLeft, inFs, globalMult, shift, job, topupAmt]);
+  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pots, reloadStreak, weekDue, fsLeft, inFs, globalMult, job]);
 
   useEffect(() => {
     const onHide = () => persistNow();
@@ -457,7 +437,10 @@ export function useSlotGame() {
 
   useEffect(() => {
     if (rankFlash) {
-      const t = window.setTimeout(() => setRankFlash(null), 600);
+      if (rankFlash.event === "up") sfx.playFsStart();
+      else if (rankFlash.event === "shield") sfx.playCollect();
+      else if (rankFlash.event) sfx.playThunder();
+      const t = window.setTimeout(() => setRankFlash(null), 1400);
       return () => window.clearTimeout(t);
     }
     if (busy || phase !== "idle") return;
@@ -553,7 +536,6 @@ export function useSlotGame() {
     setSpinTape((t) => [{ label: "BANKROT", amount: `${settled.delta} RP` }, ...t].slice(0, 8));
     setTopLine(settled.delta ? `BANKROT ${settled.delta} RP` : "BANKROT");
     setMessage(`+${START_BALANCE} kredit · liga trest`);
-    sfx.playThunder();
   }, []);
 
   const pushRank = useCallback((delta: number, parts?: RankBreakdown | null) => {
@@ -587,10 +569,6 @@ export function useSlotGame() {
       };
       if (busyRef.current) rankQ.current.push(flash);
       else setRankFlash(flash);
-      if (busyRef.current) return;
-      if (res.event === "up") sfx.playFsStart();
-      else if (res.event === "down") sfx.playThunder();
-      else sfx.playCollect();
     }
   }, []);
 
@@ -658,17 +636,9 @@ export function useSlotGame() {
       const credit = board.credit > 0 ? board.credit : 0;
       const jackpots = board.hits;
       const main = jackpots[0] ?? { id: "ulica" as TierId, name: "ULICA", payout: credit, table: 0 };
-      const extra = topupAmtRef.current[main.id] || 0;
-      const payout = jackpots.reduce((s, h) => s + h.payout, 0) + credit + extra;
+      const payout = jackpots.reduce((s, h) => s + h.payout, 0) + credit;
       if (payout <= 0) return;
-      if (extra) {
-        setTopupAmt((t) => {
-          const n = { ...t };
-          delete n[main.id];
-          return n;
-        });
-      }
-      const shown: JackpotHit = { ...main, payout: main.payout + extra };
+      const shown: JackpotHit = { ...main, payout: main.payout };
       setJpHit(shown);
       setDisplayWin((w) => +(w + payout).toFixed(2));
       setSpinWin((w) => +(w + payout).toFixed(2));
@@ -726,8 +696,8 @@ export function useSlotGame() {
       jobRef.current = null;
       setJob(null);
       setSpinTape((t) => [{ label: "PREHORELO", amount: `−${formatMoney(next.stake)}` }, ...t].slice(0, 8));
-      setJobToast(`PREHORELO −${formatMoney(next.stake)}`);
-      setTopLine(`PREHORELO −${formatMoney(next.stake)}`);
+      setJobToast(`PREHORELO · TERMÍN PREŠIEL −${formatMoney(next.stake)}`);
+      setTopLine(`TERMÍN PREŠIEL −${formatMoney(next.stake)}`);
       sfx.playThunder();
     } else {
       jobRef.current = next;
@@ -881,9 +851,8 @@ export function useSlotGame() {
           spunTicket = pot.ticket ?? null;
         }
       } else if (cost > 0) {
-        const mul = shiftRef.current?.id === "tvrdy" ? 2 : 1;
         const pot = await feedPool({
-          stake: +(cost * mul).toFixed(2),
+          stake: cost,
           eligible: isEligibleBet(currentBet) || !!opts?.buy,
           skip: true,
         });
@@ -906,32 +875,6 @@ export function useSlotGame() {
         ? generateBuyGrid(rng)
         : generateGrid(rng, opts?.free ? false : anteRef.current, !!opts?.free);
       if (spunTicket) next = plantTicket(next, spunTicket, rng);
-      if (shiftRef.current?.id === "pdf") {
-        let n = 0;
-        next = next.map((row) =>
-          row.map((cell) => {
-            if (n >= 2 || cell.kind !== "pay") return cell;
-            if (cell.payId === "rj45" || cell.payId === "hap") {
-              n += 1;
-              return { ...cell, payId: "pdf" as const };
-            }
-            return cell;
-          }),
-        );
-      }
-      if (shiftRef.current?.id === "nocny") {
-        let n = 0;
-        next = next.map((row) =>
-          row.map((cell) => {
-            if (n >= 5 || cell.kind !== "pay") return cell;
-            if (cell.payId === "dacia" || cell.payId === "meter" || cell.payId === "case") {
-              n += 1;
-              return { ...cell, payId: rng() < 0.5 ? ("rj45" as const) : ("roof" as const) };
-            }
-            return cell;
-          }),
-        );
-      }
 
       const STOPS = [520, 620, 730, 850, 990, 1180];
       await wait(dur(STOPS[0]), abort.current);
@@ -1149,7 +1092,7 @@ export function useSlotGame() {
 
       if (!fsNow) {
         const dead = sequenceX <= 0;
-        const add = pityGain(scatterPeak, dead) + (dead ? perkOf(standing(rankRef.current.rp).id).pityBonus : 0);
+        const add = pityGain(scatterPeak, dead);
         if (add > 0) {
           const nextMap = bumpPity(pityByBetRef.current, currentBet, add);
           const stored = readPity(nextMap, currentBet);
@@ -1295,18 +1238,6 @@ export function useSlotGame() {
               setBalance((b) => +(b + back).toFixed(2));
             }
           }
-        }
-      }
-
-      if (!isFree && cost > 0 && shiftRef.current) {
-        const left = shiftRef.current.left - 1;
-        if (left <= 0) {
-          shiftRef.current = null;
-          setShift(null);
-        } else {
-          const n = { ...shiftRef.current, left };
-          shiftRef.current = n;
-          setShift(n);
         }
       }
 
@@ -1565,7 +1496,7 @@ export function useSlotGame() {
       const rankIdNow = standing(rankRef.current.rp).id;
       const buyXNow = buyXOf(rankIdNow);
       const buyCost = +(betNow * buyXNow).toFixed(2);
-      const fsCount = fsSpinsOf(rankIdNow) + (shiftRef.current?.id === "siet" ? 5 : 0);
+      const fsCount = fsSpinsOf(rankIdNow);
       const applyBoughtRank = makeApplyBought(betNow, buyCost, buyXNow, rankIdNow);
 
       if (autoRef.current) {
@@ -1608,9 +1539,8 @@ export function useSlotGame() {
         inFsRef.current = true;
         setPhase("fs");
         setDisplayWin(triggerCash);
-        const startMult = shiftRef.current?.id === "signal" ? 5 : 0;
-        setGlobalMult(startMult);
-        globalMultRef.current = startMult;
+        setGlobalMult(0);
+        globalMultRef.current = 0;
         setFsLeft(fsCount);
         setFsTotal(fsCount);
         setMessage(`${fsCount} voľných točení`);
@@ -1697,39 +1627,6 @@ export function useSlotGame() {
     setSpendOpen(true);
     sfx.playClick();
   }, [job, jobOffer]);
-
-  const buyShift = useCallback((id: ShiftId) => {
-    if (busyRef.current || inFsRef.current || shiftRef.current) return;
-    const def = shiftById(id);
-    if (!def) return;
-    const betNow = BETS[betIndexRef.current];
-    if (!canSpend(balanceRef.current, betNow)) return;
-    const cost = +(def.costX * betNow).toFixed(2);
-    if (balanceRef.current < cost) return;
-    setBalance((b) => +(b - cost).toFixed(2));
-    const next = { id: def.id, left: shiftLen(def, createRng()), name: def.name };
-    shiftRef.current = next;
-    setShift(next);
-    setSpendOpen(false);
-    setTopLine(`${def.name} · ${next.left} SPINOV`);
-    sfx.playClick();
-  }, []);
-
-  const topupPot = useCallback((id: TierId, amount: number) => {
-    if (id === "stat" || !TOPUP_TIERS.includes(id)) return;
-    if (topupAmtRef.current[id]) return;
-    if (busyRef.current || inFsRef.current) return;
-    const betNow = BETS[betIndexRef.current];
-    if (!canSpend(balanceRef.current, betNow)) return;
-    if (amount <= 0 || balanceRef.current < amount) return;
-    setBalance((b) => +(b - amount).toFixed(2));
-    const next = { ...topupAmtRef.current, [id]: amount };
-    topupAmtRef.current = next;
-    setTopupAmt(next);
-    setSpendOpen(false);
-    setTopLine(`${TIER_BY_ID[id].name} +${formatMoney(amount)}`);
-    sfx.playCoin();
-  }, []);
 
   const takeJob = useCallback((card: JobCard) => {
     if (busyRef.current || inFsRef.current || jobRef.current) return;
@@ -1873,16 +1770,7 @@ export function useSlotGame() {
     buyX,
     weekDue,
     weekTarget: standing(dropOneGroup(rp)),
-    pots: (() => {
-      const extra = topupAmt;
-      if (!extra.ulica && !extra.okres && !extra.kraj) return pots;
-      const next = { ...pots };
-      for (const id of TOPUP_TIERS) {
-        const add = extra[id] || 0;
-        if (add) next[id] = { ...next[id], pool: +(next[id].pool + add).toFixed(2) };
-      }
-      return next;
-    })(),
+    pots,
     jpHit,
     ticketLock,
     poolEligible: isEligibleBet(bet),
@@ -1934,18 +1822,11 @@ export function useSlotGame() {
     spendOpen,
     setSpendOpen,
     openSpend,
-    buyShift,
-    topupPot,
     takeJob,
     rerollJobs,
-    shift,
     job,
     jobOffer,
     jobToast,
-    topupAmt,
-    shifts: SHIFTS,
-    topupTiers: TOPUP_TIERS,
-    topupAmounts: TOPUP_AMOUNTS,
     rerollCost: REROLL_COST,
     surplusX: SURPLUS_X,
   };

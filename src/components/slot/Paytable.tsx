@@ -55,9 +55,10 @@ export function Paytable({ open, onClose, bet }: Props) {
             <div>
               <div className="pay-name">Energy plechovka · násobič</div>
               <div className="pay-vals">
-                <span>2×–500×</span>
+                <span>2 3 4 5 6 8 10 12 15</span>
+                <span>20 25 50 100 250 500</span>
               </div>
-              <div className="pay-quip">Rampa ju hodí. Bez výhry prepadne.</div>
+              <div className="pay-quip">Rampa ich hodí. Sčítajú sa, nenásobia. Bez výhry prepadnú.</div>
             </div>
           </div>
           <div className="pay-row">
@@ -97,8 +98,8 @@ export function Paytable({ open, onClose, bet }: Props) {
             Scatter ostane na poli, kým bonus nezačne. 4tv trigger bije lístok: ceremónia čaká.
           </li>
           <li>Výherné symboly zmiznú, nové spadnú zhora (tumble). Plechovky, scatter aj lístok tumble prežijú.</li>
-          <li>Násobiče nepadajú z valca ako RJ45. Rampa ich pustí ako energy plechovky. Aktivujú sa až na konci reťaze, a len ak bola výhra.</li>
-          <li>Base: súčet plechoviek × celá tumble sekvencia. Vo FS tečú do SIGNÁL; bez výhry prepadnú.</li>
+          <li>Násobiče nepadajú z valca ako RJ45. Rampa ich pustí ako energy plechovky. 15 hodnôt, sčítajú sa (50+100=150, nie 5 000). Aktivujú sa až na konci reťaze, a len ak bola výhra. 2/3/5 sú ~70 % plechoviek; 500× je vzácnejšia ako PDF 8+.</li>
+          <li>Base: súčet plechoviek × celá tumble sekvencia, potom reset. Vo FS tečú do SIGNÁL a ostávajú; bez výhry prepadnú ako tapeta.</li>
           <li>4 scatteri = 15 voľných točení. V bonuse 3+ scatteri = +5. Pay scatteru ostáva 4 / 5 / 6.</li>
           <li>
             Lístok vo feature smie padnúť, ceremónia ide až po SIEŤ SPADLA. Banner je{" "}
@@ -110,8 +111,7 @@ export function Paytable({ open, onClose, bet }: Props) {
             (+30). Po spustení bar padne na 0. Kúpiť sa nedá.
           </li>
           <li>
-            Od kreditu ≥ 500× stávka pribudne MÍŇAŤ: jedna smena 20–30 spinov, dobiť ULICA/OKRES/KRAJ 1:1
-            raz za reláciu (ŠTÁT nie), jedna zákazka z troch poschodí. TVRDÝ PORT zdvojnásobí contrib, nie drop rate.
+            Od kreditu ≥ 500× stávka pribudne MÍŇAŤ: jedna zákazka z troch poschodí.
           </li>
           <li>
             Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bankrot +5000 berie RP podľa stávky.

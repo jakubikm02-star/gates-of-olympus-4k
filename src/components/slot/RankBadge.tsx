@@ -1,5 +1,5 @@
 import { Cable, Infinity, Layers, Radio, Smartphone, Sparkles, Tv, Wallet } from "lucide-react";
-import { ladderNeedle, RANKS, rankBits, type RankBreakdown, type Standing } from "@/lib/slot/ranks";
+import { ladderNeedle, RANKS, rankBits, type RankBreakdown, type RankFlash, type Standing } from "@/lib/slot/ranks";
 
 const ICONS = {
   kredit: Wallet,
@@ -38,26 +38,36 @@ export function RankMark({ id, size = 16 }: { id: string; size?: number }) {
   return <Icon size={size} strokeWidth={2.4} />;
 }
 
+const FLASH_TITLE: Record<NonNullable<RankFlash["event"]>, string> = {
+  up: "RANK UP",
+  down: "RANK DOWN",
+  bust: "BANKROT",
+  week: "DROP",
+  shield: "ŠTÍT",
+};
+
 interface Props {
   stand: Standing;
   delta?: number;
   streak?: number;
   parts?: RankBreakdown | null;
   perkTitle?: string;
+  flash?: RankFlash | null;
   onOpen: () => void;
 }
 
-export function RankBadge({ stand, delta = 0, streak = 0, parts = null, perkTitle, onOpen }: Props) {
+export function RankBadge({ stand, delta = 0, streak = 0, parts = null, perkTitle, flash = null, onOpen }: Props) {
   const n = RANKS.length;
   const needle = ladderNeedle(stand);
   const angle = -90 + needle * 180;
   const hint = parts && parts.total !== 0 ? rankBits(parts).join(" · ") : perkTitle;
   const label = `${stand.name}${stand.roman ? ` ${stand.roman}` : ""}`;
+  const event = flash?.event ?? null;
 
   return (
     <button
       type="button"
-      className={`rank-chip rank-gauge rk-${stand.id}`}
+      className={`rank-chip rank-gauge rk-${stand.id}${event ? ` is-flash is-${event}` : ""}`}
       onClick={onOpen}
       aria-label={`Rank ${label} ${perkTitle ?? ""}`.trim()}
       title={hint}
@@ -117,8 +127,8 @@ export function RankBadge({ stand, delta = 0, streak = 0, parts = null, perkTitl
         <RankMark id={stand.id} size={14} />
       </span>
       <span className="rank-meta">
-        <em>{label}</em>
-        {perkTitle ? <span className="rank-perk-tag">{perkTitle}</span> : null}
+        <em>{event ? FLASH_TITLE[event] : label}</em>
+        {perkTitle && !event ? <span className="rank-perk-tag">{perkTitle}</span> : null}
       </span>
       {streak >= 2 && (
         <span className="rank-streak" aria-label={`Séria ${streak} výhier`}>

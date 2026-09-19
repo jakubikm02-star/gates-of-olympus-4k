@@ -148,29 +148,33 @@ export const ALL_ART: readonly string[] = [
   "/art/parking-bg.jpg",
 ];
 
-/** PORT: 2–10× dominate. LIVE uses MULT_TABLE (2/3/5/8/10/25/50/100). */
-export const BASE_MULT_TABLE: readonly { value: number; w: number }[] = [
-  { value: 2, w: 36 },
-  { value: 3, w: 24 },
-  { value: 5, w: 16 },
-  { value: 8, w: 10 },
-  { value: 10, w: 7 },
-  { value: 25, w: 4 },
-  { value: 50, w: 2 },
-  { value: 100, w: 1 },
+/** Official Olympus pool. Cans ADD into SIGNÁL; they never multiply each other. */
+export const ORB_VALUES = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 50, 100, 250, 500] as const;
+
+/**
+ * Same table in PORT and LIVE. Bands: 2–5 ~72 %, 6–15 ~21 %, 20–50 ~6 %, 100+ ~1 %.
+ * Mean ≈ 7×. 500× is rarer than PDF 8+ (~1/100).
+ */
+export const ORB_TABLE: readonly { value: number; w: number }[] = [
+  { value: 2, w: 2453 },
+  { value: 3, w: 2000 },
+  { value: 4, w: 1400 },
+  { value: 5, w: 1400 },
+  { value: 6, w: 550 },
+  { value: 8, w: 500 },
+  { value: 10, w: 450 },
+  { value: 12, w: 300 },
+  { value: 15, w: 300 },
+  { value: 20, w: 180 },
+  { value: 25, w: 220 },
+  { value: 50, w: 150 },
+  { value: 100, w: 70 },
+  { value: 250, w: 20 },
+  { value: 500, w: 7 },
 ];
 
-/** PARKNET LIVE cans. Heavy at the bottom. */
-export const MULT_TABLE: readonly { value: number; w: number }[] = [
-  { value: 2, w: 28 },
-  { value: 3, w: 22 },
-  { value: 5, w: 16 },
-  { value: 8, w: 12 },
-  { value: 10, w: 10 },
-  { value: 25, w: 6 },
-  { value: 50, w: 4 },
-  { value: 100, w: 2 },
-];
+export const BASE_MULT_TABLE = ORB_TABLE;
+export const MULT_TABLE = ORB_TABLE;
 
 export const BETS = [
   0.2, 0.4, 0.6, 0.8, 1, 1.6, 2, 2.4, 3.2, 4, 5, 8, 10, 16, 20, 40, 50, 80, 100,

@@ -14,7 +14,10 @@ let whiteBuf: AudioBuffer | null = null;
 let brownBuf: AudioBuffer | null = null;
 let spinNodes: { stop: () => void; gain: GainNode } | null = null;
 let anticipateNodes: { stop: () => void } | null = null;
-let liveBed: { stop: () => void } | null = null;
+let liveBed: { stop: () => void; duck: (amount: number) => void } | null = null;
+let liveEl: HTMLAudioElement | null = null;
+const LIVE_VOL = 0.62;
+let liveDuck = 1;
 const playing: Partial<Record<string, { stop: () => void }>> = {};
 const CUT_PREV = new Set(["win", "winFull", "payout", "bigwin", "tumble", "pop", "tableA", "tableB"]);
 const bufs: Record<string, AudioBuffer> = {};
@@ -113,6 +116,11 @@ function makeNoise(ac: AudioContext, seconds: number, kind: "white" | "brown"): 
 export function setMuted(next: boolean): void {
   muted = next;
   if (master && ctx) master.gain.setTargetAtTime(next ? 0 : 0.92, ctx.currentTime, 0.04);
+  if (liveEl) {
+    liveEl.muted = next;
+    if (next) liveEl.pause();
+    else void liveEl.play().catch(() => {});
+  }
 }
 
 export function duckMusic(amount: number): void {
@@ -232,6 +240,7 @@ export function startSpin(): void {
   if (!ctx || !sfx) return;
   stopSpin();
   duckMusic(0.45);
+  liveBed?.duck(0.78);
   const sample = playBuf("spin", { gain: 0.62, loop: true, rate: 1 });
   if (sample) {
     spinNodes = { gain: sample.gain, stop: sample.stop };
@@ -275,6 +284,7 @@ export function setSpinEnergy(t: number): void {
 export function stopSpin(): void {
   spinNodes?.stop();
   spinNodes = null;
+  liveBed?.duck(1);
 }
 
 const LAND_KEYS = ["land", "land2", "land3"] as const;
@@ -404,14 +414,63 @@ export function playFsStart(): void {
 }
 
 export function startLiveBed(): void {
-  if (!ctx || !sfx || liveBed) return;
-  duckMusic(0.12);
-  const loop = playBuf("electric", { gain: 0.08, rate: 0.7, loop: true });
-  const harp = playBuf("harp", { gain: 0.06, rate: 0.9, loop: true });
+  unlockAudio();
+  stopLiveBed();
+  const el = new Audio("/sfx/fs-bed.mp3?v=moon2");
+  el.loop = true;
+  el.preload = "auto";
+  el.setAttribute("playsinline", "true");
+  el.muted = muted;
+  liveDuck = 1;
+  const vol = () => {
+    el.volume = muted ? 0 : LIVE_VOL * Math.max(0.18, Math.min(1, liveDuck));
+  };
+  vol();
+  const playSafe = () => {
+    void (ctx?.state === "suspended" ? ctx.resume() : Promise.resolve()).then(() => {
+      void el.play().then(vol).catch(() => {
+        window.setTimeout(() => void el.play().then(vol).catch(() => {}), 180);
+      });
+    });
+  };
+  const kick = () => {
+    const dur = Number.isFinite(el.duration) && el.duration > 2 ? el.duration : 0;
+    const span = dur > 2 ? Math.max(1, Math.min(720, dur) - 0.4) : 0;
+    const at = span > 0 ? Math.random() * span : 0;
+    if (at <= 0) {
+      playSafe();
+      return;
+    }
+    let armed = false;
+    const go = () => {
+      if (armed) return;
+      armed = true;
+      playSafe();
+    };
+    el.addEventListener("seeked", go, { once: true });
+    try {
+      el.currentTime = at;
+    } catch {
+      go();
+    }
+    window.setTimeout(go, 500);
+  };
+  if (el.readyState >= 1) kick();
+  else el.addEventListener("loadedmetadata", kick, { once: true });
+  liveEl = el;
   liveBed = {
+    duck: (amount) => {
+      liveDuck = amount;
+      vol();
+    },
     stop: () => {
-      loop?.stop();
-      harp?.stop();
+      try {
+        el.pause();
+        el.removeAttribute("src");
+        el.load();
+      } catch {
+        /* already */
+      }
     },
   };
 }
@@ -419,6 +478,7 @@ export function startLiveBed(): void {
 export function stopLiveBed(): void {
   liveBed?.stop();
   liveBed = null;
+  liveEl = null;
   duckMusic(1);
 }
 
@@ -458,6 +518,11 @@ export function resumeIfNeeded(): void {
 
 if (typeof document !== "undefined") {
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") resumeIfNeeded();
+    if (document.visibilityState === "visible") {
+      resumeIfNeeded();
+      if (liveEl && !muted) void liveEl.play().catch(() => {});
+    } else {
+      liveEl?.pause();
+    }
   });
 }

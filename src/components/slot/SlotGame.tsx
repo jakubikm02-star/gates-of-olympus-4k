@@ -3,6 +3,7 @@ import { Volume2, VolumeX, Info, RefreshCw, Menu } from "lucide-react";
 import { START_BALANCE, BETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
+import { jobClock, jobLeft } from "@/lib/slot/spend";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { SlotGrid } from "./Grid";
 import { Paytable } from "./Paytable";
@@ -149,6 +150,7 @@ export function SlotGame() {
             streak={g.winStreak}
             parts={g.rankParts}
             perkTitle={g.perk.title}
+            flash={g.rankFlash}
             onOpen={() => g.setRankOpen(true)}
           />
           <div className="head-center">
@@ -236,41 +238,42 @@ export function SlotGame() {
           </aside>
 
           <section className="board-wrap">
-            {!g.inFs && (
-              <div className={`pity-bar ${g.pityDelta ? "is-feed" : ""} ${g.pity >= g.pityGoal ? "is-hot" : ""}`}>
-                <span className="pity-kicker">KONTROLA</span>
-                <span className="pity-stake">{formatMoney(g.bet)}</span>
-                <span className="pity-name">PITY</span>
-                <div
-                  className="pity-track"
-                  role="progressbar"
-                  aria-valuemin={0}
-                  aria-valuemax={g.pityGoal}
-                  aria-valuenow={Math.min(g.pityGoal, g.pity)}
-                  aria-label={`Pity meter kontroly pre stávku ${formatMoney(g.bet)}`}
-                >
-                  <i style={{ ["--pity" as string]: `${Math.min(100, (g.pity / g.pityGoal) * 100)}%` }} />
+            <div className="board-meter">
+              {g.inFs ? (
+                <div className="fs-hero" aria-live="polite">
+                  <div className={`wing-mult ${g.flies.length ? "is-feed" : ""}`}>
+                    <span>SIGNÁL</span>
+                    <b>{g.globalMult || 0}×</b>
+                  </div>
+                  <div className="fs-left">
+                    PARKNET
+                    <strong>
+                      {g.fsLeft}/{g.fsTotal || 15}
+                    </strong>
+                  </div>
                 </div>
-                <b>
-                  {Math.min(g.pityGoal, g.pity)}/{g.pityGoal}
-                </b>
-                {g.pityDelta > 0 && <em className="pity-plus">+{g.pityDelta}</em>}
-              </div>
-            )}
-            {g.inFs && (
-              <div className="fs-hero" aria-live="polite">
-                <div className={`wing-mult ${g.flies.length ? "is-feed" : ""}`}>
-                  <span>SIGNÁL</span>
-                  <b>{g.globalMult || 0}×</b>
+              ) : (
+                <div className={`pity-bar ${g.pityDelta ? "is-feed" : ""} ${g.pity >= g.pityGoal ? "is-hot" : ""}`}>
+                  <span className="pity-kicker">KONTROLA</span>
+                  <span className="pity-stake">{formatMoney(g.bet)}</span>
+                  <span className="pity-name">PITY</span>
+                  <div
+                    className="pity-track"
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={g.pityGoal}
+                    aria-valuenow={Math.min(g.pityGoal, g.pity)}
+                    aria-label={`Pity meter kontroly pre stávku ${formatMoney(g.bet)}`}
+                  >
+                    <i style={{ ["--pity" as string]: `${Math.min(100, (g.pity / g.pityGoal) * 100)}%` }} />
+                  </div>
+                  <b>
+                    {Math.min(g.pityGoal, g.pity)}/{g.pityGoal}
+                  </b>
+                  {g.pityDelta > 0 && <em className="pity-plus">+{g.pityDelta}</em>}
                 </div>
-                <div className="fs-left">
-                  PARKNET
-                  <strong>
-                    {g.fsLeft}/{g.fsTotal || 15}
-                  </strong>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
             <div className="top-ticker">
               {g.spinWin > 0 ? (
                 <>
@@ -302,7 +305,6 @@ export function SlotGame() {
               clusterPay={g.clusterPay}
               reduced={false}
               fast={g.reelFast}
-              cam={g.cam}
               spinPace={g.spinPace ?? undefined}
               spinStrips={g.spinStrips}
               ticketLock={g.ticketLock}
@@ -319,22 +321,17 @@ export function SlotGame() {
             ))}
             </div>
             </div>
-            {g.job && !g.inFs && (
-              <div className={`job-chip ${g.jobToast ? "is-hot" : ""}`}>
-                <span>{g.job.title}</span>
-                <b>
-                  {g.job.have}/{g.job.need}
-                </b>
-                <em>
-                  {g.job.spun}/{g.job.limit}
-                </em>
-              </div>
-            )}
-            {g.shift && !g.inFs && (
-              <div className="shift-chip">
-                {g.shift.name} · {g.shift.left}
-              </div>
-            )}
+            <div className="board-job">
+              {g.job && !g.inFs && (
+                <div className={`job-chip ${g.jobToast ? "is-hot" : ""} ${jobLeft(g.job) <= 5 ? "is-late" : ""}`}>
+                  <span>{g.job.title}</span>
+                  <b>
+                    {g.job.have}/{g.job.need}
+                  </b>
+                  <em>{jobClock(g.job)}</em>
+                </div>
+              )}
+            </div>
           </section>
 
           <aside className="ramp-col" aria-hidden="false">
@@ -488,7 +485,7 @@ export function SlotGame() {
           </button>
           {g.surplus && !g.inFs && (
             <button type="button" className="chip-btn gold" onClick={g.openSpend} disabled={g.busy}>
-              MÍŇAŤ
+              ZÁKAZKY
             </button>
           )}
           {g.autoReason && !g.autoOn && <span className="auto-stop">{g.autoReason}</span>}
@@ -620,17 +617,9 @@ export function SlotGame() {
         open={g.spendOpen}
         onClose={() => g.setSpendOpen(false)}
         credit={g.balance}
-        bet={g.bet}
-        shift={g.shift}
         job={g.job}
         offer={g.jobOffer}
-        topupAmt={g.topupAmt}
-        shifts={g.shifts}
-        topupTiers={g.topupTiers}
-        topupAmounts={g.topupAmounts}
         rerollCost={g.rerollCost}
-        onShift={g.buyShift}
-        onTopup={g.topupPot}
         onJob={g.takeJob}
         onReroll={g.rerollJobs}
       />
