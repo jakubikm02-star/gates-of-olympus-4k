@@ -840,6 +840,7 @@ export function useSlotGame() {
         const dropped = zeusDrop(board, rng, landN, isFree || inFsRef.current);
         board = dropped.grid;
         setGrid(cloneGrid(board));
+        sfx.playMult();
         await wait(dur(480), abort.current);
         setThrowBolt(false);
       }
@@ -964,6 +965,7 @@ export function useSlotGame() {
           sfx.playZap();
           const dropped = zeusDrop(board, rng, moreN, isFree || inFsRef.current);
           board = dropped.grid;
+          sfx.playMult();
         }
         setPhase("tumble");
         sfx.playTumble(tumbleN);

@@ -45,6 +45,7 @@ const FILES: Record<string, string> = {
   kontrola: "/sfx/kontrola.mp3?v=ignition1",
   fsStart: "/sfx/fs-start.mp3?v=build1",
   anticipate: "/sfx/anticipate.mp3?v=bass1",
+  can: "/sfx/can-open.mp3?v=open1",
 };
 
 export function isMuted(): boolean {
@@ -388,7 +389,9 @@ export function playThunder(): void {
 }
 
 export function playMult(): void {
-  playBuf("collect", { gain: 0.5, rate: 0.98 });
+  if (!playBuf("can", { gain: 0.86, rate: 0.97 + Math.random() * 0.06 })) {
+    playBuf("collect", { gain: 0.5, rate: 0.98 });
+  }
 }
 
 export function playFsStart(): void {
