@@ -195,7 +195,6 @@ export function useSlotGame() {
   autoRef.current = autoOn;
   busyRef.current = busy;
   gridRef.current = grid;
-  pityByBetRef.current = pityByBet;
 
   const bet = BETS[betIndex];
   const rankId = standing(rp).id;
@@ -336,7 +335,7 @@ export function useSlotGame() {
       quick,
       ante,
       bestWin,
-      pityByBet,
+      pityByBet: { ...pityByBetRef.current },
       rp,
       rankPeak,
       rankShield,
@@ -1004,6 +1003,7 @@ export function useSlotGame() {
           } else {
             pityByBetRef.current = nextMap;
           }
+          setPityByBet({ ...pityByBetRef.current });
         }
       }
 

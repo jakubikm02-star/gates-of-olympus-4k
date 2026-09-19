@@ -4252,10 +4252,8 @@ html:-webkit-full-screen {
   display: none !important;
 }
 
-.stage.is-resolving .pity-bar,
 .stage.is-resolving .jp-stack em,
 .stage.is-resolving .rank-delta,
-.stage.is-resolving .pity-plus,
 .stage.is-resolving .rank-badge .rank-delta,
 .stage.is-resolving .pool-led em {
   visibility: hidden;
