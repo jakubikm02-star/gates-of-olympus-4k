@@ -285,7 +285,7 @@ export function playLand(col = 0): void {
   if (pick === lastLand) pick = (pick + 1 + Math.floor(Math.random() * 2)) % LAND_KEYS.length;
   lastLand = pick;
   const name = LAND_KEYS[pick];
-  if (!playBuf(name, { gain: 0.78, rate: 0.97 + Math.random() * 0.06, pan })) {
+  if (!playBuf(name, { gain: 0.38, rate: 0.97 + Math.random() * 0.06, pan })) {
     noise("white", 0.055, 0.13, 1800, 7000, undefined, pan);
     tone("sine", 118 - col * 8, 0.14, 0.09, 48, undefined, pan);
   }
