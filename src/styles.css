@@ -831,13 +831,10 @@
 
 @keyframes strip-fill {
   0% {
-    transform: translate3d(0, -120%, 0);
+    transform: translate3d(0, -8px, 0);
   }
-  72% {
-    transform: translate3d(0, 8px, 0);
-  }
-  86% {
-    transform: translate3d(0, -4px, 0);
+  62% {
+    transform: translate3d(0, 4px, 0);
   }
   100% {
     transform: none;
@@ -859,7 +856,7 @@
 
 @keyframes strip-fill-soft {
   0% {
-    transform: translate3d(0, -120%, 0);
+    transform: translate3d(0, -6px, 0);
   }
   100% {
     transform: none;
@@ -4230,12 +4227,18 @@ html:-webkit-full-screen {
   }
 }
 
+.stage.is-resolving .rank-toast {
+  display: none !important;
+}
+
 .stage.is-resolving .pity-bar,
-.stage.is-resolving .rank-toast,
 .stage.is-resolving .jp-stack em,
 .stage.is-resolving .rank-delta,
-.stage.is-resolving .pity-plus {
-  display: none !important;
+.stage.is-resolving .pity-plus,
+.stage.is-resolving .rank-badge .rank-delta,
+.stage.is-resolving .pool-led em {
+  visibility: hidden;
+  opacity: 0;
 }
 
 .jp-stack.is-hit {
@@ -4339,13 +4342,7 @@ html:-webkit-full-screen {
 }
 
 .stage.is-resolving .pity-plus {
-  display: none;
-}
-
-.stage.is-resolving .pity-bar,
-.stage.is-resolving .pool-led em,
-.stage.is-resolving .rank-badge .rank-delta {
-  opacity: 0.45;
+  visibility: hidden;
 }
 
 .reel-window.is-anticipate {
