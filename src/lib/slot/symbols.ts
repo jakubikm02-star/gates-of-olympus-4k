@@ -41,7 +41,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     name: "Hrdzavý RJ45",
     src: "/symbols/rj45.png",
     pays: [0.25, 0.75, 2],
-    weight: 16,
+    weight: 15.6,
     quip: "Ešte drží. Skoro.",
   },
   {
@@ -49,7 +49,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     name: "Wi-Fi router",
     src: "/symbols/router.png",
     pays: [0.4, 0.9, 4],
-    weight: 14,
+    weight: 15.5,
     quip: "Heslo je na spodku.",
   },
   {
@@ -57,7 +57,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     name: "hAP ac²",
     src: "/symbols/hap.png",
     pays: [0.5, 1, 5],
-    weight: 12,
+    weight: 15,
     quip: "Winbox otvorený na 8291.",
   },
   {
@@ -65,7 +65,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     name: "Krytina",
     src: "/symbols/roof.png",
     pays: [0.8, 1.2, 8],
-    weight: 12,
+    weight: 14.6,
     quip: "Padá aj v lete.",
   },
   {
@@ -73,7 +73,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     name: "ARRIS",
     src: "/symbols/arris.png",
     pays: [1, 1.5, 10],
-    weight: 10,
+    weight: 14.7,
     quip: "Modem, ktorý prežil tri providery.",
   },
   {
@@ -81,32 +81,32 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     name: "Kufrík",
     src: "/symbols/case.png",
     pays: [1.5, 2, 12],
-    weight: 8,
+    weight: 12.3,
     quip: "Vnútri je len merací kábel a hnev.",
+  },
+  {
+    id: "dacia",
+    name: "Dacia Jogger",
+    src: "/symbols/dacia.png",
+    pays: [2, 5, 15],
+    weight: 11.8,
+    quip: "Sedem miest, nula hanby.",
   },
   {
     id: "meter",
     name: "OLP-87",
     src: "/symbols/meter.png",
-    pays: [2, 5, 15],
-    weight: 6,
+    pays: [2.5, 10, 25],
+    weight: 11.4,
     quip: "−27 dBm. Zázrak, že to svieti.",
   },
   {
     id: "pdf",
     name: "PDF 4K 5G",
     src: "/symbols/pdf.png",
-    pays: [2.5, 8, 22],
-    weight: 5,
-    quip: "ULTRA MAX PRO. Stále PDF.",
-  },
-  {
-    id: "dacia",
-    name: "Dacia Jogger",
-    src: "/symbols/dacia.png",
     pays: [10, 25, 50],
-    weight: 3.4,
-    quip: "Sedem miest, nula hanby.",
+    weight: 10.6,
+    quip: "ULTRA MAX PRO. Stále PDF.",
   },
 ] as const;
 
@@ -116,10 +116,10 @@ export const SCATTER = {
   src: "/symbols/tv4ka.png",
   /** 4 / 5 / 6+ scatters as multiple of bet */
   pays: [3, 5, 100] as const,
-  /** Base weight: P(4+ on land) ~1/330; tumble inflates bonus toward ~1/300. */
-  weight: 1.55,
-  /** Binomial: P(X≥4) with ante ≈ 2× base. Not a raw cell-weight ×2. */
-  weightAnte: 1.95,
+  /** Base weight: P(4+ on land) ~1/500; tumble toward ~1/400. */
+  weight: 2.2,
+  /** Ante ~1.26× cell weight, not 2× — clumping is pay-only. */
+  weightAnte: 2.8,
 };
 
 export const PARK = {

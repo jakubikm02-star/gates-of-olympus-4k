@@ -20,6 +20,9 @@ function nextUid(): number {
   return uidSeq;
 }
 
+/** Column stick copies a pay symbol down. Never clumps 4tv. */
+const COL_STICKY = 0.17;
+
 function pickWeighted<T extends { w: number }>(items: readonly T[], rng: () => number): T {
   let total = 0;
   for (const it of items) total += it.w;
@@ -57,7 +60,7 @@ export function emptyGrid(): Cell[][] {
 
 function randomPayCell(rng: () => number, live = false): Cell {
   const s = pickWeighted(
-    PAY_SYMBOLS.map((p) => ({ w: live && p.id === "pdf" ? p.weight * 2.4 : p.weight, id: p.id })),
+    PAY_SYMBOLS.map((p) => ({ w: p.weight, id: p.id })),
     rng,
   );
   return { uid: nextUid(), kind: "pay", payId: s.id };
@@ -100,11 +103,19 @@ export function makeSpinStrip(rng: () => number, live = false): Cell[] {
 }
 
 export function generateGrid(rng: () => number, ante: boolean, live = false): Cell[][] {
-  const g: Cell[][] = [];
-  for (let r = 0; r < ROWS; r++) {
-    const row: Cell[] = [];
-    for (let c = 0; c < COLS; c++) row.push(randomCell(rng, ante, live));
-    g.push(row);
+  const g: Cell[][] = Array.from({ length: ROWS }, () => Array(COLS));
+  for (let c = 0; c < COLS; c++) {
+    let prev: Cell | null = null;
+    for (let r = 0; r < ROWS; r++) {
+      let cell: Cell;
+      if (prev?.kind === "pay" && prev.payId && rng() < COL_STICKY) {
+        cell = { uid: nextUid(), kind: "pay", payId: prev.payId };
+      } else {
+        cell = randomCell(rng, ante, live);
+      }
+      g[r][c] = cell;
+      prev = cell;
+    }
   }
   return g;
 }
@@ -266,10 +277,17 @@ export function tumble(grid: Cell[][], winMask: boolean[][], rng: () => number, 
       dest -= 1;
     }
     const spawnOffset = dest + 1;
-    for (let r = dest; r >= 0; r--) {
-      const cell = randomCell(rng, ante, fs);
+    let prev: Cell | null = null;
+    for (let r = 0; r <= dest; r++) {
+      let cell: Cell;
+      if (prev?.kind === "pay" && prev.payId && rng() < COL_STICKY) {
+        cell = { uid: nextUid(), kind: "pay", payId: prev.payId };
+      } else {
+        cell = randomCell(rng, ante, fs);
+      }
       cell.fall = spawnOffset;
       next[r][c] = cell;
+      prev = cell;
     }
   }
   return next;
