@@ -1,10 +1,9 @@
 import { useRef, type PointerEvent } from "react";
-import { Volume2, VolumeX, Info, RefreshCw, Menu, Maximize2, Minimize2, RotateCw } from "lucide-react";
+import { Volume2, VolumeX, Info, RefreshCw, Menu } from "lucide-react";
 import { START_BALANCE, BETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
 import { useSlotGame } from "@/hooks/use-slot-game";
-import { useTheater } from "@/hooks/use-theater";
 import { SlotGrid } from "./Grid";
 import { Paytable } from "./Paytable";
 import { PickBonus } from "./PickBonus";
@@ -84,7 +83,6 @@ function HoldSpin({
 
 export function SlotGame() {
   const g = useSlotGame();
-  const theater = useTheater();
   const spinning = g.phase === "spinning" || g.phase === "landing";
   const resolving =
     spinning ||
@@ -108,8 +106,7 @@ export function SlotGame() {
 
   return (
     <div
-      ref={theater.ref}
-      className={`stage ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""} ${theater.landscape ? "is-ls" : ""} ${theater.on ? "is-theater" : ""}`}
+      className={`stage ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""}`}
     >
       <div className="stage-bg" />
       <div className="stage-glow" />
@@ -186,17 +183,8 @@ export function SlotGame() {
                     : "LEN 100+ BET"}
               </em>
             </div>
-            <button
-              type="button"
-              className="icon-btn theater-btn"
-              onClick={theater.toggle}
-              aria-label={theater.on ? "Ukončiť celú obrazovku" : "Celá obrazovka · landscape"}
-              title={theater.on ? "Ukončiť celú obrazovku" : "Celá obrazovka"}
-            >
-              {theater.on ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            </button>
+            </div>
           </div>
-        </div>
 
         <div className="arena">
           <aside className="side-left">
@@ -484,13 +472,6 @@ export function SlotGame() {
           >
             TURBO
           </button>
-          <button
-            type="button"
-            className={`chip-btn ${theater.on ? "on" : ""}`}
-            onClick={theater.toggle}
-          >
-            {theater.on ? "UKONČIŤ 16:9" : "CELOU OBRAZOVKU"}
-          </button>
           {g.autoReason && !g.autoOn && <span className="auto-stop">{g.autoReason}</span>}
           {g.balance < g.stake && (
             <button type="button" className="chip-btn gold" onClick={g.refill}>
@@ -500,23 +481,6 @@ export function SlotGame() {
           )}
         </div>
       </div>
-
-      {theater.needsRotate && (
-        <div className="ls-turn" role="dialog" aria-label="Otoč telefón">
-          <RotateCw size={42} strokeWidth={2.2} />
-          <p>Otoč telefón na šírku</p>
-          <span>16:9 landscape · celá obrazovka</span>
-          <button type="button" className="chip-btn gold" onClick={() => void theater.exit()}>
-            Ukončiť
-          </button>
-        </div>
-      )}
-
-      {theater.on && !theater.needsRotate && (
-        <button type="button" className="ls-exit" onClick={() => void theater.exit()}>
-          Ukončiť celú obrazovku
-        </button>
-      )}
 
       {g.pickOpen && (
         <PickBonus
