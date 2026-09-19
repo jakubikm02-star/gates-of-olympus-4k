@@ -5,7 +5,6 @@ import {
   BASE_MULT_TABLE,
   PAY_SYMBOLS,
   SCATTER,
-  PARK,
   MAX_WIN_X,
   FS_TRIGGER_SCATTERS,
   FS_RETRIGGER_SCATTERS,
@@ -56,9 +55,9 @@ export function emptyGrid(): Cell[][] {
   return g;
 }
 
-function randomPayCell(rng: () => number): Cell {
+function randomPayCell(rng: () => number, live = false): Cell {
   const s = pickWeighted(
-    PAY_SYMBOLS.map((p) => ({ w: p.weight, id: p.id })),
+    PAY_SYMBOLS.map((p) => ({ w: live && p.id === "pdf" ? p.weight * 2.4 : p.weight, id: p.id })),
     rng,
   );
   return { uid: nextUid(), kind: "pay", payId: s.id };
@@ -69,33 +68,42 @@ export function randomOrb(rng: () => number, fs = false): Cell {
   return { uid: nextUid(), kind: "mult", mult: m };
 }
 
-/** Orbs are Zeus-drops, not fill-bag competitors. */
-export function randomCell(rng: () => number, ante: boolean, fs = false): Cell {
+/** Orbs in LIVE ride the strip. PORT keeps them as ramp drops. No jackpot symbol in LIVE. */
+export function randomCell(rng: () => number, ante: boolean, live = false): Cell {
+  if (live) {
+    const scatterW = 3.2;
+    const orbW = 7.8;
+    const payW = PAY_SYMBOLS.reduce((s, p) => s + p.weight, 0);
+    const t = payW + scatterW + orbW;
+    const r = rng() * t;
+    if (r < orbW) return randomOrb(rng, true);
+    if (r < orbW + scatterW) return { uid: nextUid(), kind: "scatter" };
+    return randomPayCell(rng, true);
+  }
   const scatterW = ante ? SCATTER.weightAnte : SCATTER.weight;
-  const parkW = fs ? PARK.weight : 0;
   const payW = PAY_SYMBOLS.reduce((s, p) => s + p.weight, 0);
-  const t = payW + scatterW + parkW;
+  const t = payW + scatterW;
   const r = rng() * t;
-  if (r < parkW) return { uid: nextUid(), kind: "park" };
-  if (r < parkW + scatterW) return { uid: nextUid(), kind: "scatter" };
+  if (r < scatterW) return { uid: nextUid(), kind: "scatter" };
   return randomPayCell(rng);
 }
 
 /** Tall looping column: 3×5 with empty track so the shot isn’t a packed icon wall. */
-export function makeSpinStrip(rng: () => number): Cell[] {
+export function makeSpinStrip(rng: () => number, live = false): Cell[] {
   const pat: Cell[] = [];
   for (let i = 0; i < ROWS; i++) {
-    if (rng() < 0.28) pat.push({ uid: nextUid(), kind: "pay", payId: "rj45", gone: true });
+    if (rng() < 0.22) pat.push({ uid: nextUid(), kind: "pay", payId: "rj45", gone: true });
+    else if (live) pat.push(randomCell(rng, false, true));
     else pat.push(randomPayCell(rng));
   }
   return [...pat, ...pat, ...pat];
 }
 
-export function generateGrid(rng: () => number, ante: boolean): Cell[][] {
+export function generateGrid(rng: () => number, ante: boolean, live = false): Cell[][] {
   const g: Cell[][] = [];
   for (let r = 0; r < ROWS; r++) {
     const row: Cell[] = [];
-    for (let c = 0; c < COLS; c++) row.push(randomCell(rng, ante));
+    for (let c = 0; c < COLS; c++) row.push(randomCell(rng, ante, live));
     g.push(row);
   }
   return g;

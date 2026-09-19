@@ -14,6 +14,7 @@ let whiteBuf: AudioBuffer | null = null;
 let brownBuf: AudioBuffer | null = null;
 let spinNodes: { stop: () => void; gain: GainNode } | null = null;
 let anticipateNodes: { stop: () => void } | null = null;
+let liveBed: { stop: () => void } | null = null;
 const playing: Partial<Record<string, { stop: () => void }>> = {};
 const CUT_PREV = new Set(["win", "winFull", "payout", "bigwin", "tumble", "pop", "tableA", "tableB"]);
 const bufs: Record<string, AudioBuffer> = {};
@@ -418,11 +419,30 @@ export function playMult(): void {
 
 export function playFsStart(): void {
   stopSpin();
-  duckMusic(0.4);
+  duckMusic(0.18);
   if (!playBuf("fsStart", { gain: 0.82 })) {
     playThunder();
     playBuf("harp", { gain: 0.7 });
   }
+}
+
+export function startLiveBed(): void {
+  if (!ctx || !sfx || liveBed) return;
+  duckMusic(0.12);
+  const loop = playBuf("electric", { gain: 0.08, rate: 0.7, loop: true });
+  const harp = playBuf("harp", { gain: 0.06, rate: 0.9, loop: true });
+  liveBed = {
+    stop: () => {
+      loop?.stop();
+      harp?.stop();
+    },
+  };
+}
+
+export function stopLiveBed(): void {
+  liveBed?.stop();
+  liveBed = null;
+  duckMusic(1);
 }
 
 export function playPickStart(): void {

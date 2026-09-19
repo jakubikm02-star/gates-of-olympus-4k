@@ -139,42 +139,28 @@ export const ALL_ART: readonly string[] = [
   "/art/parking-bg.jpg",
 ];
 
-/** Base orbs: mostly 2–8× so dead-spin theater exists without paying a bank. */
+/** PORT: 2–10× dominate. LIVE uses MULT_TABLE (2/3/5/8/10/25/50/100). */
 export const BASE_MULT_TABLE: readonly { value: number; w: number }[] = [
-  { value: 2, w: 30 },
-  { value: 3, w: 22 },
-  { value: 4, w: 16 },
-  { value: 5, w: 12 },
-  { value: 6, w: 8 },
-  { value: 8, w: 5 },
-  { value: 10, w: 3.2 },
-  { value: 12, w: 2 },
-  { value: 15, w: 1.2 },
-  { value: 20, w: 0.7 },
-  { value: 25, w: 0.4 },
-  { value: 50, w: 0.18 },
-  { value: 100, w: 0.08 },
-  { value: 250, w: 0.025 },
-  { value: 500, w: 0.01 },
+  { value: 2, w: 36 },
+  { value: 3, w: 24 },
+  { value: 5, w: 16 },
+  { value: 8, w: 10 },
+  { value: 10, w: 7 },
+  { value: 25, w: 4 },
+  { value: 50, w: 2 },
+  { value: 100, w: 1 },
 ];
 
-/** FS orbs: mass on 2–8×, fat 50–500 so stacked meter can actually cap at 5000×. */
+/** PARKNET LIVE cans. Heavy at the bottom. */
 export const MULT_TABLE: readonly { value: number; w: number }[] = [
-  { value: 2, w: 22 },
-  { value: 3, w: 17 },
-  { value: 4, w: 13 },
-  { value: 5, w: 10 },
-  { value: 6, w: 7 },
-  { value: 8, w: 5.5 },
-  { value: 10, w: 4.5 },
-  { value: 12, w: 3.2 },
-  { value: 15, w: 2.3 },
-  { value: 20, w: 1.7 },
-  { value: 25, w: 1.3 },
-  { value: 50, w: 0.9 },
-  { value: 100, w: 0.55 },
-  { value: 250, w: 0.28 },
-  { value: 500, w: 0.18 },
+  { value: 2, w: 28 },
+  { value: 3, w: 22 },
+  { value: 5, w: 16 },
+  { value: 8, w: 12 },
+  { value: 10, w: 10 },
+  { value: 25, w: 6 },
+  { value: 50, w: 4 },
+  { value: 100, w: 2 },
 ];
 
 export const BETS = [

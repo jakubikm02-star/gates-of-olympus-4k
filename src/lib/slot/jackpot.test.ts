@@ -11,6 +11,7 @@ import {
   TIERS,
 } from "./jackpot.ts";
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
+import { pityGain } from "./pick-bonus.ts";
 
 describe("park jackpots", () => {
   it("takes 2.3% visible + 0.3% reserve", () => {
@@ -205,5 +206,15 @@ describe("rank stake + perk", () => {
     assert.equal(week.after.id, "smart");
     const afk = applyWeeklyDecay(1400, now - WEEK_MS * 10, now);
     assert.equal(afk.drops, 3);
+  });
+});
+
+describe("kontrola pity", () => {
+  it("charges every PORT spin, not only dead ones", () => {
+    assert.equal(pityGain(0, false), 2);
+    assert.equal(pityGain(1, false), 2);
+    assert.equal(pityGain(0, true), 5);
+    assert.equal(pityGain(3, false), 18);
+    assert.equal(pityGain(4, true), 0);
   });
 });

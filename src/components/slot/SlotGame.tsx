@@ -19,8 +19,8 @@ const BANNER_COPY: Record<string, string> = {
   epic: "SUPER MEGA WIN",
   mega: "MEGA WIN",
   big: "BIG WIN",
-  fs: "GRATULUJEME!",
-  fsTotal: "TOTAL WIN",
+  fs: "GRATULUJEME · 15 VOLNÝCH TOČENÍ",
+  fsTotal: "SIEŤ SPADLA",
   pool: "JACKPOT",
   win: "WIN",
 };
@@ -96,13 +96,15 @@ export function SlotGame() {
     Boolean(g.banner) ||
     Boolean(g.jpHit);
   const winLine =
-    spinning && g.displayWin <= 0 && !g.payHint
-      ? g.message === "TOČÍ SA..."
-        ? "TOČÍ SA..."
-        : "GOOD LUCK!"
-      : g.displayWin > 0 || g.payHint
-        ? null
-        : "";
+    g.inFs
+      ? "PARKNET LIVE"
+      : spinning && g.displayWin <= 0 && !g.payHint
+        ? g.message === "TOČÍ SA..."
+          ? "TOČÍ SA..."
+          : "GOOD LUCK!"
+        : g.displayWin > 0 || g.payHint
+          ? null
+          : "";
 
   return (
     <div
@@ -149,9 +151,9 @@ export function SlotGame() {
           />
           <div className="head-center">
             <div className="logo-plate compact">
-              <span className="logo-kicker">PORTS of</span>
-              <span className="logo-main">PARKIZMUS</span>
-              <span className="logo-sub">ZÓNA · LÍSTOK · RAMPA · POKUTA</span>
+              <span className="logo-kicker">{g.inFs ? "PARKNET" : "PORTS of"}</span>
+              <span className="logo-main">{g.inFs ? "LIVE" : "PARKIZMUS"}</span>
+              <span className="logo-sub">{g.inFs ? "SIGNÁL · 4tv · SIEŤ" : "ZÓNA · LÍSTOK · RAMPA · POKUTA"}</span>
             </div>
             <p className="ls-max">WIN UP TO 5000× BET</p>
           </div>
@@ -194,17 +196,8 @@ export function SlotGame() {
               onClick={() => void g.buyBonus()}
               disabled={!g.canBuy}
             >
-              {g.inFs ? (
-                <>
-                  <em>FREE SPINS</em>
-                  <strong>{g.fsLeft}</strong>
-                </>
-              ) : (
-                <>
-                  <em>KÚPIŤ FREE SPINS</em>
-                  <strong>{formatMoney(g.bet * g.buyX)}</strong>
-                </>
-              )}
+              <em>KÚPIŤ PARKNET</em>
+              <strong>{formatMoney(g.bet * g.buyX)}</strong>
             </button>
             <button
               type="button"
@@ -243,9 +236,9 @@ export function SlotGame() {
           <section className="board-wrap">
             {!g.inFs && (
               <div className={`pity-bar ${g.pityDelta ? "is-feed" : ""} ${g.pity >= g.pityGoal ? "is-hot" : ""}`}>
-                <span className="pity-kicker">PITY</span>
+                <span className="pity-kicker">KONTROLA</span>
                 <span className="pity-stake">{formatMoney(g.bet)}</span>
-                <span className="pity-name">KONTROLA</span>
+                <span className="pity-name">PITY</span>
                 <div
                   className="pity-track"
                   role="progressbar"
@@ -265,12 +258,14 @@ export function SlotGame() {
             {g.inFs && (
               <div className="fs-hero" aria-live="polite">
                 <div className={`wing-mult ${g.flies.length ? "is-feed" : ""}`}>
-                  <span>TOTAL MULTIPLIER</span>
-                  <b>{g.globalMult || 0}X</b>
+                  <span>SIGNÁL</span>
+                  <b>{g.globalMult || 0}×</b>
                 </div>
                 <div className="fs-left">
-                  FREE SPINS LEFT
-                  <strong>{g.fsLeft}</strong>
+                  PARKNET
+                  <strong>
+                    {g.fsLeft}/{g.fsTotal || 15}
+                  </strong>
                 </div>
               </div>
             )}
@@ -324,10 +319,10 @@ export function SlotGame() {
           </section>
 
           <aside className="ramp-col" aria-hidden="false">
-            <span className={`led-sign ${g.seqMult > 1 || g.flies.length ? "is-multi" : ""}`}>
+            <span className={`led-sign ${g.inFs || g.seqMult > 1 || g.flies.length ? "is-multi" : ""}`}>
               {g.inFs || g.seqMult > 1 || g.flies.length ? (
                 <>
-                  MULTI <b>{Math.max(1, g.globalMult || g.seqMult)}X</b>
+                  SIGNÁL <b>{Math.max(0, g.globalMult || (g.inFs ? 0 : g.seqMult))}×</b>
                 </>
               ) : (
                 <>
@@ -498,7 +493,7 @@ export function SlotGame() {
 
       {g.buyAsk && (
         <div className="buy-ask" role="dialog" aria-label="Kúpiť free spins">
-          <p>KÚPIŤ FREE SPINS</p>
+          <p>KÚPIŤ PARKNET LIVE</p>
           <strong>{formatMoney(g.bet * g.buyX)}</strong>
           <div className="buy-ask-btns">
             <button type="button" className="buy-x" onClick={g.cancelBuy} aria-label="Zrušiť">
