@@ -817,12 +817,12 @@ export function useSlotGame() {
         }
       }
       sfx.stopSpin();
-      sfx.stopAnticipate();
-      sfx.duckMusic(1);
-      setAnticipate(false);
       setSpinPace(null);
       setStoppedCols(6);
       await wait(dur(90));
+      sfx.stopAnticipate();
+      sfx.duckMusic(1);
+      setAnticipate(false);
       setHoldGrid(null);
       setSpinStrips(null);
       setReelFast(false);

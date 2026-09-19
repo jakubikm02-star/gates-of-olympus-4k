@@ -107,9 +107,8 @@
 
 .stage.is-anti .reel-window {
   box-shadow:
-    inset 0 0 48px rgb(255 190 50 / 0.32),
-    inset 0 22px 28px rgb(0 0 0 / 0.45),
-    inset 0 -18px 24px rgb(0 0 0 / 0.4);
+    inset 0 0 72px rgb(0 0 0 / 0.28),
+    inset 0 0 36px rgb(255 196 60 / 0.1);
 }
 
 .stage.is-anti .stage-glow {
@@ -742,6 +741,11 @@
   box-shadow:
     inset 0 0 0 2px #050608,
     inset 0 10px 14px rgb(0 0 0 / 0.28);
+  transform: scale(1);
+  transform-origin: 50% 46%;
+  transition:
+    transform 0.85s cubic-bezier(0.22, 0.82, 0.2, 1),
+    box-shadow 0.7s ease;
 }
 
 .reel-window.is-spinning,
@@ -756,6 +760,8 @@
   container-type: size;
   height: 100%;
   box-shadow: inset -1px 0 0 rgb(0 0 0 / 0.45);
+  filter: brightness(1);
+  transition: filter 0.55s ease, box-shadow 0.55s ease;
 }
 
 .reel-col:last-child {
@@ -827,15 +833,6 @@
   animation: strip-fill 0.44s cubic-bezier(0.16, 0.9, 0.22, 1) both;
 }
 
-@keyframes strip-dump {
-  0% {
-    transform: translate3d(0, 0, 0);
-  }
-  100% {
-    transform: translate3d(0, 120%, 0);
-  }
-}
-
 @keyframes strip-fill {
   0% {
     transform: translate3d(0, -120%, 0);
@@ -845,6 +842,28 @@
   }
   86% {
     transform: translate3d(0, -4px, 0);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes strip-dump {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(0, 120%, 0);
+  }
+}
+
+.reel-window.is-anticipate .strip.is-filling {
+  animation: strip-fill-soft 0.5s cubic-bezier(0.22, 0.82, 0.22, 1) both;
+}
+
+@keyframes strip-fill-soft {
+  0% {
+    transform: translate3d(0, -120%, 0);
   }
   100% {
     transform: none;
@@ -970,8 +989,9 @@
 
 .reel-col.is-anticipate {
   box-shadow:
-    inset 0 0 28px rgb(255 210 80 / 0.38),
+    inset 0 0 28px rgb(255 210 80 / 0.28),
     inset -1px 0 0 rgb(0 0 0 / 0.45);
+  filter: brightness(0.82);
 }
 
 .cell {
@@ -1518,28 +1538,27 @@
 }
 
 .cell.is-tease .cell-img {
-  animation: scatter-tease 0.62s ease-in-out infinite;
-  filter: drop-shadow(0 0 18px #ffd24a) brightness(1.2);
+  animation: scatter-tease 1.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 14px #ffd24a) brightness(1.12);
 }
 
 @keyframes scatter-tease {
   50% {
-    transform: scale(1.06);
-    filter: drop-shadow(0 0 18px #ffe14a) brightness(1.28);
+    transform: scale(1.03);
+    filter: drop-shadow(0 0 18px #ffe14a) brightness(1.2);
   }
 }
 
 .cell.is-slam .cell-img {
-  animation: scatter-slam 0.34s cubic-bezier(0.2, 1.1, 0.32, 1) both;
+  animation: scatter-slam 0.42s ease-out both;
 }
 
 @keyframes scatter-slam {
   0% {
-    transform: scale(1.12);
-    filter: brightness(1.45) drop-shadow(0 0 14px #ffe14a);
+    filter: brightness(1.55) drop-shadow(0 0 16px #ffe14a);
   }
   100% {
-    transform: scale(1);
+    filter: brightness(1.12) drop-shadow(0 0 8px #ffb020);
   }
 }
 
@@ -1628,14 +1647,19 @@
 
 .zeus.anti,
 .ramp.anti {
-  filter: drop-shadow(0 0 28px #3ec6e0) drop-shadow(0 18px 24px rgb(0 0 0 / 0.55)) brightness(1.18);
-  animation: zeus-charge 0.55s ease-in-out infinite;
+  filter: drop-shadow(0 0 22px #3ec6e0) drop-shadow(0 18px 24px rgb(0 0 0 / 0.55));
+  animation: zeus-charge 1.8s ease-in-out infinite;
 }
 
 @keyframes zeus-charge {
+  0%,
+  100% {
+    transform: none;
+    filter: drop-shadow(0 0 16px #3ec6e0) brightness(1.04);
+  }
   50% {
-    transform: translateY(-14px) scale(1.05);
-    filter: drop-shadow(0 0 40px #b8eeff) brightness(1.3);
+    transform: none;
+    filter: drop-shadow(0 0 28px #b8eeff) brightness(1.14);
   }
 }
 
@@ -3824,6 +3848,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .reel-window,
+  .reel-window.is-anticipate {
+    transform: none !important;
+    transition: none !important;
+  }
   .pk-pin,
   .pk-pin.is-kill,
   .cell.is-dump,
@@ -4323,11 +4352,12 @@ html:-webkit-full-screen {
 }
 
 .reel-window.is-anticipate {
-  box-shadow: inset 0 0 100px rgb(0 0 0 / 0.2), inset 0 0 28px rgb(255 196 60 / 0.12);
+  transform: scale(1.016);
+  box-shadow: inset 0 0 90px rgb(0 0 0 / 0.22), inset 0 0 28px rgb(255 196 60 / 0.1);
 }
 
 .reel-col.is-anticipate {
-  filter: brightness(0.72);
+  filter: brightness(0.82);
 }
 
 .stage.win-tier-1 .reel-frame {

@@ -342,34 +342,60 @@ export function playScatter(n = 1): void {
 
 export function startAnticipate(): void {
   if (!ctx || !sfx || anticipateNodes) return;
-  duckMusic(0.28);
-  const harp = playBuf("harp", { gain: 0.35, rate: 0.85, loop: true });
+  duckMusic(0.22);
+  const t = ctx.currentTime;
+  const stops: Array<() => void> = [];
+
+  const harp = playBuf("harp", { gain: 0.08, rate: 0.82, loop: true });
   if (harp) {
-    harp.gain.gain.setValueAtTime(0.12, ctx.currentTime);
-    harp.gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 1.6);
-    anticipateNodes = { stop: harp.stop };
-    return;
+    harp.gain.gain.setValueAtTime(0.08, t);
+    harp.gain.gain.linearRampToValueAtTime(0.5, t + 1.8);
+    stops.push(() => {
+      harp.gain.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.22);
+      window.setTimeout(harp.stop, 420);
+    });
   }
-  const o = ctx.createOscillator();
-  o.type = "sawtooth";
-  o.frequency.setValueAtTime(70, ctx.currentTime);
-  o.frequency.linearRampToValueAtTime(210, ctx.currentTime + 2);
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(0.0001, ctx.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.16);
-  o.connect(g);
-  g.connect(sfx);
-  o.start();
-  anticipateNodes = {
-    stop: () => {
-      g.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.04);
+
+  const whoosh = playBuf("electric", { gain: 0.04, rate: 0.52, loop: true });
+  if (whoosh) {
+    whoosh.gain.gain.setValueAtTime(0.04, t);
+    whoosh.gain.gain.linearRampToValueAtTime(0.2, t + 1.5);
+    stops.push(() => {
+      whoosh.gain.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.2);
+      window.setTimeout(whoosh.stop, 400);
+    });
+  }
+
+  if (brownBuf) {
+    const src = ctx.createBufferSource();
+    src.buffer = brownBuf;
+    src.loop = true;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(70, t);
+    lp.frequency.linearRampToValueAtTime(240, t + 1.6);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.03, t);
+    g.gain.linearRampToValueAtTime(0.14, t + 1.6);
+    src.connect(lp);
+    lp.connect(g);
+    g.connect(sfx);
+    src.start();
+    stops.push(() => {
+      g.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.2);
       window.setTimeout(() => {
         try {
-          o.stop();
+          src.stop();
         } catch {
           /* already */
         }
-      }, 80);
+      }, 400);
+    });
+  }
+
+  anticipateNodes = {
+    stop: () => {
+      for (const s of stops) s();
     },
   };
 }
