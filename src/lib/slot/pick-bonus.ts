@@ -35,12 +35,12 @@ export function spendPity(map: PityMap, bet: number): PityMap {
   return { ...map, [pityKey(bet)]: 0 };
 }
 
-/** Every PORT spin charges KONTROLA. 4tv trigger does not — that shot is LIVE. */
+/** PORT: wins fill KONTROLA. 3 zo 4 4tv = 30. Trigger itself does not. */
 export function pityGain(scatterPeak: number, dead: boolean): number {
   if (scatterPeak >= 4) return 0;
-  if (scatterPeak >= 3) return 18;
-  if (dead) return 5;
-  return 2;
+  if (scatterPeak >= 3) return 30;
+  if (dead) return 6;
+  return 8;
 }
 
 /** 3 ODŤAH among 12; pick until first tow. E[safes]=9/4=2.25, avg prize 1.333 → EV ≈ 3×. */

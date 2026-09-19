@@ -4361,7 +4361,7 @@ html:-webkit-full-screen {
 }
 
 .stage.is-resolving .pity-plus {
-  visibility: hidden;
+  visibility: visible;
 }
 
 .reel-window.is-anticipate {

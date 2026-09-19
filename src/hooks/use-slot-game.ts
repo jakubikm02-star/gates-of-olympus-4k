@@ -995,7 +995,6 @@ export function useSlotGame() {
         if (add > 0) {
           const nextMap = bumpPity(pityByBetRef.current, currentBet, add);
           const stored = readPity(nextMap, currentBet);
-          pityAdd = add;
           if (stored >= PITY_GOAL) {
             pityByBetRef.current = spendPity(nextMap, currentBet);
             kontrolaArmedRef.current = true;
@@ -1003,6 +1002,9 @@ export function useSlotGame() {
           } else {
             pityByBetRef.current = nextMap;
           }
+          pityAdd = add;
+          setPityDelta(add);
+          window.setTimeout(() => setPityDelta(0), 1100);
           setPityByBet({ ...pityByBetRef.current });
         }
       }

@@ -211,10 +211,10 @@ describe("rank stake + perk", () => {
 
 describe("kontrola pity", () => {
   it("charges every PORT spin, not only dead ones", () => {
-    assert.equal(pityGain(0, false), 2);
-    assert.equal(pityGain(1, false), 2);
-    assert.equal(pityGain(0, true), 5);
-    assert.equal(pityGain(3, false), 18);
+    assert.equal(pityGain(0, false), 8);
+    assert.equal(pityGain(1, false), 8);
+    assert.equal(pityGain(0, true), 6);
+    assert.equal(pityGain(3, false), 30);
     assert.equal(pityGain(4, true), 0);
   });
 });
