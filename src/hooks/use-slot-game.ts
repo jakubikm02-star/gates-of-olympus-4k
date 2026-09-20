@@ -953,7 +953,7 @@ export function useSlotGame() {
         const ev = evaluate(board);
         scatterPeak = Math.max(scatterPeak, ev.scatterCount);
         const cl = ev.wins.filter((w) => w.payId !== "scatter").length;
-        if (cl > clusterCount) clusterCount = cl;
+        clusterCount += cl;
         if (ev.wins.some((w) => w.payId === "pdf" && w.count >= 8)) pdfHit = true;
 
         if (ev.scatterCount > landedScatters) {
@@ -1246,12 +1246,12 @@ export function useSlotGame() {
         await runTicket(landed.ticket);
       }
 
-      if (!isFree && !pendingFs) {
+      if (!isFree && !opts?.buy) {
         settleJob({
           win: cash > 0,
           dead: cash <= 0,
           tumbles: tumbleN,
-          live: false,
+          live: pendingFs,
           ticket: landed?.ticket ?? null,
           pdf: pdfHit,
           signal: 0,
@@ -1404,7 +1404,7 @@ export function useSlotGame() {
           signal: peak,
           clusters: 0,
           orbs: peak > 0,
-          spun: true,
+          spun: false,
         });
         setPhase("idle");
         setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");

@@ -318,6 +318,48 @@ describe("míňať", () => {
     }
   });
 
+  it("DUO counts two clusters on one spin, including sequential tumbles", () => {
+    const duo: ReturnType<typeof dealJobs>[number] = {
+      id: "duo",
+      floor: "lacna",
+      template: "duo",
+      title: "DUO",
+      detail: "2× dva clustre na spine",
+      stake: 1000,
+      payout: 2000,
+      need: 2,
+      have: 0,
+      limit: 30,
+      spun: 0,
+      kind: "wins",
+    };
+    const one = tickJob(duo, {
+      win: true,
+      dead: false,
+      tumbles: 1,
+      live: false,
+      ticket: null,
+      pdf: false,
+      signal: 0,
+      clusters: 1,
+      orbs: false,
+    });
+    assert.equal(one.have, 0);
+    const two = tickJob(duo, {
+      win: true,
+      dead: false,
+      tumbles: 1,
+      live: false,
+      ticket: null,
+      pdf: false,
+      signal: 0,
+      clusters: 2,
+      orbs: false,
+    });
+    assert.equal(two.have, 1);
+    assert.equal(two.spun, 1);
+  });
+
   it("POT job needs a grey ticket, not a silent must-hit", () => {
     const job = dealJobs(() => 0.1).find((j) => j.kind === "ticket") ?? {
       id: "pot",
