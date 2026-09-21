@@ -99,9 +99,30 @@ describe("rank stake + perk", () => {
   it("36 cents is far less RP than 75 euros", () => {
     const chip = rpFromSpin({ cash: 0.36, bet: 100, mult: 1, tumbles: 0, streak: 1, banner: null, kind: "base" });
     const fat = rpFromSpin({ cash: 75, bet: 100, mult: 1, tumbles: 0, streak: 1, banner: null, kind: "base" });
-    assert.ok(chip.total <= 8, `chip ${chip.total}`);
-    assert.ok(fat.total >= 40, `fat ${fat.total}`);
-    assert.ok(fat.total >= chip.total * 5);
+    const huge = rpFromSpin({ cash: 500, bet: 1, mult: 1, tumbles: 0, streak: 1, banner: null, kind: "base" });
+    assert.ok(chip.total <= 4, `chip ${chip.total}`);
+    assert.ok(fat.total >= 36 && fat.total <= 55, `fat ${fat.total}`);
+    assert.ok(huge.total >= 90 && huge.total <= 140, `500€ ${huge.total}`);
+    assert.ok(fat.total >= chip.total * 8);
+  });
+
+  it("published extras match the curve", () => {
+    const m2 = rpFromSpin({ cash: 10, bet: 1, mult: 2, tumbles: 0, streak: 1, banner: null, kind: "base" });
+    const m10 = rpFromSpin({ cash: 10, bet: 1, mult: 10, tumbles: 0, streak: 1, banner: null, kind: "base" });
+    const m50 = rpFromSpin({ cash: 10, bet: 1, mult: 50, tumbles: 0, streak: 1, banner: null, kind: "base" });
+    assert.equal(m2.fromMult, 4);
+    assert.equal(m10.fromMult, 12);
+    assert.ok(m50.fromMult >= 18 && m50.fromMult <= 20);
+    const s2 = rpFromSpin({ cash: 10, bet: 1, mult: 1, tumbles: 0, streak: 2, banner: null, kind: "base" });
+    const s5 = rpFromSpin({ cash: 10, bet: 1, mult: 1, tumbles: 0, streak: 5, banner: null, kind: "base" });
+    assert.equal(s2.fromStreak, 2);
+    assert.equal(s5.fromStreak, 14);
+    const t = rpFromSpin({ cash: 10, bet: 1, mult: 1, tumbles: 5, streak: 1, banner: null, kind: "base" });
+    assert.equal(t.fromTumble, 5);
+    const big = rpFromSpin({ cash: 10, bet: 1, mult: 1, tumbles: 0, streak: 1, banner: "big", kind: "base" });
+    const max = rpFromSpin({ cash: 10, bet: 1, mult: 1, tumbles: 0, streak: 1, banner: "max", kind: "base" });
+    assert.equal(big.fromBanner, 4);
+    assert.equal(max.fromBanner, 18);
   });
 
   it("dead spin is free in KREDIT and expensive at 100€ NEKONEČNO", () => {

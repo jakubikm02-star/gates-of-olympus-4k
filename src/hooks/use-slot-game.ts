@@ -1033,7 +1033,7 @@ export function useSlotGame() {
         await wait(dur(small ? 280 : 480), abort.current);
         await wait(dur(80), abort.current);
 
-        if (!willPop || tumbleN >= 4 || (pendingFs && !fsNow && scatterPeak >= FS_TRIGGER_SCATTERS)) {
+        if (!willPop) {
           setClusterPay(null);
           break;
         }

@@ -523,21 +523,21 @@ export function rpFromSpin(s: RankSpin): RankBreakdown {
 
   const cash = Math.max(0, s.cash);
   const wx = cash / s.bet;
-  const fromSum = Math.round(3 * Math.pow(cash, 0.58)) + Math.round(1.6 * Math.log2(1 + wx));
+  const fromSum = Math.round(2.35 * Math.pow(cash, 0.58) + 2 * Math.log2(1 + wx));
   const m = Math.max(1, s.mult);
-  const fromMult = m > 1 ? Math.min(12, Math.round(1 + 2.4 * Math.log2(m))) : 0;
+  const fromMult = m > 1 ? Math.min(20, Math.round(0.5 + 3.4 * Math.log2(m))) : 0;
   const k = Math.max(0, s.streak - 1);
-  const fromStreak = k > 0 ? Math.min(8, Math.round(1.6 * k + 0.2 * k * k)) : 0;
-  const fromTumble = s.tumbles >= 2 ? Math.min(5, s.tumbles) : 0;
+  const fromStreak = k > 0 ? Math.min(14, Math.round((k * (k + 3)) / 2)) : 0;
+  const fromTumble = s.tumbles >= 2 ? Math.min(8, s.tumbles) : 0;
   const fromBanner =
-    s.banner === "max" ? 12 : s.banner === "epic" ? 8 : s.banner === "mega" ? 5 : s.banner === "big" ? 3 : 0;
+    s.banner === "max" ? 18 : s.banner === "epic" ? 12 : s.banner === "mega" ? 8 : s.banner === "big" ? 4 : 0;
   let fromBonus = 0;
-  if (s.kind === "fs") fromBonus += 4;
-  if (s.kind === "pick") fromBonus += 3;
+  if (s.kind === "fs") fromBonus += 6;
+  if (s.kind === "pick") fromBonus += 4;
   if (s.ante && s.kind === "base") fromBonus += 1;
   if ((s.scatters ?? 0) >= 3 && s.kind === "base") fromBonus += 2;
   const retriggers = s.retriggers ?? 0;
-  if (retriggers > 0) fromBonus += Math.min(8, retriggers * 4);
+  if (retriggers > 0) fromBonus += Math.min(10, retriggers * 5);
   const picks = s.picks ?? 0;
   if (s.kind === "pick" && picks > 0) fromBonus += Math.min(5, picks);
   const fromStake = Math.round(
