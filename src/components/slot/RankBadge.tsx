@@ -38,12 +38,14 @@ export function RankMark({ id, size = 16 }: { id: string; size?: number }) {
   return <Icon size={size} strokeWidth={2.4} />;
 }
 
-const FLASH_TITLE: Record<NonNullable<RankFlash["event"]>, string> = {
-  up: "RANK UP",
-  down: "RANK DOWN",
+const FLASH_TITLE: Record<NonNullable<RankFlash["event"]>, string | null> = {
+  up: null,
+  down: null,
   bust: "BANKROT",
   week: "DROP",
   shield: "ŠTÍT",
+  gain: null,
+  loss: null,
 };
 
 interface Props {
@@ -53,21 +55,35 @@ interface Props {
   parts?: RankBreakdown | null;
   perkTitle?: string;
   flash?: RankFlash | null;
+  tick?: number;
   onOpen: () => void;
 }
 
-export function RankBadge({ stand, delta = 0, streak = 0, parts = null, perkTitle, flash = null, onOpen }: Props) {
+export function RankBadge({ stand, delta = 0, streak = 0, parts = null, perkTitle, flash = null, tick = 0, onOpen }: Props) {
   const n = RANKS.length;
   const needle = ladderNeedle(stand);
   const angle = -90 + needle * 180;
   const hint = parts && parts.total !== 0 ? rankBits(parts).join(" · ") : perkTitle;
   const label = `${stand.name}${stand.roman ? ` ${stand.roman}` : ""}`;
   const event = flash?.event ?? null;
+  const signed = delta !== 0 ? delta : flash?.applied ?? 0;
+  const gain = signed > 0;
+  const loss = signed < 0;
+  const pct = stand.need > 0 ? Math.min(100, (stand.into / stand.need) * 100) : 100;
+  const promo =
+    event === "up"
+      ? `▲ ${flash?.after.roman || flash?.after.name || ""}`
+      : event === "down"
+        ? `▼ ${flash?.after.roman || flash?.after.name || ""}`
+        : event && FLASH_TITLE[event]
+          ? FLASH_TITLE[event]
+          : null;
+  const tone = event === "up" || event === "gain" || gain ? "gain" : event === "down" || event === "loss" || event === "week" || event === "bust" || loss ? "loss" : event === "shield" ? "gain" : "";
 
   return (
     <button
       type="button"
-      className={`rank-chip rank-gauge rk-${stand.id}${event ? ` is-flash is-${event}` : ""}`}
+      className={`rank-chip rank-gauge rk-${stand.id}${tone ? ` is-flash is-${tone}` : ""}${event && event !== "gain" && event !== "loss" ? ` is-${event}` : ""}`}
       onClick={onOpen}
       aria-label={`Rank ${label} ${perkTitle ?? ""}`.trim()}
       title={hint}
@@ -127,19 +143,23 @@ export function RankBadge({ stand, delta = 0, streak = 0, parts = null, perkTitl
         <RankMark id={stand.id} size={14} />
       </span>
       <span className="rank-meta">
-        <em>{event ? FLASH_TITLE[event] : label}</em>
-        {perkTitle && !event ? <span className="rank-perk-tag">{perkTitle}</span> : null}
+        <em>{label}</em>
+        {perkTitle && !promo ? <span className="rank-perk-tag">{perkTitle}</span> : null}
       </span>
+      <i className="rank-fill" aria-hidden="true">
+        <b style={{ width: `${pct}%` }} />
+      </i>
       {streak >= 2 && (
         <span className="rank-streak" aria-label={`Séria ${streak} výhier`}>
           {streak}
         </span>
       )}
-      {delta !== 0 && (
-        <strong className={`rank-delta ${delta > 0 ? "up" : "dn"}`}>
-          {delta > 0 ? `+${delta}` : delta}
+      {signed !== 0 && (
+        <strong key={tick} className={`rank-delta ${signed > 0 ? "up" : "dn"}`}>
+          {signed > 0 ? `+${signed}` : signed}
         </strong>
       )}
+      {promo ? <span className={`rank-promo ${tone}`}>{promo}</span> : null}
     </button>
   );
 }

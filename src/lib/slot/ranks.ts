@@ -592,7 +592,7 @@ export interface RankSave {
   shield: boolean;
 }
 
-export type RankEvent = "up" | "down" | "shield" | "bust" | "week" | null;
+export type RankEvent = "up" | "down" | "shield" | "bust" | "week" | "gain" | "loss" | null;
 
 export interface RankFlash {
   event: RankEvent;

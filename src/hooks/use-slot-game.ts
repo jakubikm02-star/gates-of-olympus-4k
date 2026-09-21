@@ -130,6 +130,7 @@ export function useSlotGame() {
   const [rankPeak, setRankPeak] = useState(0);
   const [rankShield, setRankShield] = useState(false);
   const [rankDelta, setRankDelta] = useState(0);
+  const [rankTick, setRankTick] = useState(0);
   const [rankFlash, setRankFlash] = useState<RankFlash | null>(null);
   const rankQ = useRef<RankFlash[]>([]);
   const [winTier, setWinTier] = useState(0);
@@ -438,7 +439,7 @@ export function useSlotGame() {
 
   useEffect(() => {
     if (rankFlash) {
-      const t = window.setTimeout(() => setRankFlash(null), 900);
+      const t = window.setTimeout(() => setRankFlash(null), 1200);
       return () => window.clearTimeout(t);
     }
     const next = rankQ.current.shift();
@@ -450,9 +451,9 @@ export function useSlotGame() {
     const t = window.setTimeout(() => {
       setRankDelta(0);
       setRankParts(null);
-    }, 2200);
+    }, 1400);
     return () => window.clearTimeout(t);
-  }, [rankDelta]);
+  }, [rankTick]);
 
   useEffect(() => {
     if (!jobToast) return;
@@ -540,7 +541,8 @@ export function useSlotGame() {
     setRankPeak(res.save.peak);
     setRankShield(res.save.shield);
     setRankDelta(res.applied);
-    setRankParts(delta > 0 && parts ? parts : null);
+    setRankTick((n) => n + 1);
+    setRankParts(parts ?? null);
     if (res.event === "up") {
       const perk = perkOf(res.after.id);
       if (perk.dripX > 0) {
@@ -551,9 +553,10 @@ export function useSlotGame() {
         }
       }
     }
-    if (res.event) {
+    const event = res.event ?? (res.applied > 0 ? "gain" : res.applied < 0 ? "loss" : null);
+    if (event) {
       const flash: RankFlash = {
-        event: res.event,
+        event,
         before: res.before,
         after: res.after,
         applied: res.applied,
@@ -1750,6 +1753,7 @@ export function useSlotGame() {
     rankPeak,
     rankShield,
     rankDelta,
+    rankTick,
     rankFlash,
     rankOpen,
     setRankOpen,

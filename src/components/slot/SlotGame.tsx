@@ -151,6 +151,7 @@ export function SlotGame() {
             parts={g.rankParts}
             perkTitle={g.perk.title}
             flash={g.rankFlash}
+            tick={g.rankTick}
             onOpen={() => g.setRankOpen(true)}
           />
           <div className="head-center">

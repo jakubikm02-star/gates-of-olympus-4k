@@ -3661,7 +3661,7 @@
     inset 0 -8px 12px rgb(0 0 0 / 0.35);
   min-height: 98px;
   max-height: 98px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .rank-dial {
@@ -3678,7 +3678,7 @@
 .rank-needle {
   transform: rotate(var(--needle, -90deg));
   transform-origin: 100px 108px;
-  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .rank-needle polygon {
@@ -3817,12 +3817,16 @@
 
 .rank-delta {
   position: absolute;
-  right: 8px;
-  top: -8px;
-  font-size: 0.68rem;
+  left: 50%;
+  top: 6px;
+  right: auto;
+  z-index: 4;
+  font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
   font-weight: 800;
   pointer-events: none;
+  text-shadow: 0 1px 6px #000;
+  animation: rank-delta-pop 1.35s ease-out both;
 }
 
 .rank-delta.up {
@@ -3831,6 +3835,52 @@
 
 .rank-delta.dn {
   color: #ff7a7a;
+}
+
+.rank-fill {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  width: 70px;
+  height: 3px;
+  transform: translateX(-50%);
+  border-radius: 99px;
+  background: rgb(255 255 255 / 0.12);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.rank-fill b {
+  display: block;
+  height: 100%;
+  background: var(--rk, var(--color-gold));
+  border-radius: inherit;
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.rank-promo {
+  position: absolute;
+  left: 50%;
+  top: auto;
+  bottom: -2px;
+  transform: translateX(-50%);
+  z-index: 5;
+  padding: 1px 6px;
+  border-radius: 99px;
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  pointer-events: none;
+  white-space: nowrap;
+  background: #0c1014;
+  border: 1px solid var(--color-gold);
+  color: var(--color-gold);
+  animation: rank-promo-in 1.2s ease-out both;
+}
+
+.rank-promo.loss {
+  border-color: #ff7a7a;
+  color: #ffb0b0;
 }
 
 .rank-streak {
@@ -3899,7 +3949,7 @@
 
 .rank-gauge.is-flash {
   z-index: 6;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .rank-gauge.is-flash::after {
@@ -3908,43 +3958,24 @@
   inset: -2px;
   border-radius: inherit;
   pointer-events: none;
-  box-shadow: 0 0 22px color-mix(in srgb, var(--rk) 58%, transparent);
-  animation: gauge-ring 0.9s ease-out both;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--rk) 50%, transparent);
+  animation: gauge-ring 0.7s ease-out both;
 }
 
-.rank-gauge.is-flash .rank-meta em {
-  color: var(--rk-ink);
-  letter-spacing: 0.12em;
+.rank-gauge.is-gain .rank-dial path.is-now {
+  filter: brightness(1.4) saturate(1.25);
 }
 
-.rank-gauge.is-up .rank-dial path.is-now {
-  filter: brightness(1.45) saturate(1.3);
+.rank-gauge.is-loss .rank-dial path.is-now {
+  filter: brightness(0.82) saturate(0.75);
 }
 
-.rank-gauge.is-up .rank-needle {
-  animation: needle-kick 0.7s cubic-bezier(0.18, 0.84, 0.24, 1);
+.rank-gauge.is-gain .rank-fill b {
+  box-shadow: 0 0 8px #7dffb0;
 }
 
-.rank-gauge.is-down .rank-needle,
-.rank-gauge.is-week .rank-needle,
-.rank-gauge.is-bust .rank-needle {
-  animation: needle-drop 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.rank-gauge.is-down,
-.rank-gauge.is-week,
-.rank-gauge.is-bust {
-  animation: gauge-shake 0.42s ease-out;
-}
-
-.rank-gauge.is-up .rank-hub {
-  animation: hub-kick 0.55s ease-out;
-}
-
-.rank-gauge.is-down .rank-hub,
-.rank-gauge.is-week .rank-hub,
-.rank-gauge.is-bust .rank-hub {
-  animation: hub-drop 0.5s ease-out;
+.rank-gauge.is-loss .rank-fill b {
+  box-shadow: 0 0 8px #ff7a7a;
 }
 
 @keyframes gauge-ring {
@@ -3956,61 +3987,39 @@
   }
 }
 
-@keyframes needle-kick {
+@keyframes rank-delta-pop {
   0% {
-    transform: rotate(calc(var(--needle) - 10deg));
+    opacity: 0;
+    transform: translate(-50%, 10px) scale(0.7);
   }
-  55% {
-    transform: rotate(calc(var(--needle) + 5deg));
+  16% {
+    opacity: 1;
+    transform: translate(-50%, -2px) scale(1.12);
+  }
+  72% {
+    opacity: 1;
+    transform: translate(-50%, -12px) scale(1);
   }
   100% {
-    transform: rotate(var(--needle));
+    opacity: 0;
+    transform: translate(-50%, -18px) scale(0.96);
   }
 }
 
-@keyframes needle-drop {
+@keyframes rank-promo-in {
   0% {
-    transform: rotate(calc(var(--needle) + 12deg));
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.86);
   }
-  100% {
-    transform: rotate(var(--needle));
-  }
-}
-
-@keyframes gauge-shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-2px);
-  }
-  55% {
-    transform: translateX(2px);
+  18% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
   }
   80% {
-    transform: translateX(-1px);
-  }
-}
-
-@keyframes hub-kick {
-  0% {
-    transform: translateX(-50%) scale(0.82);
-  }
-  55% {
-    transform: translateX(-50%) scale(1.18);
+    opacity: 1;
   }
   100% {
-    transform: translateX(-50%) scale(1);
-  }
-}
-
-@keyframes hub-drop {
-  0% {
-    transform: translateX(-50%) scale(1.12);
-  }
-  100% {
-    transform: translateX(-50%) scale(1);
+    opacity: 0;
   }
 }
 
@@ -4262,18 +4271,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rank-needle {
+  .rank-needle,
+  .rank-fill b {
     transition: none;
   }
-  .rank-gauge.is-up .rank-needle,
-  .rank-gauge.is-down .rank-needle,
-  .rank-gauge.is-week .rank-needle,
-  .rank-gauge.is-bust .rank-needle,
-  .rank-gauge.is-down,
-  .rank-gauge.is-week,
-  .rank-gauge.is-bust,
-  .rank-stamp,
-  .rank-gauge.is-flash::after {
+  .rank-gauge.is-flash::after,
+  .rank-delta,
+  .rank-promo {
     animation: none;
   }
   .reel-window,
