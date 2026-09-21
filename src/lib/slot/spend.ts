@@ -51,7 +51,7 @@ const TEMPLATES: {
   { id: "zber", title: "ZBER", kind: "wins", need: [8, 14], until: 50, line: "výherných spinov" },
   { id: "balik", title: "BALÍK", kind: "tumbles", need: [6, 12], until: 40, line: "tumble reťazí" },
   { id: "siet", title: "SIEŤ", kind: "live", need: [1, 1], until: 40, line: "spustiť PARKNET LIVE" },
-  { id: "signal", title: "SIGNÁL", kind: "signal", need: [10, 25], until: 50, line: "SIGNÁL dosiahnuť" },
+  { id: "signal", title: "TACHYKARDIA", kind: "signal", need: [15, 25], until: 50, line: "násobičov súčtom plechoviek" },
   { id: "retaz", title: "REŤAZ", kind: "wins", need: [3, 3], until: 50, line: "výhier v rade" },
   { id: "plechovky", title: "PLECHOVKY", kind: "tumbles", need: [3, 7], until: 30, line: "spinov s násobičom" },
   { id: "tv", title: "4TV", kind: "live", need: [1, 1], until: 40, line: "4tv trigger" },
@@ -60,10 +60,10 @@ const TEMPLATES: {
   { id: "sucho", title: "SUCHO", kind: "deads", need: [10, 18], until: 25, line: "mŕtvych spinov" },
   { id: "vynos", title: "VÝNOS", kind: "pdf", need: [1, 2], until: 40, line: "PDF 8+" },
   { id: "duo", title: "DUO", kind: "wins", need: [2, 4], until: 30, line: "dva clustre na spine" },
-  { id: "wifipro", title: "DOPOJ WIFIPRO", kind: "symbol", payId: "router", need: [1, 2], until: 35, line: "výhra routerom WifiPRO" },
-  { id: "stb", title: "DOPOJ STB", kind: "symbol", payId: "arris", need: [1, 2], until: 35, line: "výhra set-top boxom" },
-  { id: "rebrik", title: "REBRÍK NETREBA", kind: "dry", need: [1, 2], until: 30, line: "výhra bez tumble" },
-  { id: "domov", title: "CESTOU DOMOV", kind: "symbol", payId: "dacia", need: [1, 1], until: 25, line: "výhra Daciou cestou domov" },
+  { id: "wifipro", title: "DOPOJ WIFIPRO", kind: "symbol", payId: "router", need: [5, 8], until: 50, line: "výher routerom WifiPRO" },
+  { id: "stb", title: "DOPOJ STB", kind: "symbol", payId: "arris", need: [5, 8], until: 50, line: "výher set-top boxom" },
+  { id: "rebrik", title: "REBRÍK NETREBA", kind: "dry", need: [8, 14], until: 50, line: "výher bez tumble" },
+  { id: "domov", title: "CESTOU DOMOV", kind: "symbol", payId: "dacia", need: [4, 7], until: 50, line: "výher Daciou cestou domov" },
 ];
 
 function rngRange(rng: () => number, a: number, b: number): number {
@@ -187,6 +187,7 @@ export interface JobEvent {
   orbs: boolean;
   spun?: boolean;
   pays?: PayId[];
+  orbSum?: number;
 }
 
 export function tickJob(job: JobCard, ev: JobEvent): JobCard {
@@ -210,7 +211,7 @@ export function tickJob(job: JobCard, ev: JobEvent): JobCard {
   if (job.kind === "live" && ev.live) add = 1;
   if (job.kind === "ticket" && ev.ticket === "ulica") add = 1;
   if (job.kind === "pdf" && ev.pdf) add = 1;
-  if (job.kind === "signal" && ev.signal >= job.need) add = job.need;
+  if (job.kind === "signal") add = Math.max(0, Math.floor(ev.orbSum ?? 0));
   if (job.kind === "dry" && ev.win && ev.tumbles <= 0) add = 1;
   if (job.kind === "symbol" && job.payId && ev.pays?.includes(job.payId)) add = 1;
   const spun = job.spun + (ev.spun === false ? 0 : 1);

@@ -1277,6 +1277,7 @@ export function useSlotGame() {
           clusters: clusterCount,
           orbs: orbSum > 0,
           pays: [...payHits],
+          orbSum,
         });
       }
 

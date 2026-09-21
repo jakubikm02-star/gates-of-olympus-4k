@@ -111,11 +111,11 @@ export function Paytable({ open, onClose, bet }: Props) {
             (+30). Po spustení bar padne na 0. Kúpiť sa nedá.
           </li>
           <li>
-            Od kreditu 100 € zákazky: tri na výber, alebo skontrolovať OTRS. Nové typy: Dopoj WifiPRO
-            (výhra routerom), Dopoj STB (set-top box), Rebrík netreba (výhra bez tumble), Cestou domov
-            (výhra Daciou). OTRS odhalí úlohu, cenu aj zisk až po prijatí. Po prijatí ostane stávka
-            zamknutá. Kúpa PARKNET sa do zákazky nepočíta. Duel: stávku nastaví hosť, hosť ju vidí pred
-            prijatím. Každý platí zo svojho kreditu. Víťaz berie výhry oboch.
+            Od kreditu 100 € zákazky: tri na výber, alebo skontrolovať OTRS. Dopoj WifiPRO 5–8 výher
+            routerom / 50, Dopoj STB 5–8 set-top / 50, Rebrík netreba 8–14 výher bez tumble / 50,
+            Cestou domov 4–7 Daciou / 50. TACHYKARDIA: súčet plechoviek 15–25× za 50 točení. OTRS
+            odhalí úlohu až po prijatí. Stávka zamknutá. Kúpa PARKNET sa nepočíta. Duel: stávku
+            nastaví hosť, hosť ju vidí pred prijatím. Každý platí zo svojho. Víťaz berie výhry oboch.
           </li>
           <li>
             Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bankrot +5000 berie RP podľa stávky.

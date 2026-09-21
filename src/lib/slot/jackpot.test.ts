@@ -573,6 +573,64 @@ describe("míňať", () => {
     );
     assert.equal(climb.have, 0);
   });
+
+  it("TACHYKARDIA sums multiplier cans across spins", () => {
+    const job = {
+      id: "tachy",
+      floor: "stred" as const,
+      template: "signal",
+      title: "TACHYKARDIA",
+      detail: "15× násobičov súčtom plechoviek",
+      stake: 20,
+      payout: 40,
+      need: 15,
+      have: 0,
+      limit: 50,
+      spun: 0,
+      kind: "signal" as const,
+      lockBet: 1,
+    };
+    const a = tickJob(job, {
+      win: true,
+      dead: false,
+      tumbles: 1,
+      live: false,
+      ticket: null,
+      pdf: false,
+      signal: 20,
+      clusters: 1,
+      orbs: true,
+      orbSum: 5,
+    });
+    assert.equal(a.have, 5);
+    const b = tickJob(a, {
+      win: true,
+      dead: false,
+      tumbles: 0,
+      live: false,
+      ticket: null,
+      pdf: false,
+      signal: 0,
+      clusters: 1,
+      orbs: true,
+      orbSum: 10,
+    });
+    assert.equal(b.have, 15);
+    assert.equal(jobStatus(b), "ok");
+    const dead = tickJob(job, {
+      win: false,
+      dead: true,
+      tumbles: 0,
+      live: false,
+      ticket: null,
+      pdf: false,
+      signal: 0,
+      clusters: 0,
+      orbs: false,
+      orbSum: 0,
+    });
+    assert.equal(dead.have, 0);
+  });
 });
 
 describe("duel", () => {
