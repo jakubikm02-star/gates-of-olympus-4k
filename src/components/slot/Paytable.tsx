@@ -111,9 +111,9 @@ export function Paytable({ open, onClose, bet }: Props) {
             (+30). Po spustení bar padne na 0. Kúpiť sa nedá.
           </li>
           <li>
-            Od kreditu 100 € zákazky: tri na výber, alebo namiešaná náhoda s bonusovou výhrou. Cena aj výhra
-            podľa banku a stávky. Po prijatí ostane stávka zamknutá do konca termínu. Kúpa PARKNET sa do
-            zákazky nepočíta — postup ide len zo základnej hry. Duel pri stole: dvaja na jednom zariadení, 10
+            Od kreditu 100 € zákazky: tri na výber, alebo skontrolovať OTRS. OTRS odhalí úlohu, cenu aj zisk
+            až po prijatí. Cena aj výhra podľa banku a stávky. Po prijatí ostane stávka zamknutá do konca
+            termínu. Kúpa PARKNET sa do zákazky nepočíta — postup ide len zo základnej hry. Duel pri stole: dvaja na jednom zariadení, 10
             točení alebo 1× PARKNET, vyššia výhra vyhráva.
           </li>
           <li>

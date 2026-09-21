@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { formatMoney } from "@/lib/slot/format";
 import { jobClock, jobLeft, spinWord, type JobCard } from "@/lib/slot/spend";
 
@@ -11,6 +12,10 @@ interface Props {
 }
 
 export function SpendSheet({ open, onClose, credit, job, offer, onJob }: Props) {
+  const [otrsFail, setOtrsFail] = useState(false);
+  useEffect(() => {
+    if (!open) setOtrsFail(false);
+  }, [open]);
   if (!open) return null;
   const picks = (offer ?? []).filter((c) => !c.mystery);
   const mystery = (offer ?? []).find((c) => c.mystery);
@@ -31,7 +36,7 @@ export function SpendSheet({ open, onClose, credit, job, offer, onJob }: Props) 
         <p className="modal-lead">
           Od 100 €. Cena aj výhra podľa kreditu a aktuálnej stávky. Po prijatí ostane stávka zamknutá, kým
           zákazka neskončí. Kúpa PARKNET zákazku neplní — počíta sa iba základná hra. Tri na výber, alebo
-          namiešaná náhoda s bonusovou výhrou.
+          skontrolovať OTRS: úloha, cena aj zisk až po prijatí.
         </p>
 
         {job ? (
@@ -66,22 +71,21 @@ export function SpendSheet({ open, onClose, credit, job, offer, onJob }: Props) 
             {mystery ? (
               <button
                 type="button"
-                className={`spend-job mystery ${mystery.floor}`}
-                disabled={credit < mystery.stake}
-                onClick={() => onJob(mystery)}
+                className="spend-job mystery"
+                onClick={() => {
+                  if (credit < mystery.stake) {
+                    setOtrsFail(true);
+                    return;
+                  }
+                  setOtrsFail(false);
+                  onJob(mystery);
+                }}
               >
-                <em>NÁHODA</em>
-                <span>
-                  {mystery.title} · {mystery.detail} · +15 % výhra
-                </span>
-                <strong className="spend-dead">
-                  do {mystery.limit} {spinWord(mystery.limit)} · stávka {formatMoney(mystery.lockBet)}
-                </strong>
-                <b>
-                  {formatMoney(mystery.stake)} → {formatMoney(mystery.payout)}
-                </b>
+                <em>SKONTROLOVAŤ OTRS</em>
+                <span>Neznáma úloha. Cena aj zisk až po prijatí.</span>
               </button>
             ) : null}
+            {otrsFail ? <p className="spend-active is-late">OTRS zamietnutý · málo kreditu</p> : null}
           </>
         )}
       </div>
