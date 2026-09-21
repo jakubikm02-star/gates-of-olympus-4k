@@ -45,8 +45,8 @@ import {
   dealJobs,
   jobStatus,
   tickJob,
-  REROLL_COST,
-  SURPLUS_X,
+  rerollCost,
+  JOB_BANK,
   type JobCard,
   type JobEvent,
 } from "@/lib/slot/spend";
@@ -1612,16 +1612,15 @@ export function useSlotGame() {
 
   const openSpend = useCallback(() => {
     if (busyRef.current || inFsRef.current) return;
-    if (!canSpend(balanceRef.current, BETS[betIndexRef.current])) return;
-    if (!job && !jobOffer) setJobOffer(dealJobs(createRng()));
+    if (!canSpend(balanceRef.current)) return;
+    if (!job) setJobOffer(dealJobs(createRng(), balanceRef.current));
     setSpendOpen(true);
     sfx.playClick();
   }, [job, jobOffer]);
 
   const takeJob = useCallback((card: JobCard) => {
     if (busyRef.current || inFsRef.current || jobRef.current) return;
-    const betNow = BETS[betIndexRef.current];
-    if (!canSpend(balanceRef.current, betNow)) return;
+    if (!canSpend(balanceRef.current)) return;
     if (balanceRef.current < card.stake) return;
     setBalance((b) => +(b - card.stake).toFixed(2));
     jobRef.current = card;
@@ -1634,11 +1633,11 @@ export function useSlotGame() {
 
   const rerollJobs = useCallback(() => {
     if (busyRef.current || inFsRef.current) return;
-    if (balanceRef.current < REROLL_COST) return;
-    const betNow = BETS[betIndexRef.current];
-    if (!canSpend(balanceRef.current, betNow)) return;
-    setBalance((b) => +(b - REROLL_COST).toFixed(2));
-    setJobOffer(dealJobs(createRng()));
+    const cost = rerollCost(balanceRef.current);
+    if (balanceRef.current < cost) return;
+    if (!canSpend(balanceRef.current)) return;
+    setBalance((b) => +(b - cost).toFixed(2));
+    setJobOffer(dealJobs(createRng(), balanceRef.current - cost));
     sfx.playClick();
   }, []);
 
@@ -1808,7 +1807,7 @@ export function useSlotGame() {
     bestWin,
     canSpin: started && !busy && !inFs && !buyAsk && balance >= stake,
     canBuy: started && !busy && !inFs && !buyAsk && balance >= +(bet * buyX).toFixed(2),
-    surplus: canSpend(balance, bet),
+    surplus: canSpend(balance),
     spendOpen,
     setSpendOpen,
     openSpend,
@@ -1817,7 +1816,7 @@ export function useSlotGame() {
     job,
     jobOffer,
     jobToast,
-    rerollCost: REROLL_COST,
-    surplusX: SURPLUS_X,
+    rerollCost: rerollCost(balance),
+    surplusX: JOB_BANK,
   };
 }

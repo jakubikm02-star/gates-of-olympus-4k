@@ -16,7 +16,7 @@ import {
 } from "./jackpot.ts";
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain } from "./pick-bonus.ts";
-import { canSpend, dealJobs, jobClock, jobLeft, jobStatus, tickJob, SURPLUS_X } from "./spend.ts";
+import { canSpend, dealJobs, jobClock, jobLeft, jobStatus, tickJob, JOB_BANK } from "./spend.ts";
 import { ORB_TABLE, ORB_VALUES } from "./symbols.ts";
 
 describe("park jackpots", () => {
@@ -287,30 +287,30 @@ describe("lístok", () => {
 });
 
 describe("míňať", () => {
-  it("surplus is 500× bet and jobs use three floors", () => {
-    assert.equal(SURPLUS_X, 500);
-    assert.equal(canSpend(49999, 100), false);
-    assert.equal(canSpend(50000, 100), true);
+  it("jobs open at 100 credit and scale with the bank", () => {
+    assert.equal(JOB_BANK, 100);
+    assert.equal(canSpend(99.99), false);
+    assert.equal(canSpend(100), true);
+    assert.equal(canSpend(150, 1), true);
     let s = 1;
     const rng = () => {
       s = (s * 1664525 + 1013904223) >>> 0;
       return s / 0x100000000;
     };
-    const jobs = dealJobs(rng);
-    assert.equal(jobs.length, 3);
+    const small = dealJobs(rng, 200);
+    s = 1;
+    const fat = dealJobs(rng, 20000);
+    assert.equal(small.length, 3);
     assert.deepEqual(
-      jobs.map((j) => j.floor),
+      small.map((j) => j.floor),
       ["lacna", "stred", "draha"],
     );
-    const titles = new Set(jobs.map((j) => j.template));
-    assert.equal(titles.size, 3);
-    const cheap = jobs[0].stake;
-    const mid = jobs[1].stake;
-    const dear = jobs[2].stake;
-    assert.ok(cheap >= 1000 && cheap <= 2500);
-    assert.ok(mid >= 8000 && mid <= 15000);
-    assert.ok(dear >= 40000 && dear <= 90000);
-    for (const j of jobs) {
+    assert.ok(small[0].stake < small[1].stake);
+    assert.ok(small[1].stake < small[2].stake);
+    assert.ok(small[2].stake < 200);
+    assert.ok(small.every((j) => j.payout > j.stake));
+    assert.ok(fat[0].stake > small[0].stake * 20);
+    for (const j of small) {
       assert.equal(j.limit % 5, 0);
       assert.ok(j.limit >= 25 && j.limit <= 50);
       assert.equal(jobLeft(j), j.limit);
@@ -361,7 +361,7 @@ describe("míňať", () => {
   });
 
   it("POT job needs a grey ticket, not a silent must-hit", () => {
-    const job = dealJobs(() => 0.1).find((j) => j.kind === "ticket") ?? {
+    const job = dealJobs(() => 0.1, 5000).find((j) => j.kind === "ticket") ?? {
       id: "pot",
       floor: "lacna" as const,
       template: "pot",

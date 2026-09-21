@@ -1,7 +1,8 @@
 import type { TierId } from "./jackpot";
 
-export const SURPLUS_X = 500;
-export const REROLL_COST = 1000;
+/** Jobs unlock at this credit, any bet. */
+export const JOB_BANK = 100;
+export const SURPLUS_X = JOB_BANK;
 
 export type JobFloor = "lacna" | "stred" | "draha";
 
@@ -20,10 +21,11 @@ export interface JobCard {
   kind: "wins" | "deads" | "tumbles" | "live" | "ticket" | "pdf" | "signal" | "dry";
 }
 
-const FLOOR: Record<JobFloor, { stake: [number, number]; pay: [number, number] }> = {
-  lacna: { stake: [1000, 2500], pay: [1800, 5000] },
-  stred: { stake: [8000, 15000], pay: [14000, 32000] },
-  draha: { stake: [40000, 90000], pay: [70000, 180000] },
+/** Share of bank → stake, then payout as multiple of stake. */
+const FLOOR_PCT: Record<JobFloor, { stake: [number, number]; payX: [number, number] }> = {
+  lacna: { stake: [0.06, 0.12], payX: [1.55, 1.9] },
+  stred: { stake: [0.16, 0.26], payX: [1.7, 2.05] },
+  draha: { stake: [0.32, 0.45], payX: [1.85, 2.2] },
 };
 
 const TEMPLATES: {
@@ -49,7 +51,19 @@ const TEMPLATES: {
 ];
 
 function rngRange(rng: () => number, a: number, b: number): number {
-  return Math.round(a + rng() * (b - a));
+  return a + rng() * (b - a);
+}
+
+export function roundStake(n: number): number {
+  if (n < 20) return Math.max(1, Math.round(n * 10) / 10);
+  if (n < 200) return Math.round(n);
+  if (n < 2000) return Math.round(n / 5) * 5;
+  if (n < 20000) return Math.round(n / 50) * 50;
+  return Math.round(n / 100) * 100;
+}
+
+export function rerollCost(credit: number): number {
+  return roundStake(Math.max(5, credit * 0.018));
 }
 
 export function jobLeft(job: JobCard): number {
@@ -64,7 +78,8 @@ export function jobClock(job: JobCard): string {
   return `ešte ${left} točení`;
 }
 
-export function dealJobs(rng: () => number): JobCard[] {
+export function dealJobs(rng: () => number, credit: number): JobCard[] {
+  const bank = Math.max(JOB_BANK, credit);
   const floors: JobFloor[] = ["lacna", "stred", "draha"];
   const bag = TEMPLATES.map((t) => t);
   for (let i = bag.length - 1; i > 0; i--) {
@@ -75,10 +90,10 @@ export function dealJobs(rng: () => number): JobCard[] {
   }
   return floors.map((floor, i) => {
     const t = bag[i % bag.length];
-    const f = FLOOR[floor];
-    const stake = rngRange(rng, f.stake[0], f.stake[1]);
-    const payout = rngRange(rng, f.pay[0], f.pay[1]);
-    const need = t.need[0] === t.need[1] ? t.need[0] : rngRange(rng, t.need[0], t.need[1]);
+    const f = FLOOR_PCT[floor];
+    const stake = Math.min(roundStake(bank * rngRange(rng, f.stake[0], f.stake[1])), roundStake(bank * 0.85));
+    const payout = Math.max(roundStake(stake * rngRange(rng, f.payX[0], f.payX[1])), roundStake(stake * 1.4));
+    const need = t.need[0] === t.need[1] ? t.need[0] : Math.round(rngRange(rng, t.need[0], t.need[1]));
     return {
       id: `${t.id}-${floor}-${Math.floor(rng() * 1e6)}`,
       floor,
@@ -138,6 +153,6 @@ export function jobStatus(job: JobCard): "run" | "ok" | "fail" {
   return "run";
 }
 
-export function canSpend(credit: number, bet: number): boolean {
-  return bet > 0 && credit >= SURPLUS_X * bet;
+export function canSpend(credit: number, _bet = 0): boolean {
+  return credit >= JOB_BANK;
 }

@@ -28,7 +28,7 @@ export function SpendSheet({ open, onClose, credit, job, offer, rerollCost, onJo
             ×
           </button>
         </header>
-        <p className="modal-lead">Prebytok. Jedna zákazka, pevný termín v točeniach.</p>
+        <p className="modal-lead">Od 100 €. Cena a výhra podľa tvojho kreditu. Jedna zákazka, termín v točeniach.</p>
 
         {job ? (
           <p className={`spend-active ${jobLeft(job) <= 5 ? "is-late" : ""}`}>
