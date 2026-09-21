@@ -40,18 +40,8 @@ import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
 import { emptyBoard, isEligibleBet, ticketResolve, type BoardSnap, type JackpotHit, type TierId } from "@/lib/slot/jackpot";
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
-import {
-  startDuel,
-  tickDuel,
-  confirmSwap,
-  duelLeft,
-  applyPeerTick,
-  makeRoomCode,
-  duelMineDone,
-  type Duel,
-  type DuelMode,
-  type DuelLink,
-} from "@/lib/slot/duel";
+import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, duelMineDone, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
+import { duelLeave } from "@/lib/slot/duel-api";
 import {
   canSpend,
   dealJobs,
@@ -1895,7 +1885,7 @@ export function useSlotGame() {
     duelPeer,
     setDuelPeer,
     hostDuel: (mode: DuelMode, name: string) => {
-      if (busyRef.current || inFsRef.current || jobRef.current || duelRef.current) return;
+      if (duelRef.current) return;
       const room = makeRoomCode();
       setDuelLink({ room, role: "host", name: name.trim().slice(0, 16) || "HRÁČ 1", mode });
       setDuelPeer("");
@@ -1903,7 +1893,7 @@ export function useSlotGame() {
       sfx.playClick();
     },
     joinDuel: (mode: DuelMode, name: string, code: string) => {
-      if (busyRef.current || inFsRef.current || jobRef.current || duelRef.current) return;
+      if (duelRef.current) return;
       const room = code.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 4);
       if (room.length < 4) return;
       setDuelLink({ room, role: "guest", name: name.trim().slice(0, 16) || "HRÁČ 2", mode });
@@ -1969,6 +1959,8 @@ export function useSlotGame() {
       sfx.playClick();
     },
     endDuel: () => {
+      const link = duelLinkRef.current;
+      if (link) void duelLeave(link.room, link.role);
       duelRef.current = null;
       setDuel(null);
       setDuelLink(null);

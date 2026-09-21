@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { useP2PRoom } from "@/lib/multiplayer";
 import { formatMoney } from "@/lib/slot/format";
+import { duelCreate, duelJoin, duelLeave, duelPoll, duelStart, duelTick } from "@/lib/slot/duel-api";
 import {
   duelLeft,
   duelMineDone,
   duelWinner,
-  rtcRoom,
   type Duel,
   type DuelLink,
   type DuelMode,
@@ -25,11 +24,6 @@ interface Props {
   onEnd: () => void;
 }
 
-type Wire =
-  | { t: "hello"; name: string }
-  | { t: "go"; mode: DuelMode; bet: number; hostName: string; guestName: string }
-  | { t: "tick"; have: number; score: number };
-
 export function DuelLink({
   link,
   duel,
@@ -37,6 +31,7 @@ export function DuelLink({
   onPeerName,
   onGo,
   onTick,
+  onEnd,
 }: {
   link: DuelLink;
   duel: Duel | null;
@@ -44,38 +39,74 @@ export function DuelLink({
   onPeerName: (name: string) => void;
   onGo: (peerName: string, bet: number, mode: DuelMode) => void;
   onTick: (have: number, score: number) => void;
+  onEnd: () => void;
 }) {
-  const p2p = useP2PRoom({ room: rtcRoom(link.room), name: link.name });
-  const live = p2p.peers.some((p) => p.connectionState === "connected");
-  const failed = p2p.peers.some((p) => p.connectionState === "failed" || p.candidateType === "relay");
-  const peerName = p2p.peers[0]?.name || "";
+  const [status, setStatus] = useState("Pálim miestnosť…");
+  const [guest, setGuest] = useState("");
+  const [err, setErr] = useState("");
   const started = useRef(false);
   const lastHave = useRef(-1);
+  const onPeerNameRef = useRef(onPeerName);
+  const onGoRef = useRef(onGo);
+  const onTickRef = useRef(onTick);
+  onPeerNameRef.current = onPeerName;
+  onGoRef.current = onGo;
+  onTickRef.current = onTick;
 
   useEffect(() => {
-    if (peerName) onPeerName(peerName);
-  }, [peerName, onPeerName]);
-
-  useEffect(
-    () =>
-      p2p.onMessage((_from, data) => {
-        const msg = data as Wire;
-        if (!msg || typeof msg !== "object" || !("t" in msg)) return;
-        if (msg.t === "hello" && msg.name) onPeerName(msg.name);
-        if (msg.t === "go" && !started.current) {
-          started.current = true;
-          const peer = link.role === "guest" ? msg.hostName : msg.guestName;
-          onGo(peer, msg.bet, msg.mode);
+    let stop = false;
+    const role = link.role;
+    const boot = async () => {
+      try {
+        if (role === "host") {
+          await duelCreate({ code: link.room, name: link.name, mode: link.mode, bet });
+          if (!stop) setStatus("Kód je živý. Pošli ho kamošovi.");
+        } else {
+          const snap = await duelJoin(link.room, link.name);
+          if (!stop) {
+            onPeerNameRef.current(snap.hostName);
+            setStatus("Si v miestnosti. Čakám na ŠTART.");
+          }
         }
-        if (msg.t === "tick") onTick(msg.have, msg.score);
-      }),
-    [p2p.onMessage, onPeerName, onGo, onTick, link.role],
-  );
+      } catch (e) {
+        if (!stop) setErr(e instanceof Error ? e.message : "Spojenie zlyhalo");
+      }
+    };
+    void boot();
 
-  useEffect(() => {
-    if (!live || duel) return;
-    p2p.send({ t: "hello", name: link.name } satisfies Wire);
-  }, [live, duel, p2p, link.name]);
+    const tick = window.setInterval(() => {
+      void (async () => {
+        try {
+          const snap = await duelPoll(link.room);
+          if (stop) return;
+          setErr("");
+          if (snap.guestName) {
+            setGuest(snap.guestName);
+            if (role === "host") onPeerNameRef.current(snap.guestName);
+          }
+          if (snap.phase === "play" || snap.phase === "done") {
+            if (!started.current) {
+              started.current = true;
+              const peer = role === "host" ? snap.guestName : snap.hostName;
+              onGoRef.current(peer || "SÚPER", snap.bet, snap.mode);
+            }
+            if (role === "host") onTickRef.current(snap.guestHave, snap.guestScore);
+            else onTickRef.current(snap.hostHave, snap.hostScore);
+          }
+        } catch (e) {
+          if (stop) return;
+          const msg = e instanceof Error ? e.message : "spojenie padlo";
+          if (msg.includes("neexistuje") && started.current) setErr("Súper odišiel.");
+          else if (!started.current) setErr(msg);
+        }
+      })();
+    }, 700);
+
+    return () => {
+      stop = true;
+      window.clearInterval(tick);
+    };
+  }, [link.room, link.role, link.name, link.mode, bet]);
 
   useEffect(() => {
     if (!duel || duel.kind !== "online") return;
@@ -83,16 +114,25 @@ export function DuelLink({
     const score = duel.seats[duel.you].score;
     if (have <= lastHave.current) return;
     lastHave.current = have;
-    p2p.send({ t: "tick", have, score } satisfies Wire);
-  }, [duel, p2p]);
+    void duelTick(link.room, link.role, have, score).catch(() => {});
+  }, [duel, link.room, link.role]);
 
   const launch = () => {
-    if (!live || started.current || link.role !== "host") return;
-    started.current = true;
-    const guestName = peerName || "HRÁČ 2";
-    const payload: Wire = { t: "go", mode: link.mode, bet, hostName: link.name, guestName };
-    p2p.send(payload);
-    onGo(guestName, bet, link.mode);
+    if (started.current || link.role !== "host" || !guest) return;
+    void (async () => {
+      try {
+        const snap = await duelStart(link.room);
+        started.current = true;
+        onGo(snap.guestName || guest, snap.bet, snap.mode);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Štart zlyhal");
+      }
+    })();
+  };
+
+  const leave = () => {
+    void duelLeave(link.room, link.role);
+    onEnd();
   };
 
   if (duel) return null;
@@ -102,25 +142,29 @@ export function DuelLink({
       <div className="modal-card spend-card" role="dialog" aria-labelledby="duel-title">
         <header className="modal-head">
           <h2 id="duel-title">{link.role === "host" ? "KÓD DUELU" : "PRIPOJUJEM"}</h2>
+          <button type="button" className="icon-btn" onClick={leave} aria-label="Odísť">
+            ×
+          </button>
         </header>
         <p className="duel-code" aria-label="Kód miestnosti">
           {link.room}
         </p>
         <p className="modal-lead">
-          {p2p.joined
-            ? live
-              ? `${peerName || "súper"} je v miestnosti.`
-              : "Čakám na spojenie. Druhý hráč zadá ten istý kód."
-            : "Pálim relé…"}
-          {failed ? " Ak to visí, skús hotspot — niektoré siete WebRTC nepustia." : ""}
+          {err || status}
+          {guest ? ` · súper: ${guest}` : ""}
         </p>
-        {link.role === "host" ? (
-          <button type="button" className="chip-btn gold" disabled={!live} onClick={launch}>
-            ŠTART
+        <div className="duel-tabs">
+          {link.role === "host" ? (
+            <button type="button" className="chip-btn gold" disabled={!guest} onClick={launch}>
+              {guest ? "ŠTART" : "ČAKÁM SÚPERA"}
+            </button>
+          ) : (
+            <span className="modal-lead">Čakám, kým hosť stlačí ŠTART.</span>
+          )}
+          <button type="button" className="chip-btn" onClick={leave}>
+            ODÍSŤ
           </button>
-        ) : (
-          <p className="modal-lead">Čakám, kým hosť stlačí ŠTART.</p>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -234,8 +278,8 @@ export function DuelSheet({
         ) : (
           <>
             <p className="modal-lead">
-              Hosť vytvorí kód, hosť na druhom telefóne ho zadá. Točíte naraz. Súper vidí tvoje skóre. Pre kamošov
-              — každý hlási svoje točenia.
+              Vytvor kód a pošli ho. Na druhom telefóne ho zadaj. Točíte naraz. ŠTART ide, keď súper vojde. Kedykoľvek
+              môžeš odísť.
             </p>
             <label className="duel-field">
               Tvoje meno
@@ -253,7 +297,12 @@ export function DuelSheet({
                 placeholder="A7K2"
               />
             </label>
-            <button type="button" className="chip-btn" disabled={code.replace(/[^A-Z0-9]/g, "").length < 4} onClick={() => onJoin(mode, a, code)}>
+            <button
+              type="button"
+              className="chip-btn"
+              disabled={code.replace(/[^A-Z0-9]/g, "").length < 4}
+              onClick={() => onJoin(mode, a, code)}
+            >
               PRIPOJIŤ
             </button>
           </>

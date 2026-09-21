@@ -662,6 +662,7 @@ export function SlotGame() {
           onPeerName={g.setDuelPeer}
           onGo={g.beginOnline}
           onTick={g.applyRemoteTick}
+          onEnd={g.endDuel}
         />
       ) : null}
       {g.jpHit && (
