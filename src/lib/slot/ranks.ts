@@ -475,6 +475,18 @@ export function bannerFromX(x: number, hitMax = false): RankBanner {
   return null;
 }
 
+export function rpFromJob(payout: number, stake: number): RankBreakdown {
+  return rpFromSpin({
+    cash: Math.max(0, payout),
+    bet: Math.max(0.01, stake),
+    mult: 1,
+    tumbles: 0,
+    streak: 1,
+    banner: null,
+    kind: "base",
+  });
+}
+
 export function rpFromDead(bet: number, entry: number): RankBreakdown {
   const empty: RankBreakdown = {
     total: 0,

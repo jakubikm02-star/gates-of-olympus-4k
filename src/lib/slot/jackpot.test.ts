@@ -14,7 +14,7 @@ import {
   TIERS,
   TICKET_ODDS,
 } from "./jackpot.ts";
-import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
+import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain } from "./pick-bonus.ts";
 import { canSpend, dealJobs, jobClock, jobLeft, jobStatus, tickJob, JOB_BANK } from "./spend.ts";
 import { ORB_TABLE, ORB_VALUES } from "./symbols.ts";
@@ -316,6 +316,13 @@ describe("míňať", () => {
       assert.equal(jobLeft(j), j.limit);
       assert.equal(jobClock(j), `ešte ${j.limit} točení`);
     }
+  });
+
+  it("a paid job awards RP from the payout", () => {
+    const tiny = rpFromJob(35, 20);
+    const fat = rpFromJob(35000, 18000);
+    assert.ok(tiny.total >= 1);
+    assert.ok(fat.total > tiny.total);
   });
 
   it("REŤAZ is 3 wins in a row, a dead spin resets", () => {

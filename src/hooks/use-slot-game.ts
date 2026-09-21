@@ -34,7 +34,7 @@ import {
   zeusDropCount,
 } from "@/lib/slot/engine";
 import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, spendPity, type PickTile, type PityMap } from "@/lib/slot/pick-bonus";
-import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
+import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
@@ -678,8 +678,10 @@ export function useSlotGame() {
       jobRef.current = null;
       setJob(null);
       setBalance((b) => +(b + next.payout).toFixed(2));
-      setSpinTape((t) => [{ label: "ZÁKAZKA", amount: `+${formatMoney(next.payout)}` }, ...t].slice(0, 8));
-      setJobToast(`ZÁKAZKA +${formatMoney(next.payout)}`);
+      const parts = rpFromJob(next.payout, next.stake);
+      if (parts.total) pushRank(parts.total, parts);
+      setSpinTape((t) => [{ label: "ZÁKAZKA", amount: `+${formatMoney(next.payout)} · +${parts.total} RP` }, ...t].slice(0, 8));
+      setJobToast(`ZÁKAZKA +${formatMoney(next.payout)} · +${parts.total} RP`);
       setTopLine(`ZÁKAZKA +${formatMoney(next.payout)}`);
       sfx.playCollect();
     } else if (st === "fail") {
@@ -693,7 +695,7 @@ export function useSlotGame() {
       jobRef.current = next;
       setJob(next);
     }
-  }, []);
+  }, [pushRank]);
 
   const waitForPick = useCallback(() => {
     return new Promise<void>((resolve) => {
