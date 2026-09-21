@@ -13,6 +13,7 @@ import { RankBadge } from "./RankBadge";
 import { RankPanel } from "./RankPanel";
 import { RankToast } from "./RankToast";
 import { SpendSheet } from "./SpendSheet";
+import { DuelSheet, DuelBar } from "./DuelSheet";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
 
@@ -323,6 +324,7 @@ export function SlotGame() {
             ))}
             </div>
             <div className="board-job">
+              {g.duel && g.duel.phase === "play" && <DuelBar duel={g.duel} />}
               {g.job && !g.inFs && (
                 <div className={`job-chip ${g.jobToast ? "is-hot" : ""} ${jobLeft(g.job) <= 5 ? "is-late" : ""}`}>
                   <span>{g.job.title}</span>
@@ -419,8 +421,8 @@ export function SlotGame() {
               type="button"
               className="round-btn"
               onClick={() => g.changeBet(-1)}
-              disabled={g.busy || Boolean(g.job) || g.betIndex <= 0}
-              aria-label={g.job ? "Stávka zamknutá do konca zákazky" : "Znížiť stávku"}
+              disabled={g.busy || Boolean(g.job) || Boolean(g.duel) || g.betIndex <= 0}
+              aria-label={g.job || g.duel ? "Stávka zamknutá" : "Znížiť stávku"}
             >
               −
             </button>
@@ -437,8 +439,8 @@ export function SlotGame() {
               type="button"
               className="round-btn"
               onClick={() => g.changeBet(1)}
-              disabled={g.busy || Boolean(g.job) || g.betIndex >= BETS.length - 1}
-              aria-label={g.job ? "Stávka zamknutá do konca zákazky" : "Zvýšiť stávku"}
+              disabled={g.busy || Boolean(g.job) || Boolean(g.duel) || g.betIndex >= BETS.length - 1}
+              aria-label={g.job || g.duel ? "Stávka zamknutá" : "Zvýšiť stávku"}
             >
               +
             </button>
@@ -490,9 +492,19 @@ export function SlotGame() {
           >
             TURBO
           </button>
-          {g.surplus && !g.inFs && (
+          {g.surplus && !g.inFs && !g.duel && (
             <button type="button" className="chip-btn gold" onClick={g.openSpend} disabled={g.busy}>
               ZÁKAZKY
+            </button>
+          )}
+          {g.started && !g.inFs && (
+            <button
+              type="button"
+              className={`chip-btn ${g.duel ? "gold" : ""}`}
+              onClick={() => (g.duel ? g.endDuel() : g.setDuelOpen(true))}
+              disabled={g.busy && !g.duel}
+            >
+              {g.duel ? "KONIEC DUELU" : "DUEL"}
             </button>
           )}
           {g.autoReason && !g.autoOn && <span className="auto-stop">{g.autoReason}</span>}
@@ -627,6 +639,14 @@ export function SlotGame() {
         job={g.job}
         offer={g.jobOffer}
         onJob={g.takeJob}
+      />
+      <DuelSheet
+        open={g.duelOpen}
+        duel={g.duel}
+        onClose={() => g.setDuelOpen(false)}
+        onStart={g.beginDuel}
+        onSwap={g.swapDuel}
+        onEnd={g.endDuel}
       />
       {g.jpHit && (
         <div className="ticket-banner" aria-live="assertive">

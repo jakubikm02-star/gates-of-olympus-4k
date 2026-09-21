@@ -40,6 +40,7 @@ import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
 import { emptyBoard, isEligibleBet, ticketResolve, type BoardSnap, type JackpotHit, type TierId } from "@/lib/slot/jackpot";
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
+import { startDuel, tickDuel, confirmSwap, duelLeft, type Duel, type DuelMode } from "@/lib/slot/duel";
 import {
   canSpend,
   dealJobs,
@@ -181,6 +182,10 @@ export function useSlotGame() {
   const extraFsRef = useRef(0);
   const flyKey = useRef(1);
   const lastPaidXRef = useRef(0);
+  const roundCashRef = useRef(0);
+  const [duel, setDuel] = useState<Duel | null>(null);
+  const duelRef = useRef<Duel | null>(null);
+  const [duelOpen, setDuelOpen] = useState(false);
   const autoFloorRef = useRef(0);
   const bannerWait = useRef<(() => void) | null>(null);
   const bannerOpen = useRef(false);
@@ -214,7 +219,7 @@ export function useSlotGame() {
   autoRef.current = autoOn;
   busyRef.current = busy;
   gridRef.current = grid;
-  jobRef.current = job;
+  duelRef.current = duel;
 
   const bet = BETS[betIndex];
   const rankId = standing(rp).id;
@@ -489,7 +494,7 @@ export function useSlotGame() {
   }, []);
 
   const changeBet = useCallback((dir: -1 | 1) => {
-    if (busyRef.current || jobRef.current) return;
+    if (busyRef.current || jobRef.current || duelRef.current) return;
     setBetIndex((i) => Math.min(BETS.length - 1, Math.max(0, i + dir)));
     sfx.playClick();
   }, []);
@@ -771,6 +776,7 @@ export function useSlotGame() {
       setSpinWin(cash);
       setBestWin((w) => Math.max(w, cash));
       setSpinTape((t) => [{ label: "KONTROLA", amount: formatMoney(cash) }, ...t].slice(0, 8));
+      roundCashRef.current = +(roundCashRef.current + cash).toFixed(2);
       sfx.playPayout();
       const streak = noteResult(true);
       const parts = rpFromSpin({
@@ -1189,6 +1195,7 @@ export function useSlotGame() {
       }
 
       lastPaidXRef.current = currentBet > 0 ? cash / currentBet : 0;
+      if (!isFree) roundCashRef.current = cash;
       if (cash > 0) {
         setSpinTape((t) => [{ label: `${lastPaidXRef.current.toFixed(1)}×`, amount: formatMoney(cash) }, ...t].slice(0, 8));
       } else {
@@ -1305,6 +1312,7 @@ export function useSlotGame() {
       busyRef.current = true;
       setBusy(true);
       abort.current.aborted = false;
+      roundCashRef.current = 0;
       if (!opts?.buy && !opts?.resumeFs && !inFsRef.current) setDisplayWin(0);
 
       try {
@@ -1376,6 +1384,7 @@ export function useSlotGame() {
         else sfx.playPayout();
         sfx.stopLiveBed();
         if (fsCash > 0) setBalance((b) => +(b + fsCash).toFixed(2));
+        roundCashRef.current = featureTotal;
         const bought = sess.bought;
         const peak = sess.peak;
         const extra = sess.extra;
@@ -1573,6 +1582,18 @@ export function useSlotGame() {
         }
         await runPick();
       }
+
+      const live = duelRef.current;
+      if (live?.phase === "play") {
+        const next = tickDuel(live, roundCashRef.current);
+        duelRef.current = next;
+        setDuel(next);
+        if (next.phase === "swap" || next.phase === "done") {
+          autoRef.current = false;
+          setAutoOn(false);
+          setAutoLeft(0);
+        }
+      }
     } catch {
       setBanner(null);
       setPhase("idle");
@@ -1605,11 +1626,14 @@ export function useSlotGame() {
   const spin = useCallback(async () => {
     if (!started || inFsRef.current) return;
     if (busyRef.current) return;
+    const d = duelRef.current;
+    if (d && (d.phase !== "play" || d.mode === "live")) return;
     await playRound();
   }, [started, playRound]);
 
   const buyBonus = useCallback(() => {
     if (!started || busyRef.current || inFsRef.current) return;
+    if (duelRef.current?.mode === "spins") return;
     setBuyAsk(true);
   }, [started]);
 
@@ -1623,6 +1647,7 @@ export function useSlotGame() {
 
   const openSpend = useCallback(() => {
     if (busyRef.current || inFsRef.current) return;
+    if (duelRef.current) return;
     if (!canSpend(balanceRef.current)) return;
     if (!job) setJobOffer(dealJobs(createRng(), balanceRef.current, BETS[betIndexRef.current]));
     setSpendOpen(true);
@@ -1630,7 +1655,7 @@ export function useSlotGame() {
   }, [job, jobOffer]);
 
   const takeJob = useCallback((card: JobCard) => {
-    if (busyRef.current || inFsRef.current || jobRef.current) return;
+    if (busyRef.current || inFsRef.current || jobRef.current || duelRef.current) return;
     if (!canSpend(balanceRef.current)) return;
     if (balanceRef.current < card.stake) return;
     const betNow = BETS[betIndexRef.current];
@@ -1646,11 +1671,15 @@ export function useSlotGame() {
 
   const startAuto = useCallback((n: number) => {
     if (busyRef.current || inFsRef.current) return;
+    const d = duelRef.current;
+    if (d && (d.phase !== "play" || d.mode === "live")) return;
+    const capped = d ? Math.min(n, duelLeft(d)) : n;
+    if (capped <= 0) return;
     autoFloorRef.current = balanceRef.current * 0.5;
     setAutoReason(null);
     setAutoOn(true);
     autoRef.current = true;
-    setAutoLeft(n);
+    setAutoLeft(capped);
   }, []);
 
   const stopAuto = useCallback(() => {
@@ -1809,8 +1838,8 @@ export function useSlotGame() {
       maxBet: BETS[BETS.length - 1],
     }).delta,
     bestWin,
-    canSpin: started && !busy && !inFs && !buyAsk && balance >= stake,
-    canBuy: started && !busy && !inFs && !buyAsk && balance >= +(bet * buyX).toFixed(2),
+    canSpin: started && !busy && !inFs && !buyAsk && balance >= stake && (!duel || (duel.phase === "play" && duel.mode === "spins")),
+    canBuy: started && !busy && !inFs && !buyAsk && balance >= +(bet * buyX).toFixed(2) && (!duel || (duel.phase === "play" && duel.mode === "live")),
     surplus: canSpend(balance),
     spendOpen,
     setSpendOpen,
@@ -1820,5 +1849,32 @@ export function useSlotGame() {
     jobOffer,
     jobToast,
     surplusX: JOB_BANK,
+    duel,
+    duelOpen,
+    setDuelOpen,
+    beginDuel: (mode: DuelMode, a: string, b: string) => {
+      if (busyRef.current || inFsRef.current || jobRef.current || duelRef.current) return;
+      const next = startDuel({ mode, a, b, bet: BETS[betIndexRef.current] });
+      duelRef.current = next;
+      setDuel(next);
+      setDuelOpen(false);
+      setTopLine(`DUEL · ${next.seats[0].name} vs ${next.seats[1].name}`);
+      sfx.playClick();
+    },
+    swapDuel: () => {
+      const cur = duelRef.current;
+      if (!cur || cur.phase !== "swap") return;
+      const next = confirmSwap(cur);
+      duelRef.current = next;
+      setDuel(next);
+      setTopLine(`DUEL · ${next.seats[1].name}`);
+      sfx.playClick();
+    },
+    endDuel: () => {
+      duelRef.current = null;
+      setDuel(null);
+      setDuelOpen(false);
+      setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
+    },
   };
 }

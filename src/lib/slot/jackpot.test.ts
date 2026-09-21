@@ -16,6 +16,7 @@ import {
 } from "./jackpot.ts";
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain } from "./pick-bonus.ts";
+import { startDuel, tickDuel, confirmSwap, duelWinner } from "./duel.ts";
 import { canSpend, dealJobs, jobClock, jobLeft, jobStatus, tickJob, spinWord, JOB_BANK } from "./spend.ts";
 import { ORB_TABLE, ORB_VALUES } from "./symbols.ts";
 
@@ -488,5 +489,29 @@ describe("míňať", () => {
     });
     assert.equal(hit.have, 1);
     assert.equal(jobStatus(hit), "ok");
+  });
+});
+
+describe("duel", () => {
+  it("hot-seat 10 spins, higher score wins, tie is remíza", () => {
+    let d = startDuel({ mode: "spins", a: "A", b: "B", bet: 1 });
+    assert.equal(d.need, 10);
+    assert.equal(d.turn, 0);
+    for (let i = 0; i < 10; i++) d = tickDuel(d, 2);
+    assert.equal(d.phase, "swap");
+    assert.equal(d.seats[0].score, 20);
+    d = confirmSwap(d);
+    assert.equal(d.turn, 1);
+    assert.equal(d.have, 0);
+    for (let i = 0; i < 9; i++) d = tickDuel(d, 1);
+    d = tickDuel(d, 1);
+    assert.equal(d.phase, "done");
+    assert.equal(duelWinner(d), 0);
+    let t = startDuel({ mode: "live", a: "A", b: "B", bet: 10 });
+    assert.equal(t.need, 1);
+    t = tickDuel(t, 50);
+    t = confirmSwap(t);
+    t = tickDuel(t, 50);
+    assert.equal(duelWinner(t), null);
   });
 });

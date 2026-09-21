@@ -113,7 +113,8 @@ export function Paytable({ open, onClose, bet }: Props) {
           <li>
             Od kreditu 100 € zákazky: tri na výber, alebo namiešaná náhoda s bonusovou výhrou. Cena aj výhra
             podľa banku a stávky. Po prijatí ostane stávka zamknutá do konca termínu. Kúpa PARKNET sa do
-            zákazky nepočíta — postup ide len zo základnej hry.
+            zákazky nepočíta — postup ide len zo základnej hry. Duel pri stole: dvaja na jednom zariadení, 10
+            točení alebo 1× PARKNET, vyššia výhra vyhráva.
           </li>
           <li>
             Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bankrot +5000 berie RP podľa stávky.
