@@ -734,9 +734,9 @@ export function useSlotGame() {
       const all = nextRev.map(() => true);
       pickRevealedRef.current = all;
       setPickRevealed(all);
-      setPickEnded(true);
       setPickKillId(id);
       sfx.playThunder();
+      window.setTimeout(() => setPickEnded(true), 640);
     } else {
       pickTotalXRef.current = +(pickTotalXRef.current + tile.payX).toFixed(4);
       setPickRevealed(nextRev);

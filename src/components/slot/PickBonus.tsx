@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock, Receipt, ChevronLeft, CircleCheck, MapPin, Search, Ticket, User, Info } from "lucide-react";
+import { ChevronLeft, MapPin, Search, Ticket, User, Info } from "lucide-react";
 import type { PickTile } from "@/lib/slot/pick-bonus";
 
 const PIN_POS: { x: number; y: number }[] = [
@@ -41,69 +41,19 @@ export function PickBonus({ tiles, revealed, ended, totalX, bet, killId, picks, 
 
   if (ended) {
     return (
-      <div className="pk-back" role="dialog" aria-label="Ukončenie parkovania">
-        <div className="pk-app is-end">
-          <header className="pk-nav">
-            <span>Ukončenie parkovania</span>
-          </header>
-          <div className="pk-scroll">
-            <article className="pk-receipt">
-              <div className="pk-hero">
-                <span className="pk-rings" aria-hidden="true" />
-                <CircleCheck size={56} strokeWidth={1.5} />
-              </div>
-              <div className="pk-thanks">
-                <h2>Ďakujeme, že s nami parkujete.</h2>
-                <ul className="pk-rows">
-                  <li>
-                    <Clock size={20} strokeWidth={1.7} />
-                    <div>
-                      <span>Trvanie parkovania do</span>
-                      <b>
-                        {picks} státí
-                        {killId !== null ? " (odťah)" : ""}
-                      </b>
-                    </div>
-                  </li>
-                  <li>
-                    <Receipt size={20} strokeWidth={1.7} />
-                    <div>
-                      <span>Zahŕňa servisný poplatok</span>
-                      <b>
-                        {eur(cash)} <i className="pk-info" aria-hidden="true">i</i>
-                      </b>
-                    </div>
-                  </li>
-                </ul>
-              </div>
-            </article>
-            {tickets.length > 0 && (
-              <section className="pk-month">
-                <header>
-                  <b>Lístky z kontroly</b>
-                  <span>{tickets.length}</span>
-                </header>
-                <ol className="pk-hist">
-                  {tickets.map((t) => (
-                    <li key={t.id}>
-                      <em>{eur(+(t.payX * bet).toFixed(2))}</em>
-                      <div>
-                        <b>{t.zone}</b>
-                        <span>
-                          {t.note} · {t.title}
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            )}
+      <div className="pk-back pk-fine-back" role="dialog" aria-label="Pokuta">
+        <div className="pk-fine">
+          <div className="pk-fine-sheet">
+            <img src="/art/paas-letak.webp" alt="Zaparkovali ste nesprávne" />
+            <div className="pk-fine-stamp" aria-live="assertive">
+              <em>POKUTA</em>
+              <b>{eur(cash)}</b>
+              <span>{picks} státí · odťah</span>
+            </div>
           </div>
-          <div className="pk-actions">
-            <button type="button" className="pk-outline pk-done" onClick={onDone}>
-              SPÄŤ NA AUTOMAT
-            </button>
-          </div>
+          <button type="button" className="pk-outline pk-done pk-fine-go" onClick={onDone}>
+            PRIJÍMAM POKUTU
+          </button>
         </div>
       </div>
     );
