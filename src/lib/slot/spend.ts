@@ -19,13 +19,21 @@ export interface JobCard {
   limit: number;
   spun: number;
   kind: "wins" | "deads" | "tumbles" | "live" | "ticket" | "pdf" | "signal" | "dry";
+  /** Bet locked for the life of the job. */
+  lockBet: number;
 }
 
-/** Share of bank → stake, then payout as multiple of stake. */
+/** Share of bank → stake band. Spins-at-bet is the other axis. */
 const FLOOR_PCT: Record<JobFloor, { stake: [number, number]; payX: [number, number] }> = {
   lacna: { stake: [0.06, 0.12], payX: [1.55, 1.9] },
   stred: { stake: [0.16, 0.26], payX: [1.7, 2.05] },
   draha: { stake: [0.32, 0.45], payX: [1.85, 2.2] },
+};
+
+const FLOOR_SPINS: Record<JobFloor, [number, number]> = {
+  lacna: [10, 20],
+  stred: [24, 40],
+  draha: [48, 80],
 };
 
 const TEMPLATES: {
@@ -62,8 +70,19 @@ export function roundStake(n: number): number {
   return Math.round(n / 100) * 100;
 }
 
-export function rerollCost(credit: number): number {
-  return roundStake(Math.max(5, credit * 0.018));
+export function rerollCost(credit: number, bet = 1): number {
+  return roundStake(Math.max(5, credit * 0.012 + bet * 2.5));
+}
+
+export function mixJobStake(credit: number, bet: number, floor: JobFloor, rng: () => number): number {
+  const bank = Math.max(JOB_BANK, credit);
+  const b = Math.max(0.01, bet);
+  const f = FLOOR_PCT[floor];
+  const spins = FLOOR_SPINS[floor];
+  const fromBet = b * rngRange(rng, spins[0], spins[1]);
+  const fromBank = bank * rngRange(rng, f.stake[0], f.stake[1]);
+  const mixed = Math.pow(Math.max(0.01, fromBet), 0.62) * Math.pow(Math.max(0.01, fromBank), 0.38);
+  return roundStake(Math.min(bank * 0.85, Math.max(b * 3, mixed)));
 }
 
 export function jobLeft(job: JobCard): number {
@@ -78,8 +97,8 @@ export function jobClock(job: JobCard): string {
   return `ešte ${left} točení`;
 }
 
-export function dealJobs(rng: () => number, credit: number): JobCard[] {
-  const bank = Math.max(JOB_BANK, credit);
+export function dealJobs(rng: () => number, credit: number, bet: number): JobCard[] {
+  const b = Math.max(0.01, bet);
   const floors: JobFloor[] = ["lacna", "stred", "draha"];
   const bag = TEMPLATES.map((t) => t);
   for (let i = bag.length - 1; i > 0; i--) {
@@ -91,7 +110,7 @@ export function dealJobs(rng: () => number, credit: number): JobCard[] {
   return floors.map((floor, i) => {
     const t = bag[i % bag.length];
     const f = FLOOR_PCT[floor];
-    const stake = Math.min(roundStake(bank * rngRange(rng, f.stake[0], f.stake[1])), roundStake(bank * 0.85));
+    const stake = mixJobStake(credit, b, floor, rng);
     const payout = Math.max(roundStake(stake * rngRange(rng, f.payX[0], f.payX[1])), roundStake(stake * 1.4));
     const need = t.need[0] === t.need[1] ? t.need[0] : Math.round(rngRange(rng, t.need[0], t.need[1]));
     return {
@@ -107,6 +126,7 @@ export function dealJobs(rng: () => number, credit: number): JobCard[] {
       limit: t.until,
       spun: 0,
       kind: t.kind,
+      lockBet: b,
     };
   });
 }

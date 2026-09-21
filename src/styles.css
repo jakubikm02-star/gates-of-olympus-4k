@@ -1829,6 +1829,14 @@
   font-variant-numeric: tabular-nums;
 }
 
+.bet-lock {
+  margin-left: 6px;
+  color: var(--color-gold);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  font-style: normal;
+}
+
 .win-line {
   margin: 0;
   text-align: center;

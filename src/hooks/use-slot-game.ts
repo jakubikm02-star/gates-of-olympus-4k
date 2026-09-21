@@ -275,8 +275,9 @@ export function useSlotGame() {
       bought: Boolean(s.fsBought),
       triggerCash: s.fsTriggerCash ?? 0,
     };
-    setJob(s.job);
-    jobRef.current = s.job;
+    const loaded = s.job ? { ...s.job, lockBet: s.job.lockBet || BETS[s.betIndex] } : null;
+    setJob(loaded);
+    jobRef.current = loaded;
     pendingLiveTicketRef.current = s.pendingLiveTicket;
     saveSnapRef.current = s;
   }, []);
@@ -487,7 +488,7 @@ export function useSlotGame() {
   }, []);
 
   const changeBet = useCallback((dir: -1 | 1) => {
-    if (busyRef.current) return;
+    if (busyRef.current || jobRef.current) return;
     setBetIndex((i) => Math.min(BETS.length - 1, Math.max(0, i + dir)));
     sfx.playClick();
   }, []);
@@ -1615,7 +1616,7 @@ export function useSlotGame() {
   const openSpend = useCallback(() => {
     if (busyRef.current || inFsRef.current) return;
     if (!canSpend(balanceRef.current)) return;
-    if (!job) setJobOffer(dealJobs(createRng(), balanceRef.current));
+    if (!job) setJobOffer(dealJobs(createRng(), balanceRef.current, BETS[betIndexRef.current]));
     setSpendOpen(true);
     sfx.playClick();
   }, [job, jobOffer]);
@@ -1624,22 +1625,24 @@ export function useSlotGame() {
     if (busyRef.current || inFsRef.current || jobRef.current) return;
     if (!canSpend(balanceRef.current)) return;
     if (balanceRef.current < card.stake) return;
-    setBalance((b) => +(b - card.stake).toFixed(2));
-    jobRef.current = card;
-    setJob(card);
+    const betNow = BETS[betIndexRef.current];
+    const taken = { ...card, lockBet: card.lockBet || betNow };
+    setBalance((b) => +(b - taken.stake).toFixed(2));
+    jobRef.current = taken;
+    setJob(taken);
     setJobOffer(null);
     setSpendOpen(false);
-    setTopLine(`${card.title} · ${card.detail}`);
+    setTopLine(`${taken.title} · stávka ${formatMoney(taken.lockBet)} zamknutá`);
     sfx.playClick();
   }, []);
 
   const rerollJobs = useCallback(() => {
     if (busyRef.current || inFsRef.current) return;
-    const cost = rerollCost(balanceRef.current);
+    const cost = rerollCost(balanceRef.current, BETS[betIndexRef.current]);
     if (balanceRef.current < cost) return;
     if (!canSpend(balanceRef.current)) return;
     setBalance((b) => +(b - cost).toFixed(2));
-    setJobOffer(dealJobs(createRng(), balanceRef.current - cost));
+    setJobOffer(dealJobs(createRng(), balanceRef.current - cost, BETS[betIndexRef.current]));
     sfx.playClick();
   }, []);
 
@@ -1818,7 +1821,7 @@ export function useSlotGame() {
     job,
     jobOffer,
     jobToast,
-    rerollCost: rerollCost(balance),
+    rerollCost: rerollCost(balance, bet),
     surplusX: JOB_BANK,
   };
 }

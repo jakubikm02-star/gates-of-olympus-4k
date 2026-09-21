@@ -308,7 +308,7 @@ describe("lístok", () => {
 });
 
 describe("míňať", () => {
-  it("jobs open at 100 credit and scale with the bank", () => {
+  it("jobs open at 100 credit and scale with bank and bet", () => {
     assert.equal(JOB_BANK, 100);
     assert.equal(canSpend(99.99), false);
     assert.equal(canSpend(100), true);
@@ -318,9 +318,11 @@ describe("míňať", () => {
       s = (s * 1664525 + 1013904223) >>> 0;
       return s / 0x100000000;
     };
-    const small = dealJobs(rng, 200);
+    const small = dealJobs(rng, 200, 1);
     s = 1;
-    const fat = dealJobs(rng, 20000);
+    const fat = dealJobs(rng, 20000, 1);
+    s = 1;
+    const highBet = dealJobs(rng, 200, 100);
     assert.equal(small.length, 3);
     assert.deepEqual(
       small.map((j) => j.floor),
@@ -330,7 +332,9 @@ describe("míňať", () => {
     assert.ok(small[1].stake < small[2].stake);
     assert.ok(small[2].stake < 200);
     assert.ok(small.every((j) => j.payout > j.stake));
-    assert.ok(fat[0].stake > small[0].stake * 20);
+    assert.ok(small.every((j) => j.lockBet === 1));
+    assert.ok(fat[0].stake > small[0].stake);
+    assert.ok(highBet[0].stake > small[0].stake);
     for (const j of small) {
       assert.equal(j.limit % 5, 0);
       assert.ok(j.limit >= 25 && j.limit <= 50);
@@ -360,6 +364,7 @@ describe("míňať", () => {
       limit: 25,
       spun: 0,
       kind: "wins",
+      lockBet: 1,
     };
     const patched = tickJob(chain, {
       win: true,
@@ -403,6 +408,7 @@ describe("míňať", () => {
       limit: 30,
       spun: 0,
       kind: "wins",
+      lockBet: 1,
     };
     const one = tickJob(duo, {
       win: true,
@@ -432,7 +438,7 @@ describe("míňať", () => {
   });
 
   it("POT job needs a grey ticket, not a silent must-hit", () => {
-    const job = dealJobs(() => 0.1, 5000).find((j) => j.kind === "ticket") ?? {
+    const job = dealJobs(() => 0.1, 5000, 1).find((j) => j.kind === "ticket") ?? {
       id: "pot",
       floor: "lacna" as const,
       template: "pot",
@@ -445,6 +451,7 @@ describe("míňať", () => {
       limit: 40,
       spun: 0,
       kind: "ticket" as const,
+      lockBet: 1,
     };
     const miss = tickJob(job, {
       win: true,

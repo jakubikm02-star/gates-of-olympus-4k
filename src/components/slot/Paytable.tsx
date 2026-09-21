@@ -111,7 +111,8 @@ export function Paytable({ open, onClose, bet }: Props) {
             (+30). Po spustení bar padne na 0. Kúpiť sa nedá.
           </li>
           <li>
-            Od kreditu 100 € zákazky: tri poschodia, vklad aj výhra podľa banku.
+            Od kreditu 100 € zákazky: cena aj výhra podľa banku a stávky. Po kúpe je stávka zamknutá do konca
+            termínu.
           </li>
           <li>
             Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bankrot +5000 berie RP podľa stávky.

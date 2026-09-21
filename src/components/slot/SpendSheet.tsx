@@ -28,12 +28,17 @@ export function SpendSheet({ open, onClose, credit, job, offer, rerollCost, onJo
             ×
           </button>
         </header>
-        <p className="modal-lead">Od 100 €. Cena a výhra podľa tvojho kreditu. Jedna zákazka, termín v točeniach.</p>
+        <p className="modal-lead">
+          Od 100 €. Cena aj výhra podľa kreditu a aktuálnej stávky. Po kúpe ostane stávka zamknutá, kým zákazka
+          neskončí — zmeniť ju počas hry nejde.
+        </p>
 
         {job ? (
           <p className={`spend-active ${jobLeft(job) <= 5 ? "is-late" : ""}`}>
             {job.title} · {job.have}/{job.need}
-            <span>{jobClock(job)}</span>
+            <span>
+              {jobClock(job)} · stávka {formatMoney(job.lockBet || 0)} zamknutá
+            </span>
           </p>
         ) : (
           <>
@@ -48,7 +53,7 @@ export function SpendSheet({ open, onClose, credit, job, offer, rerollCost, onJo
                 >
                   <em>{card.title}</em>
                   <span>{card.detail}</span>
-                  <strong className="spend-dead">do {card.limit} točení</strong>
+                  <strong className="spend-dead">do {card.limit} točení · lock {formatMoney(card.lockBet)}</strong>
                   <b>
                     {formatMoney(card.stake)} → {formatMoney(card.payout)}
                   </b>

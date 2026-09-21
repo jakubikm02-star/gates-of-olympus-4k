@@ -141,6 +141,7 @@ function jobSave(raw: unknown): JobCard | null {
     limit: Math.min(400, Math.max(need, Math.floor(num(r.limit, need * 8)))),
     spun: Math.min(400, Math.max(0, Math.floor(num(r.spun, 0)))),
     kind,
+    lockBet: num(r.lockBet, 0, 0, 1000),
   };
 }
 

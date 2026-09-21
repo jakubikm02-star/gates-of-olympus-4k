@@ -328,7 +328,10 @@ export function SlotGame() {
                   <b>
                     {g.job.have}/{g.job.need}
                   </b>
-                  <em>{jobClock(g.job)}</em>
+                  <em>
+                    {jobClock(g.job)}
+                    {g.job.lockBet ? ` · ${formatMoney(g.job.lockBet)}` : ""}
+                  </em>
                 </div>
               )}
             </div>
@@ -385,6 +388,7 @@ export function SlotGame() {
               </p>
               <p>
                 STÁVKA <b>{formatMoney(g.stake)}</b>
+                {g.job ? <em className="bet-lock"> ZÁKAZKA</em> : null}
               </p>
             </div>
           </div>
@@ -414,8 +418,8 @@ export function SlotGame() {
               type="button"
               className="round-btn"
               onClick={() => g.changeBet(-1)}
-              disabled={g.busy || g.betIndex <= 0}
-              aria-label="Znížiť stávku"
+              disabled={g.busy || Boolean(g.job) || g.betIndex <= 0}
+              aria-label={g.job ? "Stávka zamknutá do konca zákazky" : "Znížiť stávku"}
             >
               −
             </button>
@@ -432,8 +436,8 @@ export function SlotGame() {
               type="button"
               className="round-btn"
               onClick={() => g.changeBet(1)}
-              disabled={g.busy || g.betIndex >= BETS.length - 1}
-              aria-label="Zvýšiť stávku"
+              disabled={g.busy || Boolean(g.job) || g.betIndex >= BETS.length - 1}
+              aria-label={g.job ? "Stávka zamknutá do konca zákazky" : "Zvýšiť stávku"}
             >
               +
             </button>
