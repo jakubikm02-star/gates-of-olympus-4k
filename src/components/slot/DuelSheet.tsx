@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { formatMoney } from "@/lib/slot/format";
-import { duelCreate, duelJoin, duelLeave, duelPoll, duelStart, duelTick } from "@/lib/slot/duel-api";
+import { openDuelPeer, type DuelPipe, type DuelWire } from "@/lib/slot/duel-peer";
 import {
   duelLeft,
   duelMineDone,
@@ -42,11 +42,13 @@ export function DuelLink({
   onTick: (have: number, score: number) => void;
   onEnd: () => void;
 }) {
-  const [status, setStatus] = useState("Pálim miestnosť…");
+  const [status, setStatus] = useState("Pálim spojenie…");
   const [guest, setGuest] = useState("");
+  const [live, setLive] = useState(false);
   const [err, setErr] = useState("");
   const started = useRef(false);
   const lastHave = useRef(-1);
+  const pipe = useRef<DuelPipe | null>(null);
   const onPeerNameRef = useRef(onPeerName);
   const onGoRef = useRef(onGo);
   const onTickRef = useRef(onTick);
@@ -56,58 +58,53 @@ export function DuelLink({
 
   useEffect(() => {
     let stop = false;
-    const role = link.role;
-    const boot = async () => {
+    void (async () => {
       try {
-        if (role === "host") {
-          await duelCreate({ code: link.room, name: link.name, mode: link.mode, bet });
-          if (!stop) setStatus("Kód je živý. Pošli ho kamošovi.");
-        } else {
-          const snap = await duelJoin(link.room, link.name);
-          if (!stop) {
-            onPeerNameRef.current(snap.hostName);
-            setStatus("Si v miestnosti. Čakám na ŠTART.");
-          }
+        const next = await openDuelPeer({
+          room: link.room,
+          role: link.role,
+          name: link.name,
+          onPeer: (name) => {
+            if (stop) return;
+            setGuest(name);
+            onPeerNameRef.current(name);
+            setStatus(`${name} je v miestnosti.`);
+          },
+          onLive: (on) => {
+            if (stop) return;
+            setLive(on);
+            if (on) setErr("");
+            setStatus(on ? "Spojenie živé." : "Čakám na spojenie…");
+          },
+          onErr: (msg) => {
+            if (!stop) setErr(msg);
+          },
+          onMsg: (msg: DuelWire) => {
+            if (stop) return;
+            if (msg.t === "go" && !started.current) {
+              started.current = true;
+              const peer = link.role === "guest" ? msg.hostName : msg.guestName;
+              onGoRef.current(peer || "SÚPER", msg.bet, msg.mode);
+            }
+            if (msg.t === "tick") onTickRef.current(msg.have, msg.score);
+          },
+        });
+        if (stop) {
+          next.close();
+          return;
         }
+        pipe.current = next;
+        setStatus(link.role === "host" ? "Kód je živý. Pošli ho kamošovi." : "Hľadám hosťa…");
       } catch (e) {
         if (!stop) setErr(e instanceof Error ? e.message : "Spojenie zlyhalo");
       }
-    };
-    void boot();
-
-    const tick = window.setInterval(() => {
-      void (async () => {
-        try {
-          const snap = await duelPoll(link.room);
-          if (stop) return;
-          setErr("");
-          if (snap.guestName) {
-            setGuest(snap.guestName);
-            if (role === "host") onPeerNameRef.current(snap.guestName);
-          }
-          if (snap.phase === "play" || snap.phase === "done") {
-            if (!started.current) {
-              started.current = true;
-              const peer = role === "host" ? snap.guestName : snap.hostName;
-              onGoRef.current(peer || "SÚPER", snap.bet, snap.mode);
-            }
-            if (role === "host") onTickRef.current(snap.guestHave, snap.guestScore);
-            else onTickRef.current(snap.hostHave, snap.hostScore);
-          }
-        } catch (e) {
-          if (stop) return;
-          const msg = e instanceof Error ? e.message : "spojenie padlo";
-          if (msg.includes("neexistuje") && started.current) setErr("Súper odišiel.");
-          else if (!started.current) setErr(msg);
-        }
-      })();
-    }, 700);
-
+    })();
     return () => {
       stop = true;
-      window.clearInterval(tick);
+      pipe.current?.close();
+      pipe.current = null;
     };
-  }, [link.room, link.role, link.name, link.mode, bet]);
+  }, [link.room, link.role, link.name]);
 
   useEffect(() => {
     if (!duel || duel.kind !== "online") return;
@@ -115,52 +112,52 @@ export function DuelLink({
     const score = duel.seats[duel.you].score;
     if (have <= lastHave.current) return;
     lastHave.current = have;
-    void duelTick(link.room, link.role, have, score).catch(() => {});
-  }, [duel, link.room, link.role]);
+    pipe.current?.send({ t: "tick", have, score });
+  }, [duel]);
 
   const launch = () => {
-    if (started.current || link.role !== "host" || !guest) return;
-    void (async () => {
-      try {
-        const snap = await duelStart(link.room);
-        started.current = true;
-        onGo(snap.guestName || guest, snap.bet, snap.mode);
-      } catch (e) {
-        setErr(e instanceof Error ? e.message : "Štart zlyhal");
-      }
-    })();
+    if (started.current || link.role !== "host" || !live) return;
+    started.current = true;
+    const guestName = guest || "HRÁČ 2";
+    const payload: DuelWire = { t: "go", mode: link.mode, bet, hostName: link.name, guestName };
+    pipe.current?.send(payload);
+    onGo(guestName, bet, link.mode);
   };
 
   const leave = () => {
-    void duelLeave(link.room, link.role);
+    pipe.current?.close();
     onEnd();
+  };
+
+  const copy = () => {
+    void navigator.clipboard?.writeText(link.room).catch(() => {});
   };
 
   if (duel) return null;
 
   return (
     <div className="modal-back" role="presentation">
-      <div className="modal-card spend-card" role="dialog" aria-labelledby="duel-title">
+      <div className="modal-card spend-card duel-card" role="dialog" aria-labelledby="duel-title">
         <header className="modal-head">
           <h2 id="duel-title">{link.role === "host" ? "KÓD DUELU" : "PRIPOJUJEM"}</h2>
           <button type="button" className="icon-btn" onClick={leave} aria-label="Odísť">
             ×
           </button>
         </header>
-        <p className="duel-code" aria-label="Kód miestnosti">
+        <button type="button" className="duel-code" onClick={copy} aria-label="Skopírovať kód">
           {link.room}
-        </p>
+        </button>
         <p className="modal-lead">
           {err || status}
           {guest ? ` · súper: ${guest}` : ""}
         </p>
         <div className="duel-tabs">
           {link.role === "host" ? (
-            <button type="button" className="chip-btn gold" disabled={!guest} onClick={launch}>
-              {guest ? "ŠTART" : "ČAKÁM SÚPERA"}
+            <button type="button" className="chip-btn gold" disabled={!live} onClick={launch}>
+              {live ? "ŠTART" : "ČAKÁM SÚPERA"}
             </button>
           ) : (
-            <span className="modal-lead">Čakám, kým hosť stlačí ŠTART.</span>
+            <span className="modal-lead">Čakám na ŠTART od hosťa.</span>
           )}
           <button type="button" className="chip-btn" onClick={leave}>
             ODÍSŤ
@@ -257,14 +254,14 @@ export function DuelSheet({
             NA DIAĽKU
           </button>
         </div>
-        <div className="spend-jobs">
+        <div className="duel-modes">
           <button type="button" className={`spend-job ${mode === "spins" ? "stred" : "lacna"}`} onClick={() => setMode("spins")}>
             <em>10 TOČENÍ</em>
-            <span>Rovnaká stávka, vyšší súčet berie výhry oboch.</span>
+            <span>Vyšší súčet berie bank oboch.</span>
           </button>
           <button type="button" className={`spend-job ${mode === "live" ? "draha" : "lacna"}`} onClick={() => setMode("live")}>
             <em>1× LIVE</em>
-            <span>Každý kúpi PARKNET. Väčší bonus vyhráva.</span>
+            <span>Každý kúpi PARKNET.</span>
           </button>
         </div>
         {tab === "hotseat" ? (
@@ -285,8 +282,7 @@ export function DuelSheet({
         ) : (
           <>
             <p className="modal-lead">
-              Vytvor kód a pošli ho. Na druhom telefóne ho zadaj. Točíte naraz. Kto vytočí viac, berie výhry oboch.
-              Prehrávajúci o svoje výhry príde. ŠTART ide, keď súper vojde. Kedykoľvek môžeš odísť.
+              Vytvor kód, na druhom telefóne ho zadaj. Víťaz berie výhry oboch.
             </p>
             <label className="duel-field">
               Tvoje meno

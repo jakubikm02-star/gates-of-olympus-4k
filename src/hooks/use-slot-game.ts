@@ -41,7 +41,6 @@ import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from 
 import { emptyBoard, isEligibleBet, ticketResolve, type BoardSnap, type JackpotHit, type TierId } from "@/lib/slot/jackpot";
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
 import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, duelMineDone, duelWinner, duelPot, duelCreditDelta, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
-import { duelLeave } from "@/lib/slot/duel-api";
 import {
   canSpend,
   dealJobs,
@@ -1985,8 +1984,6 @@ export function useSlotGame() {
       sfx.playClick();
     },
     endDuel: () => {
-      const link = duelLinkRef.current;
-      if (link) void duelLeave(link.room, link.role);
       duelSettled.current = false;
       duelRef.current = null;
       setDuel(null);
