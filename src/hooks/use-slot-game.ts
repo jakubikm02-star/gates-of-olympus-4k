@@ -624,16 +624,17 @@ export function useSlotGame() {
     done?.();
   }, []);
 
-  const waitForBanner = useCallback(() => {
+  const waitForBanner = useCallback((hold: number | "click" = 2800) => {
     return new Promise<void>((resolve) => {
       bannerWait.current = resolve;
+      if (hold === "click") return;
       window.setTimeout(() => {
         if (bannerWait.current !== resolve) return;
         bannerOpen.current = false;
         setBanner(null);
         bannerWait.current = null;
         resolve();
-      }, 2800);
+      }, hold);
     });
   }, []);
 
@@ -1435,7 +1436,7 @@ export function useSlotGame() {
           triggerCash: 0,
         };
         persistNow();
-        await waitForBanner();
+        await waitForBanner("click");
         setBannerMeta(null);
         const stashed = pendingLiveTicketRef.current;
         pendingLiveTicketRef.current = null;

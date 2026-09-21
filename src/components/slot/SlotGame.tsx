@@ -617,7 +617,10 @@ export function SlotGame() {
                 <p className="wb-line dim">status: ok</p>
               )}
               <p className="wb-line">
-                [admin@parkizmus] {'>'} <span className="wb-hint">ťukni sem — okno ostane kým neklikneš</span>
+                [admin@parkizmus] {'>'}{" "}
+                <span className="wb-hint">
+                  {g.banner === "fsTotal" ? "ťukni — SIEŤ SPADLA ostane kým neklikneš" : "ťukni sem"}
+                </span>
                 <span className="wb-caret" aria-hidden="true" />
               </p>
             </div>
