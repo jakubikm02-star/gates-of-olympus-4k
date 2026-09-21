@@ -58,7 +58,7 @@ const TEMPLATES: {
   { id: "retaz", titles: ["REŤAZ", "TRI V RADE", "BEZ PRESTÁVKY"], kind: "wins", need: [3, 3], until: [40, 55], line: "výhier v rade" },
   { id: "plechovky", titles: ["PLECHOVKY", "RAMPA HUČÍ", "PLECH NA PLECH"], kind: "tumbles", need: [3, 8], until: [25, 40], line: "spinov s násobičom" },
   { id: "tv", titles: ["4TV", "ŠTVORKA NA STENE", "KONTROLA 4KY"], kind: "live", need: [1, 1], until: [30, 50], line: "4tv trigger" },
-  { id: "plus", titles: ["PLUS", "HOCIČO", "NEPRETRŽITE"], kind: "wins", need: [10, 22], until: [40, 55], line: "akýchkoľvek výhier" },
+  { id: "plus", titles: ["PLUS", "HOCIČO", "VÝHRY"], kind: "wins", need: [10, 22], until: [40, 55], line: "akýchkoľvek výhier" },
   { id: "pot", titles: ["POT", "SIVÝ LÍSTOK", "ULICA PADÁ"], kind: "ticket", need: [1, 1], until: [30, 50], line: "sivý lístok ULICA" },
   { id: "sucho", titles: ["SUCHO", "TICHÁ ZÓNA", "RAMPA STOJÍ"], kind: "deads", need: [8, 18], until: [20, 35], line: "mŕtvych spinov" },
   { id: "vynos", titles: ["VÝNOS", "PDF 8+", "PAPIER PLATÍ"], kind: "pdf", need: [1, 2], until: [30, 50], line: "PDF 8+" },
