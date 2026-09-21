@@ -625,9 +625,7 @@ export function SlotGame() {
         credit={g.balance}
         job={g.job}
         offer={g.jobOffer}
-        rerollCost={g.rerollCost}
         onJob={g.takeJob}
-        onReroll={g.rerollJobs}
       />
       {g.jpHit && (
         <div className="ticket-banner" aria-live="assertive">

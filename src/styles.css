@@ -4977,6 +4977,15 @@ html:-webkit-full-screen {
 .spend-job.stred { border-color: rgb(110 168 255 / 0.45); }
 .spend-job.draha { border-color: rgb(226 176 26 / 0.5); }
 
+.spend-job.mystery {
+  width: 100%;
+  min-height: 92px;
+  margin-bottom: 4px;
+  border-color: rgb(200 107 255 / 0.55);
+  background:
+    linear-gradient(180deg, rgb(80 40 110 / 0.35), rgb(12 10 18 / 0.5));
+}
+
 .spend-job em {
   font-style: normal;
   font-weight: 700;

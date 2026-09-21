@@ -1,5 +1,5 @@
 import { formatMoney } from "@/lib/slot/format";
-import { jobClock, jobLeft, type JobCard } from "@/lib/slot/spend";
+import { jobClock, jobLeft, spinWord, type JobCard } from "@/lib/slot/spend";
 
 interface Props {
   open: boolean;
@@ -7,13 +7,13 @@ interface Props {
   credit: number;
   job: JobCard | null;
   offer: JobCard[] | null;
-  rerollCost: number;
   onJob: (card: JobCard) => void;
-  onReroll: () => void;
 }
 
-export function SpendSheet({ open, onClose, credit, job, offer, rerollCost, onJob, onReroll }: Props) {
+export function SpendSheet({ open, onClose, credit, job, offer, onJob }: Props) {
   if (!open) return null;
+  const picks = (offer ?? []).filter((c) => !c.mystery);
+  const mystery = (offer ?? []).find((c) => c.mystery);
   return (
     <div className="modal-back" onClick={onClose} role="presentation">
       <div
@@ -29,8 +29,9 @@ export function SpendSheet({ open, onClose, credit, job, offer, rerollCost, onJo
           </button>
         </header>
         <p className="modal-lead">
-          Od 100 €. Cena aj výhra podľa kreditu a aktuálnej stávky. Po kúpe ostane stávka zamknutá, kým zákazka
-          neskončí — zmeniť ju počas hry nejde. Kúpa PARKNET zákazku neplní, počíta sa iba base game.
+          Od 100 €. Cena aj výhra podľa kreditu a aktuálnej stávky. Po prijatí ostane stávka zamknutá, kým
+          zákazka neskončí. Kúpa PARKNET zákazku neplní — počíta sa iba základná hra. Tri na výber, alebo
+          namiešaná náhoda s bonusovou výhrou.
         </p>
 
         {job ? (
@@ -43,7 +44,7 @@ export function SpendSheet({ open, onClose, credit, job, offer, rerollCost, onJo
         ) : (
           <>
             <div className="spend-jobs">
-              {(offer ?? []).map((card) => (
+              {picks.map((card) => (
                 <button
                   key={card.id}
                   type="button"
@@ -53,16 +54,34 @@ export function SpendSheet({ open, onClose, credit, job, offer, rerollCost, onJo
                 >
                   <em>{card.title}</em>
                   <span>{card.detail}</span>
-                  <strong className="spend-dead">do {card.limit} točení · lock {formatMoney(card.lockBet)}</strong>
+                  <strong className="spend-dead">
+                    do {card.limit} {spinWord(card.limit)} · stávka {formatMoney(card.lockBet)}
+                  </strong>
                   <b>
                     {formatMoney(card.stake)} → {formatMoney(card.payout)}
                   </b>
                 </button>
               ))}
             </div>
-            <button type="button" className="chip-btn" disabled={credit < rerollCost} onClick={onReroll}>
-              REROLL {formatMoney(rerollCost)}
-            </button>
+            {mystery ? (
+              <button
+                type="button"
+                className={`spend-job mystery ${mystery.floor}`}
+                disabled={credit < mystery.stake}
+                onClick={() => onJob(mystery)}
+              >
+                <em>NÁHODA</em>
+                <span>
+                  {mystery.title} · {mystery.detail} · +15 % výhra
+                </span>
+                <strong className="spend-dead">
+                  do {mystery.limit} {spinWord(mystery.limit)} · stávka {formatMoney(mystery.lockBet)}
+                </strong>
+                <b>
+                  {formatMoney(mystery.stake)} → {formatMoney(mystery.payout)}
+                </b>
+              </button>
+            ) : null}
           </>
         )}
       </div>

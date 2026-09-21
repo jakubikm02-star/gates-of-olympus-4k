@@ -16,7 +16,7 @@ import {
 } from "./jackpot.ts";
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain } from "./pick-bonus.ts";
-import { canSpend, dealJobs, jobClock, jobLeft, jobStatus, tickJob, JOB_BANK } from "./spend.ts";
+import { canSpend, dealJobs, jobClock, jobLeft, jobStatus, tickJob, spinWord, JOB_BANK } from "./spend.ts";
 import { ORB_TABLE, ORB_VALUES } from "./symbols.ts";
 
 describe("park jackpots", () => {
@@ -323,11 +323,12 @@ describe("míňať", () => {
     const fat = dealJobs(rng, 20000, 1);
     s = 1;
     const highBet = dealJobs(rng, 200, 100);
-    assert.equal(small.length, 3);
+    assert.equal(small.length, 4);
     assert.deepEqual(
-      small.map((j) => j.floor),
+      small.slice(0, 3).map((j) => j.floor),
       ["lacna", "stred", "draha"],
     );
+    assert.equal(small[3].mystery, true);
     assert.ok(small[0].stake < small[1].stake);
     assert.ok(small[1].stake < small[2].stake);
     assert.ok(small[2].stake < 200);
@@ -335,12 +336,21 @@ describe("míňať", () => {
     assert.ok(small.every((j) => j.lockBet === 1));
     assert.ok(fat[0].stake > small[0].stake);
     assert.ok(highBet[0].stake > small[0].stake);
-    for (const j of small) {
+    for (const j of small.slice(0, 3)) {
       assert.equal(j.limit % 5, 0);
       assert.ok(j.limit >= 25 && j.limit <= 50);
       assert.equal(jobLeft(j), j.limit);
-      assert.equal(jobClock(j), `ešte ${j.limit} točení`);
+      assert.equal(jobClock(j), `ešte ${j.limit} ${spinWord(j.limit)}`);
     }
+  });
+
+  it("Slovak spin words and SPLNENÁ", () => {
+    assert.equal(spinWord(1), "točenie");
+    assert.equal(spinWord(2), "točenia");
+    assert.equal(spinWord(4), "točenia");
+    assert.equal(spinWord(5), "točení");
+    assert.equal(spinWord(12), "točení");
+    assert.equal(spinWord(22), "točenia");
   });
 
   it("a paid job awards RP from the payout", () => {

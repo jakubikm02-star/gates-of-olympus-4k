@@ -21,6 +21,7 @@ export interface JobCard {
   kind: "wins" | "deads" | "tumbles" | "live" | "ticket" | "pdf" | "signal" | "dry";
   /** Bet locked for the life of the job. */
   lockBet: number;
+  mystery?: boolean;
 }
 
 /** Share of bank → stake band. Spins-at-bet is the other axis. */
@@ -70,10 +71,6 @@ export function roundStake(n: number): number {
   return Math.round(n / 100) * 100;
 }
 
-export function rerollCost(credit: number, bet = 1): number {
-  return roundStake(Math.max(5, credit * 0.012 + bet * 2.5));
-}
-
 export function mixJobStake(credit: number, bet: number, floor: JobFloor, rng: () => number): number {
   const bank = Math.max(JOB_BANK, credit);
   const b = Math.max(0.01, bet);
@@ -85,50 +82,89 @@ export function mixJobStake(credit: number, bet: number, floor: JobFloor, rng: (
   return roundStake(Math.min(bank * 0.85, Math.max(b * 3, mixed)));
 }
 
+export function spinWord(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (n === 1) return "točenie";
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return "točenia";
+  return "točení";
+}
+
+export function freeSpinsLabel(n: number): string {
+  if (n === 1) return "1 voľné točenie";
+  if (spinWord(n) === "točenia") return `${n} voľné točenia`;
+  return `${n} voľných točení`;
+}
+
 export function jobLeft(job: JobCard): number {
   return Math.max(0, job.limit - job.spun);
 }
 
 export function jobClock(job: JobCard): string {
-  if (job.have >= job.need) return "SPLNEŇÁ";
+  if (job.have >= job.need) return "SPLNENÁ";
   const left = jobLeft(job);
   if (left <= 0) return "TERMÍN PREŠIEL";
   if (left === 1) return "posledné točenie";
-  return `ešte ${left} točení`;
+  return `ešte ${left} ${spinWord(left)}`;
+}
+
+function shuffle<T>(bag: T[], rng: () => number): T[] {
+  const out = bag.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const t = out[i];
+    out[i] = out[j];
+    out[j] = t;
+  }
+  return out;
+}
+
+function makeJob(
+  t: (typeof TEMPLATES)[number],
+  floor: JobFloor,
+  credit: number,
+  bet: number,
+  rng: () => number,
+  extraPay = 1,
+  mystery = false,
+): JobCard {
+  const b = Math.max(0.01, bet);
+  const f = FLOOR_PCT[floor];
+  const stake = mixJobStake(credit, b, floor, rng);
+  const payMul = rngRange(rng, f.payX[0], f.payX[1]) * extraPay;
+  const payout = Math.max(roundStake(stake * payMul), roundStake(stake * 1.4 * extraPay));
+  const need = t.need[0] === t.need[1] ? t.need[0] : Math.round(rngRange(rng, t.need[0], t.need[1]));
+  return {
+    id: `${t.id}-${floor}-${mystery ? "rnd" : "pick"}-${Math.floor(rng() * 1e6)}`,
+    floor,
+    template: t.id,
+    title: t.title,
+    detail: `${need}× ${t.line}`,
+    stake,
+    payout,
+    need,
+    have: 0,
+    limit: t.until,
+    spun: 0,
+    kind: t.kind,
+    lockBet: b,
+    mystery,
+  };
 }
 
 export function dealJobs(rng: () => number, credit: number, bet: number): JobCard[] {
-  const b = Math.max(0.01, bet);
   const floors: JobFloor[] = ["lacna", "stred", "draha"];
-  const bag = TEMPLATES.map((t) => t);
-  for (let i = bag.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    const t = bag[i];
-    bag[i] = bag[j];
-    bag[j] = t;
-  }
-  return floors.map((floor, i) => {
-    const t = bag[i % bag.length];
-    const f = FLOOR_PCT[floor];
-    const stake = mixJobStake(credit, b, floor, rng);
-    const payout = Math.max(roundStake(stake * rngRange(rng, f.payX[0], f.payX[1])), roundStake(stake * 1.4));
-    const need = t.need[0] === t.need[1] ? t.need[0] : Math.round(rngRange(rng, t.need[0], t.need[1]));
-    return {
-      id: `${t.id}-${floor}-${Math.floor(rng() * 1e6)}`,
-      floor,
-      template: t.id,
-      title: t.title,
-      detail: `${need}× ${t.line}`,
-      stake,
-      payout,
-      need,
-      have: 0,
-      limit: t.until,
-      spun: 0,
-      kind: t.kind,
-      lockBet: b,
-    };
-  });
+  const bag = shuffle(TEMPLATES, rng);
+  const three = floors.map((floor, i) => makeJob(bag[i % bag.length], floor, credit, bet, rng));
+  const used = new Set(three.map((j) => j.template));
+  const rest = shuffle(
+    TEMPLATES.filter((t) => !used.has(t.id)),
+    rng,
+  );
+  const bonusT = rest[0] ?? bag[0];
+  const bonusFloor = floors[Math.floor(rng() * floors.length)] ?? "stred";
+  const bonus = makeJob(bonusT, bonusFloor, credit, bet, rng, 1.15, true);
+  return [...three, bonus];
 }
 
 export interface JobEvent {

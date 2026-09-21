@@ -100,7 +100,7 @@ export function Paytable({ open, onClose, bet }: Props) {
           <li>Výherné symboly zmiznú, nové spadnú zhora (tumble). Plechovky, scatter aj lístok tumble prežijú.</li>
           <li>Násobiče nepadajú z valca ako RJ45. Rampa ich pustí ako energy plechovky. 15 hodnôt, sčítajú sa (50+100=150, nie 5 000). Aktivujú sa až na konci reťaze, a len ak bola výhra. 2/3/5 sú ~70 % plechoviek; 500× je vzácnejšia ako PDF 8+.</li>
           <li>Base: súčet plechoviek × celá tumble sekvencia, potom reset. Vo FS tečú do SIGNÁL a ostávajú; bez výhry prepadnú ako tapeta.</li>
-          <li>4 scatteri = 15 voľných točení. V bonuse 3+ scatteri = +5. Pay scatteru ostáva 4 / 5 / 6.</li>
+          <li>4 scattere = 15 voľných točení. V bonuse 3+ scattere = +5. Výplata scatteru ostáva 4 / 5 / 6.</li>
           <li>
             Lístok vo feature smie padnúť, ceremónia ide až po SIEŤ SPADLA. Banner je{" "}
             <code>ULICA · 1 742,20</code> — žiadny WinBox, žiadny terminál.
@@ -111,8 +111,9 @@ export function Paytable({ open, onClose, bet }: Props) {
             (+30). Po spustení bar padne na 0. Kúpiť sa nedá.
           </li>
           <li>
-            Od kreditu 100 € zákazky: cena aj výhra podľa banku a stávky. Po kúpe je stávka zamknutá do konca
-            termínu. Kúpa PARKNET sa do zákazky nepočíta — progress ide len z base game.
+            Od kreditu 100 € zákazky: tri na výber, alebo namiešaná náhoda s bonusovou výhrou. Cena aj výhra
+            podľa banku a stávky. Po prijatí ostane stávka zamknutá do konca termínu. Kúpa PARKNET sa do
+            zákazky nepočíta — postup ide len zo základnej hry.
           </li>
           <li>
             Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bankrot +5000 berie RP podľa stávky.
@@ -126,7 +127,10 @@ export function Paytable({ open, onClose, bet }: Props) {
             Win popup ako na Olympuse: BIG WIN od 20× stávky, MEGA WIN od 35×, SUPER MEGA WIN od 50×.
             MAX WIN 5000× ukončí feature.
           </li>
-          <li>Kúpa FS = 100× základná stávka (95× od 5G, 90× v NEKONEČNE). Ante sa na kúpu nevzťahuje. Do ranku sa kúpa ráta ako 100 točení. Max 5000× je cap celej feature — potom FEATURE TERMINATED.</li>
+          <li>
+            Kúpa voľných točení = 100× základná stávka (95× od 5G, 90× v NEKONEČNE). Ante sa na kúpu nevzťahuje.
+            Do ranku sa kúpa ráta ako 100 točení. Max 5000× je strop celej feature — potom FEATURE TERMINATED.
+          </li>
           <li>
             Simulácia {MATH_NOTE.spins.toLocaleString("sk-SK")} spinov: base RTP {(MATH_NOTE.rtp * 100).toFixed(1)} % +
             jackpot ~2.3 % contribution = tvar 96.5. Hit {(MATH_NOTE.hit * 100).toFixed(1)} %, bonus 1/{MATH_NOTE.bonusEvery}, kúpa vracia{" "}

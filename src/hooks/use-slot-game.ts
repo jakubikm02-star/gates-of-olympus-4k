@@ -45,7 +45,7 @@ import {
   dealJobs,
   jobStatus,
   tickJob,
-  rerollCost,
+  freeSpinsLabel,
   JOB_BANK,
   type JobCard,
   type JobEvent,
@@ -1329,7 +1329,7 @@ export function useSlotGame() {
             sess.total += add;
             setFsLeft(sess.left);
             setFsTotal(sess.total);
-            setMessage(`+${add} voľných točení`);
+            setMessage(`+${freeSpinsLabel(add)}`);
             sfx.playScatter(4);
             persistNow();
             await wait(dur(720), abort.current);
@@ -1477,7 +1477,7 @@ export function useSlotGame() {
         setFsLeft(sess.left);
         setFsTotal(sess.total);
         setDisplayWin(+(sess.triggerCash + sess.cash).toFixed(2));
-        setMessage(`${sess.left} voľných točení`);
+        setMessage(freeSpinsLabel(sess.left));
         setTopLine(`PARKNET LIVE · ${sess.left}`);
         persistNow();
         sfx.startLiveBed();
@@ -1541,7 +1541,7 @@ export function useSlotGame() {
         globalMultRef.current = 0;
         setFsLeft(fsCount);
         setFsTotal(fsCount);
-        setMessage(`${fsCount} voľných točení`);
+        setMessage(freeSpinsLabel(fsCount));
         persistNow();
         sfx.playFsStart();
         sfx.startLiveBed();
@@ -1638,16 +1638,6 @@ export function useSlotGame() {
     setJobOffer(null);
     setSpendOpen(false);
     setTopLine(`${taken.title} · stávka ${formatMoney(taken.lockBet)} zamknutá`);
-    sfx.playClick();
-  }, []);
-
-  const rerollJobs = useCallback(() => {
-    if (busyRef.current || inFsRef.current) return;
-    const cost = rerollCost(balanceRef.current, BETS[betIndexRef.current]);
-    if (balanceRef.current < cost) return;
-    if (!canSpend(balanceRef.current)) return;
-    setBalance((b) => +(b - cost).toFixed(2));
-    setJobOffer(dealJobs(createRng(), balanceRef.current - cost, BETS[betIndexRef.current]));
     sfx.playClick();
   }, []);
 
@@ -1822,11 +1812,9 @@ export function useSlotGame() {
     setSpendOpen,
     openSpend,
     takeJob,
-    rerollJobs,
     job,
     jobOffer,
     jobToast,
-    rerollCost: rerollCost(balance, bet),
     surplusX: JOB_BANK,
   };
 }
