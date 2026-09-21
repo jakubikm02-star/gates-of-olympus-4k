@@ -3,7 +3,7 @@ import { Volume2, VolumeX, Info, RefreshCw, Menu } from "lucide-react";
 import { START_BALANCE, BETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
-import { jobClock, jobLeft } from "@/lib/slot/spend";
+import { jobClock, jobLeft, jobMeter } from "@/lib/slot/spend";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { SlotGrid } from "./Grid";
 import { Paytable } from "./Paytable";
@@ -329,7 +329,7 @@ export function SlotGame() {
                 <div className={`job-chip ${g.jobToast ? "is-hot" : ""} ${jobLeft(g.job) <= 5 ? "is-late" : ""}`}>
                   <span>{g.job.title}</span>
                   <b>
-                    {g.job.have}/{g.job.need}
+                    {jobMeter(g.job)}
                   </b>
                   <em>
                     {jobClock(g.job)}

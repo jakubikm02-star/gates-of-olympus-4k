@@ -703,9 +703,9 @@ export function useSlotGame() {
     } else if (st === "fail") {
       jobRef.current = null;
       setJob(null);
-      setSpinTape((t) => [{ label: "PREHORELO", amount: `−${formatMoney(next.stake)}` }, ...t].slice(0, 8));
-      setJobToast(`PREHORELO · TERMÍN PREŠIEL −${formatMoney(next.stake)}`);
-      setTopLine(`TERMÍN PREŠIEL −${formatMoney(next.stake)}`);
+      setSpinTape((t) => [{ label: "TIKET", amount: `−${formatMoney(next.stake)}` }, ...t].slice(0, 8));
+      setJobToast(`NEÚSPEŠNÝ TIKET −${formatMoney(next.stake)}`);
+      setTopLine(`NEÚSPEŠNÝ TIKET −${formatMoney(next.stake)}`);
       sfx.playThunder();
     } else {
       jobRef.current = next;

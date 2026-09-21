@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { formatMoney } from "@/lib/slot/format";
-import { jobClock, jobLeft, spinWord, type JobCard } from "@/lib/slot/spend";
+import { jobClock, jobLeft, jobMeter, spinWord, type JobCard } from "@/lib/slot/spend";
 
 interface Props {
   open: boolean;
@@ -76,14 +76,14 @@ export function SpendSheet({ open, onClose, credit, job, offer, onJob }: Props) 
             </header>
             <p className="modal-lead">
               Od 100 €. Cena aj výhra podľa kreditu a aktuálnej stávky. Po prijatí ostane stávka zamknutá, kým
-              zákazka neskončí. Kúpa PARKNET zákazku neplní, okrem NOČNEJ SLUŽBY — tá ide len v kúpenom
+              zákazka neskončí. Kúpa PARKNET zákazku neplní, okrem POHOTOVOSŤ — tá ide len v kúpenom
               bonuse. Tri na výber, alebo
               skontrolovať OTRS: úloha, cena aj zisk až po prijatí.
             </p>
 
             {job ? (
               <p className={`spend-active ${jobLeft(job) <= 5 ? "is-late" : ""}`}>
-                {job.title} · {job.have}/{job.need}
+                {job.title} · {jobMeter(job)}
                 <span>
                   {jobClock(job)} · stávka {formatMoney(job.lockBet || 0)} zamknutá
                 </span>

@@ -17,7 +17,7 @@ import {
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain } from "./pick-bonus.ts";
 import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta } from "./duel.ts";
-import { canSpend, dealJobs, jobClock, jobLeft, jobStatus, tickJob, spinWord, JOB_BANK } from "./spend.ts";
+import { canSpend, dealJobs, hydraSplit, jobClock, jobLeft, jobStatus, tickJob, spinWord, JOB_BANK } from "./spend.ts";
 import { ORB_TABLE, ORB_VALUES } from "./symbols.ts";
 
 describe("park jackpots", () => {
@@ -638,12 +638,12 @@ describe("míňať", () => {
     assert.equal(dead.have, 0);
   });
 
-  it("NOČNÁ SLUŽBA counts only bought free spins and fails when the feature ends", () => {
+  it("POHOTOVOSŤ counts only bought free spins and fails when the feature ends", () => {
     const job = {
       id: "noc",
       floor: "stred" as const,
       template: "noc",
-      title: "NOČNÁ SLUŽBA",
+      title: "POHOTOVOSŤ",
       detail: "",
       stake: 100,
       payout: 180,
@@ -700,6 +700,94 @@ describe("míňať", () => {
     assert.equal(over.have, 2);
     assert.equal(over.spun, 20);
     assert.equal(jobStatus(over), "fail");
+  });
+
+  it("HYDRA needs both symbols and asks more hits from the commoner", () => {
+    const split = hydraSplit("rj45", "pdf", 6);
+    assert.ok(split.needA > split.needB);
+    assert.equal(split.needB, 2);
+    const even = hydraSplit("router", "hap", 6);
+    assert.ok(Math.abs(even.needA - even.needB) <= 1);
+    const job = {
+      id: "hydra",
+      floor: "stred" as const,
+      template: "hydra",
+      title: "HYDRA",
+      detail: "",
+      stake: 20,
+      payout: 40,
+      need: 3,
+      needB: 2,
+      have: 0,
+      haveB: 0,
+      limit: 50,
+      spun: 0,
+      kind: "hydra" as const,
+      lockBet: 1,
+      payId: "rj45" as const,
+      payIdB: "pdf" as const,
+    };
+    const a = tickJob(job, {
+      win: true,
+      dead: false,
+      tumbles: 0,
+      live: false,
+      ticket: null,
+      pdf: false,
+      signal: 0,
+      clusters: 1,
+      orbs: false,
+      pays: ["rj45"],
+    });
+    assert.equal(a.have, 1);
+    assert.equal(a.haveB, 0);
+    assert.equal(jobStatus(a), "run");
+    let cur = a;
+    for (let i = 0; i < 2; i++) {
+      cur = tickJob(cur, {
+        win: true,
+        dead: false,
+        tumbles: 0,
+        live: false,
+        ticket: null,
+        pdf: false,
+        signal: 0,
+        clusters: 1,
+        orbs: false,
+        pays: ["rj45"],
+      });
+    }
+    assert.equal(cur.have, 3);
+    assert.equal(jobStatus(cur), "run");
+    const both = tickJob(cur, {
+      win: true,
+      dead: false,
+      tumbles: 1,
+      live: false,
+      ticket: null,
+      pdf: true,
+      signal: 0,
+      clusters: 2,
+      orbs: false,
+      pays: ["rj45", "pdf"],
+    });
+    assert.equal(both.have, 3);
+    assert.equal(both.haveB, 1);
+    const done = tickJob(both, {
+      win: true,
+      dead: false,
+      tumbles: 0,
+      live: false,
+      ticket: null,
+      pdf: true,
+      signal: 0,
+      clusters: 1,
+      orbs: false,
+      pays: ["pdf"],
+    });
+    assert.equal(done.haveB, 2);
+    assert.equal(jobStatus(done), "ok");
+    assert.equal(jobClock({ ...job, have: 0, spun: 50 }), "NEÚSPEŠNÝ TIKET");
   });
 });
 

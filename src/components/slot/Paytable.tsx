@@ -112,7 +112,8 @@ export function Paytable({ open, onClose, bet }: Props) {
           </li>
           <li>
             Od kreditu 100 € zákazky: tri na výber, alebo skontrolovať OTRS. Cieľ aj termín sa
-            losujú (lacná / drahá). TACHYKARDIA je súčet plechoviek. NOČNÁ SLUŽBA sa plní len v
+            losujú (lacná / drahá). TACHYKARDIA je súčet plechoviek. HYDRA: dva rôzne znaky, počet
+            výhier podľa toho, ako často padajú. POHOTOVOSŤ sa plní len v
             kúpenom PARKNET (6–12 výher za 15–25 voľných točení). Ostatné kúpa neplní. Duel: stávku
             nastaví hosť, hosť ju vidí pred prijatím. Každý platí zo svojho. Víťaz berie výhry oboch.
           </li>

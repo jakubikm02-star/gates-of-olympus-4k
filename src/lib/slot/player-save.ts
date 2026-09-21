@@ -119,7 +119,7 @@ function stampMs(v: unknown): number {
 
 const TIERS: TierId[] = ["ulica", "okres", "kraj", "stat"];
 const FLOORS: JobFloor[] = ["lacna", "stred", "draha"];
-const KINDS: JobCard["kind"][] = ["wins", "deads", "tumbles", "live", "ticket", "pdf", "signal", "dry", "symbol", "buy"];
+const KINDS: JobCard["kind"][] = ["wins", "deads", "tumbles", "live", "ticket", "pdf", "signal", "dry", "symbol", "buy", "hydra"];
 
 function jobSave(raw: unknown): JobCard | null {
   if (!raw || typeof raw !== "object") return null;
@@ -148,6 +148,13 @@ function jobSave(raw: unknown): JobCard | null {
     )
       ? (r.payId as PayId)
       : undefined,
+    payIdB: (["rj45", "router", "hap", "roof", "arris", "case", "meter", "pdf", "dacia"] as PayId[]).includes(
+      r.payIdB as PayId,
+    )
+      ? (r.payIdB as PayId)
+      : undefined,
+    needB: r.needB != null ? Math.min(40, Math.max(0, Math.floor(num(r.needB, 0)))) : undefined,
+    haveB: r.haveB != null ? Math.min(40, Math.max(0, Math.floor(num(r.haveB, 0)))) : undefined,
   };
 }
 
