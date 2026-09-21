@@ -119,7 +119,7 @@ function stampMs(v: unknown): number {
 
 const TIERS: TierId[] = ["ulica", "okres", "kraj", "stat"];
 const FLOORS: JobFloor[] = ["lacna", "stred", "draha"];
-const KINDS: JobCard["kind"][] = ["wins", "deads", "tumbles", "live", "ticket", "pdf", "signal", "dry", "symbol"];
+const KINDS: JobCard["kind"][] = ["wins", "deads", "tumbles", "live", "ticket", "pdf", "signal", "dry", "symbol", "buy"];
 
 function jobSave(raw: unknown): JobCard | null {
   if (!raw || typeof raw !== "object") return null;
@@ -132,7 +132,7 @@ function jobSave(raw: unknown): JobCard | null {
     id: typeof r.id === "string" ? r.id.slice(0, 64) : "job",
     floor,
     template: typeof r.template === "string" ? r.template.slice(0, 24) : kind,
-    title: typeof r.title === "string" ? r.title.slice(0, 24) : "ZÁKAZKA",
+    title: typeof r.title === "string" ? r.title.slice(0, 32) : "ZÁKAZKA",
     detail: typeof r.detail === "string" ? r.detail.slice(0, 80) : "",
     stake: num(r.stake, 1000, 1, 200000),
     payout: num(r.payout, 1800, 1, 400000),

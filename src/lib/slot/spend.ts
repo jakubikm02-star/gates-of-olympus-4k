@@ -19,7 +19,7 @@ export interface JobCard {
   have: number;
   limit: number;
   spun: number;
-  kind: "wins" | "deads" | "tumbles" | "live" | "ticket" | "pdf" | "signal" | "dry" | "symbol";
+  kind: "wins" | "deads" | "tumbles" | "live" | "ticket" | "pdf" | "signal" | "dry" | "symbol" | "buy";
   /** Bet locked for the life of the job. */
   lockBet: number;
   mystery?: boolean;
@@ -41,29 +41,30 @@ const FLOOR_SPINS: Record<JobFloor, [number, number]> = {
 
 const TEMPLATES: {
   id: string;
-  title: string;
+  titles: string[];
   kind: JobCard["kind"];
   need: [number, number];
-  until: number;
+  until: [number, number];
   line: string;
-  payId?: PayId;
+  payIds?: PayId[];
 }[] = [
-  { id: "zber", title: "ZBER", kind: "wins", need: [8, 14], until: 50, line: "výherných spinov" },
-  { id: "balik", title: "BALÍK", kind: "tumbles", need: [6, 12], until: 40, line: "tumble reťazí" },
-  { id: "siet", title: "SIEŤ", kind: "live", need: [1, 1], until: 40, line: "spustiť PARKNET LIVE" },
-  { id: "signal", title: "TACHYKARDIA", kind: "signal", need: [15, 25], until: 50, line: "násobičov súčtom plechoviek" },
-  { id: "retaz", title: "REŤAZ", kind: "wins", need: [3, 3], until: 50, line: "výhier v rade" },
-  { id: "plechovky", title: "PLECHOVKY", kind: "tumbles", need: [3, 7], until: 30, line: "spinov s násobičom" },
-  { id: "tv", title: "4TV", kind: "live", need: [1, 1], until: 40, line: "4tv trigger" },
-  { id: "plus", title: "PLUS", kind: "wins", need: [12, 20], until: 50, line: "akýchkoľvek výhier" },
-  { id: "pot", title: "POT", kind: "ticket", need: [1, 1], until: 40, line: "sivý lístok ULICA" },
-  { id: "sucho", title: "SUCHO", kind: "deads", need: [10, 18], until: 25, line: "mŕtvych spinov" },
-  { id: "vynos", title: "VÝNOS", kind: "pdf", need: [1, 2], until: 40, line: "PDF 8+" },
-  { id: "duo", title: "DUO", kind: "wins", need: [2, 4], until: 30, line: "dva clustre na spine" },
-  { id: "wifipro", title: "DOPOJ WIFIPRO", kind: "symbol", payId: "router", need: [5, 8], until: 50, line: "výher routerom WifiPRO" },
-  { id: "stb", title: "DOPOJ STB", kind: "symbol", payId: "arris", need: [5, 8], until: 50, line: "výher set-top boxom" },
-  { id: "rebrik", title: "REBRÍK NETREBA", kind: "dry", need: [8, 14], until: 50, line: "výher bez tumble" },
-  { id: "domov", title: "CESTOU DOMOV", kind: "symbol", payId: "dacia", need: [4, 7], until: 50, line: "výher Daciou cestou domov" },
+  { id: "zber", titles: ["ZBER", "OBCHÔDZKA", "DENNÁ DÁVKA"], kind: "wins", need: [8, 14], until: [40, 55], line: "výherných spinov" },
+  { id: "balik", titles: ["BALÍK", "REŤAZ TUMBLE", "PADÁ TO"], kind: "tumbles", need: [6, 12], until: [30, 50], line: "tumble reťazí" },
+  { id: "siet", titles: ["SIEŤ", "PARKNET LIVE", "ŠTYRI TELEVÍZORY"], kind: "live", need: [1, 1], until: [30, 50], line: "spustiť PARKNET LIVE" },
+  { id: "signal", titles: ["TACHYKARDIA", "TEP 180", "PULZ PLECHOVIEK"], kind: "signal", need: [12, 28], until: [40, 55], line: "násobičov súčtom plechoviek" },
+  { id: "retaz", titles: ["REŤAZ", "TRI V RADE", "BEZ PRESTÁVKY"], kind: "wins", need: [3, 3], until: [40, 55], line: "výhier v rade" },
+  { id: "plechovky", titles: ["PLECHOVKY", "RAMPA HUČÍ", "PLECH NA PLECH"], kind: "tumbles", need: [3, 8], until: [25, 40], line: "spinov s násobičom" },
+  { id: "tv", titles: ["4TV", "ŠTVORKA NA STENE", "KONTROLA 4KY"], kind: "live", need: [1, 1], until: [30, 50], line: "4tv trigger" },
+  { id: "plus", titles: ["PLUS", "HOCIČO", "NEPRETRŽITE"], kind: "wins", need: [10, 22], until: [40, 55], line: "akýchkoľvek výhier" },
+  { id: "pot", titles: ["POT", "SIVÝ LÍSTOK", "ULICA PADÁ"], kind: "ticket", need: [1, 1], until: [30, 50], line: "sivý lístok ULICA" },
+  { id: "sucho", titles: ["SUCHO", "TICHÁ ZÓNA", "RAMPA STOJÍ"], kind: "deads", need: [8, 18], until: [20, 35], line: "mŕtvych spinov" },
+  { id: "vynos", titles: ["VÝNOS", "PDF 8+", "PAPIER PLATÍ"], kind: "pdf", need: [1, 2], until: [30, 50], line: "PDF 8+" },
+  { id: "duo", titles: ["DUO", "DVA CLUSTRE", "DVOJIČKA"], kind: "wins", need: [2, 5], until: [25, 40], line: "dva clustre na spine" },
+  { id: "wifipro", titles: ["DOPOJ WIFIPRO", "WIFI NA STRECHE", "HESLO NA SPODKU"], kind: "symbol", payIds: ["router", "hap"], need: [4, 9], until: [40, 55], line: "výher WifiPRO" },
+  { id: "stb", titles: ["DOPOJ STB", "BOX DO OBÝVAČKY", "SET-TOP NA STÔL"], kind: "symbol", payIds: ["arris", "case"], need: [4, 9], until: [40, 55], line: "výher set-top boxom" },
+  { id: "rebrik", titles: ["REBRÍK NETREBA", "Z OKNA", "BEZ LEŠENIA"], kind: "dry", need: [6, 14], until: [40, 55], line: "výher bez tumble" },
+  { id: "domov", titles: ["CESTOU DOMOV", "POSLEDNÝ VÝJAZD", "CESTA SPÄŤ"], kind: "symbol", payIds: ["dacia", "roof"], need: [3, 8], until: [35, 55], line: "výher cestou domov" },
+  { id: "noc", titles: ["NOČNÁ SLUŽBA", "KÚPA PARKNET", "VÝJAZD PO KÚPE"], kind: "buy", need: [6, 12], until: [15, 25], line: "výher v kúpenom PARKNET" },
 ];
 
 function rngRange(rng: () => number, a: number, b: number): number {
@@ -126,6 +127,21 @@ function shuffle<T>(bag: T[], rng: () => number): T[] {
   return out;
 }
 
+function pickOne<T>(bag: T[], rng: () => number): T {
+  return bag[Math.max(0, Math.min(bag.length - 1, Math.floor(rng() * bag.length)))] as T;
+}
+
+function snapFive(n: number): number {
+  return Math.max(5, Math.round(n / 5) * 5);
+}
+
+/** lacna → low need / long clock; draha → high need / short clock. */
+function rollBand(band: [number, number], rng: () => number, bias: number): number {
+  if (band[0] === band[1]) return band[0];
+  const t = Math.min(1, Math.max(0, bias + rngRange(rng, -0.18, 0.18)));
+  return Math.round(band[0] + t * (band[1] - band[0]));
+}
+
 function makeJob(
   t: (typeof TEMPLATES)[number],
   floor: JobFloor,
@@ -140,23 +156,40 @@ function makeJob(
   const stake = mixJobStake(credit, b, floor, rng);
   const payMul = rngRange(rng, f.payX[0], f.payX[1]) * extraPay;
   const payout = Math.max(roundStake(stake * payMul), roundStake(stake * 1.4 * extraPay));
-  const need = t.need[0] === t.need[1] ? t.need[0] : Math.round(rngRange(rng, t.need[0], t.need[1]));
+  const hard = floor === "lacna" ? 0.2 : floor === "draha" ? 0.8 : 0.5;
+  const need = t.need[0] === t.need[1] ? t.need[0] : Math.max(t.need[0], Math.min(t.need[1], rollBand(t.need, rng, hard)));
+  const rawUntil = t.until[0] === t.until[1] ? t.until[0] : rollBand(t.until, rng, 1 - hard);
+  const slack = t.kind === "buy" ? 3 : 8;
+  let limit = snapFive(Math.max(need + slack, rawUntil));
+  if (limit < need) limit = snapFive(need + 5);
+  const title = pickOne(t.titles, rng);
+  const payId = t.payIds?.length ? pickOne(t.payIds, rng) : undefined;
+  const line =
+    payId === "router" || payId === "hap"
+      ? "výher WifiPRO"
+      : payId === "arris" || payId === "case"
+        ? "výher set-top boxom"
+        : payId === "dacia"
+          ? "výher Daciou cestou domov"
+          : payId === "roof"
+            ? "výher krytinou cestou domov"
+            : t.line;
   return {
     id: `${t.id}-${floor}-${mystery ? "rnd" : "pick"}-${Math.floor(rng() * 1e6)}`,
     floor,
     template: t.id,
-    title: t.title,
-    detail: `${need}× ${t.line}`,
+    title,
+    detail: `${need}× ${line} · ${limit} ${spinWord(limit)}`,
     stake,
     payout,
     need,
     have: 0,
-    limit: t.until,
+    limit,
     spun: 0,
     kind: t.kind,
     lockBet: b,
     mystery,
-    payId: t.payId,
+    payId,
   };
 }
 
@@ -188,12 +221,16 @@ export interface JobEvent {
   spun?: boolean;
   pays?: PayId[];
   orbSum?: number;
+  bought?: boolean;
+  buyOver?: boolean;
 }
 
 export function tickJob(job: JobCard, ev: JobEvent): JobCard {
   if (job.template === "retaz" && job.need > 3) {
     job = { ...job, need: 3, limit: Math.max(job.limit, 50) };
   }
+  if (job.kind === "buy" && !ev.bought) return job;
+  if (job.kind !== "buy" && ev.bought) return job;
   let add = 0;
   let have = job.have;
   if (job.kind === "wins") {
@@ -214,7 +251,11 @@ export function tickJob(job: JobCard, ev: JobEvent): JobCard {
   if (job.kind === "signal") add = Math.max(0, Math.floor(ev.orbSum ?? 0));
   if (job.kind === "dry" && ev.win && ev.tumbles <= 0) add = 1;
   if (job.kind === "symbol" && job.payId && ev.pays?.includes(job.payId)) add = 1;
-  const spun = job.spun + (ev.spun === false ? 0 : 1);
+  if (job.kind === "buy" && ev.win) add = 1;
+  const spun =
+    ev.buyOver && job.kind === "buy" && have + add < job.need
+      ? job.limit
+      : job.spun + (ev.spun === false ? 0 : 1);
   return { ...job, have: Math.min(job.need, have + add), spun };
 }
 

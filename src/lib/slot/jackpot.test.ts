@@ -339,10 +339,16 @@ describe("míňať", () => {
     assert.ok(highBet[0].stake > small[0].stake);
     for (const j of small.slice(0, 3)) {
       assert.equal(j.limit % 5, 0);
-      assert.ok(j.limit >= 25 && j.limit <= 50);
+      assert.ok(j.limit >= 15 && j.limit <= 80);
+      assert.ok(j.need >= 1 && j.need <= j.limit);
       assert.equal(jobLeft(j), j.limit);
       assert.equal(jobClock(j), `ešte ${j.limit} ${spinWord(j.limit)}`);
     }
+    s = 99;
+    const other = dealJobs(rng, 200, 1);
+    const same = small.map((j) => `${j.template}:${j.need}:${j.limit}:${j.title}`).join("|");
+    const alt = other.map((j) => `${j.template}:${j.need}:${j.limit}:${j.title}`).join("|");
+    assert.notEqual(same, alt);
   });
 
   it("Slovak spin words and SPLNENÁ", () => {
@@ -630,6 +636,70 @@ describe("míňať", () => {
       orbSum: 0,
     });
     assert.equal(dead.have, 0);
+  });
+
+  it("NOČNÁ SLUŽBA counts only bought free spins and fails when the feature ends", () => {
+    const job = {
+      id: "noc",
+      floor: "stred" as const,
+      template: "noc",
+      title: "NOČNÁ SLUŽBA",
+      detail: "",
+      stake: 100,
+      payout: 180,
+      need: 6,
+      have: 0,
+      limit: 20,
+      spun: 0,
+      kind: "buy" as const,
+      lockBet: 1,
+    };
+    const base = tickJob(job, {
+      win: true,
+      dead: false,
+      tumbles: 1,
+      live: false,
+      ticket: null,
+      pdf: false,
+      signal: 0,
+      clusters: 1,
+      orbs: false,
+    });
+    assert.equal(base.have, 0);
+    assert.equal(base.spun, 0);
+    const hit = tickJob(job, {
+      win: true,
+      dead: false,
+      tumbles: 1,
+      live: false,
+      ticket: null,
+      pdf: false,
+      signal: 0,
+      clusters: 1,
+      orbs: false,
+      bought: true,
+    });
+    assert.equal(hit.have, 1);
+    const over = tickJob(
+      { ...hit, have: 2 },
+      {
+        win: false,
+        dead: true,
+        tumbles: 0,
+        live: false,
+        ticket: null,
+        pdf: false,
+        signal: 0,
+        clusters: 0,
+        orbs: false,
+        bought: true,
+        buyOver: true,
+        spun: false,
+      },
+    );
+    assert.equal(over.have, 2);
+    assert.equal(over.spun, 20);
+    assert.equal(jobStatus(over), "fail");
   });
 });
 

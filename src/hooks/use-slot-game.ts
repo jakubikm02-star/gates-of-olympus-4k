@@ -1265,7 +1265,8 @@ export function useSlotGame() {
         await runTicket(landed.ticket);
       }
 
-      if (!isFree && !opts?.buy) {
+      const boughtFs = Boolean(opts?.free && fsSessionRef.current.bought);
+      if ((!isFree && !opts?.buy) || boughtFs) {
         settleJob({
           win: cash > 0,
           dead: cash <= 0,
@@ -1278,6 +1279,7 @@ export function useSlotGame() {
           orbs: orbSum > 0,
           pays: [...payHits],
           orbSum,
+          bought: boughtFs,
         });
       }
 
@@ -1450,6 +1452,21 @@ export function useSlotGame() {
             clusters: 0,
             orbs: peak > 0,
             spun: false,
+          });
+        } else {
+          settleJob({
+            win: false,
+            dead: false,
+            tumbles: 0,
+            live: false,
+            ticket: stashed,
+            pdf: false,
+            signal: 0,
+            clusters: 0,
+            orbs: false,
+            spun: false,
+            bought: true,
+            buyOver: true,
           });
         }
         setPhase("idle");

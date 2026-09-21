@@ -111,10 +111,9 @@ export function Paytable({ open, onClose, bet }: Props) {
             (+30). Po spustení bar padne na 0. Kúpiť sa nedá.
           </li>
           <li>
-            Od kreditu 100 € zákazky: tri na výber, alebo skontrolovať OTRS. Dopoj WifiPRO 5–8 výher
-            routerom / 50, Dopoj STB 5–8 set-top / 50, Rebrík netreba 8–14 výher bez tumble / 50,
-            Cestou domov 4–7 Daciou / 50. TACHYKARDIA: súčet plechoviek 15–25× za 50 točení. OTRS
-            odhalí úlohu až po prijatí. Stávka zamknutá. Kúpa PARKNET sa nepočíta. Duel: stávku
+            Od kreditu 100 € zákazky: tri na výber, alebo skontrolovať OTRS. Cieľ aj termín sa
+            losujú (lacná / drahá). TACHYKARDIA je súčet plechoviek. NOČNÁ SLUŽBA sa plní len v
+            kúpenom PARKNET (6–12 výher za 15–25 voľných točení). Ostatné kúpa neplní. Duel: stávku
             nastaví hosť, hosť ju vidí pred prijatím. Každý platí zo svojho. Víťaz berie výhry oboch.
           </li>
           <li>

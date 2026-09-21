@@ -76,7 +76,8 @@ export function SpendSheet({ open, onClose, credit, job, offer, onJob }: Props) 
             </header>
             <p className="modal-lead">
               Od 100 €. Cena aj výhra podľa kreditu a aktuálnej stávky. Po prijatí ostane stávka zamknutá, kým
-              zákazka neskončí. Kúpa PARKNET zákazku neplní — počíta sa iba základná hra. Tri na výber, alebo
+              zákazka neskončí. Kúpa PARKNET zákazku neplní, okrem NOČNEJ SLUŽBY — tá ide len v kúpenom
+              bonuse. Tri na výber, alebo
               skontrolovať OTRS: úloha, cena aj zisk až po prijatí.
             </p>
 
