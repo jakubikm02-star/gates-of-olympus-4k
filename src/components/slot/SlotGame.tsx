@@ -13,7 +13,7 @@ import { RankBadge } from "./RankBadge";
 import { RankPanel } from "./RankPanel";
 import { RankToast } from "./RankToast";
 import { SpendSheet } from "./SpendSheet";
-import { DuelSheet, DuelBar } from "./DuelSheet";
+import { DuelSheet, DuelBar, DuelLink } from "./DuelSheet";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
 
@@ -421,8 +421,8 @@ export function SlotGame() {
               type="button"
               className="round-btn"
               onClick={() => g.changeBet(-1)}
-              disabled={g.busy || Boolean(g.job) || Boolean(g.duel) || g.betIndex <= 0}
-              aria-label={g.job || g.duel ? "Stávka zamknutá" : "Znížiť stávku"}
+              disabled={g.busy || Boolean(g.job) || Boolean(g.duel) || Boolean(g.duelLink) || g.betIndex <= 0}
+              aria-label={g.job || g.duel || g.duelLink ? "Stávka zamknutá" : "Znížiť stávku"}
             >
               −
             </button>
@@ -439,8 +439,8 @@ export function SlotGame() {
               type="button"
               className="round-btn"
               onClick={() => g.changeBet(1)}
-              disabled={g.busy || Boolean(g.job) || Boolean(g.duel) || g.betIndex >= BETS.length - 1}
-              aria-label={g.job || g.duel ? "Stávka zamknutá" : "Zvýšiť stávku"}
+              disabled={g.busy || Boolean(g.job) || Boolean(g.duel) || Boolean(g.duelLink) || g.betIndex >= BETS.length - 1}
+              aria-label={g.job || g.duel || g.duelLink ? "Stávka zamknutá" : "Zvýšiť stávku"}
             >
               +
             </button>
@@ -501,10 +501,10 @@ export function SlotGame() {
             <button
               type="button"
               className={`chip-btn ${g.duel ? "gold" : ""}`}
-              onClick={() => (g.duel ? g.endDuel() : g.setDuelOpen(true))}
-              disabled={g.busy && !g.duel}
+              onClick={() => (g.duel || g.duelLink ? g.endDuel() : g.setDuelOpen(true))}
+              disabled={g.busy && !g.duel && !g.duelLink}
             >
-              {g.duel ? "KONIEC DUELU" : "DUEL"}
+              {g.duel || g.duelLink ? "KONIEC DUELU" : "DUEL"}
             </button>
           )}
           {g.autoReason && !g.autoOn && <span className="auto-stop">{g.autoReason}</span>}
@@ -643,11 +643,27 @@ export function SlotGame() {
       <DuelSheet
         open={g.duelOpen}
         duel={g.duel}
+        link={g.duelLink}
+        peerName={g.duelPeer}
+        bet={g.bet}
         onClose={() => g.setDuelOpen(false)}
         onStart={g.beginDuel}
+        onHost={g.hostDuel}
+        onJoin={g.joinDuel}
         onSwap={g.swapDuel}
         onEnd={g.endDuel}
       />
+      {g.duelLink ? (
+        <DuelLink
+          key={g.duelLink.room + g.duelLink.role}
+          link={g.duelLink}
+          duel={g.duel}
+          bet={g.bet}
+          onPeerName={g.setDuelPeer}
+          onGo={g.beginOnline}
+          onTick={g.applyRemoteTick}
+        />
+      ) : null}
       {g.jpHit && (
         <div className="ticket-banner" aria-live="assertive">
           <strong>

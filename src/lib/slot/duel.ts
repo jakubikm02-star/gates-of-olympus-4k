@@ -1,19 +1,47 @@
 export type DuelMode = "spins" | "live";
 export type DuelPhase = "play" | "swap" | "done";
+export type DuelKind = "hotseat" | "online";
 
 export interface DuelSeat {
   name: string;
   score: number;
+  have: number;
 }
 
 export interface Duel {
+  kind: DuelKind;
   mode: DuelMode;
   need: number;
   have: number;
   turn: 0 | 1;
+  you: 0 | 1;
   seats: [DuelSeat, DuelSeat];
   phase: DuelPhase;
   bet: number;
+  room?: string;
+}
+
+export interface DuelLink {
+  room: string;
+  role: "host" | "guest";
+  name: string;
+  mode: DuelMode;
+}
+
+const CODE = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+export function makeRoomCode(): string {
+  let out = "";
+  for (let i = 0; i < 4; i++) out += CODE[Math.floor(Math.random() * CODE.length)]!;
+  return out;
+}
+
+export function rtcRoom(code: string): string {
+  return `duel${code.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8)}`.slice(0, 64);
+}
+
+function seat(name: string): DuelSeat {
+  return { name: name.trim().slice(0, 16) || "HRÁČ", score: 0, have: 0 };
 }
 
 export function startDuel(opts: {
@@ -21,37 +49,55 @@ export function startDuel(opts: {
   a: string;
   b: string;
   bet: number;
+  kind?: DuelKind;
+  you?: 0 | 1;
+  room?: string;
 }): Duel {
-  const a = opts.a.trim().slice(0, 16) || "HRÁČ 1";
-  const b = opts.b.trim().slice(0, 16) || "HRÁČ 2";
   return {
+    kind: opts.kind ?? "hotseat",
     mode: opts.mode,
     need: opts.mode === "live" ? 1 : 10,
     have: 0,
     turn: 0,
-    seats: [
-      { name: a, score: 0 },
-      { name: b, score: 0 },
-    ],
+    you: opts.you ?? 0,
+    seats: [seat(opts.a || "HRÁČ 1"), seat(opts.b || "HRÁČ 2")],
     phase: "play",
     bet: Math.max(0.01, opts.bet),
+    room: opts.room,
   };
 }
 
-export function tickDuel(d: Duel, cash: number): Duel {
+function actor(d: Duel, seatN?: 0 | 1): 0 | 1 {
+  if (seatN !== undefined) return seatN;
+  return d.kind === "online" ? d.you : d.turn;
+}
+
+export function tickDuel(d: Duel, cash: number, seatN?: 0 | 1): Duel {
   if (d.phase !== "play") return d;
-  const seats: [DuelSeat, DuelSeat] = [
-    { ...d.seats[0] },
-    { ...d.seats[1] },
-  ];
-  seats[d.turn] = {
-    ...seats[d.turn],
-    score: +(seats[d.turn].score + Math.max(0, cash)).toFixed(2),
+  const who = actor(d, seatN);
+  const seats: [DuelSeat, DuelSeat] = [{ ...d.seats[0] }, { ...d.seats[1] }];
+  seats[who] = {
+    ...seats[who],
+    score: +(seats[who].score + Math.max(0, cash)).toFixed(2),
+    have: seats[who].have + 1,
   };
-  const have = d.have + 1;
+  if (d.kind === "online") {
+    const done = seats[0].have >= d.need && seats[1].have >= d.need;
+    return { ...d, seats, have: seats[d.you].have, phase: done ? "done" : "play" };
+  }
+  const have = seats[who].have;
   if (have < d.need) return { ...d, seats, have };
-  if (d.turn === 0) return { ...d, seats, have, phase: "swap" };
+  if (who === 0) return { ...d, seats, have, phase: "swap" };
   return { ...d, seats, have, phase: "done" };
+}
+
+export function applyPeerTick(d: Duel, have: number, score: number): Duel {
+  if (d.kind !== "online") return d;
+  const other: 0 | 1 = d.you === 0 ? 1 : 0;
+  const seats: [DuelSeat, DuelSeat] = [{ ...d.seats[0] }, { ...d.seats[1] }];
+  seats[other] = { ...seats[other], have: Math.max(seats[other].have, have), score };
+  const done = seats[0].have >= d.need && seats[1].have >= d.need;
+  return { ...d, seats, phase: d.phase === "play" && done ? "done" : d.phase };
 }
 
 export function confirmSwap(d: Duel): Duel {
@@ -67,5 +113,10 @@ export function duelWinner(d: Duel): 0 | 1 | null {
 }
 
 export function duelLeft(d: Duel): number {
-  return Math.max(0, d.need - d.have);
+  const who = d.kind === "online" ? d.you : d.turn;
+  return Math.max(0, d.need - d.seats[who].have);
+}
+
+export function duelMineDone(d: Duel): boolean {
+  return d.seats[d.you].have >= d.need;
 }

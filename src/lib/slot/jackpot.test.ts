@@ -16,7 +16,7 @@ import {
 } from "./jackpot.ts";
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain } from "./pick-bonus.ts";
-import { startDuel, tickDuel, confirmSwap, duelWinner } from "./duel.ts";
+import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick } from "./duel.ts";
 import { canSpend, dealJobs, jobClock, jobLeft, jobStatus, tickJob, spinWord, JOB_BANK } from "./spend.ts";
 import { ORB_TABLE, ORB_VALUES } from "./symbols.ts";
 
@@ -513,5 +513,12 @@ describe("duel", () => {
     t = confirmSwap(t);
     t = tickDuel(t, 50);
     assert.equal(duelWinner(t), null);
+    let o = startDuel({ mode: "spins", a: "A", b: "B", bet: 1, kind: "online", you: 0 });
+    for (let i = 0; i < 10; i++) o = tickDuel(o, 3);
+    assert.equal(o.phase, "play");
+    assert.equal(o.seats[0].have, 10);
+    for (let i = 0; i < 10; i++) o = applyPeerTick(o, i + 1, (i + 1) * 2);
+    assert.equal(o.phase, "done");
+    assert.equal(duelWinner(o), 0);
   });
 });
