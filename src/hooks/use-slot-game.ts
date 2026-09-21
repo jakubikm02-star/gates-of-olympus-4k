@@ -1682,8 +1682,11 @@ export function useSlotGame() {
     jobRef.current = taken;
     setJob(taken);
     setJobOffer(null);
-    setSpendOpen(false);
+    setSpendOpen(Boolean(taken.mystery));
     setTopLine(`${taken.title} · stávka ${formatMoney(taken.lockBet)} zamknutá`);
+    if (taken.mystery) {
+      setJobToast(`OTRS OTVORENÝ · ${taken.title}`);
+    }
     sfx.playClick();
   }, []);
 
