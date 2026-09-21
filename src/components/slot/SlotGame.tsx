@@ -238,6 +238,8 @@ export function SlotGame() {
           </aside>
 
           <section className="board-wrap">
+            <div className="board-stage">
+            <div className="board-stage-inner">
             <div className="board-meter">
               {g.inFs ? (
                 <div className="fs-hero" aria-live="polite">
@@ -287,8 +289,7 @@ export function SlotGame() {
                 g.topLine
               )}
             </div>
-            <div className="board-stage">
-            <div className="board-stage-inner">
+            <div className="reel-host">
             <SlotGrid
               grid={g.grid}
               holdGrid={g.holdGrid}
@@ -320,7 +321,6 @@ export function SlotGame() {
               </span>
             ))}
             </div>
-            </div>
             <div className="board-job">
               {g.job && !g.inFs && (
                 <div className={`job-chip ${g.jobToast ? "is-hot" : ""} ${jobLeft(g.job) <= 5 ? "is-late" : ""}`}>
@@ -331,6 +331,8 @@ export function SlotGame() {
                   <em>{jobClock(g.job)}</em>
                 </div>
               )}
+            </div>
+            </div>
             </div>
           </section>
 
