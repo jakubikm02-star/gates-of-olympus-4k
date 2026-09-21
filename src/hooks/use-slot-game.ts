@@ -13,6 +13,7 @@ import {
   payName,
   scatterPay,
   type Cell,
+  type PayId,
 } from "@/lib/slot/symbols";
 import {
   cloneGrid,
@@ -957,6 +958,7 @@ export function useSlotGame() {
       let tumbleN = 0;
       let pdfHit = false;
       let clusterCount = 0;
+      const payHits = new Set<PayId>();
       const fsNow = isFree || inFsRef.current;
       if (!fsNow && scatterPeak >= FS_TRIGGER_SCATTERS) pendingFs = true;
       const DEAD = ["RAMPA STOJÍ", "VALCE SPALI", "NIČ. ZNOVA.", "POKUTA BEZ LÍSTKA", "ZÓNA TICHÁ"];
@@ -967,6 +969,9 @@ export function useSlotGame() {
         scatterPeak = Math.max(scatterPeak, ev.scatterCount);
         const cl = ev.wins.filter((w) => w.payId !== "scatter").length;
         clusterCount += cl;
+        for (const w of ev.wins) {
+          if (w.payId !== "scatter") payHits.add(w.payId);
+        }
         if (ev.wins.some((w) => w.payId === "pdf" && w.count >= 8)) pdfHit = true;
 
         if (ev.scatterCount > landedScatters) {
@@ -1271,6 +1276,7 @@ export function useSlotGame() {
           signal: 0,
           clusters: clusterCount,
           orbs: orbSum > 0,
+          pays: [...payHits],
         });
       }
 
@@ -1905,19 +1911,32 @@ export function useSlotGame() {
     duelLink,
     duelPeer,
     setDuelPeer,
-    hostDuel: (mode: DuelMode, name: string) => {
+    hostDuel: (mode: DuelMode, name: string, betAmt?: number) => {
       if (duelRef.current) return;
       const room = makeRoomCode();
-      setDuelLink({ room, role: "host", name: name.trim().slice(0, 16) || "HRÁČ 1", mode });
+      const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
+      setDuelLink({
+        room,
+        role: "host",
+        name: name.trim().slice(0, 16) || "HRÁČ 1",
+        mode,
+        bet: stake,
+      });
       setDuelPeer("");
       setDuelOpen(true);
       sfx.playClick();
     },
-    joinDuel: (mode: DuelMode, name: string, code: string) => {
+    joinDuel: (mode: DuelMode, name: string, code: string, betAmt?: number) => {
       if (duelRef.current) return;
       const room = code.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 4);
       if (room.length < 4) return;
-      setDuelLink({ room, role: "guest", name: name.trim().slice(0, 16) || "HRÁČ 2", mode });
+      setDuelLink({
+        room,
+        role: "guest",
+        name: name.trim().slice(0, 16) || "HRÁČ 2",
+        mode,
+        bet: betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current],
+      });
       setDuelPeer("");
       setDuelOpen(true);
       sfx.playClick();
@@ -1964,9 +1983,12 @@ export function useSlotGame() {
       setDuel(next);
       if (next.phase === "done") settleDuel(next);
     },
-    beginDuel: (mode: DuelMode, a: string, b: string) => {
+    beginDuel: (mode: DuelMode, a: string, b: string, betAmt?: number) => {
       if (busyRef.current || inFsRef.current || jobRef.current || duelRef.current) return;
-      const next = startDuel({ mode, a, b, bet: BETS[betIndexRef.current] });
+      const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
+      const i = BETS.reduce((best, v, idx) => (Math.abs(v - stake) < Math.abs(BETS[best] - stake) ? idx : best), 0);
+      setBetIndex(i);
+      const next = startDuel({ mode, a, b, bet: BETS[i] });
       duelSettled.current = false;
       duelRef.current = next;
       setDuel(next);

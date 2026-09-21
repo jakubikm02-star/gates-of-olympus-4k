@@ -111,11 +111,11 @@ export function Paytable({ open, onClose, bet }: Props) {
             (+30). Po spustení bar padne na 0. Kúpiť sa nedá.
           </li>
           <li>
-            Od kreditu 100 € zákazky: tri na výber, alebo skontrolovať OTRS. OTRS odhalí úlohu, cenu aj zisk
-            až po prijatí. Cena aj výhra podľa banku a stávky. Po prijatí ostane stávka zamknutá do konca
-            termínu. Kúpa PARKNET sa do zákazky nepočíta — postup ide len zo základnej hry. Duel: pri stole
-            (jeden prístroj) alebo na diaľku cez kód. 10 točení alebo 1× PARKNET. Víťaz berie výhry oboch,
-            pri remíze si každý nechá svoju.
+            Od kreditu 100 € zákazky: tri na výber, alebo skontrolovať OTRS. Nové typy: Dopoj WifiPRO
+            (výhra routerom), Dopoj STB (set-top box), Rebrík netreba (výhra bez tumble), Cestou domov
+            (výhra Daciou). OTRS odhalí úlohu, cenu aj zisk až po prijatí. Po prijatí ostane stávka
+            zamknutá. Kúpa PARKNET sa do zákazky nepočíta. Duel: stávku nastaví hosť, hosť ju vidí pred
+            prijatím. Každý platí zo svojho kreditu. Víťaz berie výhry oboch.
           </li>
           <li>
             Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bankrot +5000 berie RP podľa stávky.

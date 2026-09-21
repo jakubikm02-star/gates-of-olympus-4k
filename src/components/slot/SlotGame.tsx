@@ -646,6 +646,7 @@ export function SlotGame() {
         link={g.duelLink}
         peerName={g.duelPeer}
         bet={g.bet}
+        credit={g.balance}
         onClose={() => g.setDuelOpen(false)}
         onStart={g.beginDuel}
         onHost={g.hostDuel}

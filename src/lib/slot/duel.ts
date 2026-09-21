@@ -26,6 +26,7 @@ export interface DuelLink {
   role: "host" | "guest";
   name: string;
   mode: DuelMode;
+  bet: number;
 }
 
 const CODE = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

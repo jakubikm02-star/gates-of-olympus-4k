@@ -5116,6 +5116,20 @@ html:-webkit-full-screen {
   text-transform: uppercase;
 }
 
+.duel-bet {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.duel-bet b {
+  flex: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-gold-2);
+  letter-spacing: 0.08em;
+}
+
 .duel-modes {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -490,6 +490,89 @@ describe("míňať", () => {
     assert.equal(hit.have, 1);
     assert.equal(jobStatus(hit), "ok");
   });
+
+  it("WifiPRO / STB / rebrík / cestou domov tick on the right events", () => {
+    const wifi = dealJobs(() => 0.11, 500, 1).find((j) => j.template === "wifipro") ?? {
+      id: "wifipro",
+      floor: "lacna" as const,
+      template: "wifipro",
+      title: "DOPOJ WIFIPRO",
+      detail: "",
+      stake: 10,
+      payout: 20,
+      need: 1,
+      have: 0,
+      limit: 35,
+      spun: 0,
+      kind: "symbol" as const,
+      lockBet: 1,
+      payId: "router" as const,
+    };
+    const miss = tickJob(wifi, {
+      win: true,
+      dead: false,
+      tumbles: 0,
+      live: false,
+      ticket: null,
+      pdf: false,
+      signal: 0,
+      clusters: 1,
+      orbs: false,
+      pays: ["dacia"],
+    });
+    assert.equal(miss.have, 0);
+    const hit = tickJob(wifi, {
+      win: true,
+      dead: false,
+      tumbles: 1,
+      live: false,
+      ticket: null,
+      pdf: false,
+      signal: 0,
+      clusters: 1,
+      orbs: false,
+      pays: ["router"],
+    });
+    assert.equal(hit.have, 1);
+    const ladder = tickJob(
+      {
+        ...wifi,
+        id: "rebrik",
+        template: "rebrik",
+        kind: "dry",
+        have: 0,
+      },
+      {
+        win: true,
+        dead: false,
+        tumbles: 0,
+        live: false,
+        ticket: null,
+        pdf: false,
+        signal: 0,
+        clusters: 1,
+        orbs: false,
+        pays: ["router"],
+      },
+    );
+    assert.equal(ladder.have, 1);
+    const climb = tickJob(
+      { ...ladder, have: 0 },
+      {
+        win: true,
+        dead: false,
+        tumbles: 2,
+        live: false,
+        ticket: null,
+        pdf: false,
+        signal: 0,
+        clusters: 1,
+        orbs: false,
+        pays: ["router"],
+      },
+    );
+    assert.equal(climb.have, 0);
+  });
 });
 
 describe("duel", () => {

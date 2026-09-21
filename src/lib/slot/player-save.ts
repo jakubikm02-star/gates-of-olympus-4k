@@ -1,4 +1,4 @@
-import { BETS, START_BALANCE } from "./symbols";
+import { BETS, START_BALANCE, type PayId } from "./symbols";
 import type { PityMap } from "./pick-bonus";
 import type { TierId } from "./jackpot";
 import { type JobCard, type JobFloor } from "./spend";
@@ -119,7 +119,7 @@ function stampMs(v: unknown): number {
 
 const TIERS: TierId[] = ["ulica", "okres", "kraj", "stat"];
 const FLOORS: JobFloor[] = ["lacna", "stred", "draha"];
-const KINDS: JobCard["kind"][] = ["wins", "deads", "tumbles", "live", "ticket", "pdf", "signal", "dry"];
+const KINDS: JobCard["kind"][] = ["wins", "deads", "tumbles", "live", "ticket", "pdf", "signal", "dry", "symbol"];
 
 function jobSave(raw: unknown): JobCard | null {
   if (!raw || typeof raw !== "object") return null;
@@ -143,6 +143,11 @@ function jobSave(raw: unknown): JobCard | null {
     kind,
     lockBet: num(r.lockBet, 0, 0, 1000),
     mystery: Boolean(r.mystery),
+    payId: (["rj45", "router", "hap", "roof", "arris", "case", "meter", "pdf", "dacia"] as PayId[]).includes(
+      r.payId as PayId,
+    )
+      ? (r.payId as PayId)
+      : undefined,
   };
 }
 

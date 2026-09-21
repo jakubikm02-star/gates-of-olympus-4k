@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { formatMoney } from "@/lib/slot/format";
-import { duelCreate, duelJoin, duelLeave, duelPoll, duelStart, duelTick } from "@/lib/slot/duel-api";
+import { duelCreate, duelJoin, duelLeave, duelPoll, duelStart, duelTick, type DuelSnap } from "@/lib/slot/duel-api";
 import {
   duelLeft,
   duelMineDone,
@@ -10,6 +10,7 @@ import {
   type DuelLink,
   type DuelMode,
 } from "@/lib/slot/duel";
+import { BETS, BUY_COST_X } from "@/lib/slot/symbols";
 
 interface Props {
   open: boolean;
@@ -17,12 +18,43 @@ interface Props {
   link: DuelLink | null;
   peerName: string;
   bet: number;
+  credit: number;
   onClose: () => void;
-  onStart: (mode: DuelMode, a: string, b: string) => void;
-  onHost: (mode: DuelMode, name: string) => void;
-  onJoin: (mode: DuelMode, name: string, code: string) => void;
+  onStart: (mode: DuelMode, a: string, b: string, bet: number) => void;
+  onHost: (mode: DuelMode, name: string, bet: number) => void;
+  onJoin: (mode: DuelMode, name: string, code: string, bet: number) => void;
   onSwap: () => void;
   onEnd: () => void;
+}
+
+function stepBet(value: number, dir: -1 | 1): number {
+  const i = BETS.reduce((best, v, idx) => (Math.abs(v - value) < Math.abs(BETS[best] - value) ? idx : best), 0);
+  return BETS[Math.min(BETS.length - 1, Math.max(0, i + dir))] ?? value;
+}
+
+function BetPick({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  return (
+    <label className="duel-field">
+      Stávka na točenie
+      <span className="duel-bet">
+        <button type="button" className="chip-btn" onClick={() => onChange(stepBet(value, -1))}>
+          −
+        </button>
+        <b>{formatMoney(value)}</b>
+        <button type="button" className="chip-btn" onClick={() => onChange(stepBet(value, 1))}>
+          +
+        </button>
+      </span>
+    </label>
+  );
+}
+
+function modeLabel(mode: DuelMode): string {
+  return mode === "live" ? "1× PARKNET" : "10 TOČENÍ";
+}
+
+function seatCost(mode: DuelMode, bet: number): number {
+  return mode === "live" ? +(bet * BUY_COST_X).toFixed(2) : +(bet * 10).toFixed(2);
 }
 
 export function DuelLink({
@@ -59,8 +91,8 @@ export function DuelLink({
     const boot = async () => {
       try {
         if (link.role === "host") {
-          await duelCreate({ code: link.room, name: link.name, mode: link.mode, bet });
-          if (!stop) setStatus("Kód je na Supabase. Pošli ho kamošovi.");
+          await duelCreate({ code: link.room, name: link.name, mode: link.mode, bet: link.bet || bet });
+          if (!stop) setStatus("Kód je živý. Pošli ho kamošovi.");
         } else {
           const snap = await duelJoin(link.room, link.name);
           if (!stop) {
@@ -157,6 +189,9 @@ export function DuelLink({
           {err || status}
           {guest ? ` · súper: ${guest}` : ""}
         </p>
+        <p className="modal-lead">
+          {modeLabel(link.mode)} · stávka {formatMoney(link.bet || bet)} · každý platí zo svojho kreditu
+        </p>
         <div className="duel-tabs">
           {link.role === "host" ? (
             <button type="button" className="chip-btn gold" disabled={!guest} onClick={launch}>
@@ -184,12 +219,26 @@ export function DuelSheet({
   onJoin,
   onSwap,
   onEnd,
+  credit,
+  bet,
 }: Props) {
   const [a, setA] = useState("HRÁČ 1");
   const [b, setB] = useState("HRÁČ 2");
   const [mode, setMode] = useState<DuelMode>("spins");
   const [tab, setTab] = useState<"hotseat" | "online">("hotseat");
   const [code, setCode] = useState("");
+  const [stake, setStake] = useState(bet);
+  const [invite, setInvite] = useState<DuelSnap | null>(null);
+  const [peekErr, setPeekErr] = useState("");
+  useEffect(() => {
+    if (!open) {
+      setInvite(null);
+      setPeekErr("");
+    }
+  }, [open]);
+  useEffect(() => {
+    setStake(bet);
+  }, [bet]);
 
   if (duel?.phase === "swap") {
     return (
@@ -260,60 +309,118 @@ export function DuelSheet({
             NA DIAĽKU
           </button>
         </div>
-        <div className="duel-modes">
-          <button type="button" className={`spend-job ${mode === "spins" ? "stred" : "lacna"}`} onClick={() => setMode("spins")}>
-            <em>10 TOČENÍ</em>
-            <span>Vyšší súčet berie bank oboch.</span>
-          </button>
-          <button type="button" className={`spend-job ${mode === "live" ? "draha" : "lacna"}`} onClick={() => setMode("live")}>
-            <em>1× LIVE</em>
-            <span>Každý kúpi PARKNET.</span>
-          </button>
-        </div>
-        {tab === "hotseat" ? (
+        {invite ? (
           <>
-            <p className="modal-lead">Dvaja na jednom zariadení. Po desiatich točeniach predáš telefón. Víťaz berie bank oboch.</p>
-            <label className="duel-field">
-              Hráč 1
-              <input value={a} onChange={(e) => setA(e.target.value)} maxLength={16} />
-            </label>
-            <label className="duel-field">
-              Hráč 2
-              <input value={b} onChange={(e) => setB(e.target.value)} maxLength={16} />
-            </label>
-            <button type="button" className="chip-btn gold" onClick={() => onStart(mode, a, b)}>
-              ZAČNI PRI STOLE
-            </button>
+            <p className="modal-lead">POZVÁNKA OD {invite.hostName}</p>
+            <div className="otrs-note">
+              <em>{modeLabel(invite.mode)}</em>
+              <span>Stávka {formatMoney(invite.bet)} na točenie. Každý platí zo svojho kreditu.</span>
+              <strong>
+                {invite.mode === "live"
+                  ? `Kúpa PARKNET ${formatMoney(seatCost(invite.mode, invite.bet))}`
+                  : `10 točení · cca ${formatMoney(seatCost(invite.mode, invite.bet))} z banku`}
+              </strong>
+              <b>Víťaz berie výhry oboch.</b>
+            </div>
+            {credit < invite.bet ? (
+              <p className="spend-active is-late">Málo kreditu na túto stávku.</p>
+            ) : null}
+            <div className="duel-tabs">
+              <button
+                type="button"
+                className="chip-btn gold"
+                disabled={credit < invite.bet}
+                onClick={() => onJoin(invite.mode, a, invite.code, invite.bet)}
+              >
+                PRIJAŤ
+              </button>
+              <button
+                type="button"
+                className="chip-btn"
+                onClick={() => {
+                  setInvite(null);
+                  setPeekErr("");
+                }}
+              >
+                ODMIETNUŤ
+              </button>
+            </div>
           </>
         ) : (
           <>
-            <p className="modal-lead">
-              Vytvor kód, na druhom telefóne ho zadaj. Víťaz berie výhry oboch.
-            </p>
-            <label className="duel-field">
-              Tvoje meno
-              <input value={a} onChange={(e) => setA(e.target.value)} maxLength={16} />
-            </label>
-            <button type="button" className="chip-btn gold" onClick={() => onHost(mode, a)}>
-              VYTVORIŤ KÓD
-            </button>
-            <label className="duel-field">
-              Kód od kamoša
-              <input
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                maxLength={4}
-                placeholder="A7K2"
-              />
-            </label>
-            <button
-              type="button"
-              className="chip-btn"
-              disabled={code.replace(/[^A-Z0-9]/g, "").length < 4}
-              onClick={() => onJoin(mode, a, code)}
-            >
-              PRIPOJIŤ
-            </button>
+            <div className="duel-modes">
+              <button type="button" className={`spend-job ${mode === "spins" ? "stred" : "lacna"}`} onClick={() => setMode("spins")}>
+                <em>10 TOČENÍ</em>
+                <span>Vyšší súčet berie bank oboch.</span>
+              </button>
+              <button type="button" className={`spend-job ${mode === "live" ? "draha" : "lacna"}`} onClick={() => setMode("live")}>
+                <em>1× LIVE</em>
+                <span>Každý kúpi PARKNET zo svojho.</span>
+              </button>
+            </div>
+            <BetPick value={stake} onChange={setStake} />
+            <p className="modal-lead">Každý platí zo svojho kreditu. Stávka sa zamkne pred štartom.</p>
+            {tab === "hotseat" ? (
+              <>
+                <label className="duel-field">
+                  Hráč 1
+                  <input value={a} onChange={(e) => setA(e.target.value)} maxLength={16} />
+                </label>
+                <label className="duel-field">
+                  Hráč 2
+                  <input value={b} onChange={(e) => setB(e.target.value)} maxLength={16} />
+                </label>
+                <button type="button" className="chip-btn gold" onClick={() => onStart(mode, a, b, stake)}>
+                  ZAČNI PRI STOLE
+                </button>
+              </>
+            ) : (
+              <>
+                <label className="duel-field">
+                  Tvoje meno
+                  <input value={a} onChange={(e) => setA(e.target.value)} maxLength={16} />
+                </label>
+                <button type="button" className="chip-btn gold" onClick={() => onHost(mode, a, stake)}>
+                  VYTVORIŤ KÓD
+                </button>
+                <label className="duel-field">
+                  Kód od kamoša
+                  <input
+                    value={code}
+                    onChange={(e) => {
+                      setCode(e.target.value.toUpperCase());
+                      setInvite(null);
+                      setPeekErr("");
+                    }}
+                    maxLength={4}
+                    placeholder="A7K2"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="chip-btn"
+                  disabled={code.replace(/[^A-Z0-9]/g, "").length < 4}
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        const snap = await duelPoll(code.replace(/[^A-Z0-9]/g, "").toUpperCase());
+                        if (snap.phase !== "wait") {
+                          setPeekErr("Už beží.");
+                          return;
+                        }
+                        setInvite(snap);
+                        setPeekErr("");
+                      } catch (e) {
+                        setPeekErr(e instanceof Error ? e.message : "Kód neexistuje");
+                      }
+                    })();
+                  }}
+                >
+                  POZRIEŤ POZVÁNKU
+                </button>
+                {peekErr ? <p className="spend-active is-late">{peekErr}</p> : null}
+              </>
+            )}
           </>
         )}
       </div>
@@ -332,7 +439,7 @@ export function DuelBar({ duel }: { duel: Duel }) {
         <b>{formatMoney(duel.seats[0].score)}</b>
       </span>
       <em>
-        VS · {wait ? "čakám súpera" : me.name} · ešte {left}
+        VS · {wait ? "čakám súpera" : me.name} · {formatMoney(duel.bet)} · ešte {left}
       </em>
       <span className={duel.kind === "online" ? (duel.you === 1 ? "on" : "") : duel.turn === 1 ? "on" : ""}>
         {duel.seats[1].name}
