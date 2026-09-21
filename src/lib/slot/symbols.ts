@@ -177,7 +177,7 @@ export const BASE_MULT_TABLE = ORB_TABLE;
 export const MULT_TABLE = ORB_TABLE;
 
 export const BETS = [
-  0.2, 0.4, 0.6, 0.8, 1, 1.6, 2, 2.4, 3.2, 4, 5, 8, 10, 16, 20, 40, 50, 80, 100,
+  0.2, 0.4, 0.6, 0.8, 1, 1.6, 2, 2.4, 3.2, 4, 5, 8, 10, 16, 20, 40, 50, 80, 100, 200, 400, 500, 1000,
 ] as const;
 
 export const MAX_WIN_X = 5000;
