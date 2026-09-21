@@ -63,12 +63,12 @@ const TEMPLATES: {
   { id: "sucho", titles: ["SUCHO", "TICHÁ ZÓNA", "RAMPA STOJÍ"], kind: "deads", need: [8, 18], until: [20, 35], line: "mŕtvych spinov" },
   { id: "vynos", titles: ["VÝNOS", "PDF 8+", "PAPIER PLATÍ"], kind: "pdf", need: [1, 2], until: [30, 50], line: "PDF 8+" },
   { id: "duo", titles: ["DUO", "DVA CLUSTRE", "DVOJIČKA"], kind: "wins", need: [2, 5], until: [25, 40], line: "dva clustre na spine" },
-  { id: "wifipro", titles: ["DOPOJ WIFIPRO", "WIFI NA STRECHE", "HESLO NA SPODKU"], kind: "symbol", payIds: ["router", "hap"], need: [4, 9], until: [40, 55], line: "výher WifiPRO" },
-  { id: "stb", titles: ["DOPOJ STB", "BOX DO OBÝVAČKY", "SET-TOP NA STÔL"], kind: "symbol", payIds: ["arris", "case"], need: [4, 9], until: [40, 55], line: "výher set-top boxom" },
+  { id: "wifipro", titles: ["DOPOJ WIFIPRO", "WIFI NA STRECHE", "HESLO NA SPODKU"], kind: "symbol", payIds: ["router", "hap"], need: [2, 4], until: [45, 65], line: "výher WifiPRO" },
+  { id: "stb", titles: ["DOPOJ STB", "BOX DO OBÝVAČKY", "SET-TOP NA STÔL"], kind: "symbol", payIds: ["arris", "case"], need: [1, 3], until: [50, 75], line: "výher set-top boxom" },
   { id: "rebrik", titles: ["REBRÍK NETREBA", "Z OKNA", "BEZ LEŠENIA"], kind: "dry", need: [6, 14], until: [40, 55], line: "výher bez tumble" },
-  { id: "domov", titles: ["CESTOU DOMOV", "POSLEDNÝ VÝJAZD", "CESTA SPÄŤ"], kind: "symbol", payIds: ["dacia", "roof"], need: [3, 8], until: [35, 55], line: "výher cestou domov" },
+  { id: "domov", titles: ["CESTOU DOMOV", "POSLEDNÝ VÝJAZD", "CESTA SPÄŤ"], kind: "symbol", payIds: ["dacia", "roof"], need: [1, 2], until: [60, 90], line: "výher cestou domov" },
   { id: "noc", titles: ["POHOTOVOSŤ", "SLUŽBA POHOTOVOSŤ", "VÝJAZD PO KÚPE"], kind: "buy", need: [6, 12], until: [15, 25], line: "výher v kúpenom PARKNET" },
-  { id: "hydra", titles: ["HYDRA", "DVA ZNAKY", "DVOJITÝ VÝJAZD"], kind: "hydra", need: [4, 8], until: [40, 55], line: "výher dvoch znakov" },
+  { id: "hydra", titles: ["HYDRA", "DVA ZNAKY", "DVOJITÝ VÝJAZD"], kind: "hydra", need: [1, 3], until: [50, 80], line: "výher dvoch znakov" },
 ];
 
 function rngRange(rng: () => number, a: number, b: number): number {
@@ -148,25 +148,28 @@ export function jobMeter(job: JobCard): string {
   return `${job.have}/${job.need}`;
 }
 
-export function hydraSplit(a: PayId, b: PayId, budget: number): { needA: number; needB: number } {
-  const wa = PAY_SYMBOLS.find((s) => s.id === a)?.weight ?? 12;
-  const wb = PAY_SYMBOLS.find((s) => s.id === b)?.weight ?? 12;
-  const sum = Math.max(0.01, wa + wb);
-  let na = Math.round((budget * wa) / sum);
-  let nb = Math.round((budget * wb) / sum);
-  if (na < 2) {
-    nb = Math.max(2, nb - (2 - na));
-    na = 2;
-  }
-  if (nb < 2) {
-    na = Math.max(2, na - (2 - nb));
-    nb = 2;
-  }
-  if (na + nb < 4) {
-    na = 2;
-    nb = 2;
-  }
-  return { needA: na, needB: nb };
+/** Paying 8+ cluster rate per paid spin (40k sim, tumbles included). */
+export const PAY_HIT: Record<PayId, number> = {
+  rj45: 0.065,
+  router: 0.064,
+  hap: 0.057,
+  roof: 0.053,
+  arris: 0.053,
+  case: 0.026,
+  dacia: 0.021,
+  meter: 0.02,
+  pdf: 0.014,
+};
+
+export function symbolNeed(id: PayId, until: number, hard: number): number {
+  const p = PAY_HIT[id] ?? 0.03;
+  const λ = p * Math.max(8, until);
+  const k = 0.52 + hard * 0.55;
+  return Math.max(1, Math.round(λ * k));
+}
+
+export function hydraSplit(a: PayId, b: PayId, until: number, hard = 0.5): { needA: number; needB: number } {
+  return { needA: symbolNeed(a, until, hard), needB: symbolNeed(b, until, hard) };
 }
 
 function shuffle<T>(bag: T[], rng: () => number): T[] {
@@ -221,6 +224,10 @@ function makeJob(
   let needB: number | undefined;
   let haveB: number | undefined;
   let needNow = need;
+  if (t.kind === "symbol" && payId) {
+    if ((PAY_HIT[payId] ?? 1) < 0.03) limit = snapFive(Math.max(limit, 70));
+    needNow = symbolNeed(payId, limit, hard);
+  }
   if (t.kind === "hydra") {
     const ids = PAY_SYMBOLS.map((s) => s.id);
     const first = pickOne(ids, rng);
@@ -228,11 +235,12 @@ function makeJob(
     const second = pickOne(rest, rng);
     payId = first;
     payIdB = second;
-    const split = hydraSplit(first, second, need);
+    const rare = Math.min(PAY_HIT[first], PAY_HIT[second]) < 0.03;
+    if (rare) limit = snapFive(Math.max(limit, 70));
+    const split = hydraSplit(first, second, limit, hard);
     needNow = split.needA;
     needB = split.needB;
     haveB = 0;
-    limit = snapFive(Math.max(limit, needNow + needB + 15));
   }
   const line =
     t.kind === "hydra" && payId && payIdB && needB

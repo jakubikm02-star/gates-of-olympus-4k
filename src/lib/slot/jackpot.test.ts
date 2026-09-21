@@ -17,7 +17,7 @@ import {
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain } from "./pick-bonus.ts";
 import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta } from "./duel.ts";
-import { canSpend, dealJobs, hydraSplit, jobClock, jobLeft, jobStatus, tickJob, spinWord, JOB_BANK } from "./spend.ts";
+import { canSpend, dealJobs, hydraSplit, jobClock, jobLeft, jobStatus, symbolNeed, tickJob, spinWord, JOB_BANK } from "./spend.ts";
 import { ORB_TABLE, ORB_VALUES } from "./symbols.ts";
 
 describe("park jackpots", () => {
@@ -339,7 +339,7 @@ describe("míňať", () => {
     assert.ok(highBet[0].stake > small[0].stake);
     for (const j of small.slice(0, 3)) {
       assert.equal(j.limit % 5, 0);
-      assert.ok(j.limit >= 15 && j.limit <= 80);
+      assert.ok(j.limit >= 15 && j.limit <= 100);
       assert.ok(j.need >= 1 && j.need <= j.limit);
       assert.equal(jobLeft(j), j.limit);
       assert.equal(jobClock(j), `ešte ${j.limit} ${spinWord(j.limit)}`);
@@ -703,11 +703,13 @@ describe("míňať", () => {
   });
 
   it("HYDRA needs both symbols and asks more hits from the commoner", () => {
-    const split = hydraSplit("rj45", "pdf", 6);
+    const split = hydraSplit("rj45", "pdf", 50);
     assert.ok(split.needA > split.needB);
-    assert.equal(split.needB, 2);
-    const even = hydraSplit("router", "hap", 6);
+    assert.equal(split.needB, 1);
+    const even = hydraSplit("router", "hap", 50);
     assert.ok(Math.abs(even.needA - even.needB) <= 1);
+    const dacia = symbolNeed("dacia", 35, 0.5);
+    assert.equal(dacia, 1);
     const job = {
       id: "hydra",
       floor: "stred" as const,
