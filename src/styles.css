@@ -3063,7 +3063,7 @@
   .side-left {
     position: absolute;
     left: 10px;
-    top: 10px;
+    top: 102px;
     width: min(168px, 15vw);
     padding-top: 0;
     z-index: 6;
@@ -3670,7 +3670,7 @@
 .rank-needle {
   transform: rotate(var(--needle, -90deg));
   transform-origin: 100px 108px;
-  transition: transform 0.5s cubic-bezier(0.18, 0.84, 0.24, 1);
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .rank-needle polygon {
@@ -4660,8 +4660,6 @@ html:-webkit-full-screen {
 }
 
 .stage.is-resolving .jp-stack em,
-.stage.is-resolving .rank-delta,
-.stage.is-resolving .rank-badge .rank-delta,
 .stage.is-resolving .pool-led em {
   visibility: hidden;
   opacity: 0;

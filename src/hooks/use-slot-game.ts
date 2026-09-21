@@ -437,16 +437,12 @@ export function useSlotGame() {
 
   useEffect(() => {
     if (rankFlash) {
-      const t = window.setTimeout(() => setRankFlash(null), 1400);
+      const t = window.setTimeout(() => setRankFlash(null), 900);
       return () => window.clearTimeout(t);
     }
-    if (busy || phase !== "idle") return;
-    const t = window.setTimeout(() => {
-      const next = rankQ.current.shift();
-      if (next) setRankFlash(next);
-    }, 800);
-    return () => window.clearTimeout(t);
-  }, [rankFlash, busy, phase]);
+    const next = rankQ.current.shift();
+    if (next) setRankFlash(next);
+  }, [rankFlash]);
 
   useEffect(() => {
     if (!rankDelta) return;
@@ -542,10 +538,8 @@ export function useSlotGame() {
     setRp(res.save.rp);
     setRankPeak(res.save.peak);
     setRankShield(res.save.shield);
-    if (!busyRef.current) {
-      setRankDelta(res.applied);
-      setRankParts(delta > 0 && parts ? parts : null);
-    }
+    setRankDelta(res.applied);
+    setRankParts(delta > 0 && parts ? parts : null);
     if (res.event === "up") {
       const perk = perkOf(res.after.id);
       if (perk.dripX > 0) {
@@ -564,8 +558,7 @@ export function useSlotGame() {
         applied: res.applied,
         parts: parts ?? undefined,
       };
-      if (busyRef.current) rankQ.current.push(flash);
-      else setRankFlash(flash);
+      setRankFlash(flash);
     }
   }, []);
 
