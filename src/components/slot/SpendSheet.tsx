@@ -30,7 +30,7 @@ export function SpendSheet({ open, onClose, credit, job, offer, rerollCost, onJo
         </header>
         <p className="modal-lead">
           Od 100 €. Cena aj výhra podľa kreditu a aktuálnej stávky. Po kúpe ostane stávka zamknutá, kým zákazka
-          neskončí — zmeniť ju počas hry nejde.
+          neskončí — zmeniť ju počas hry nejde. Kúpa PARKNET zákazku neplní, počíta sa iba base game.
         </p>
 
         {job ? (

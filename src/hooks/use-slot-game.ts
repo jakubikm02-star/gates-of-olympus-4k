@@ -808,8 +808,10 @@ export function useSlotGame() {
       }
 
       setWinMask(null);
-      setSpinWin(0);
-      setBaseWin(0);
+      if (!isFree) {
+        setSpinWin(0);
+        setBaseWin(0);
+      }
       setSeqMult(0);
       setClusterPay(null);
       setPayHint(null);
@@ -1023,7 +1025,7 @@ export function useSlotGame() {
 
         const small = sequenceX * currentBet <= currentBet * 0.5;
         setSpinWin(cashNow);
-        setDisplayWin(cashNow);
+        if (!isFree) setDisplayWin(cashNow);
         setTopLine(`TUMBLE ${formatMoney(cashNow)}`);
         await wait(dur(240), abort.current);
         if (pendingFs && !fsNow && !fsAnnounced) {
@@ -1152,10 +1154,10 @@ export function useSlotGame() {
         const boosted = +(sequenceX * applied * currentBet).toFixed(2);
         setBaseWin(baseCash);
         setSpinWin(baseCash);
-        setDisplayWin(baseCash);
+        if (!isFree) setDisplayWin(baseCash);
         await wait(dur(120), abort.current);
         setSpinWin(boosted);
-        setDisplayWin(boosted);
+        if (!isFree) setDisplayWin(boosted);
         setTopLine(`TUMBLE ${formatMoney(boosted)}`);
         sfx.playMult();
         await wait(dur(520), abort.current);
@@ -1180,7 +1182,7 @@ export function useSlotGame() {
       const cash = +(paidX * currentBet).toFixed(2);
       if (cash > 0 && cash !== +(sequenceX * currentBet).toFixed(2)) {
         setSpinWin(cash);
-        setDisplayWin(cash);
+        if (!isFree) setDisplayWin(cash);
       }
 
       lastPaidXRef.current = currentBet > 0 ? cash / currentBet : 0;
@@ -1346,14 +1348,15 @@ export function useSlotGame() {
         const sess = fsSessionRef.current;
         const betNow = BETS[betIndexRef.current];
         const fsCash = sess.cash;
+        const featureTotal = +(fsCash + sess.triggerCash).toFixed(2);
         await wait(400);
         setInFs(false);
         inFsRef.current = false;
         setFsLeft(0);
         setGlobalMult(0);
         globalMultRef.current = 0;
-        setDisplayWin(fsCash);
-        setSpinWin(fsCash);
+        setDisplayWin(featureTotal);
+        setSpinWin(featureTotal);
         setBannerMeta({
           spins: sess.played,
           extra: sess.extra,
@@ -1362,11 +1365,11 @@ export function useSlotGame() {
         });
         bannerOpen.current = true;
         setBanner("fsTotal");
-        setBannerAmount(fsCash);
+        setBannerAmount(featureTotal);
         setPhase(hitCap ? "max" : "big");
         setTopLine("SIEŤ SPADLA");
-        setMessage(fsCash > 0 ? `VÝHRA ${formatMoney(fsCash)}` : "SIEŤ SPADLA");
-        if (fsCash > 0 || hitCap) sfx.playBigWin();
+        setMessage(featureTotal > 0 ? `VÝHRA ${formatMoney(featureTotal)}` : "SIEŤ SPADLA");
+        if (featureTotal > 0 || hitCap) sfx.playBigWin();
         else sfx.playPayout();
         sfx.stopLiveBed();
         if (fsCash > 0) setBalance((b) => +(b + fsCash).toFixed(2));
@@ -1390,18 +1393,20 @@ export function useSlotGame() {
         const stashed = pendingLiveTicketRef.current;
         pendingLiveTicketRef.current = null;
         if (stashed) await runTicket(stashed);
-        settleJob({
-          win: fsCash > 0,
-          dead: fsCash <= 0,
-          tumbles: 0,
-          live: true,
-          ticket: stashed,
-          pdf: false,
-          signal: peak,
-          clusters: 0,
-          orbs: peak > 0,
-          spun: false,
-        });
+        if (!bought) {
+          settleJob({
+            win: fsCash > 0,
+            dead: fsCash <= 0,
+            tumbles: 0,
+            live: true,
+            ticket: stashed,
+            pdf: false,
+            signal: peak,
+            clusters: 0,
+            orbs: peak > 0,
+            spun: false,
+          });
+        }
         setPhase("idle");
         setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
         await wait(600);
@@ -1471,7 +1476,7 @@ export function useSlotGame() {
         setPhase("fs");
         setFsLeft(sess.left);
         setFsTotal(sess.total);
-        setDisplayWin(sess.cash);
+        setDisplayWin(+(sess.triggerCash + sess.cash).toFixed(2));
         setMessage(`${sess.left} voľných točení`);
         setTopLine(`PARKNET LIVE · ${sess.left}`);
         persistNow();

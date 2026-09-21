@@ -112,7 +112,7 @@ export function Paytable({ open, onClose, bet }: Props) {
           </li>
           <li>
             Od kreditu 100 € zákazky: cena aj výhra podľa banku a stávky. Po kúpe je stávka zamknutá do konca
-            termínu.
+            termínu. Kúpa PARKNET sa do zákazky nerátá — progress ide len z base game.
           </li>
           <li>
             Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bankrot +5000 berie RP podľa stávky.
