@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { formatMoney } from "@/lib/slot/format";
-import { openDuelPeer, type DuelPipe, type DuelWire } from "@/lib/slot/duel-peer";
+import { duelCreate, duelJoin, duelLeave, duelPoll, duelStart, duelTick } from "@/lib/slot/duel-api";
 import {
   duelLeft,
   duelMineDone,
@@ -42,13 +42,11 @@ export function DuelLink({
   onTick: (have: number, score: number) => void;
   onEnd: () => void;
 }) {
-  const [status, setStatus] = useState("Pálim spojenie…");
+  const [status, setStatus] = useState("Pálim miestnosť…");
   const [guest, setGuest] = useState("");
-  const [live, setLive] = useState(false);
   const [err, setErr] = useState("");
   const started = useRef(false);
   const lastHave = useRef(-1);
-  const pipe = useRef<DuelPipe | null>(null);
   const onPeerNameRef = useRef(onPeerName);
   const onGoRef = useRef(onGo);
   const onTickRef = useRef(onTick);
@@ -58,53 +56,57 @@ export function DuelLink({
 
   useEffect(() => {
     let stop = false;
-    void (async () => {
+    const boot = async () => {
       try {
-        const next = await openDuelPeer({
-          room: link.room,
-          role: link.role,
-          name: link.name,
-          onPeer: (name) => {
-            if (stop) return;
-            setGuest(name);
-            onPeerNameRef.current(name);
-            setStatus(`${name} je v miestnosti.`);
-          },
-          onLive: (on) => {
-            if (stop) return;
-            setLive(on);
-            if (on) setErr("");
-            setStatus(on ? "Spojenie živé." : "Čakám na spojenie…");
-          },
-          onErr: (msg) => {
-            if (!stop) setErr(msg);
-          },
-          onMsg: (msg: DuelWire) => {
-            if (stop) return;
-            if (msg.t === "go" && !started.current) {
-              started.current = true;
-              const peer = link.role === "guest" ? msg.hostName : msg.guestName;
-              onGoRef.current(peer || "SÚPER", msg.bet, msg.mode);
-            }
-            if (msg.t === "tick") onTickRef.current(msg.have, msg.score);
-          },
-        });
-        if (stop) {
-          next.close();
-          return;
+        if (link.role === "host") {
+          await duelCreate({ code: link.room, name: link.name, mode: link.mode, bet });
+          if (!stop) setStatus("Kód je na Supabase. Pošli ho kamošovi.");
+        } else {
+          const snap = await duelJoin(link.room, link.name);
+          if (!stop) {
+            onPeerNameRef.current(snap.hostName);
+            setStatus("Si v miestnosti. Čakám na ŠTART.");
+          }
         }
-        pipe.current = next;
-        setStatus(link.role === "host" ? "Kód je živý. Pošli ho kamošovi." : "Hľadám hosťa…");
       } catch (e) {
         if (!stop) setErr(e instanceof Error ? e.message : "Spojenie zlyhalo");
       }
-    })();
+    };
+    void boot();
+
+    const tick = window.setInterval(() => {
+      void (async () => {
+        try {
+          const snap = await duelPoll(link.room);
+          if (stop) return;
+          setErr("");
+          if (snap.guestName) {
+            setGuest(snap.guestName);
+            if (link.role === "host") onPeerNameRef.current(snap.guestName);
+          }
+          if (snap.phase === "play" || snap.phase === "done") {
+            if (!started.current) {
+              started.current = true;
+              const peer = link.role === "host" ? snap.guestName : snap.hostName;
+              onGoRef.current(peer || "SÚPER", snap.bet, snap.mode);
+            }
+            if (link.role === "host") onTickRef.current(snap.guestHave, snap.guestScore);
+            else onTickRef.current(snap.hostHave, snap.hostScore);
+          }
+        } catch (e) {
+          if (stop) return;
+          const msg = e instanceof Error ? e.message : "spojenie padlo";
+          if (msg.includes("neexistuje") && started.current) setErr("Súper odišiel.");
+          else if (!started.current) setErr(msg);
+        }
+      })();
+    }, 800);
+
     return () => {
       stop = true;
-      pipe.current?.close();
-      pipe.current = null;
+      window.clearInterval(tick);
     };
-  }, [link.room, link.role, link.name]);
+  }, [link.room, link.role, link.name, link.mode, bet]);
 
   useEffect(() => {
     if (!duel || duel.kind !== "online") return;
@@ -112,20 +114,24 @@ export function DuelLink({
     const score = duel.seats[duel.you].score;
     if (have <= lastHave.current) return;
     lastHave.current = have;
-    pipe.current?.send({ t: "tick", have, score });
-  }, [duel]);
+    void duelTick(link.room, link.role, have, score).catch(() => {});
+  }, [duel, link.room, link.role]);
 
   const launch = () => {
-    if (started.current || link.role !== "host" || !live) return;
-    started.current = true;
-    const guestName = guest || "HRÁČ 2";
-    const payload: DuelWire = { t: "go", mode: link.mode, bet, hostName: link.name, guestName };
-    pipe.current?.send(payload);
-    onGo(guestName, bet, link.mode);
+    if (started.current || link.role !== "host" || !guest) return;
+    void (async () => {
+      try {
+        const snap = await duelStart(link.room);
+        started.current = true;
+        onGo(snap.guestName || guest, snap.bet, snap.mode);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Štart zlyhal");
+      }
+    })();
   };
 
   const leave = () => {
-    pipe.current?.close();
+    void duelLeave(link.room, link.role);
     onEnd();
   };
 
@@ -153,8 +159,8 @@ export function DuelLink({
         </p>
         <div className="duel-tabs">
           {link.role === "host" ? (
-            <button type="button" className="chip-btn gold" disabled={!live} onClick={launch}>
-              {live ? "ŠTART" : "ČAKÁM SÚPERA"}
+            <button type="button" className="chip-btn gold" disabled={!guest} onClick={launch}>
+              {guest ? "ŠTART" : "ČAKÁM SÚPERA"}
             </button>
           ) : (
             <span className="modal-lead">Čakám na ŠTART od hosťa.</span>
