@@ -112,6 +112,18 @@ export function duelWinner(d: Duel): 0 | 1 | null {
   return null;
 }
 
+export function duelPot(d: Duel): number {
+  return +(d.seats[0].score + d.seats[1].score).toFixed(2);
+}
+
+/** Winner already has their own wins in credit; they collect the other seat's score. Loser pays theirs back. */
+export function duelCreditDelta(d: Duel, seat: 0 | 1): number {
+  const w = duelWinner(d);
+  if (w === null) return 0;
+  if (seat === w) return d.seats[seat === 0 ? 1 : 0].score;
+  return -d.seats[seat].score;
+}
+
 export function duelLeft(d: Duel): number {
   const who = d.kind === "online" ? d.you : d.turn;
   return Math.max(0, d.need - d.seats[who].have);

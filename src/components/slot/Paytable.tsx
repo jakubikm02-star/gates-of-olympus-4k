@@ -114,7 +114,8 @@ export function Paytable({ open, onClose, bet }: Props) {
             Od kreditu 100 € zákazky: tri na výber, alebo skontrolovať OTRS. OTRS odhalí úlohu, cenu aj zisk
             až po prijatí. Cena aj výhra podľa banku a stávky. Po prijatí ostane stávka zamknutá do konca
             termínu. Kúpa PARKNET sa do zákazky nepočíta — postup ide len zo základnej hry. Duel: pri stole
-            (jeden prístroj) alebo na diaľku cez kód. 10 točení alebo 1× PARKNET, vyššia výhra vyhráva.
+            (jeden prístroj) alebo na diaľku cez kód. 10 točení alebo 1× PARKNET. Víťaz berie výhry oboch,
+            pri remíze si každý nechá svoju.
           </li>
           <li>
             Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bankrot +5000 berie RP podľa stávky.

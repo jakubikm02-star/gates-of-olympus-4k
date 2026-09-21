@@ -4,6 +4,7 @@ import { duelCreate, duelJoin, duelLeave, duelPoll, duelStart, duelTick } from "
 import {
   duelLeft,
   duelMineDone,
+  duelPot,
   duelWinner,
   type Duel,
   type DuelLink,
@@ -208,6 +209,7 @@ export function DuelSheet({
 
   if (duel?.phase === "done") {
     const w = duelWinner(duel);
+    const pot = duelPot(duel);
     const title = w === null ? "REMÍZA" : `VYHRAL ${duel.seats[w].name}`;
     return (
       <div className="modal-back" role="presentation">
@@ -218,6 +220,11 @@ export function DuelSheet({
           <p className="modal-lead">
             {duel.seats[0].name} {formatMoney(duel.seats[0].score)} · {duel.seats[1].name}{" "}
             {formatMoney(duel.seats[1].score)}
+          </p>
+          <p className="modal-lead">
+            {w === null
+              ? "Každý si necháva svoju výhru."
+              : `Víťaz berie výhry oboch · BANK ${formatMoney(pot)}`}
           </p>
           <button type="button" className="chip-btn gold" onClick={onEnd}>
             HOTOVO
@@ -253,7 +260,7 @@ export function DuelSheet({
         <div className="spend-jobs">
           <button type="button" className={`spend-job ${mode === "spins" ? "stred" : "lacna"}`} onClick={() => setMode("spins")}>
             <em>10 TOČENÍ</em>
-            <span>Rovnaká stávka, vyšší súčet výhier.</span>
+            <span>Rovnaká stávka, vyšší súčet berie výhry oboch.</span>
           </button>
           <button type="button" className={`spend-job ${mode === "live" ? "draha" : "lacna"}`} onClick={() => setMode("live")}>
             <em>1× LIVE</em>
@@ -262,7 +269,7 @@ export function DuelSheet({
         </div>
         {tab === "hotseat" ? (
           <>
-            <p className="modal-lead">Dvaja na jednom zariadení. Po desiatich točeniach predáš telefón.</p>
+            <p className="modal-lead">Dvaja na jednom zariadení. Po desiatich točeniach predáš telefón. Víťaz berie bank oboch.</p>
             <label className="duel-field">
               Hráč 1
               <input value={a} onChange={(e) => setA(e.target.value)} maxLength={16} />
@@ -278,8 +285,8 @@ export function DuelSheet({
         ) : (
           <>
             <p className="modal-lead">
-              Vytvor kód a pošli ho. Na druhom telefóne ho zadaj. Točíte naraz. ŠTART ide, keď súper vojde. Kedykoľvek
-              môžeš odísť.
+              Vytvor kód a pošli ho. Na druhom telefóne ho zadaj. Točíte naraz. Kto vytočí viac, berie výhry oboch.
+              Prehrávajúci o svoje výhry príde. ŠTART ide, keď súper vojde. Kedykoľvek môžeš odísť.
             </p>
             <label className="duel-field">
               Tvoje meno

@@ -40,7 +40,7 @@ import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
 import { emptyBoard, isEligibleBet, ticketResolve, type BoardSnap, type JackpotHit, type TierId } from "@/lib/slot/jackpot";
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
-import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, duelMineDone, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
+import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, duelMineDone, duelWinner, duelPot, duelCreditDelta, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
 import { duelLeave } from "@/lib/slot/duel-api";
 import {
   canSpend,
@@ -191,6 +191,7 @@ export function useSlotGame() {
   const duelLinkRef = useRef<DuelLink | null>(null);
   const [duelPeer, setDuelPeer] = useState("");
   const pendingPeerTick = useRef<{ have: number; score: number } | null>(null);
+  const duelSettled = useRef(false);
   const autoFloorRef = useRef(0);
   const bannerWait = useRef<(() => void) | null>(null);
   const bannerOpen = useRef(false);
@@ -1312,6 +1313,26 @@ export function useSlotGame() {
     [dur, waitForBanner, pushRank, noteResult, feedPool, runTicket, settleJob],
   );
 
+  const settleDuel = useCallback((d: Duel) => {
+    if (d.phase !== "done" || duelSettled.current) return;
+    duelSettled.current = true;
+    const pot = duelPot(d);
+    const w = duelWinner(d);
+    if (d.kind === "online") {
+      const delta = duelCreditDelta(d, d.you);
+      if (delta) setBalance((b) => +Math.max(0, b + delta).toFixed(2));
+    }
+    if (w === null) {
+      setTopLine("DUEL REMÍZA · každý si necháva svoju výhru");
+      setJobToast("REMÍZA");
+      return;
+    }
+    const take = `${d.seats[w].name} BERIE BANK ${formatMoney(pot)}`;
+    setTopLine(take);
+    setJobToast(`BANK ${formatMoney(pot)}`);
+    setSpinTape((t) => [{ label: "DUEL BANK", amount: formatMoney(pot) }, ...t].slice(0, 8));
+  }, []);
+
   const playRound = useCallback(
     async (opts?: { buy?: boolean; resumeFs?: boolean }) => {
       if (busyRef.current) return;
@@ -1599,6 +1620,7 @@ export function useSlotGame() {
           setAutoOn(false);
           setAutoLeft(0);
         }
+        if (next.phase === "done") settleDuel(next);
       }
     } catch {
       setBanner(null);
@@ -1613,7 +1635,7 @@ export function useSlotGame() {
       abort.current.aborted = false;
     }
   },
-    [dur, runSequence, waitForBanner, runPick, pushRank, noteResult, persistNow, runTicket, settleJob],
+    [dur, runSequence, waitForBanner, runPick, pushRank, noteResult, persistNow, runTicket, settleJob, settleDuel],
   );
 
   useEffect(() => {
@@ -1918,6 +1940,7 @@ export function useSlotGame() {
         you,
         room: link.room,
       });
+      duelSettled.current = false;
       duelRef.current = next;
       setDuel(next);
       setDuelOpen(false);
@@ -1928,6 +1951,7 @@ export function useSlotGame() {
         const synced = applyPeerTick(next, pending.have, pending.score);
         duelRef.current = synced;
         setDuel(synced);
+        if (synced.phase === "done") settleDuel(synced);
       }
     },
     applyRemoteTick: (have: number, score: number) => {
@@ -1939,10 +1963,12 @@ export function useSlotGame() {
       const next = applyPeerTick(cur, have, score);
       duelRef.current = next;
       setDuel(next);
+      if (next.phase === "done") settleDuel(next);
     },
     beginDuel: (mode: DuelMode, a: string, b: string) => {
       if (busyRef.current || inFsRef.current || jobRef.current || duelRef.current) return;
       const next = startDuel({ mode, a, b, bet: BETS[betIndexRef.current] });
+      duelSettled.current = false;
       duelRef.current = next;
       setDuel(next);
       setDuelOpen(false);
@@ -1961,6 +1987,7 @@ export function useSlotGame() {
     endDuel: () => {
       const link = duelLinkRef.current;
       if (link) void duelLeave(link.room, link.role);
+      duelSettled.current = false;
       duelRef.current = null;
       setDuel(null);
       setDuelLink(null);
