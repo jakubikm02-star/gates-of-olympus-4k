@@ -318,6 +318,49 @@ describe("míňať", () => {
     }
   });
 
+  it("REŤAZ is 3 wins in a row, a dead spin resets", () => {
+    const chain: ReturnType<typeof dealJobs>[number] = {
+      id: "retaz",
+      floor: "lacna",
+      template: "retaz",
+      title: "REŤAZ",
+      detail: "3× výhier v rade",
+      stake: 20,
+      payout: 35,
+      need: 8,
+      have: 5,
+      limit: 25,
+      spun: 0,
+      kind: "wins",
+    };
+    const patched = tickJob(chain, {
+      win: true,
+      dead: false,
+      tumbles: 0,
+      live: false,
+      ticket: null,
+      pdf: false,
+      signal: 0,
+      clusters: 1,
+      orbs: false,
+    });
+    assert.equal(patched.need, 3);
+    assert.equal(patched.limit, 50);
+    assert.equal(patched.have, 3);
+    const dead = tickJob({ ...patched, have: 2 }, {
+      win: false,
+      dead: true,
+      tumbles: 0,
+      live: false,
+      ticket: null,
+      pdf: false,
+      signal: 0,
+      clusters: 0,
+      orbs: false,
+    });
+    assert.equal(dead.have, 0);
+  });
+
   it("DUO counts two clusters on one spin, including sequential tumbles", () => {
     const duo: ReturnType<typeof dealJobs>[number] = {
       id: "duo",

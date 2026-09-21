@@ -40,7 +40,7 @@ const TEMPLATES: {
   { id: "balik", title: "BALÍK", kind: "tumbles", need: [6, 12], until: 40, line: "tumble reťazí" },
   { id: "siet", title: "SIEŤ", kind: "live", need: [1, 1], until: 40, line: "spustiť PARKNET LIVE" },
   { id: "signal", title: "SIGNÁL", kind: "signal", need: [10, 25], until: 50, line: "SIGNÁL dosiahnuť" },
-  { id: "retaz", title: "REŤAZ", kind: "wins", need: [4, 8], until: 25, line: "výhier v rade" },
+  { id: "retaz", title: "REŤAZ", kind: "wins", need: [3, 3], until: 50, line: "výhier v rade" },
   { id: "plechovky", title: "PLECHOVKY", kind: "tumbles", need: [3, 7], until: 30, line: "spinov s násobičom" },
   { id: "tv", title: "4TV", kind: "live", need: [1, 1], until: 40, line: "4tv trigger" },
   { id: "plus", title: "PLUS", kind: "wins", need: [12, 20], until: 50, line: "akýchkoľvek výhier" },
@@ -125,6 +125,9 @@ export interface JobEvent {
 }
 
 export function tickJob(job: JobCard, ev: JobEvent): JobCard {
+  if (job.template === "retaz" && job.need > 3) {
+    job = { ...job, need: 3, limit: Math.max(job.limit, 50) };
+  }
   let add = 0;
   let have = job.have;
   if (job.kind === "wins") {
