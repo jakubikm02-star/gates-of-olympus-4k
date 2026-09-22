@@ -1,13 +1,17 @@
 import { useEffect } from "react";
 import { MATH_NOTE, PAY_SYMBOLS, SCATTER, TICKETS } from "@/lib/slot/symbols";
+import { formatMoney } from "@/lib/slot/format";
+import type { DeskDay } from "@/lib/slot/desk-api";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   bet: number;
+  desk?: DeskDay;
+  mine?: DeskDay;
 }
 
-export function Paytable({ open, onClose, bet }: Props) {
+export function Paytable({ open, onClose, bet, desk, mine }: Props) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -35,6 +39,32 @@ export function Paytable({ open, onClose, bet }: Props) {
         <p className="modal-lead">
           8+ kdekoľvek na 6×5. Stávka {bet.toFixed(2)}. Demo — žiadne vklady.
         </p>
+        {desk && mine ? (
+          <div className="atm-desk in-info" aria-label="Dnešný counter automatu">
+            <header>
+              <span>PARK BANK</span>
+              <b>DNES</b>
+            </header>
+            <p className="atm-kicker">COUNTER AUTOMATU · VŠETCI HRÁČI · ťukni aj na poty</p>
+            <dl>
+              <div>
+                <dt>PRETOČENÉ</dt>
+                <dd>{formatMoney(desk.wagered)}</dd>
+                <dd className="atm-me">TY {formatMoney(mine.wagered)}</dd>
+              </div>
+              <div>
+                <dt>VÝHRY</dt>
+                <dd>{formatMoney(desk.paid)}</dd>
+                <dd className="atm-me">TY {formatMoney(mine.paid)}</dd>
+              </div>
+              <div>
+                <dt>MAX</dt>
+                <dd>{formatMoney(desk.best)}</dd>
+                <dd className="atm-me">TY {formatMoney(mine.best)}</dd>
+              </div>
+            </dl>
+          </div>
+        ) : null}
         <div className="pay-list">
           {[...PAY_SYMBOLS].reverse().map((s) => (
             <div key={s.id} className="pay-row">

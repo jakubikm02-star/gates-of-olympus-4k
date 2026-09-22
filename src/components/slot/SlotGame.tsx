@@ -1,4 +1,4 @@
-import { useRef, type PointerEvent } from "react";
+import { useRef, useState, type PointerEvent } from "react";
 import { Volume2, VolumeX, Info, RefreshCw, Menu } from "lucide-react";
 import { START_BALANCE, BETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
@@ -88,6 +88,7 @@ function HoldSpin({
 export function SlotGame() {
   const g = useSlotGame();
   const shell = useShell();
+  const [deskOpen, setDeskOpen] = useState(false);
   const spinning = g.phase === "spinning" || g.phase === "landing";
   const resolving =
     spinning ||
@@ -161,15 +162,16 @@ export function SlotGame() {
             <div className="logo-plate compact">
               <span className="logo-kicker">{g.inFs ? "PARKNET" : "PORTS of"}</span>
               <span className="logo-main">{g.inFs ? "LIVE" : "PARKIZMUS"}</span>
-              <span className="logo-sub">{g.inFs ? "SIGNÁL · 4tv · SIEŤ" : "ZÓNA · LÍSTOK · RAMPA · POKUTA"}</span>
             </div>
-            <p className="ls-max">WIN UP TO 5000× BET</p>
           </div>
           <div className="head-end">
-            <div
-              className={`jp-stack ${g.jpHit ? "is-hit" : ""} ${g.poolEligible ? "is-live" : "is-feed"}`}
-              aria-label="Park jackpoty"
+            <button
+              type="button"
+              className={`jp-stack is-strip ${g.jpHit ? "is-hit" : ""} ${g.poolEligible ? "is-live" : "is-feed"}`}
+              aria-label="Park jackpoty · dnešný desk"
+              onClick={() => setDeskOpen(true)}
             >
+              <span className="jp-mark">{g.inFs ? "PARKNET" : "PARKIZMUS"}</span>
               {(["stat", "kraj", "okres", "ulica"] as const).map((id) => {
                 const t = g.pots[id];
                 const def = TIER_BY_ID[id];
@@ -185,50 +187,14 @@ export function SlotGame() {
                   </div>
                 );
               })}
-              <em>
-                {g.jpHit
-                  ? `${g.jpHit.name} · ${formatMoney(g.jpHit.payout)}`
-                  : g.poolEligible
-                    ? "LÍSTOK · 4 POTY"
-                    : "LEN 100+ BET"}
-              </em>
-            </div>
-            <div className="atm-desk" aria-label="Dnešný counter automatu">
-              <header>
-                <span>PARK BANK</span>
-                <b>DNES</b>
-              </header>
-              <p className="atm-kicker">COUNTER AUTOMATU · VŠETCI HRÁČI</p>
-              <dl>
-                <div>
-                  <dt>PRETOČENÉ</dt>
-                  <dd>
-                    <CountUp value={g.desk.wagered} meter />
-                  </dd>
-                  <dd className="atm-me">
-                    TY <CountUp value={g.mine.wagered} meter />
-                  </dd>
-                </div>
-                <div>
-                  <dt>VÝHRY</dt>
-                  <dd>
-                    <CountUp value={g.desk.paid} meter />
-                  </dd>
-                  <dd className="atm-me">
-                    TY <CountUp value={g.mine.paid} meter />
-                  </dd>
-                </div>
-                <div>
-                  <dt>MAX</dt>
-                  <dd>
-                    <CountUp value={g.desk.best} meter />
-                  </dd>
-                  <dd className="atm-me">
-                    TY <CountUp value={g.mine.best} meter />
-                  </dd>
-                </div>
-              </dl>
-            </div>
+              {g.jpHit ? (
+                <em>
+                  {g.jpHit.name} · {formatMoney(g.jpHit.payout)}
+                </em>
+              ) : g.poolEligible ? null : (
+                <em>100+</em>
+              )}
+            </button>
             </div>
           </div>
 
@@ -295,7 +261,7 @@ export function SlotGame() {
                   </div>
                 </div>
               ) : (
-                <div className={`pity-bar ${g.pityDelta ? "is-feed" : ""} ${g.pity >= g.pityGoal ? "is-hot" : ""}`}>
+                <div className={`pity-bar ${g.pityDelta ? "is-feed" : ""} ${g.pity >= g.pityGoal ? "is-hot" : ""} ${g.pity <= 0 ? "is-quiet" : ""}`}>
                   <span className="pity-kicker">KONTROLA</span>
                   <span className="pity-stake">{formatMoney(g.bet)}</span>
                   <span className="pity-name">PITY</span>
@@ -316,7 +282,7 @@ export function SlotGame() {
                 </div>
               )}
             </div>
-            <div className="top-ticker">
+            <div className={`top-ticker ${g.spinWin > 0 ? "has-win" : g.topLine && !g.topLine.startsWith("SYMBOLY PLATIA") ? "" : "is-idle"}`}>
               {g.spinWin > 0 ? (
                 <>
                   TUMBLE
@@ -325,9 +291,9 @@ export function SlotGame() {
                     {g.seqMult > 1 ? <em className="ticker-x"> ×{g.seqMult}</em> : null}
                   </strong>
                 </>
-              ) : (
+              ) : g.topLine && !g.topLine.startsWith("SYMBOLY PLATIA") ? (
                 g.topLine
-              )}
+              ) : null}
             </div>
             <div className="reel-host">
             <SlotGrid
@@ -684,7 +650,51 @@ export function SlotGame() {
         </div>
       )}
 
-      <Paytable open={g.paytableOpen} onClose={() => g.setPaytableOpen(false)} bet={g.bet} />
+      {deskOpen && (
+        <div className="modal-back" onClick={() => setDeskOpen(false)} role="presentation">
+          <div className="atm-desk atm-modal" role="dialog" aria-label="Dnešný counter automatu" onClick={(e) => e.stopPropagation()}>
+            <header>
+              <span>PARK BANK</span>
+              <b>DNES</b>
+            </header>
+            <p className="atm-kicker">COUNTER AUTOMATU · VŠETCI HRÁČI</p>
+            <dl>
+              <div>
+                <dt>PRETOČENÉ</dt>
+                <dd>
+                  <CountUp value={g.desk.wagered} meter />
+                </dd>
+                <dd className="atm-me">
+                  TY <CountUp value={g.mine.wagered} meter />
+                </dd>
+              </div>
+              <div>
+                <dt>VÝHRY</dt>
+                <dd>
+                  <CountUp value={g.desk.paid} meter />
+                </dd>
+                <dd className="atm-me">
+                  TY <CountUp value={g.mine.paid} meter />
+                </dd>
+              </div>
+              <div>
+                <dt>MAX</dt>
+                <dd>
+                  <CountUp value={g.desk.best} meter />
+                </dd>
+                <dd className="atm-me">
+                  TY <CountUp value={g.mine.best} meter />
+                </dd>
+              </div>
+            </dl>
+            <button type="button" className="chip-btn" onClick={() => setDeskOpen(false)}>
+              ZAVRIEŤ
+            </button>
+          </div>
+        </div>
+      )}
+
+      <Paytable open={g.paytableOpen} onClose={() => g.setPaytableOpen(false)} bet={g.bet} desk={g.desk} mine={g.mine} />
       <SpendSheet
         open={g.spendOpen}
         onClose={() => g.setSpendOpen(false)}
