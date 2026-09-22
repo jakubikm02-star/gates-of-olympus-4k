@@ -13,6 +13,7 @@ export interface PlayerSave {
   turbo: boolean;
   quick: boolean;
   ante: boolean;
+  autoHalt: boolean;
   bestWin: number;
   pityByBet: PityMap;
   rp: number;
@@ -47,6 +48,7 @@ export function emptyPlayerSave(): PlayerSave {
     turbo: false,
     quick: false,
     ante: false,
+    autoHalt: true,
     bestWin: 0,
     pityByBet: {},
     rp: 0,
@@ -119,7 +121,8 @@ function stampMs(v: unknown): number {
 
 const TIERS: TierId[] = ["ulica", "okres", "kraj", "stat"];
 const FLOORS: JobFloor[] = ["lacna", "stred", "draha"];
-const KINDS: JobCard["kind"][] = ["wins", "deads", "tumbles", "live", "ticket", "pdf", "signal", "dry", "symbol", "buy", "hydra"];
+const KINDS: JobCard["kind"][] = ["wins", "deads", "tumbles", "live", "ticket", "pdf", "signal", "symbol", "buy", "hydra", "chain", "collect"];
+const SCOPES: JobCard["scope"][] = ["base", "live", "any"];
 
 function jobSave(raw: unknown): JobCard | null {
   if (!raw || typeof raw !== "object") return null;
@@ -141,6 +144,7 @@ function jobSave(raw: unknown): JobCard | null {
     limit: Math.min(400, Math.max(need, Math.floor(num(r.limit, need * 8)))),
     spun: Math.min(400, Math.max(0, Math.floor(num(r.spun, 0)))),
     kind,
+    scope: SCOPES.includes(r.scope as JobCard["scope"]) ? (r.scope as JobCard["scope"]) : kind === "buy" ? "live" : "base",
     lockBet: num(r.lockBet, 0, 0, 1000),
     mystery: Boolean(r.mystery),
     payId: (["rj45", "router", "hap", "roof", "arris", "case", "meter", "pdf", "dacia"] as PayId[]).includes(
@@ -173,6 +177,7 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.turbo = bool(r.turbo, false);
   s.quick = bool(r.quick, false);
   s.ante = bool(r.ante, false);
+  s.autoHalt = bool(r.autoHalt, true);
   s.bestWin = num(r.bestWin, 0, 0, 1_000_000_000);
   s.pityByBet = pityMap(r.pityByBet);
   s.rp = Math.max(0, Math.floor(num(r.rp, 0)));

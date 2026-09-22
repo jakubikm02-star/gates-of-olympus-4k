@@ -19,7 +19,8 @@ export interface JobCard {
   have: number;
   limit: number;
   spun: number;
-  kind: "wins" | "deads" | "tumbles" | "live" | "ticket" | "pdf" | "signal" | "dry" | "symbol" | "buy" | "hydra";
+  kind: "wins" | "deads" | "tumbles" | "live" | "ticket" | "pdf" | "signal" | "symbol" | "buy" | "hydra" | "chain" | "collect";
+  scope?: "base" | "live" | "any";
   /** Bet locked for the life of the job. */
   lockBet: number;
   mystery?: boolean;
@@ -46,29 +47,31 @@ const TEMPLATES: {
   id: string;
   titles: string[];
   kind: JobCard["kind"];
+  scope: JobCard["scope"];
   need: [number, number];
   until: [number, number];
   line: string;
   payIds?: PayId[];
 }[] = [
-  { id: "zber", titles: ["ZBER", "OBCHÔDZKA", "DENNÁ DÁVKA"], kind: "wins", need: [8, 14], until: [40, 55], line: "výherných spinov" },
-  { id: "balik", titles: ["BALÍK", "REŤAZ TUMBLE", "PADÁ TO"], kind: "tumbles", need: [6, 12], until: [30, 50], line: "tumble reťazí" },
-  { id: "siet", titles: ["SIEŤ", "PARKNET LIVE", "ŠTYRI TELEVÍZORY"], kind: "live", need: [1, 1], until: [30, 50], line: "spustiť PARKNET LIVE" },
-  { id: "signal", titles: ["TACHYKARDIA", "TEP 180", "PULZ PLECHOVIEK"], kind: "signal", need: [12, 28], until: [40, 55], line: "násobičov súčtom plechoviek" },
-  { id: "retaz", titles: ["REŤAZ", "TRI V RADE", "BEZ PRESTÁVKY"], kind: "wins", need: [3, 3], until: [40, 55], line: "výhier v rade" },
-  { id: "plechovky", titles: ["PLECHOVKY", "RAMPA HUČÍ", "PLECH NA PLECH"], kind: "tumbles", need: [3, 8], until: [25, 40], line: "spinov s násobičom" },
-  { id: "tv", titles: ["4TV", "ŠTVORKA NA STENE", "KONTROLA 4KY"], kind: "live", need: [1, 1], until: [30, 50], line: "4tv trigger" },
-  { id: "plus", titles: ["PLUS", "HOCIČO", "VÝHRY"], kind: "wins", need: [10, 22], until: [40, 55], line: "akýchkoľvek výhier" },
-  { id: "pot", titles: ["POT", "SIVÝ LÍSTOK", "ULICA PADÁ"], kind: "ticket", need: [1, 1], until: [30, 50], line: "sivý lístok ULICA" },
-  { id: "sucho", titles: ["SUCHO", "TICHÁ ZÓNA", "RAMPA STOJÍ"], kind: "deads", need: [8, 18], until: [20, 35], line: "mŕtvych spinov" },
-  { id: "vynos", titles: ["VÝNOS", "PDF 8+", "PAPIER PLATÍ"], kind: "pdf", need: [1, 2], until: [30, 50], line: "PDF 8+" },
-  { id: "duo", titles: ["DUO", "DVA CLUSTRE", "DVOJIČKA"], kind: "wins", need: [2, 5], until: [25, 40], line: "dva clustre na spine" },
-  { id: "wifipro", titles: ["DOPOJ WIFIPRO", "WIFI NA STRECHE", "HESLO NA SPODKU"], kind: "symbol", payIds: ["router", "hap"], need: [2, 4], until: [45, 65], line: "výher WifiPRO" },
-  { id: "stb", titles: ["DOPOJ STB", "BOX DO OBÝVAČKY", "SET-TOP NA STÔL"], kind: "symbol", payIds: ["arris", "case"], need: [1, 3], until: [50, 75], line: "výher set-top boxom" },
-  { id: "rebrik", titles: ["REBRÍK NETREBA", "Z OKNA", "BEZ LEŠENIA"], kind: "dry", need: [6, 14], until: [40, 55], line: "výher bez tumble" },
-  { id: "domov", titles: ["CESTOU DOMOV", "POSLEDNÝ VÝJAZD", "CESTA SPÄŤ"], kind: "symbol", payIds: ["dacia", "roof"], need: [1, 2], until: [60, 90], line: "výher cestou domov" },
-  { id: "noc", titles: ["POHOTOVOSŤ", "SLUŽBA POHOTOVOSŤ", "VÝJAZD PO KÚPE"], kind: "buy", need: [6, 12], until: [15, 25], line: "výher v kúpenom PARKNET" },
-  { id: "hydra", titles: ["HYDRA", "DVA ZNAKY", "DVOJITÝ VÝJAZD"], kind: "hydra", need: [1, 3], until: [50, 80], line: "výher dvoch znakov" },
+  { id: "zber", titles: ["ZBER", "OBCHÔDZKA", "DENNÁ DÁVKA"], kind: "wins", scope: "base", need: [6, 12], until: [35, 55], line: "výherných spinov" },
+  { id: "plus", titles: ["PLUS", "HOCIČO", "VÝHRY"], kind: "wins", scope: "base", need: [8, 16], until: [30, 50], line: "akýchkoľvek výhier" },
+  { id: "balik", titles: ["MULTI TUMBLE", "REŤAZ PÁDOV", "DVA A VIAC"], kind: "chain", scope: "base", need: [2, 5], until: [40, 70], line: "spinov s 2+ tumble" },
+  { id: "pada", titles: ["SÚČET TUMBLE", "PADÁ TO", "PÁDY DOLE"], kind: "tumbles", scope: "base", need: [8, 18], until: [35, 55], line: "tumble pádov súčtom" },
+  { id: "siet", titles: ["SIEŤ", "PARKNET LIVE", "ŠTYRI TELEVÍZORY"], kind: "live", scope: "base", need: [1, 1], until: [30, 50], line: "spustiť PARKNET LIVE" },
+  { id: "signal", titles: ["TACHYKARDIA", "TEP 180", "PULZ PLECHOVIEK"], kind: "signal", scope: "live", need: [10, 24], until: [15, 25], line: "násobičov súčtom v LIVE" },
+  { id: "retaz", titles: ["REŤAZ", "TRI V RADE", "BEZ PRESTÁVKY"], kind: "wins", scope: "base", need: [3, 3], until: [40, 55], line: "výhier v rade" },
+  { id: "plechovky", titles: ["PLECHOVKY", "RAMPA HUČÍ", "PLECH NA PLECH"], kind: "tumbles", scope: "live", need: [3, 8], until: [12, 22], line: "spinov s násobičom v LIVE" },
+  { id: "tv", titles: ["4TV", "ŠTVORKA NA STENE", "KONTROLA 4KY"], kind: "live", scope: "base", need: [1, 1], until: [30, 50], line: "4tv trigger" },
+  { id: "pot", titles: ["POT", "SIVÝ LÍSTOK", "ULICA PADÁ"], kind: "ticket", scope: "base", need: [1, 1], until: [30, 50], line: "sivý lístok ULICA" },
+  { id: "sucho", titles: ["SUCHO", "TICHÁ ZÓNA", "RAMPA STOJÍ"], kind: "deads", scope: "base", need: [8, 18], until: [20, 35], line: "mŕtvych spinov" },
+  { id: "vynos", titles: ["VÝNOS", "PDF 8+", "PAPIER PLATÍ"], kind: "pdf", scope: "base", need: [1, 2], until: [30, 50], line: "PDF 8+" },
+  { id: "duo", titles: ["DUO", "DVA CLUSTRE", "DVOJIČKA"], kind: "wins", scope: "base", need: [2, 4], until: [30, 50], line: "dva clustre na spine" },
+  { id: "wifipro", titles: ["DOPOJ WIFIPRO", "WIFI NA STRECHE", "HESLO NA SPODKU"], kind: "symbol", scope: "base", payIds: ["router", "hap"], need: [2, 4], until: [45, 65], line: "výher WifiPRO" },
+  { id: "stb", titles: ["DOPOJ STB", "BOX DO OBÝVAČKY", "SET-TOP NA STÔL"], kind: "symbol", scope: "base", payIds: ["arris"], need: [2, 4], until: [45, 70], line: "výher Arris set-top boxom" },
+  { id: "domov", titles: ["CESTOU DOMOV", "POSLEDNÝ VÝJAZD", "CESTA SPÄŤ"], kind: "symbol", scope: "base", payIds: ["dacia", "roof"], need: [1, 2], until: [60, 90], line: "výher cestou domov" },
+  { id: "noc", titles: ["POHOTOVOSŤ", "SLUŽBA POHOTOVOSŤ", "VÝJAZD PO KÚPE"], kind: "buy", scope: "live", need: [6, 12], until: [15, 25], line: "výher v kúpenom PARKNET" },
+  { id: "hydra", titles: ["HYDRA", "DVA ZNAKY", "DVOJITÝ VÝJAZD"], kind: "hydra", scope: "base", need: [1, 3], until: [50, 80], line: "výher dvoch znakov" },
+  { id: "prilohy", titles: ["NAHRAJ PRÍLOHY", "SCAN DO OTRS", "FOTO NA TIKET"], kind: "collect", scope: "any", payIds: ["rj45", "router", "hap", "roof", "arris", "case", "dacia", "meter", "pdf"], need: [30, 80], until: [12, 28], line: "kusov na valcoch" },
 ];
 
 function rngRange(rng: () => number, a: number, b: number): number {
@@ -117,8 +120,9 @@ export function jobDone(job: JobCard): boolean {
   return job.have >= job.need;
 }
 
-export function jobClock(job: JobCard): string {
+export function jobClock(job: JobCard, inLive = false): string {
   if (jobDone(job)) return "SPLNENÁ";
+  if (job.scope === "live" && job.spun === 0 && !inLive) return "ČAKÁ NA PARKNET";
   const left = jobLeft(job);
   if (left <= 0) return "NEÚSPEŠNÝ TIKET";
   if (left === 1) return "posledné točenie";
@@ -145,7 +149,14 @@ export function jobMeter(job: JobCard): string {
   if (job.kind === "hydra" && job.payId && job.payIdB) {
     return `${payShort(job.payId)} ${job.have}/${job.need} · ${payShort(job.payIdB)} ${job.haveB ?? 0}/${job.needB ?? 0}`;
   }
+  if (job.kind === "collect") return `${job.have}/${job.need} ks`;
   return `${job.have}/${job.need}`;
+}
+
+export function jobScopeLabel(job: JobCard): string {
+  if (job.scope === "live") return job.kind === "buy" ? "KÚPA LIVE" : "PARKNET LIVE";
+  if (job.scope === "any") return "BASE + LIVE";
+  return "BASE GAME";
 }
 
 /** Paying 8+ cluster rate per paid spin (40k sim, tumbles included). */
@@ -161,11 +172,30 @@ export const PAY_HIT: Record<PayId, number> = {
   pdf: 0.014,
 };
 
+/** Cells of this pay on a 6×5 land (weight / 121.5 × 30). */
+export const PAY_CELL: Record<PayId, number> = {
+  rj45: 3.85,
+  router: 3.83,
+  hap: 3.7,
+  roof: 3.6,
+  arris: 3.63,
+  case: 3.04,
+  dacia: 2.91,
+  meter: 2.81,
+  pdf: 2.62,
+};
+
 export function symbolNeed(id: PayId, until: number, hard: number): number {
   const p = PAY_HIT[id] ?? 0.03;
   const λ = p * Math.max(8, until);
   const k = 0.52 + hard * 0.55;
   return Math.max(1, Math.round(λ * k));
+}
+
+export function collectNeed(id: PayId, until: number, hard: number): number {
+  const λ = (PAY_CELL[id] ?? 3) * Math.max(8, until);
+  const k = 0.55 + hard * 0.4;
+  return Math.max(8, Math.round(λ * k));
 }
 
 export function hydraSplit(a: PayId, b: PayId, until: number, hard = 0.5): { needA: number; needB: number } {
@@ -215,7 +245,7 @@ function makeJob(
   const hard = floor === "lacna" ? 0.2 : floor === "draha" ? 0.8 : 0.5;
   const need = t.need[0] === t.need[1] ? t.need[0] : Math.max(t.need[0], Math.min(t.need[1], rollBand(t.need, rng, hard)));
   const rawUntil = t.until[0] === t.until[1] ? t.until[0] : rollBand(t.until, rng, 1 - hard);
-  const slack = t.kind === "buy" ? 3 : 8;
+  const slack = t.kind === "buy" || t.scope === "live" ? 3 : 8;
   let limit = snapFive(Math.max(need + slack, rawUntil));
   if (limit < need) limit = snapFive(need + 5);
   const title = pickOne(t.titles, rng);
@@ -227,6 +257,10 @@ function makeJob(
   if (t.kind === "symbol" && payId) {
     if ((PAY_HIT[payId] ?? 1) < 0.03) limit = snapFive(Math.max(limit, 70));
     needNow = symbolNeed(payId, limit, hard);
+  }
+  if (t.kind === "collect" && payId) {
+    needNow = collectNeed(payId, limit, hard);
+    if (limit < needNow) limit = snapFive(needNow + 5);
   }
   if (t.kind === "hydra") {
     const ids = PAY_SYMBOLS.map((s) => s.id);
@@ -245,21 +279,24 @@ function makeJob(
   const line =
     t.kind === "hydra" && payId && payIdB && needB
       ? `${payShort(payId)} ${needNow}× + ${payShort(payIdB)} ${needB}×`
-      : payId === "router" || payId === "hap"
-        ? "výher WifiPRO"
-        : payId === "arris" || payId === "case"
-          ? "výher set-top boxom"
-          : payId === "dacia"
-            ? "výher Daciou cestou domov"
-            : payId === "roof"
-              ? "výher krytinou cestou domov"
-              : t.line;
+      : t.kind === "collect" && payId
+        ? `kusov ${payShort(payId)} na valcoch`
+        : payId === "router" || payId === "hap"
+          ? "výher WifiPRO"
+          : payId === "arris"
+            ? "výher Arris set-top boxom"
+            : payId === "dacia"
+              ? "výher Daciou cestou domov"
+              : payId === "roof"
+                ? "výher krytinou cestou domov"
+                : t.line;
+  const tag = t.scope === "live" ? " · LIVE" : t.scope === "any" ? " · BASE+LIVE" : "";
   return {
     id: `${t.id}-${floor}-${mystery ? "rnd" : "pick"}-${Math.floor(rng() * 1e6)}`,
     floor,
     template: t.id,
     title,
-    detail: `${t.kind === "hydra" ? line : `${needNow}× ${line}`} · ${limit} ${spinWord(limit)}`,
+    detail: `${t.kind === "hydra" ? line : `${needNow}× ${line}`} · ${limit} ${spinWord(limit)}${tag}`,
     stake,
     payout,
     need: needNow,
@@ -267,6 +304,7 @@ function makeJob(
     limit,
     spun: 0,
     kind: t.kind,
+    scope: t.scope,
     lockBet: b,
     mystery,
     payId,
@@ -306,14 +344,24 @@ export interface JobEvent {
   orbSum?: number;
   bought?: boolean;
   buyOver?: boolean;
+  liveSpin?: boolean;
+  shown?: number;
+}
+
+function jobOnThisSpin(job: JobCard, ev: JobEvent): boolean {
+  const live = Boolean(ev.liveSpin || ev.bought);
+  const scope = job.scope ?? (job.kind === "buy" ? "live" : "base");
+  if (job.kind === "buy") return Boolean(ev.bought);
+  if (scope === "base") return !live;
+  if (scope === "live") return live;
+  return true;
 }
 
 export function tickJob(job: JobCard, ev: JobEvent): JobCard {
   if (job.template === "retaz" && job.need > 3) {
     job = { ...job, need: 3, limit: Math.max(job.limit, 50) };
   }
-  if (job.kind === "buy" && !ev.bought) return job;
-  if (job.kind !== "buy" && ev.bought) return job;
+  if (!jobOnThisSpin(job, ev)) return job;
   let add = 0;
   let have = job.have;
   if (job.kind === "wins") {
@@ -326,14 +374,15 @@ export function tickJob(job: JobCard, ev: JobEvent): JobCard {
   if (job.kind === "deads" && ev.dead) add = 1;
   if (job.kind === "tumbles") {
     if (job.template === "plechovky") add = ev.orbs ? 1 : 0;
-    else if (ev.tumbles > 0) add = 1;
+    else add = Math.max(0, ev.tumbles);
   }
+  if (job.kind === "chain") add = ev.tumbles >= 2 ? 1 : 0;
   if (job.kind === "live" && ev.live) add = 1;
   if (job.kind === "ticket" && ev.ticket === "ulica") add = 1;
   if (job.kind === "pdf" && ev.pdf) add = 1;
   if (job.kind === "signal") add = Math.max(0, Math.floor(ev.orbSum ?? 0));
-  if (job.kind === "dry" && ev.win && ev.tumbles <= 0) add = 1;
   if (job.kind === "symbol" && job.payId && ev.pays?.includes(job.payId)) add = 1;
+  if (job.kind === "collect") add = Math.max(0, Math.floor(ev.shown ?? 0));
   if (job.kind === "buy" && ev.win) add = 1;
   let haveB = job.haveB ?? 0;
   if (job.kind === "hydra") {

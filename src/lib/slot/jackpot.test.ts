@@ -342,7 +342,8 @@ describe("míňať", () => {
       assert.ok(j.limit >= 15 && j.limit <= 100);
       assert.ok(j.need >= 1 && j.need <= j.limit);
       assert.equal(jobLeft(j), j.limit);
-      assert.equal(jobClock(j), `ešte ${j.limit} ${spinWord(j.limit)}`);
+      const clock = jobClock(j);
+      assert.ok(clock === `ešte ${j.limit} ${spinWord(j.limit)}` || clock === "ČAKÁ NA PARKNET");
     }
     s = 99;
     const other = dealJobs(rng, 200, 1);
@@ -497,7 +498,7 @@ describe("míňať", () => {
     assert.equal(jobStatus(hit), "ok");
   });
 
-  it("WifiPRO / STB / rebrík / cestou domov tick on the right events", () => {
+  it("WifiPRO / STB / multi tumble / cestou tick on the right events", () => {
     const wifi = dealJobs(() => 0.11, 500, 1).find((j) => j.template === "wifipro") ?? {
       id: "wifipro",
       floor: "lacna" as const,
@@ -540,18 +541,50 @@ describe("míňať", () => {
       pays: ["router"],
     });
     assert.equal(hit.have, 1);
-    const ladder = tickJob(
+    const stb = tickJob(
+      { ...wifi, id: "stb", template: "stb", title: "BOX DO OBÝVAČKY", payId: "arris", have: 0 },
+      {
+        win: true,
+        dead: false,
+        tumbles: 1,
+        live: false,
+        ticket: null,
+        pdf: false,
+        signal: 0,
+        clusters: 1,
+        orbs: false,
+        pays: ["arris"],
+      },
+    );
+    assert.equal(stb.have, 1);
+    const missCase = tickJob(
+      { ...stb, have: 0 },
+      {
+        win: true,
+        dead: false,
+        tumbles: 1,
+        live: false,
+        ticket: null,
+        pdf: false,
+        signal: 0,
+        clusters: 1,
+        orbs: false,
+        pays: ["case"],
+      },
+    );
+    assert.equal(missCase.have, 0);
+    const chain = tickJob(
       {
         ...wifi,
-        id: "rebrik",
-        template: "rebrik",
-        kind: "dry",
+        id: "balik",
+        template: "balik",
+        kind: "chain",
         have: 0,
       },
       {
         win: true,
         dead: false,
-        tumbles: 0,
+        tumbles: 1,
         live: false,
         ticket: null,
         pdf: false,
@@ -561,9 +594,9 @@ describe("míňať", () => {
         pays: ["router"],
       },
     );
-    assert.equal(ladder.have, 1);
-    const climb = tickJob(
-      { ...ladder, have: 0 },
+    assert.equal(chain.have, 0);
+    const multi = tickJob(
+      { ...chain, have: 0 },
       {
         win: true,
         dead: false,
@@ -577,7 +610,55 @@ describe("míňať", () => {
         pays: ["router"],
       },
     );
-    assert.equal(climb.have, 0);
+    assert.equal(multi.have, 1);
+    const sum = tickJob(
+      { ...wifi, id: "pada", template: "pada", kind: "tumbles", have: 0, need: 10 },
+      {
+        win: true,
+        dead: false,
+        tumbles: 3,
+        live: false,
+        ticket: null,
+        pdf: false,
+        signal: 0,
+        clusters: 1,
+        orbs: false,
+      },
+    );
+    assert.equal(sum.have, 3);
+    const files = tickJob(
+      { ...wifi, id: "prilohy", template: "prilohy", kind: "collect", scope: "any", payId: "dacia", have: 0, need: 40 },
+      {
+        win: false,
+        dead: true,
+        tumbles: 0,
+        live: false,
+        ticket: null,
+        pdf: false,
+        signal: 0,
+        clusters: 0,
+        orbs: false,
+        shown: 4,
+      },
+    );
+    assert.equal(files.have, 4);
+    const liveSkip = tickJob(
+      { ...wifi, scope: "base", have: 0 },
+      {
+        win: true,
+        dead: false,
+        tumbles: 1,
+        live: false,
+        ticket: null,
+        pdf: false,
+        signal: 0,
+        clusters: 1,
+        orbs: false,
+        pays: ["router"],
+        liveSpin: true,
+      },
+    );
+    assert.equal(liveSkip.have, 0);
   });
 
   it("TACHYKARDIA sums multiplier cans across spins", () => {

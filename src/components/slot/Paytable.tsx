@@ -111,11 +111,10 @@ export function Paytable({ open, onClose, bet }: Props) {
             (+30). Po spustení bar padne na 0. Kúpiť sa nedá.
           </li>
           <li>
-            Od kreditu 100 € zákazky: tri na výber, alebo skontrolovať OTRS. Cieľ aj termín sa
-            losujú (lacná / drahá). TACHYKARDIA je súčet plechoviek. HYDRA: dva rôzne znaky, počet
-            výhier podľa cluster-šance (Dacia ~2 % spinov, RJ45 ~6 %). POHOTOVOSŤ sa plní len v
-            kúpenom PARKNET (6–12 výher za 15–25 voľných točení). Ostatné kúpa neplní. Duel: stávku
-            nastaví hosť, hosť ju vidí pred prijatím. Každý platí zo svojho. Víťaz berie výhry oboch.
+            Od kreditu 100 € zákazky: BASE len v základnej hre, LIVE len v PARKNET. MULTI TUMBLE je
+            2+ pády, SÚČET TUMBLE sčíta pády. NAHRAJ PRÍLOHY zráta všetky kusy znaku na valcoch.
+            TACHYKARDIA a POHOTOVOSŤ platia v LIVE. BOX DO OBÝVAČKY je Arris set-top. Duel online
+            točíte naraz, live skóre. Víťaz berie výhry oboch.
           </li>
           <li>
             Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bankrot +5000 berie RP podľa stávky.

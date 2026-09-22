@@ -46,9 +46,19 @@ export function PickBonus({ tiles, revealed, ended, totalX, bet, killId, picks, 
           <div className="pk-fine-sheet">
             <img src="/art/paas-letak.webp" alt="Zaparkovali ste nesprávne" />
             <div className="pk-fine-stamp" aria-live="assertive">
-              <em>POKUTA</em>
-              <b>{eur(cash)}</b>
-              <span>{picks} státí · odťah</span>
+              {cash > 0 ? (
+                <>
+                  <em>POKUTA</em>
+                  <b>{eur(cash)}</b>
+                  <span>{picks} státí · odťah</span>
+                </>
+              ) : (
+                <>
+                  <em>KONTROLA</em>
+                  <b>tentoraz len varovanie</b>
+                  <span>{picks} státí · odťah</span>
+                </>
+              )}
             </div>
           </div>
           <button type="button" className="pk-outline pk-done pk-fine-go" onClick={onDone}>

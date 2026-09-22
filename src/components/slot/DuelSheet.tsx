@@ -116,6 +116,15 @@ export function DuelLink({
             setGuest(snap.guestName);
             if (link.role === "host") onPeerNameRef.current(snap.guestName);
           }
+          if (link.role === "host" && snap.guestName && snap.phase === "wait" && !started.current) {
+            void duelStart(link.room)
+              .then((go) => {
+                if (stop || started.current) return;
+                started.current = true;
+                onGoRef.current(go.guestName || snap.guestName, go.bet, go.mode);
+              })
+              .catch(() => {});
+          }
           if (snap.phase === "play" || snap.phase === "done") {
             if (!started.current) {
               started.current = true;
@@ -132,7 +141,7 @@ export function DuelLink({
           else if (!started.current) setErr(msg);
         }
       })();
-    }, 800);
+    }, 400);
 
     return () => {
       stop = true;
@@ -432,18 +441,22 @@ export function DuelBar({ duel }: { duel: Duel }) {
   const left = duelLeft(duel);
   const me = duel.kind === "online" ? duel.seats[duel.you] : duel.seats[duel.turn];
   const wait = duel.kind === "online" && duelMineDone(duel) && duel.phase === "play";
+  const live = duel.kind === "online";
   return (
     <div className="duel-bar" aria-live="polite">
-      <span className={duel.kind === "online" ? (duel.you === 0 ? "on" : "") : duel.turn === 0 ? "on" : ""}>
+      <span className={live || duel.turn === 0 ? "on" : ""}>
         {duel.seats[0].name}
         <b>{formatMoney(duel.seats[0].score)}</b>
+        {live ? ` ${duel.seats[0].have}/${duel.need}` : ""}
       </span>
       <em>
-        VS · {wait ? "čakám súpera" : me.name} · {formatMoney(duel.bet)} · ešte {left}
+        VS · {wait ? "čakám súpera" : live ? "TOČÍTE NARAZ" : me.name} · {formatMoney(duel.bet)}
+        {live ? "" : ` · ešte ${left}`}
       </em>
-      <span className={duel.kind === "online" ? (duel.you === 1 ? "on" : "") : duel.turn === 1 ? "on" : ""}>
+      <span className={live || duel.turn === 1 ? "on" : ""}>
         {duel.seats[1].name}
         <b>{formatMoney(duel.seats[1].score)}</b>
+        {live ? ` ${duel.seats[1].have}/${duel.need}` : ""}
       </span>
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { formatMoney } from "@/lib/slot/format";
-import { jobClock, jobLeft, jobMeter, spinWord, type JobCard } from "@/lib/slot/spend";
+import { jobClock, jobLeft, jobMeter, jobScopeLabel, spinWord, type JobCard } from "@/lib/slot/spend";
 
 interface Props {
   open: boolean;
@@ -75,17 +75,16 @@ export function SpendSheet({ open, onClose, credit, job, offer, onJob }: Props) 
               </button>
             </header>
             <p className="modal-lead">
-              Od 100 €. Cena aj výhra podľa kreditu a aktuálnej stávky. Po prijatí ostane stávka zamknutá, kým
-              zákazka neskončí. Kúpa PARKNET zákazku neplní, okrem POHOTOVOSŤ — tá ide len v kúpenom
-              bonuse. Tri na výber, alebo
-              skontrolovať OTRS: úloha, cena aj zisk až po prijatí.
+              Od 100 €. Cena aj výhra podľa kreditu a aktuálnej stávky. BASE ide len v základnej hre,
+              LIVE len v PARKNET. Kúpa PARKNET BASE neplní. POHOTOVOSŤ a TACHYKARDIA platia v LIVE.
+              Tri na výber, alebo skontrolovať OTRS.
             </p>
 
             {job ? (
               <p className={`spend-active ${jobLeft(job) <= 5 ? "is-late" : ""}`}>
                 {job.title} · {jobMeter(job)}
                 <span>
-                  {jobClock(job)} · stávka {formatMoney(job.lockBet || 0)} zamknutá
+                  {jobScopeLabel(job)} · {jobClock(job)} · stávka {formatMoney(job.lockBet || 0)} zamknutá
                 </span>
               </p>
             ) : (
@@ -95,12 +94,12 @@ export function SpendSheet({ open, onClose, credit, job, offer, onJob }: Props) 
                     <button
                       key={card.id}
                       type="button"
-                      className={`spend-job ${card.floor}`}
+                      className={`spend-job ${card.floor} ${card.scope === "live" ? "is-live" : ""} ${card.scope === "any" ? "is-any" : ""}`}
                       disabled={credit < card.stake}
                       onClick={() => onJob(card)}
                     >
                       <em>{card.title}</em>
-                      <span>{card.detail}</span>
+                      <span>{jobScopeLabel(card)} · {card.detail}</span>
                       <strong className="spend-dead">
                         do {card.limit} {spinWord(card.limit)} · stávka {formatMoney(card.lockBet)}
                       </strong>

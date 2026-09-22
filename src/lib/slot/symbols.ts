@@ -73,7 +73,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
   },
   {
     id: "arris",
-    name: "ARRIS",
+    name: "Set-top box",
     src: "/symbols/arris.png",
     pays: [1, 1.5, 10],
     weight: 14.7,

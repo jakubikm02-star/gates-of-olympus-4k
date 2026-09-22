@@ -3,7 +3,7 @@ import { Volume2, VolumeX, Info, RefreshCw, Menu } from "lucide-react";
 import { START_BALANCE, BETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
-import { jobClock, jobLeft, jobMeter } from "@/lib/slot/spend";
+import { jobClock, jobLeft, jobMeter, jobScopeLabel } from "@/lib/slot/spend";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { SlotGrid } from "./Grid";
 import { Paytable } from "./Paytable";
@@ -76,7 +76,7 @@ function HoldSpin({
       onPointerDown={down}
       onPointerUp={up}
       onPointerCancel={up}
-      disabled={!g.started || g.inFs || g.busy || g.buyAsk}
+      disabled={!g.started || g.busy || g.buyAsk}
       aria-label={label ?? "Točiť"}
     >
       <RefreshCw size={34} strokeWidth={2.6} />
@@ -190,6 +190,30 @@ export function SlotGame() {
                     ? "LÍSTOK · 4 POTY"
                     : "LEN 100+ BET"}
               </em>
+            </div>
+            <div className="atm-desk" aria-label="Dnešný desk">
+              <header>
+                <span>PARK BANK</span>
+                <b>DNES</b>
+              </header>
+              <dl>
+                <div>
+                  <dt>PRETOČENÉ</dt>
+                  <dd>
+                    <CountUp value={g.desk.wagered} meter />
+                  </dd>
+                </div>
+                <div>
+                  <dt>VÝHRY</dt>
+                  <dd>{g.desk.wins}</dd>
+                </div>
+                <div>
+                  <dt>MAX</dt>
+                  <dd>
+                    <CountUp value={g.desk.best} meter />
+                  </dd>
+                </div>
+              </dl>
             </div>
             </div>
           </div>
@@ -325,14 +349,17 @@ export function SlotGame() {
             </div>
             <div className="board-job">
               {g.duel && g.duel.phase === "play" && <DuelBar duel={g.duel} />}
-              {g.job && !g.inFs && (
-                <div className={`job-chip ${g.jobToast ? "is-hot" : ""} ${jobLeft(g.job) <= 5 ? "is-late" : ""}`}>
+              {g.job && (g.job.scope !== "base" || !g.inFs) && (
+                <div
+                  className={`job-chip ${g.job.scope === "live" ? "is-live" : ""} ${g.job.scope === "any" ? "is-any" : ""} ${g.jobToast ? "is-hot" : ""} ${jobLeft(g.job) <= 5 ? "is-late" : ""}`}
+                >
+                  <i>{jobScopeLabel(g.job)}</i>
                   <span>{g.job.title}</span>
                   <b>
                     {jobMeter(g.job)}
                   </b>
                   <em>
-                    {jobClock(g.job)}
+                    {jobClock(g.job, g.inFs)}
                     {g.job.lockBet ? ` · ${formatMoney(g.job.lockBet)}` : ""}
                   </em>
                 </div>
@@ -430,7 +457,7 @@ export function SlotGame() {
               type="button"
               className={`spin-btn hud-spin ${g.busy ? "is-busy" : ""} ${g.turbo ? "is-turbo" : ""}`}
               onClick={() => void g.spin()}
-              disabled={!g.started || g.inFs || g.busy || g.buyAsk}
+              disabled={!g.started || g.busy || g.buyAsk}
               aria-label="Točiť"
             >
               <RefreshCw size={34} strokeWidth={2.6} />
@@ -464,7 +491,16 @@ export function SlotGame() {
                       {n}
                     </button>
                   ))}
-                  <p className="auto-hint">stop: FS · 20× · 50% kredit. Po FS sa nespúšťa.</p>
+                  <p className="auto-hint">
+                    {g.autoHalt ? "STOP: FS · BIG WIN · 50% kredit. Banner ostane." : "Bez zastávky do konca AUTO."}
+                  </p>
+                  <button
+                    type="button"
+                    className={g.autoHalt ? "on" : ""}
+                    onClick={() => g.setAutoHalt(!g.autoHalt)}
+                  >
+                    BIG WIN STOP {g.autoHalt ? "ON" : "OFF"}
+                  </button>
                 </div>
               </details>
             )}
