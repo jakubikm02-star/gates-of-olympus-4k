@@ -38,6 +38,10 @@ export interface PlayerSave {
   playerId: string;
   job: JobCard | null;
   pendingLiveTicket: TierId | null;
+  deskDay: string;
+  deskWagered: number;
+  deskPaid: number;
+  deskBest: number;
 }
 
 export function emptyPlayerSave(): PlayerSave {
@@ -73,6 +77,10 @@ export function emptyPlayerSave(): PlayerSave {
     playerId: "",
     job: null,
     pendingLiveTicket: null,
+    deskDay: "",
+    deskWagered: 0,
+    deskPaid: 0,
+    deskBest: 0,
   };
 }
 
@@ -202,6 +210,10 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.playerId = typeof r.playerId === "string" && r.playerId.length >= 8 ? r.playerId.slice(0, 64) : "";
   s.job = jobSave(r.job);
   s.pendingLiveTicket = ticketSave(r.pendingLiveTicket);
+  s.deskDay = typeof r.deskDay === "string" ? r.deskDay.slice(0, 16) : "";
+  s.deskWagered = num(r.deskWagered, 0, 0, 1_000_000_000);
+  s.deskPaid = num(r.deskPaid, 0, 0, 1_000_000_000);
+  s.deskBest = num(r.deskBest, 0, 0, 1_000_000_000);
   if (!s.inFs || s.fsLeft <= 0) {
     s.inFs = false;
     s.fsLeft = 0;

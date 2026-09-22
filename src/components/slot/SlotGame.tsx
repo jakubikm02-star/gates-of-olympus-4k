@@ -193,26 +193,38 @@ export function SlotGame() {
                     : "LEN 100+ BET"}
               </em>
             </div>
-            <div className="atm-desk" aria-label="Dnešný desk">
+            <div className="atm-desk" aria-label="Dnešný counter automatu">
               <header>
                 <span>PARK BANK</span>
                 <b>DNES</b>
               </header>
+              <p className="atm-kicker">COUNTER AUTOMATU · VŠETCI HRÁČI</p>
               <dl>
                 <div>
                   <dt>PRETOČENÉ</dt>
                   <dd>
                     <CountUp value={g.desk.wagered} meter />
                   </dd>
+                  <dd className="atm-me">
+                    TY <CountUp value={g.mine.wagered} meter />
+                  </dd>
                 </div>
                 <div>
                   <dt>VÝHRY</dt>
-                  <dd>{g.desk.wins}</dd>
+                  <dd>
+                    <CountUp value={g.desk.paid} meter />
+                  </dd>
+                  <dd className="atm-me">
+                    TY <CountUp value={g.mine.paid} meter />
+                  </dd>
                 </div>
                 <div>
                   <dt>MAX</dt>
                   <dd>
                     <CountUp value={g.desk.best} meter />
+                  </dd>
+                  <dd className="atm-me">
+                    TY <CountUp value={g.mine.best} meter />
                   </dd>
                 </div>
               </dl>

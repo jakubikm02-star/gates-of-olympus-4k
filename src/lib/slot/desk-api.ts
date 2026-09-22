@@ -6,6 +6,7 @@ export interface DeskDay {
   day: string;
   wagered: number;
   wins: number;
+  paid: number;
   best: number;
 }
 
@@ -14,16 +15,17 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function today(): string {
+export function deskToday(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Bratislava" }).format(new Date());
 }
 
 function parse(raw: unknown): DeskDay {
   const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   return {
-    day: typeof o.day === "string" ? o.day : today(),
+    day: typeof o.day === "string" ? o.day : deskToday(),
     wagered: Math.max(0, num(o.wagered)),
     wins: Math.max(0, Math.floor(num(o.wins))),
+    paid: Math.max(0, num(o.paid)),
     best: Math.max(0, num(o.best)),
   };
 }
@@ -42,12 +44,26 @@ async function rpc(name: string, body: Record<string, unknown>): Promise<unknown
   return res.json();
 }
 
-export function emptyDesk(): DeskDay {
-  return { day: today(), wagered: 0, wins: 0, best: 0 };
+export function emptyDesk(day = deskToday()): DeskDay {
+  return { day, wagered: 0, wins: 0, paid: 0, best: 0 };
+}
+
+export function bumpLocalDesk(prev: DeskDay, stake: number, win: number): DeskDay {
+  const day = deskToday();
+  const base = prev.day === day ? prev : emptyDesk(day);
+  const addStake = Math.max(0, stake);
+  const addWin = Math.max(0, win);
+  return {
+    day,
+    wagered: +(base.wagered + addStake).toFixed(2),
+    wins: base.wins + (addWin > 0 ? 1 : 0),
+    paid: +(base.paid + addWin).toFixed(2),
+    best: Math.max(base.best, addWin),
+  };
 }
 
 export async function fetchDesk(): Promise<DeskDay> {
-  const day = today();
+  const day = deskToday();
   const res = await fetch(`${SUPA_URL}/rest/v1/desk_day?day=eq.${day}&select=*`, {
     headers: {
       apikey: SUPA_ANON,

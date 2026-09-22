@@ -5027,58 +5027,92 @@ html:-webkit-full-screen {
 .atm-desk {
   margin-top: 0;
   width: 100%;
-  max-width: 220px;
+  max-width: 240px;
   min-width: 0;
   box-sizing: border-box;
-  background: linear-gradient(180deg, #06382a, #02150f);
-  border: 2px solid #0d6b4f;
+  background:
+    linear-gradient(180deg, #0c2418 0%, #05140c 100%);
+  border: 2px solid #157a4a;
   box-shadow:
     0 0 0 1px #8ce0c0,
-    0 8px 18px rgb(0 0 0 / 0.35);
-  color: #e8fff4;
+    inset 0 0 0 1px #02140c,
+    0 8px 18px rgb(0 0 0 / 0.4);
+  color: #f5fff9;
   font-family: "IBM Plex Mono", ui-monospace, monospace;
-  padding: 6px 8px 8px;
+  padding: 6px 7px 7px;
 }
 
 .atm-desk header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #00a86b;
+  background: #00965e;
   color: #fff;
-  font-size: 0.62rem;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  padding: 3px 7px;
+  margin: -6px -7px 4px;
+}
+
+.atm-kicker {
+  margin: 0 0 4px;
+  font-size: 0.42rem;
   font-weight: 700;
-  letter-spacing: 0.16em;
-  padding: 3px 6px;
-  margin: -6px -8px 6px;
+  letter-spacing: 0.12em;
+  color: #7ad4a8;
 }
 
 .atm-desk dl {
   display: grid;
-  gap: 4px;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0;
   margin: 0;
 }
 
 .atm-desk div {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  border-bottom: 1px dashed rgb(140 224 192 / 0.25);
-  padding: 2px 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  border-right: 1px dashed rgb(140 224 192 / 0.28);
+  padding: 0 6px 0 0;
+  min-width: 0;
+}
+
+.atm-desk div:last-child {
+  border-right: 0;
+  padding-right: 0;
+}
+
+.atm-desk div:not(:first-child) {
+  padding-left: 6px;
 }
 
 .atm-desk dt {
-  font-size: 0.58rem;
+  font-size: 0.46rem;
   letter-spacing: 0.08em;
   color: #8ce0c0;
 }
 
 .atm-desk dd {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: #f5fff9;
+  line-height: 1.15;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.atm-desk .atm-me {
+  font-size: 0.48rem;
+  font-weight: 600;
+  color: #9ee8c6;
+  letter-spacing: 0.02em;
 }
 
 .auto-menu button.on {
@@ -5405,8 +5439,8 @@ html:-webkit-full-screen {
 }
 
 .stage.shell-pc .atm-desk {
-  width: 168px;
-  max-width: 168px;
+  width: 220px;
+  max-width: 220px;
 }
 
 @media (min-width: 821px) and (max-width: 1180px) {
@@ -5466,36 +5500,25 @@ html:-webkit-full-screen {
   font-size: 0.5rem;
 }
 
-.stage.shell-mw .atm-desk dl,
-.stage.shell-pwa .atm-desk dl {
-  grid-template-columns: 1fr 1fr 1fr;
-  display: grid;
-  gap: 0;
-}
-
-.stage.shell-mw .atm-desk div,
-.stage.shell-pwa .atm-desk div {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0;
-  border-bottom: 0;
-  border-right: 1px dashed rgb(140 224 192 / 0.25);
-  padding: 0 6px 0 0;
-}
-
-.stage.shell-mw .atm-desk div:last-child,
-.stage.shell-pwa .atm-desk div:last-child {
-  border-right: 0;
+.stage.shell-mw .atm-kicker,
+.stage.shell-pwa .atm-kicker {
+  font-size: 0.38rem;
+  margin-bottom: 2px;
 }
 
 .stage.shell-mw .atm-desk dt,
 .stage.shell-pwa .atm-desk dt {
-  font-size: 0.46rem;
+  font-size: 0.42rem;
 }
 
 .stage.shell-mw .atm-desk dd,
 .stage.shell-pwa .atm-desk dd {
-  font-size: 0.62rem;
+  font-size: 0.56rem;
+}
+
+.stage.shell-mw .atm-desk .atm-me,
+.stage.shell-pwa .atm-desk .atm-me {
+  font-size: 0.42rem;
 }
 
 .stage.shell-mw .rank-chip.rank-gauge {

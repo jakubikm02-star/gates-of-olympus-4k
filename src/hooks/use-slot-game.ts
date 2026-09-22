@@ -41,7 +41,7 @@ import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
 import { emptyBoard, isEligibleBet, ticketResolve, type BoardSnap, type JackpotHit, type TierId } from "@/lib/slot/jackpot";
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
-import { bumpDesk, emptyDesk, fetchDesk, type DeskDay } from "@/lib/slot/desk-api";
+import { bumpDesk, bumpLocalDesk, deskToday, emptyDesk, fetchDesk, type DeskDay } from "@/lib/slot/desk-api";
 import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, duelMineDone, duelWinner, duelPot, duelCreditDelta, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
 import {
   canSpend,
@@ -219,6 +219,8 @@ export function useSlotGame() {
   const [reloadStreak, setReloadStreak] = useState(0);
   const [weekDue, setWeekDue] = useState(0);
   const [desk, setDesk] = useState<DeskDay>(emptyDesk);
+  const [mine, setMine] = useState<DeskDay>(emptyDesk);
+  const mineRef = useRef<DeskDay>(emptyDesk());
 
   turboRef.current = turbo;
   quickRef.current = quick;
@@ -298,6 +300,12 @@ export function useSlotGame() {
     setJob(loaded);
     jobRef.current = loaded;
     pendingLiveTicketRef.current = s.pendingLiveTicket;
+    const day = deskToday();
+    const mineDay = s.deskDay === day
+      ? { day, wagered: s.deskWagered, paid: s.deskPaid, best: s.deskBest, wins: 0 }
+      : emptyDesk(day);
+    mineRef.current = mineDay;
+    setMine(mineDay);
     saveSnapRef.current = s;
   }, []);
 
@@ -306,6 +314,15 @@ export function useSlotGame() {
     const next = payload ?? { ...saveSnapRef.current, updatedAt: Date.now() };
     saveSnapRef.current = next;
     writeLocal(next);
+  }, []);
+
+  const bumpToday = useCallback((stake: number, win: number) => {
+    const nextMine = bumpLocalDesk(mineRef.current, stake, win);
+    mineRef.current = nextMine;
+    setMine(nextMine);
+    void bumpDesk(stake, win)
+      .then(setDesk)
+      .catch(() => {});
   }, []);
 
   const persistNow = useCallback(() => {
@@ -331,6 +348,10 @@ export function useSlotGame() {
       job: jobRef.current,
       pendingLiveTicket: pendingLiveTicketRef.current,
       autoHalt: autoHaltRef.current,
+      deskDay: mineRef.current.day,
+      deskWagered: mineRef.current.wagered,
+      deskPaid: mineRef.current.paid,
+      deskBest: mineRef.current.best,
       updatedAt: Date.now(),
     };
     saveSnapRef.current = next;
@@ -404,6 +425,10 @@ export function useSlotGame() {
       globalMult: globalMultRef.current,
       job: jobRef.current,
       pendingLiveTicket: pendingLiveTicketRef.current,
+      deskDay: mineRef.current.day,
+      deskWagered: mineRef.current.wagered,
+      deskPaid: mineRef.current.paid,
+      deskBest: mineRef.current.best,
     };
     saveSnapRef.current = payload;
     writeLocal(payload);
@@ -1312,9 +1337,7 @@ export function useSlotGame() {
       }
 
       if (!isFree && cost > 0) {
-        void bumpDesk(cost, opts?.buy ? 0 : cash)
-          .then(setDesk)
-          .catch(() => {});
+        bumpToday(cost, opts?.buy ? 0 : cash);
       }
 
       setPots(boardRef.current.pots);
@@ -1457,11 +1480,7 @@ export function useSlotGame() {
         else sfx.playPayout();
         sfx.stopLiveBed();
         if (fsCash > 0) setBalance((b) => +(b + fsCash).toFixed(2));
-        if (featureTotal > 0) {
-          void bumpDesk(0, featureTotal)
-            .then(setDesk)
-            .catch(() => {});
-        }
+        if (featureTotal > 0) bumpToday(0, featureTotal);
         roundCashRef.current = featureTotal;
         const bought = sess.bought;
         const peak = sess.peak;
@@ -1906,6 +1925,7 @@ export function useSlotGame() {
     weekTarget: standing(dropOneGroup(rp)),
     pots,
     desk,
+    mine,
     jpHit,
     ticketLock,
     poolEligible: isEligibleBet(bet),
