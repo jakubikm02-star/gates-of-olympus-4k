@@ -157,24 +157,31 @@ export function renderInstallPageHtml(template, { host, url } = {}) {
     .replaceAll("{{APP_URL}}", escapeHtml(stripInstallParams(url)));
 }
 
-export function renderWebManifest(hostHeader) {
-  const name = appNameFromHost(hostHeader);
+export function renderWebManifest(hostHeader, site = {}) {
+  const name = resolveOgTitle(site, DEFAULT_APP_NAME, hostHeader);
+  const short =
+    String(site.short_name ?? site.shortName ?? "").trim() ||
+    (name === "Ports of Parkizmus" ? "Parkizmus" : name);
+  const hex = placeholderCardColor(site);
+  const color = hex ? `#${hex}` : "#0b0d10";
   return JSON.stringify(
     {
       name,
-      short_name: name,
+      short_name: short,
       id: "/",
       start_url: "/",
       scope: "/",
       display: "standalone",
-      background_color: "#000000",
-      theme_color: "#000000",
+      orientation: "any",
+      lang: "sk",
+      description: "Nočná garáž, rampa, lístok, pokuta. Demo automat.",
+      background_color: color,
+      theme_color: color,
       icons: [
-        {
-          src: "/__grok/icon-180.png",
-          sizes: "180x180",
-          type: "image/png",
-        },
+        { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+        { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+        { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        { src: "/__grok/icon-180.png", sizes: "180x180", type: "image/png" },
       ],
     },
     null,

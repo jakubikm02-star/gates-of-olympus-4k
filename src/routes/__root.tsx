@@ -16,7 +16,10 @@ export const Route = createRootRoute({
         content: "Ports of Parkizmus — nočná garáž, rampa, lístok, pokuta. Demo automat.",
       },
       { name: "theme-color", content: "#0b0d10" },
-    ],
+      { name: "apple-mobile-web-app-title", content: "Parkizmus" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "application-name", content: "Parkizmus" },
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "stylesheet", href: appCss },

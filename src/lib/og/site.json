@@ -1,5 +1,6 @@
 {
   "title": "Ports of Parkizmus",
+  "short_name": "Parkizmus",
   "type": "x:game",
   "card": "custom",
   "color": "0b0d10"
