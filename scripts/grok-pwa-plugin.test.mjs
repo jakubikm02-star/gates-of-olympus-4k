@@ -477,7 +477,7 @@ test("renders the manifest with the per-app name", () => {
   const manifest = JSON.parse(renderWebManifest("wild-race.grok.me"));
   assert.equal(manifest.name, "Wild Race");
   assert.equal(manifest.short_name, "Wild Race");
-  assert.equal(manifest.icons[0].src, "/icon-192.png");
+  assert.equal(manifest.icons[1].src, "/icon-192.png");
 });
 
 test("manifest prefers site.json title and short_name", () => {
@@ -490,6 +490,7 @@ test("manifest prefers site.json title and short_name", () => {
   );
   assert.equal(manifest.name, "Ports of Parkizmus");
   assert.equal(manifest.short_name, "Parkizmus");
+  assert.equal(manifest.id, "/parkizmus");
   assert.equal(manifest.theme_color, "#0b0d10");
 });
 

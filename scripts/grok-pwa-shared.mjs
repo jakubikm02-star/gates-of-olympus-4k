@@ -168,7 +168,7 @@ export function renderWebManifest(hostHeader, site = {}) {
     {
       name,
       short_name: short,
-      id: "/",
+      id: "/parkizmus",
       start_url: "/",
       scope: "/",
       display: "standalone",
@@ -178,9 +178,11 @@ export function renderWebManifest(hostHeader, site = {}) {
       background_color: color,
       theme_color: color,
       icons: [
+        { src: "/favicon.ico", sizes: "48x48", type: "image/x-icon" },
         { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
         { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
         { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        { src: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
         { src: "/__grok/icon-180.png", sizes: "180x180", type: "image/png" },
       ],
     },
@@ -189,7 +191,10 @@ export function renderWebManifest(hostHeader, site = {}) {
   );
 }
 
-export function grokPwaHeadTags(appName = DEFAULT_APP_NAME) {
+export function grokPwaHeadTags(appName = DEFAULT_APP_NAME, shortName = "") {
+  const short =
+    String(shortName ?? "").trim() ||
+    (appName === "Ports of Parkizmus" ? "Parkizmus" : appName);
   return [
     // Standalone display comes from the manifest ("display": "standalone");
     // the legacy *-web-app-capable metas it replaces are deliberately absent.
@@ -197,13 +202,17 @@ export function grokPwaHeadTags(appName = DEFAULT_APP_NAME) {
     ["apple-touch-icon", '<link rel="apple-touch-icon" href="/__grok/icon-180.png">'],
     [
       "apple-mobile-web-app-title",
-      `<meta name="apple-mobile-web-app-title" content="${escapeHtml(appName)}">`,
+      `<meta name="apple-mobile-web-app-title" content="${escapeHtml(short)}">`,
+    ],
+    [
+      "application-name",
+      `<meta name="application-name" content="${escapeHtml(short)}">`,
     ],
     [
       "apple-mobile-web-app-status-bar-style",
       '<meta name="apple-mobile-web-app-status-bar-style" content="black">',
     ],
-    ["theme-color", '<meta name="theme-color" content="#000000">'],
+    ["theme-color", '<meta name="theme-color" content="#0b0d10">'],
   ];
 }
 
@@ -439,9 +448,12 @@ export function injectGrokPwaHead(html, ctx = {}) {
     host,
     documentTitle,
   );
+  const shortName =
+    String(site.short_name ?? site.shortName ?? "").trim() ||
+    (appName === "Ports of Parkizmus" ? "Parkizmus" : appName);
   let next = stripShareMetaTags(html);
 
-  const missing = grokPwaHeadTags(appName)
+  const missing = grokPwaHeadTags(appName, shortName)
     .filter(([key]) => {
       if (key === "manifest") return !next.includes('href="/__grok/manifest.webmanifest"');
       if (key === "apple-touch-icon") return !next.includes('href="/__grok/icon-180.png"');
