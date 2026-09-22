@@ -35,8 +35,8 @@
   html,
   body,
   #app {
-    height: 100%;
-    max-height: 100dvh;
+    height: var(--app-h, 100svh);
+    max-height: var(--app-h, 100svh);
     overflow: hidden;
   }
   body {
@@ -53,8 +53,8 @@
 
 .stage {
   position: relative;
-  height: 100dvh;
-  max-height: 100dvh;
+  height: var(--app-h, 100svh);
+  max-height: var(--app-h, 100svh);
   min-height: 0;
   isolation: isolate;
   overflow: hidden;
@@ -184,8 +184,8 @@
   max-width: 1360px;
   margin: 0 auto;
   padding: 4px 12px 6px;
-  height: 100dvh;
-  max-height: 100dvh;
+  height: 100%;
+  max-height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -3338,13 +3338,14 @@
 
 @media (max-width: 720px) {
   .stage {
-    height: 100dvh;
-    max-height: 100dvh;
+    height: var(--app-h, 100svh);
+    max-height: var(--app-h, 100svh);
   }
   .table {
-    padding: 2px 2px 0;
-    min-height: 100dvh;
-    max-height: 100dvh;
+    padding: 2px 4px 0;
+    min-height: 0;
+    max-height: 100%;
+    height: 100%;
     overflow: hidden;
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
@@ -3387,8 +3388,8 @@
   }
   .pk-app {
     width: 100%;
-    height: 100dvh;
-    max-height: 100dvh;
+    height: var(--app-h, 100svh);
+    max-height: var(--app-h, 100svh);
     border-radius: 0;
   }
   .win-log {
@@ -3552,8 +3553,11 @@
 .head-end {
   justify-self: end;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 6px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .jp-stack {
@@ -5021,8 +5025,11 @@ html:-webkit-full-screen {
 }
 
 .atm-desk {
-  margin-top: 8px;
-  width: min(220px, 100%);
+  margin-top: 0;
+  width: 100%;
+  max-width: 220px;
+  min-width: 0;
+  box-sizing: border-box;
   background: linear-gradient(180deg, #06382a, #02150f);
   border: 2px solid #0d6b4f;
   box-shadow:
@@ -5389,3 +5396,234 @@ html:-webkit-full-screen {
     grid-template-columns: 1fr;
   }
 }
+
+/* —— shell: PC / PWA / mobile web —— */
+.stage.shell-pc .head-end {
+  flex-direction: row;
+  align-items: stretch;
+  max-width: min(420px, 46vw);
+}
+
+.stage.shell-pc .atm-desk {
+  width: 168px;
+  max-width: 168px;
+}
+
+@media (min-width: 821px) and (max-width: 1180px) {
+  .stage.shell-pc .head-end {
+    flex-direction: column;
+    max-width: 220px;
+  }
+  .stage.shell-pc .atm-desk {
+    width: 100%;
+    max-width: 220px;
+  }
+}
+
+.stage.shell-mw .head-center,
+.stage.shell-mw .ls-max {
+  display: none;
+}
+
+.stage.shell-mw .table-head {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+  align-items: start;
+}
+
+.stage.shell-mw .head-end,
+.stage.shell-pwa .head-end {
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.stage.shell-mw .jp-stack,
+.stage.shell-pwa .jp-stack {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 7px 4px;
+}
+
+.stage.shell-mw .jp-row.stat b {
+  font-size: clamp(0.78rem, 4.2vw, 1.02rem);
+}
+
+.stage.shell-mw .atm-desk,
+.stage.shell-pwa .atm-desk {
+  width: 100%;
+  max-width: 100%;
+  margin-top: 0;
+  padding: 3px 6px 4px;
+}
+
+.stage.shell-mw .atm-desk header,
+.stage.shell-pwa .atm-desk header {
+  margin: -3px -6px 3px;
+  padding: 2px 6px;
+  font-size: 0.5rem;
+}
+
+.stage.shell-mw .atm-desk dl,
+.stage.shell-pwa .atm-desk dl {
+  grid-template-columns: 1fr 1fr 1fr;
+  display: grid;
+  gap: 0;
+}
+
+.stage.shell-mw .atm-desk div,
+.stage.shell-pwa .atm-desk div {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  border-bottom: 0;
+  border-right: 1px dashed rgb(140 224 192 / 0.25);
+  padding: 0 6px 0 0;
+}
+
+.stage.shell-mw .atm-desk div:last-child,
+.stage.shell-pwa .atm-desk div:last-child {
+  border-right: 0;
+}
+
+.stage.shell-mw .atm-desk dt,
+.stage.shell-pwa .atm-desk dt {
+  font-size: 0.46rem;
+}
+
+.stage.shell-mw .atm-desk dd,
+.stage.shell-pwa .atm-desk dd {
+  font-size: 0.62rem;
+}
+
+.stage.shell-mw .rank-chip.rank-gauge {
+  width: 86px;
+  height: 66px;
+  min-height: 66px;
+  max-height: 66px;
+  padding: 1px 3px 2px;
+}
+
+.stage.shell-mw .rank-dial {
+  width: 80px;
+  height: 44px;
+}
+
+.stage.shell-mw .rank-hub {
+  top: 32px;
+  width: 14px;
+  height: 14px;
+}
+
+.stage.shell-mw .rank-gauge .rank-meta em {
+  font-size: 0.46rem;
+}
+
+.stage.shell-mw .side-left {
+  gap: 4px;
+}
+
+.stage.shell-mw .parchment {
+  min-width: 0;
+  padding: 4px 8px 5px;
+}
+
+.stage.shell-mw .parchment em {
+  font-size: 0.5rem;
+}
+
+.stage.shell-mw .parchment strong {
+  font-size: 0.82rem;
+  margin-top: 0;
+}
+
+.stage.shell-mw .parchment.ante {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+}
+
+.stage.shell-mw .parchment.ante em,
+.stage.shell-mw .parchment.ante strong {
+  display: inline;
+}
+
+.stage.shell-mw .ante-pool {
+  display: none;
+}
+
+.stage.shell-mw .ante-switch {
+  margin-top: 0;
+  margin-left: auto;
+  padding: 1px 7px;
+  font-size: 0.52rem;
+}
+
+.stage.shell-mw .board-meter,
+.stage.shell-mw .top-ticker {
+  height: 1.45rem;
+  min-height: 1.45rem;
+  max-height: 1.45rem;
+  margin-bottom: 2px;
+}
+
+.stage.shell-mw .bottom-hud {
+  padding: 2px 2px 4px;
+  gap: 4px;
+}
+
+.stage.shell-mw .spin-btn {
+  width: 60px;
+  height: 60px;
+  border-width: 4px;
+}
+
+.stage.shell-mw .round-btn {
+  width: 32px;
+  height: 32px;
+}
+
+.stage.shell-mw .extra-row {
+  padding: 0 0 4px;
+  gap: 4px;
+}
+
+.stage.shell-mw .chip-btn {
+  padding: 4px 8px;
+  font-size: 0.62rem;
+}
+
+.stage.shell-pwa .head-center {
+  display: block;
+}
+
+.stage.shell-pwa .logo-plate.compact .logo-main {
+  font-size: 0.88rem;
+}
+
+.stage.shell-pwa .ls-max {
+  display: none;
+}
+
+.stage.shell-pwa .rank-chip.rank-gauge {
+  width: 96px;
+  height: 72px;
+  min-height: 72px;
+  max-height: 72px;
+}
+
+.stage.shell-pwa .parchment {
+  padding: 6px 8px;
+}
+
+.stage.shell-pwa .table {
+  padding-bottom: max(6px, env(safe-area-inset-bottom));
+}
+
+.stage.in-fs .atm-desk {
+  opacity: 0.55;
+}
+

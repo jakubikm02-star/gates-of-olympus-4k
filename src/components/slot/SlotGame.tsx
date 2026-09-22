@@ -5,6 +5,7 @@ import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
 import { jobClock, jobLeft, jobMeter, jobScopeLabel } from "@/lib/slot/spend";
 import { useSlotGame } from "@/hooks/use-slot-game";
+import { useShell } from "@/hooks/use-shell";
 import { SlotGrid } from "./Grid";
 import { Paytable } from "./Paytable";
 import { PickBonus } from "./PickBonus";
@@ -86,6 +87,7 @@ function HoldSpin({
 
 export function SlotGame() {
   const g = useSlotGame();
+  const shell = useShell();
   const spinning = g.phase === "spinning" || g.phase === "landing";
   const resolving =
     spinning ||
@@ -112,7 +114,7 @@ export function SlotGame() {
 
   return (
     <div
-      className={`stage ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""}`}
+      className={`stage shell-${shell} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""}`}
     >
       <div className="stage-bg" />
       <div className="stage-glow" />
