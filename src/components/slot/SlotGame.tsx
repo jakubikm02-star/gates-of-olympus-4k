@@ -3,7 +3,7 @@ import { Volume2, VolumeX, Info, RefreshCw, Menu } from "lucide-react";
 import { START_BALANCE, BETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
-import { jobChip } from "@/lib/slot/spend";
+import { jobClock, jobMeter } from "@/lib/slot/spend";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { useShell } from "@/hooks/use-shell";
 import { SlotGrid } from "./Grid";
@@ -336,8 +336,17 @@ export function SlotGame() {
                   type="button"
                   className={`job-chip ${(g.job.limit - g.job.spun) <= 5 ? "is-late" : ""}`}
                   onClick={() => setLcdOn((v) => !v)}
+                  aria-expanded={lcdOn}
                 >
-                  <span>{jobChip(g.job)}</span>
+                  <span className="job-kicker">TIKET</span>
+                  <strong>{g.job.goal || g.job.detail}</strong>
+                  <span className="job-facts">
+                    <b>{jobMeter(g.job)}</b>
+                    <em>{jobClock(g.job, g.inFs)}</em>
+                    <i>
+                      {formatMoney(g.job.stake)} → {formatMoney(g.job.payout)}
+                    </i>
+                  </span>
                 </button>
               )}
             </div>

@@ -464,11 +464,22 @@
 
 .board-job {
   flex-shrink: 0;
-  height: 1.15rem;
-  margin-top: 4px;
+  height: auto;
+  min-height: 0;
+  margin-top: 0;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
+}
+
+.board-job.has-job {
+  height: auto;
+  margin-top: 6px;
+  padding: 8px 12px 9px;
+  background: rgb(8 12 16 / 0.94);
+  border: 1px solid rgb(240 196 25 / 0.78);
+  border-radius: 10px;
+  box-shadow: 0 8px 18px rgb(0 0 0 / 0.28);
 }
 
 .board-stage {
@@ -5034,37 +5045,63 @@ html:-webkit-full-screen {
 }
 
 .job-chip {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 8px;
-  margin: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "kicker goal"
+    "facts facts";
+  gap: 2px 10px;
   width: 100%;
+  margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--color-gold-2);
+  color: #ffe56a;
   font: inherit;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  cursor: pointer;
 }
 
-.job-chip span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.job-chip .job-kicker {
+  grid-area: kicker;
+  align-self: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: #ffe56a;
+}
+
+.job-chip strong {
+  grid-area: goal;
   min-width: 0;
+  font-size: 1.12rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  color: #fff;
+  text-transform: none;
 }
 
-.job-chip b {
-  color: var(--color-gold-2);
-  font-variant-numeric: tabular-nums;
+.job-chip .job-facts {
+  grid-area: facts;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  min-width: 0;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  letter-spacing: 0.03em;
+  color: #f6e7a8;
 }
 
-.job-chip em {
+.job-chip .job-facts b,
+.job-chip .job-facts em,
+.job-chip .job-facts i {
   font-style: normal;
-  color: var(--color-gold-2);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .job-chip.is-late em,
@@ -5072,16 +5109,15 @@ html:-webkit-full-screen {
   color: #ff7a7a;
 }
 
+.job-chip .job-facts i {
+  font-size: 0.98rem;
+  letter-spacing: 0.03em;
+  color: #f6e7a8;
+}
+
 .job-chip.is-hot,
 .job-toast {
   color: var(--color-gold-2);
-}
-
-.job-chip i {
-  font-style: normal;
-  font-size: 0.58rem;
-  letter-spacing: 0.12em;
-  color: var(--color-muted);
 }
 
 .job-chip.is-live {
@@ -5151,10 +5187,10 @@ html:-webkit-full-screen {
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 6px;
-  min-height: 16px;
-  padding-bottom: 2px;
+  min-height: 18px;
+  padding-bottom: 3px;
   border-bottom: 2px solid #ff2a2a;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.08em;
 }
 
@@ -5164,7 +5200,7 @@ html:-webkit-full-screen {
 }
 
 .nf-screen header strong {
-  font-size: 12px;
+  font-size: 15px;
   letter-spacing: 0.16em;
 }
 
@@ -5219,22 +5255,22 @@ html:-webkit-full-screen {
 
 .nf-screen li {
   display: grid;
-  grid-template-columns: 18px 58px minmax(0, 1fr);
+  grid-template-columns: 22px 72px minmax(0, 1fr);
   align-items: center;
   gap: 6px;
   min-height: 0;
-  font-size: 11px;
-  line-height: 1.1;
-  letter-spacing: 0.04em;
+  font-size: 14px;
+  line-height: 1.15;
+  letter-spacing: 0.03em;
 }
 
 .nf-screen li b {
   display: grid;
   place-items: center;
-  height: 14px;
+  height: 18px;
   background: #ffe14a;
   color: #1a1400;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -6070,31 +6106,33 @@ html:-webkit-full-screen {
 .stage.shell-mw .board-job.has-job,
 .stage.shell-pwa .board-job.has-job {
   height: auto;
-  min-height: 2.85rem;
+  min-height: 4.6rem;
   margin-top: 6px;
-  padding: 5px 8px 6px;
-  overflow: hidden;
+  padding: 8px 10px 9px;
+  overflow: visible;
   z-index: 7;
   background: rgb(8 12 16 / 0.94);
-  border: 1px solid rgb(240 196 25 / 0.55);
-  border-radius: 8px;
+  border: 1px solid rgb(240 196 25 / 0.78);
+  border-radius: 10px;
 }
 
 .stage.shell-mw .job-chip,
 .stage.shell-pwa .job-chip {
-  display: flex;
-  justify-content: center;
+  display: grid;
   width: 100%;
-  font-size: 0.78rem;
-  line-height: 1.25;
-  letter-spacing: 0.14em;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
 }
 
-.stage.shell-mw .job-chip em,
-.stage.shell-pwa .job-chip em {
-  grid-column: 1 / -1;
-  text-align: right;
-  font-size: 0.64rem;
+.stage.shell-mw .job-chip strong,
+.stage.shell-pwa .job-chip strong {
+  font-size: 1.05rem;
+}
+
+.stage.shell-mw .job-chip .job-facts,
+.stage.shell-pwa .job-chip .job-facts {
+  font-size: 0.92rem;
 }
 
 .stage.shell-mw .bottom-hud,
