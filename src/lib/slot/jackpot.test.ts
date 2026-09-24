@@ -18,7 +18,7 @@ import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, p
 import { pityGain } from "./pick-bonus.ts";
 import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta, canDuelSpin, duelView, forfeitDuel } from "./duel.ts";
 import { PAY_SYMBOLS, payName, ORB_TABLE, ORB_VALUES } from "./symbols.ts";
-import { canSpend, dealJobs, freshDaily, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobMeter, jobParknetBroke, jobStatus, stampDaily, symbolNeed, tickJob, spinWord, JOB_BANK, JOB_TEMPLATE_IDS, type JobCard } from "./spend.ts";
+import { canSpend, dealJobs, freshDaily, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobMeter, jobParknetBroke, jobStatus, missCollectPlan, stampDaily, symbolNeed, tickJob, spinWord, winCollectPlan, JOB_BANK, JOB_TEMPLATE_IDS, type JobCard } from "./spend.ts";
 
 describe("park jackpots", () => {
   it("takes 2.3% visible + 0.3% reserve", () => {
@@ -339,8 +339,9 @@ describe("míňať", () => {
     assert.ok(highBet[0].stake > small[0].stake);
     for (const j of small.slice(0, 3)) {
       assert.equal(j.limit % 5, 0);
-      assert.ok(j.limit >= 15 && j.limit <= 100);
-      assert.ok(j.need >= 1 && j.need <= j.limit);
+      assert.ok(j.limit >= 15 && j.limit <= 120);
+      if (j.kind === "collect") assert.ok(j.need > j.limit);
+      else assert.ok(j.need >= 1 && j.need <= j.limit);
       assert.equal(jobLeft(j), j.limit);
       const clock = jobClock(j);
       assert.ok(clock === `ešte ${j.limit} ${spinWord(j.limit)}` || clock === "ČAKÁ NA PARKNET");
@@ -396,6 +397,27 @@ describe("míňať", () => {
         assert.equal(/\bDAC\b|\bHAP\b|\bKRYT\b|\bKUF\b|WifiPRO/.test(text), false, text);
       }
     }
+  });
+
+  it("sets winning and non-winning collects from the spin rates", () => {
+    const easy = winCollectPlan("rj45", "lacna");
+    const mid = winCollectPlan("rj45", "stred");
+    const hard = winCollectPlan("rj45", "draha");
+    assert.deepEqual(easy, { need: 2, limit: 50 });
+    assert.deepEqual(mid, { need: 3, limit: 50 });
+    assert.deepEqual(hard, { need: 4, limit: 55 });
+    assert.deepEqual(winCollectPlan("pdf", "draha"), { need: 1, limit: 40 });
+    const loose = missCollectPlan("rj45", "lacna");
+    const tight = missCollectPlan("rj45", "draha");
+    assert.deepEqual(loose, { need: 59, limit: 20 });
+    assert.deepEqual(tight, { need: 152, limit: 45 });
+    assert.ok(loose.need < 20 * 3.286);
+    assert.ok(tight.need > 45 * 3.286);
+    const jobs = dealJobs(() => 0.2, 4000, 1);
+    const win = jobs.find((j) => j.template === "vyherne");
+    const miss = jobs.find((j) => j.template === "nevyherne");
+    if (win) assert.match(win.goal ?? "", /výhier /);
+    if (miss) assert.match(miss.goal ?? "", /nevýherných /);
   });
 
   it("OTRS rolls every job template in the game", () => {
@@ -703,6 +725,23 @@ describe("míňať", () => {
       },
     );
     assert.equal(files.have, 4);
+    const paidFiles = tickJob(
+      { ...files, have: 0 },
+      {
+        win: true,
+        dead: false,
+        tumbles: 0,
+        live: false,
+        ticket: null,
+        pdf: false,
+        signal: 0,
+        clusters: 1,
+        orbs: false,
+        pays: ["dacia"],
+        shown: 9,
+      },
+    );
+    assert.equal(paidFiles.have, 0);
     const liveSkip = tickJob(
       { ...wifi, scope: "base", have: 0 },
       {

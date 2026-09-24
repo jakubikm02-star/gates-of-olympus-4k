@@ -70,12 +70,28 @@ const TEMPLATES: {
   { id: "sucho", titles: ["SUCHO", "TICHÁ ZÓNA", "RAMPA STOJÍ"], kind: "deads", scope: "base", need: [8, 18], until: [20, 35], line: "mŕtvych spinov" },
   { id: "vynos", titles: ["VÝNOS", "PDF 8+", "PAPIER PLATÍ"], kind: "pdf", scope: "base", need: [1, 2], until: [30, 50], line: "PDF 8+" },
   { id: "duo", titles: ["DUO", "DVA CLUSTRE", "DVOJIČKA"], kind: "wins", scope: "base", need: [2, 4], until: [30, 50], line: "dva clustre na spine" },
-  { id: "wifipro", titles: ["DOPOJ WIFIPRO", "WIFI NA STRECHE", "HESLO NA SPODKU"], kind: "symbol", scope: "base", payIds: ["router", "hap"], need: [2, 4], until: [45, 65], line: "výhier symbolu" },
-  { id: "stb", titles: ["DOPOJ STB", "BOX DO OBÝVAČKY", "SET-TOP NA STÔL"], kind: "symbol", scope: "base", payIds: ["arris"], need: [2, 4], until: [45, 70], line: "výhier symbolu" },
-  { id: "domov", titles: ["CESTOU DOMOV", "POSLEDNÝ VÝJAZD", "CESTA SPÄŤ"], kind: "symbol", scope: "base", payIds: ["dacia", "roof"], need: [1, 2], until: [60, 90], line: "výhier symbolu" },
+  {
+    id: "vyherne",
+    titles: ["VÝHERNÝ ZBER", "LEN ČO PLATÍ", "ZBER VÝHIER"],
+    kind: "symbol",
+    scope: "base",
+    payIds: ["rj45", "router", "hap", "roof", "arris", "case", "dacia", "meter", "pdf"],
+    need: [1, 1],
+    until: [40, 40],
+    line: "výhier symbolu",
+  },
+  {
+    id: "nevyherne",
+    titles: ["NEVÝHERNÝ ZBER", "BEZ VÝHRY", "PRÁZDNE KUSY"],
+    kind: "collect",
+    scope: "base",
+    payIds: ["rj45", "router", "hap", "roof", "arris", "case", "dacia", "meter", "pdf"],
+    need: [1, 1],
+    until: [20, 20],
+    line: "nevýherných symbolu",
+  },
   { id: "noc", titles: ["POHOTOVOSŤ", "SLUŽBA POHOTOVOSŤ", "VÝJAZD PO KÚPE"], kind: "buy", scope: "live", need: [6, 12], until: [15, 25], line: "výher v kúpenom PARKNET" },
   { id: "hydra", titles: ["HYDRA", "DVA ZNAKY", "DVOJITÝ VÝJAZD"], kind: "hydra", scope: "base", need: [1, 3], until: [50, 80], line: "výher dvoch znakov" },
-  { id: "prilohy", titles: ["NAHRAJ PRÍLOHY", "SCAN DO OTRS", "FOTO NA TIKET"], kind: "collect", scope: "any", payIds: ["rj45", "router", "hap", "roof", "arris", "case", "dacia", "meter", "pdf"], need: [30, 80], until: [12, 28], line: "kusov na valcoch" },
 ];
 
 export const JOB_TEMPLATE_IDS: readonly string[] = TEMPLATES.map((t) => t.id);
@@ -139,7 +155,7 @@ export function jobShownGoal(job: JobCard): string {
   if (job.kind === "hydra" && job.payId && job.payIdB && job.needB) {
     return `${payName(job.payId)} ${job.need}× + ${payName(job.payIdB)} ${job.needB}×`;
   }
-  if (job.kind === "collect" && job.payId) return `${job.need}× kusov ${payName(job.payId)} na valcoch`;
+  if (job.kind === "collect" && job.payId) return `${job.need}× nevýherných ${payName(job.payId)}`;
   if (job.kind === "symbol" && job.payId) return `${job.need}× výhier ${payName(job.payId)}`;
   return job.goal || job.detail;
 }
@@ -195,6 +211,98 @@ export function collectNeed(id: PayId, until: number, hard: number): number {
   const λ = (PAY_CELL[id] ?? 3) * Math.max(8, until);
   const k = 0.55 + hard * 0.4;
   return Math.max(8, Math.round(λ * k));
+}
+
+/**
+ * Base-game rates from 40k spins of this engine (ante off).
+ * A win is an 8+ cluster at any tumble. A miss is the opening cells of a symbol that never pays.
+ */
+const WIN_RATE: Record<PayId, number> = {
+  rj45: 0.0613,
+  router: 0.0604,
+  hap: 0.0552,
+  roof: 0.0509,
+  arris: 0.0497,
+  case: 0.0242,
+  dacia: 0.0198,
+  meter: 0.0175,
+  pdf: 0.0124,
+};
+
+const MISS_CELL: Record<PayId, { mean: number; sd: number }> = {
+  rj45: { mean: 3.286, sd: 1.915 },
+  router: { mean: 3.28, sd: 1.909 },
+  hap: { mean: 3.206, sd: 1.886 },
+  roof: { mean: 3.178, sd: 1.871 },
+  arris: { mean: 3.182, sd: 1.872 },
+  case: { mean: 2.809, sd: 1.755 },
+  dacia: { mean: 2.721, sd: 1.734 },
+  meter: { mean: 2.639, sd: 1.714 },
+  pdf: { mean: 2.482, sd: 1.672 },
+};
+
+/** Chance the ticket is cleared if every spin of the window is used. */
+const COLLECT_TARGET: Record<JobFloor, number> = { lacna: 0.8, stred: 0.58, draha: 0.38 };
+const MISS_WINDOW: Record<JobFloor, number> = { lacna: 20, stred: 30, draha: 45 };
+const NORM_Z: Record<JobFloor, number> = { lacna: -0.841621233, stred: -0.201893479, draha: 0.305480788 };
+
+function logChoose(n: number, k: number): number {
+  let s = 0;
+  for (let i = 0; i < k; i++) s += Math.log(n - i) - Math.log(i + 1);
+  return s;
+}
+
+function binomAtLeast(n: number, p: number, k: number): number {
+  if (k <= 0) return 1;
+  if (k > n || p <= 0) return 0;
+  const q = 1 - p;
+  let term = Math.exp(logChoose(n, k) + k * Math.log(p) + (n - k) * Math.log(q));
+  let sum = term;
+  for (let i = k; i < n; i++) {
+    term *= ((n - i) / (i + 1)) * (p / q);
+    sum += term;
+    if (!Number.isFinite(sum)) return 1;
+  }
+  return Math.min(1, Math.max(0, sum));
+}
+
+function winAsk(p: number, floor: JobFloor): number {
+  const common = p >= 0.045;
+  const mid = p >= 0.017;
+  if (floor === "lacna") return common ? 2 : 1;
+  if (floor === "stred") return common ? 3 : mid ? 2 : 1;
+  return common ? 4 : mid ? 2 : 1;
+}
+
+/** Winning-symbol ticket: one credit per spin the symbol pays. */
+export function winCollectPlan(id: PayId, floor: JobFloor): { need: number; limit: number } {
+  const p = WIN_RATE[id] ?? 0.02;
+  const target = COLLECT_TARGET[floor];
+  let k = winAsk(p, floor);
+  let limit = 120;
+  const fit = (ask: number) => {
+    for (let n = 20; n <= 120; n += 5) {
+      if (binomAtLeast(n, p, ask) >= target) return n;
+    }
+    return 0;
+  };
+  let found = fit(k);
+  if (!found) {
+    k = 1;
+    found = fit(1);
+  }
+  if (found) limit = found;
+  return { need: k, limit };
+}
+
+/** Non-winning cells. Need is the floor's quantile of the sum over a fixed window. */
+export function missCollectPlan(id: PayId, floor: JobFloor): { need: number; limit: number } {
+  const cell = MISS_CELL[id] ?? { mean: 2.7, sd: 1.7 };
+  const limit = MISS_WINDOW[floor];
+  const mean = limit * cell.mean;
+  const sd = cell.sd * Math.sqrt(limit);
+  const need = Math.max(8, Math.round(mean + NORM_Z[floor] * sd));
+  return { need: Math.min(need, limit * 12), limit };
 }
 
 export function hydraSplit(a: PayId, b: PayId, until: number, hard = 0.5): { needA: number; needB: number } {
@@ -254,12 +362,14 @@ function makeJob(
   let haveB: number | undefined;
   let needNow = need;
   if (t.kind === "symbol" && payId) {
-    if ((PAY_HIT[payId] ?? 1) < 0.03) limit = snapFive(Math.max(limit, 70));
-    needNow = symbolNeed(payId, limit, hard);
+    const plan = winCollectPlan(payId, floor);
+    needNow = plan.need;
+    limit = plan.limit;
   }
   if (t.kind === "collect" && payId) {
-    needNow = collectNeed(payId, limit, hard);
-    if (limit < needNow) limit = snapFive(needNow + 5);
+    const plan = missCollectPlan(payId, floor);
+    needNow = plan.need;
+    limit = plan.limit;
   }
   if (t.kind === "hydra") {
     const ids = PAY_SYMBOLS.map((s) => s.id);
@@ -279,7 +389,7 @@ function makeJob(
     t.kind === "hydra" && payId && payIdB && needB
       ? `${payName(payId)} ${needNow}× + ${payName(payIdB)} ${needB}×`
       : t.kind === "collect" && payId
-        ? `kusov ${payName(payId)} na valcoch`
+        ? `nevýherných ${payName(payId)}`
         : t.kind === "symbol" && payId
           ? `výhier ${payName(payId)}`
           : t.line;
@@ -408,7 +518,10 @@ export function tickJob(job: JobCard, ev: JobEvent): JobCard {
   if (job.kind === "pdf" && ev.pdf) add = 1;
   if (job.kind === "signal") add = Math.max(0, Math.floor(ev.orbSum ?? 0));
   if (job.kind === "symbol" && job.payId && ev.pays?.includes(job.payId)) add = 1;
-  if (job.kind === "collect") add = Math.max(0, Math.floor(ev.shown ?? 0));
+  if (job.kind === "collect") {
+    const won = Boolean(job.payId && ev.pays?.includes(job.payId));
+    add = won ? 0 : Math.max(0, Math.floor(ev.shown ?? 0));
+  }
   if (job.kind === "buy" && ev.win) add = 1;
   let haveB = job.haveB ?? 0;
   if (job.kind === "hydra") {
@@ -435,7 +548,7 @@ export function jobCap(job: JobCard): number | null {
   if (id === "retaz" || id === "balik" || id === "siet" || id === "pot" || id === "signal" || id === "noc") return null;
   if (id === "plechovky") return 6;
   if (id === "pada") return 20;
-  if (id === "prilohy" || job.kind === "collect") return 30;
+  if (job.kind === "collect") return 18;
   return 1;
 }
 
