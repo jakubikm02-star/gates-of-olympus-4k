@@ -47,11 +47,14 @@ import { duelForfeit, duelLeave } from "@/lib/slot/duel-api";
 import {
   canSpend,
   dealJobs,
+  freshDaily,
   jobParknetBroke,
   jobStatus,
+  stampDaily,
   tickJob,
   freeSpinsLabel,
   JOB_BANK,
+  type DailyBoard,
   type JobCard,
   type JobEvent,
 } from "@/lib/slot/spend";
@@ -191,6 +194,8 @@ export function useSlotGame() {
   const [job, setJob] = useState<JobCard | null>(null);
   const jobRef = useRef<JobCard | null>(null);
   const [jobOffer, setJobOffer] = useState<JobCard[] | null>(null);
+  const [daily, setDaily] = useState<DailyBoard | null>(null);
+  const dailyRef = useRef<DailyBoard | null>(null);
   const [spendOpen, setSpendOpen] = useState(false);
   const [jobToast, setJobToast] = useState<string | null>(null);
   const [lcdFlash, setLcdFlash] = useState<{ job: JobCard; verdict: "ok" | "fail" } | null>(null);
@@ -356,6 +361,14 @@ export function useSlotGame() {
       setLcdFlash({ job: loaded, verdict: "fail" });
     }
     pendingLiveTicketRef.current = s.pendingLiveTicket;
+    if (s.dailyCards.length === 3 && s.dailyDay === deskToday()) {
+      const board = { day: s.dailyDay, cards: s.dailyCards, marks: s.dailyMarks };
+      dailyRef.current = board;
+      setDaily(board);
+    } else {
+      dailyRef.current = null;
+      setDaily(null);
+    }
     const day = deskToday();
     const mineDay = s.deskDay === day
       ? { day, wagered: s.deskWagered, paid: s.deskPaid, best: s.deskBest, wins: 0 }
@@ -403,6 +416,9 @@ export function useSlotGame() {
       rankShield: rankRef.current.shield,
       job: jobRef.current,
       pendingLiveTicket: pendingLiveTicketRef.current,
+      dailyDay: dailyRef.current?.day ?? "",
+      dailyCards: dailyRef.current?.cards ?? [],
+      dailyMarks: dailyRef.current?.marks ?? [null, null, null],
       autoHalt: autoHaltRef.current,
       deskDay: mineRef.current.day,
       deskWagered: mineRef.current.wagered,
@@ -481,6 +497,9 @@ export function useSlotGame() {
       globalMult: globalMultRef.current,
       job: jobRef.current,
       pendingLiveTicket: pendingLiveTicketRef.current,
+      dailyDay: dailyRef.current?.day ?? "",
+      dailyCards: dailyRef.current?.cards ?? [],
+      dailyMarks: dailyRef.current?.marks ?? [null, null, null],
       deskDay: mineRef.current.day,
       deskWagered: mineRef.current.wagered,
       deskPaid: mineRef.current.paid,
@@ -488,7 +507,7 @@ export function useSlotGame() {
     };
     saveSnapRef.current = payload;
     writeLocal(payload);
-  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, autoHalt, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pots, reloadStreak, weekDue, fsLeft, inFs, globalMult, job]);
+  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, autoHalt, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pots, reloadStreak, weekDue, fsLeft, inFs, globalMult, job, daily]);
 
   useEffect(() => {
     const onHide = () => persistNow();
@@ -817,6 +836,15 @@ export function useSlotGame() {
     [applyBoard, payPoolHit],
   );
 
+  const stampDailyJob = useCallback((card: JobCard, mark: "ok" | "fail") => {
+    const cur = dailyRef.current;
+    if (!cur) return;
+    const next = stampDaily(cur, card, mark);
+    if (next === cur) return;
+    dailyRef.current = next;
+    setDaily(next);
+  }, []);
+
   const settleJob = useCallback((ev: JobEvent) => {
     if (duelRef.current) return;
     const cur = jobRef.current;
@@ -831,6 +859,7 @@ export function useSlotGame() {
       if (parts.total) pushRank(parts.total, parts);
       setSpinTape((t) => [{ label: "TIKET", amount: `+${formatMoney(next.payout)} · +${parts.total} RP` }, ...t].slice(0, 8));
       setLcdFlash({ job: next, verdict: "ok" });
+      stampDailyJob(next, "ok");
       sfx.playCoin();
     } else if (st === "fail") {
       jobRef.current = null;
@@ -840,12 +869,13 @@ export function useSlotGame() {
       setAutoOn(false);
       setAutoLeft(0);
       setLcdFlash({ job: next, verdict: "fail" });
+      stampDailyJob(next, "fail");
       sfx.playThunder();
     } else {
       jobRef.current = next;
       setJob(next);
     }
-  }, [pushRank]);
+  }, [pushRank, stampDailyJob]);
 
   const failParknetJob = useCallback((cur: JobCard) => {
     const burned = { ...cur, seal: false, spun: cur.limit };
@@ -856,9 +886,10 @@ export function useSlotGame() {
     setAutoOn(false);
     setAutoLeft(0);
     setLcdFlash({ job: burned, verdict: "fail" });
+    stampDailyJob(burned, "fail");
     setTopLine("NEÚSPEŠNÝ TIKET · MÁLO KREDITU NA PARKNET");
     sfx.playThunder();
-  }, []);
+  }, [stampDailyJob]);
 
   useEffect(() => {
     if (busy || inFs || duel) return;
@@ -1944,25 +1975,43 @@ export function useSlotGame() {
     await playRound({ buy: true });
   }, [started, playRound]);
 
+  const ensureDaily = useCallback(() => {
+    const day = deskToday();
+    const cur = dailyRef.current;
+    if (cur && cur.day === day && cur.cards.length === 3) return cur;
+    const next = freshDaily(createRng(), balanceRef.current, BETS[betIndexRef.current], day);
+    dailyRef.current = next;
+    setDaily(next);
+    return next;
+  }, []);
+
   const openSpend = useCallback(() => {
     if (busyRef.current || inFsRef.current) return;
     if (duelRef.current) return;
     if (!canSpend(balanceRef.current)) return;
-    if (!job) setJobOffer(dealJobs(createRng(), balanceRef.current, BETS[betIndexRef.current]));
+    ensureDaily();
+    if (!jobRef.current) {
+      const dealt = dealJobs(createRng(), balanceRef.current, BETS[betIndexRef.current]);
+      setJobOffer(dealt.filter((c) => c.mystery));
+    }
     setSpendOpen(true);
     sfx.playClick();
-  }, [job, jobOffer]);
+  }, [ensureDaily]);
 
   const takeJob = useCallback((card: JobCard) => {
     if (busyRef.current || inFsRef.current || jobRef.current || duelRef.current) return;
     if (!canSpend(balanceRef.current)) return;
     if (balanceRef.current < card.stake) return;
+    const board = dailyRef.current;
+    if (!card.mystery) {
+      const i = board?.cards.findIndex((c) => c.id === card.id) ?? -1;
+      if (!board || i < 0 || board.marks[i]) return;
+    }
     const betNow = BETS[betIndexRef.current];
     const taken = { ...card, lockBet: card.lockBet || betNow };
     setBalance((b) => +(b - taken.stake).toFixed(2));
     jobRef.current = taken;
     setJob(taken);
-    setJobOffer(null);
     setSpendOpen(Boolean(taken.mystery));
     setTopLine(`${taken.goal || taken.detail} · stávka ${formatMoney(taken.lockBet)} zamknutá`);
     if (taken.mystery) {
@@ -2212,6 +2261,7 @@ export function useSlotGame() {
     takeJob,
     job,
     jobOffer,
+    daily,
     jobToast,
     lcdFlash,
     surplusX: JOB_BANK,

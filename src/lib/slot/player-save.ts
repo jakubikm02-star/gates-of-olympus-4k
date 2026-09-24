@@ -38,6 +38,9 @@ export interface PlayerSave {
   playerId: string;
   job: JobCard | null;
   pendingLiveTicket: TierId | null;
+  dailyDay: string;
+  dailyCards: JobCard[];
+  dailyMarks: ("ok" | "fail" | null)[];
   deskDay: string;
   deskWagered: number;
   deskPaid: number;
@@ -77,6 +80,9 @@ export function emptyPlayerSave(): PlayerSave {
     playerId: "",
     job: null,
     pendingLiveTicket: null,
+    dailyDay: "",
+    dailyCards: [],
+    dailyMarks: [null, null, null],
     deskDay: "",
     deskWagered: 0,
     deskPaid: 0,
@@ -172,6 +178,23 @@ function jobSave(raw: unknown): JobCard | null {
   };
 }
 
+function dailyCards(raw: unknown): JobCard[] {
+  if (!Array.isArray(raw)) return [];
+  const out: JobCard[] = [];
+  for (const item of raw) {
+    const job = jobSave(item);
+    if (!job || job.mystery) continue;
+    out.push(job);
+    if (out.length === 3) break;
+  }
+  return out.length === 3 ? out : [];
+}
+
+function dailyMarks(raw: unknown): ("ok" | "fail" | null)[] {
+  const list = Array.isArray(raw) ? raw : [];
+  return [0, 1, 2].map((i) => (list[i] === "ok" || list[i] === "fail" ? list[i] : null));
+}
+
 function ticketSave(raw: unknown): TierId | null {
   const id = typeof raw === "string" ? raw : "";
   return TIERS.includes(id as TierId) ? (id as TierId) : null;
@@ -212,6 +235,9 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.playerId = typeof r.playerId === "string" && r.playerId.length >= 8 ? r.playerId.slice(0, 64) : "";
   s.job = jobSave(r.job);
   s.pendingLiveTicket = ticketSave(r.pendingLiveTicket);
+  s.dailyDay = typeof r.dailyDay === "string" ? r.dailyDay.slice(0, 16) : "";
+  s.dailyCards = dailyCards(r.dailyCards);
+  s.dailyMarks = s.dailyCards.length === 3 ? dailyMarks(r.dailyMarks) : [null, null, null];
   s.deskDay = typeof r.deskDay === "string" ? r.deskDay.slice(0, 16) : "";
   s.deskWagered = num(r.deskWagered, 0, 0, 1_000_000_000);
   s.deskPaid = num(r.deskPaid, 0, 0, 1_000_000_000);

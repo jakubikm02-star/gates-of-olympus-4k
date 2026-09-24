@@ -337,6 +337,29 @@ export function dealJobs(rng: () => number, credit: number, bet: number): JobCar
   return [...three, bonus];
 }
 
+export type DailyMark = "ok" | "fail";
+
+export interface DailyBoard {
+  day: string;
+  cards: JobCard[];
+  marks: (DailyMark | null)[];
+}
+
+/** The three visible tickets. OTRS is not part of the daily board. */
+export function freshDaily(rng: () => number, credit: number, bet: number, day: string): DailyBoard {
+  const cards = dealJobs(rng, credit, bet).filter((c) => !c.mystery).slice(0, 3);
+  return { day, cards, marks: [null, null, null] };
+}
+
+export function stampDaily(board: DailyBoard, job: JobCard, mark: DailyMark): DailyBoard {
+  if (job.mystery) return board;
+  const i = board.cards.findIndex((c) => c.id === job.id);
+  if (i < 0 || board.marks[i]) return board;
+  const marks = board.marks.slice();
+  marks[i] = mark;
+  return { ...board, marks };
+}
+
 export interface JobEvent {
   win: boolean;
   dead: boolean;

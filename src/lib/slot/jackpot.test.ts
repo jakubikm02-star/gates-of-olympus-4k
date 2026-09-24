@@ -17,7 +17,7 @@ import {
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain } from "./pick-bonus.ts";
 import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta, canDuelSpin, duelView, forfeitDuel } from "./duel.ts";
-import { canSpend, dealJobs, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobParknetBroke, jobStatus, symbolNeed, tickJob, spinWord, JOB_BANK, JOB_TEMPLATE_IDS, type JobCard } from "./spend.ts";
+import { canSpend, dealJobs, freshDaily, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobParknetBroke, jobStatus, stampDaily, symbolNeed, tickJob, spinWord, JOB_BANK, JOB_TEMPLATE_IDS, type JobCard } from "./spend.ts";
 import { ORB_TABLE, ORB_VALUES } from "./symbols.ts";
 
 describe("park jackpots", () => {
@@ -350,6 +350,27 @@ describe("míňať", () => {
     const same = small.map((j) => `${j.template}:${j.need}:${j.limit}:${j.title}`).join("|");
     const alt = other.map((j) => `${j.template}:${j.need}:${j.limit}:${j.title}`).join("|");
     assert.notEqual(same, alt);
+  });
+
+  it("keeps the same three daily tickets and stamps one without touching the rest", () => {
+    let s = 3;
+    const rng = () => {
+      s = (s * 1664525 + 1013904223) >>> 0;
+      return s / 0x100000000;
+    };
+    const board = freshDaily(rng, 4000, 1, "2026-09-24");
+    assert.equal(board.cards.length, 3);
+    assert.ok(board.cards.every((c) => !c.mystery));
+    assert.deepEqual(
+      board.cards.map((c) => c.floor),
+      ["lacna", "stred", "draha"],
+    );
+    const stamped = stampDaily(board, board.cards[0], "ok");
+    assert.deepEqual(stamped.marks, ["ok", null, null]);
+    const held = stampDaily(stamped, board.cards[0], "fail");
+    assert.equal(held.marks[0], "ok");
+    const otrs = { ...board.cards[1], mystery: true };
+    assert.equal(stampDaily(stamped, otrs, "fail"), stamped);
   });
 
   it("OTRS rolls every job template in the game", () => {

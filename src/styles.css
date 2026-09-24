@@ -5493,6 +5493,7 @@ html:-webkit-full-screen {
 }
 
 .spend-job {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -5503,6 +5504,60 @@ html:-webkit-full-screen {
   border: 1px solid rgb(215 176 86 / 0.28);
   background: rgb(255 255 255 / 0.04);
   color: var(--color-fg);
+}
+
+.spend-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.spend-job.is-done {
+  background: rgb(0 0 0 / 0.45);
+}
+
+.spend-job:disabled {
+  opacity: 1;
+  color: var(--color-fg);
+}
+
+.spend-job.is-done .spend-body {
+  opacity: 0.28;
+  filter: grayscale(0.9);
+}
+
+.spend-stamp {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  margin: 0;
+  padding: 4px 8px;
+  transform: translate(-50%, -50%) rotate(-14deg);
+  border: 3px solid currentColor;
+  border-radius: 6px;
+  background: rgb(8 10 14 / 0.72);
+  font-family: var(--font-display);
+  font-style: normal;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.spend-job.is-ok .spend-stamp {
+  color: #d8ffb0;
+}
+
+.spend-job.is-fail .spend-stamp {
+  color: #ffb4b4;
+}
+
+.spend-job.is-run .spend-stamp.is-run {
+  color: #ffe56a;
+  font-size: 0.92rem;
 }
 
 .spend-job.lacna { border-color: rgb(197 204 212 / 0.4); }

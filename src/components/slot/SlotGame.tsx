@@ -708,6 +708,7 @@ export function SlotGame() {
         onClose={() => g.setSpendOpen(false)}
         credit={g.balance}
         job={g.job}
+        daily={g.daily}
         offer={g.jobOffer}
         onJob={g.takeJob}
       />
