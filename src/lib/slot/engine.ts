@@ -454,21 +454,48 @@ export function wait(ms: number, signal?: { aborted?: boolean; skip?: boolean })
   if (ms <= 0) return Promise.resolve();
   return new Promise((resolve) => {
     let done = false;
+    let timer = 0;
     const finish = () => {
       if (done) return;
       done = true;
+      window.clearTimeout(timer);
       resolve();
     };
-    const t0 = performance.now();
-    const tick = (t: number) => {
-      const cap = signal?.skip ? Math.min(ms, 40) : ms;
-      if (signal?.aborted || t - t0 >= cap) {
+    const limit = () => (signal?.skip || signal?.aborted ? Math.min(ms, 40) : ms);
+    let start = performance.now();
+    let forgiven = false;
+    const arm = (left: number) => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(finish, Math.max(16, left) + 48);
+    };
+    arm(limit());
+    const tick = (now: number) => {
+      if (done) return;
+      if (signal?.aborted) {
+        finish();
+        return;
+      }
+      if (signal?.skip) {
+        if (now - start >= Math.min(ms, 40)) finish();
+        else requestAnimationFrame(tick);
+        return;
+      }
+      const elapsed = now - start;
+      const need = limit();
+      // A frozen main thread is not reel time — the strips would jump. Grant the duration once.
+      if (!forgiven && elapsed > need + 48) {
+        forgiven = true;
+        start = now;
+        arm(need);
+        requestAnimationFrame(tick);
+        return;
+      }
+      if (elapsed >= need) {
         finish();
         return;
       }
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
-    window.setTimeout(finish, ms + 80);
   });
 }

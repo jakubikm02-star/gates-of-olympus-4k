@@ -141,8 +141,8 @@ export function SlotGame() {
               <span className="boot-rank-kicker">LIGA 4KY</span>
               <RankBadge stand={g.rank} streak={g.winStreak} parts={g.rankParts} perkTitle={g.perk.title} onOpen={() => g.setRankOpen(true)} />
             </div>
-            <button type="button" className="cta" onClick={g.start}>
-              HRAŤ
+            <button type="button" className="cta" disabled={!g.bootReady || g.booting} onClick={() => void g.start()}>
+              {!g.bootReady ? `NAČÍTAVAM ${g.bootPct}%` : g.booting ? "ZVUK…" : "HRAŤ"}
             </button>
           </div>
         </div>

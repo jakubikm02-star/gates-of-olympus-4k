@@ -869,6 +869,20 @@
   filter: blur(4px) brightness(1.45) saturate(1.4) drop-shadow(0 0 12px #ffd24a);
 }
 
+@media (max-width: 820px) {
+  .strip-spin .cell-img {
+    transform: scaleY(1.04);
+    filter: none;
+  }
+  .reel-col.is-anticipate .strip-spin .cell-img {
+    filter: brightness(1.28) saturate(1.2);
+  }
+  .reel-window.is-spinning,
+  .reel-window.is-landing {
+    mask-image: none;
+  }
+}
+
 .reel-col.is-anticipate {
   transition: filter 0.1s ease, box-shadow 0.1s ease;
   filter: brightness(1.35) saturate(1.25);
@@ -2095,6 +2109,12 @@
   color: #0b0d10;
   background: linear-gradient(180deg, #ffe56a, #f0c419);
   box-shadow: 0 6px 0 #8a6a10, 0 12px 20px rgb(0 0 0 / 0.35);
+}
+
+.cta:disabled {
+  opacity: 0.62;
+  box-shadow: none;
+  cursor: default;
 }
 
 .cta:disabled {

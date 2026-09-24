@@ -91,8 +91,50 @@ function hasOrb(board: Cell[][]): boolean {
   return board.some((row) => row.some((c) => c.kind === "mult"));
 }
 
+function decodeArt(src: string): Promise<void> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    const timer = window.setTimeout(finish, 8000);
+    img.onload = () => {
+      window.clearTimeout(timer);
+      if (typeof img.decode === "function") void img.decode().then(finish, finish);
+      else finish();
+    };
+    img.onerror = () => {
+      window.clearTimeout(timer);
+      finish();
+    };
+    img.decoding = "async";
+    img.src = src;
+  });
+}
+
+/** Two frames so the spin strip is on screen before the stop clock starts. */
+function afterPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resolve();
+    };
+    requestAnimationFrame(() => requestAnimationFrame(finish));
+    window.setTimeout(finish, 48);
+  });
+}
+
 export function useSlotGame() {
   const [started, setStarted] = useState(false);
+  const [bootReady, setBootReady] = useState(false);
+  const [bootPct, setBootPct] = useState(0);
+  const [booting, setBooting] = useState(false);
+  const bootingRef = useRef(false);
   const [balance, setBalance] = useState(START_BALANCE);
   const [betIndex, setBetIndex] = useState(4);
   const [muted, setMuted] = useState(false);
@@ -555,17 +597,41 @@ export function useSlotGame() {
     return base;
   }, []);
 
-  const start = useCallback(() => {
+  const start = useCallback(async () => {
+    if (bootingRef.current) return;
+    bootingRef.current = true;
+    setBooting(true);
     sfx.unlockAudio();
     sfx.setMuted(muted);
+    await Promise.race([
+      sfx.whenSpinReady(),
+      new Promise<void>((resolve) => window.setTimeout(resolve, 2200)),
+    ]);
     sfx.startAmbience();
-    for (const src of ALL_ART) {
-      const img = new Image();
-      img.src = src;
-    }
     setStarted(true);
     setPhase(inFsRef.current && fsSessionRef.current.left > 0 ? "fs" : "idle");
+    setBooting(false);
+    bootingRef.current = false;
   }, [muted]);
+
+  useEffect(() => {
+    let cancel = false;
+    const arts = ALL_ART;
+    let n = 0;
+    void Promise.all(
+      arts.map((src) =>
+        decodeArt(src).then(() => {
+          n += 1;
+          if (!cancel) setBootPct(Math.round((n / arts.length) * 100));
+        }),
+      ),
+    ).then(() => {
+      if (!cancel) setBootReady(true);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, []);
 
   const toggleMute = useCallback(() => {
     sfx.unlockAudio();
@@ -926,9 +992,6 @@ export function useSlotGame() {
       abort.current.skip = false;
       setReelFast(false);
       if (!isFree) featureXRef.current = 0;
-      sfx.unlockAudio();
-      sfx.startSpin();
-      sfx.duckMusic(0.42);
 
       if (cost > 0) {
         setBalance((b) => +(b - cost).toFixed(2));
@@ -939,21 +1002,19 @@ export function useSlotGame() {
         }
       }
 
-      let spunTicket: TierId | null = null;
-      if (isFree) {
-        if (!pendingLiveTicketRef.current) {
-          const pot = await feedPool({ stake: 0, eligible: false, skip: true });
-          spunTicket = pot.ticket ?? null;
-        }
-      } else if (cost > 0) {
-        const pot = await feedPool({
-          stake: cost,
-          eligible: isEligibleBet(currentBet) || !!opts?.buy,
-          skip: true,
-        });
-        spunTicket = pot.ticket ?? null;
-      }
+      const poolP: Promise<{ ticket?: TierId | null } | null> = isFree
+        ? pendingLiveTicketRef.current
+          ? Promise.resolve(null)
+          : feedPool({ stake: 0, eligible: false, skip: true })
+        : cost > 0
+          ? feedPool({
+              stake: cost,
+              eligible: isEligibleBet(currentBet) || !!opts?.buy,
+              skip: true,
+            })
+          : Promise.resolve(null);
 
+      const spunAt = performance.now();
       setStoppedCols(0);
       setAnticipate(false);
       setHoldGrid(cloneGrid(gridRef.current));
@@ -964,6 +1025,13 @@ export function useSlotGame() {
       setCam(null);
       setTopLine("");
       setMessage("TOČÍ SA...");
+      sfx.unlockAudio();
+      sfx.startSpin();
+      sfx.duckMusic(0.42);
+
+      await afterPaint();
+      const pot = await poolP;
+      const spunTicket = pot?.ticket ?? null;
 
       const rng = createRng();
       let next = opts?.buy
@@ -972,7 +1040,8 @@ export function useSlotGame() {
       if (spunTicket) next = plantTicket(next, spunTicket, rng);
 
       const STOPS = [520, 620, 730, 850, 990, 1180];
-      await wait(dur(STOPS[0]), abort.current);
+      const already = performance.now() - spunAt;
+      await wait(dur(Math.max(0, STOPS[0] - already)), abort.current);
       setGrid(next);
       setPhase("landing");
       setStoppedCols(1);
@@ -1991,6 +2060,9 @@ export function useSlotGame() {
 
   return {
     started,
+    bootReady,
+    bootPct,
+    booting,
     start,
     balance,
     bet,

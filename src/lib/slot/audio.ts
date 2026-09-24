@@ -21,7 +21,6 @@ let liveDuck = 1;
 const playing: Partial<Record<string, { stop: () => void }>> = {};
 const CUT_PREV = new Set(["win", "winFull", "payout", "bigwin", "tumble", "pop", "tableA", "tableB"]);
 const bufs: Record<string, AudioBuffer> = {};
-let loadStarted = false;
 
 const FILES: Record<string, string> = {
   spin: "/sfx/spin.mp3?v=trailer1",
@@ -82,20 +81,39 @@ export function unlockAudio(): void {
   if (ctx.state === "suspended") void ctx.resume();
 }
 
-async function loadBank(): Promise<void> {
-  if (!ctx || loadStarted) return;
-  loadStarted = true;
-  await Promise.all(
-    Object.entries(FILES).map(async ([key, url]) => {
-      try {
-        const res = await fetch(url);
-        const raw = await res.arrayBuffer();
-        bufs[key] = await ctx!.decodeAudioData(raw.slice(0));
-      } catch {
-        /* keep synth fallback */
-      }
-    }),
-  );
+const pending: Partial<Record<string, Promise<void>>> = {};
+let bankAll: Promise<void> | null = null;
+
+function loadOne(key: string): Promise<void> {
+  if (bufs[key]) return Promise.resolve();
+  const existing = pending[key];
+  if (existing) return existing;
+  const url = FILES[key];
+  if (!url || !ctx) return Promise.resolve();
+  const p = (async () => {
+    try {
+      const res = await fetch(url);
+      const raw = await res.arrayBuffer();
+      if (!ctx) return;
+      bufs[key] = await ctx.decodeAudioData(raw.slice(0));
+    } catch {
+      /* keep synth fallback */
+    }
+  })();
+  pending[key] = p;
+  return p;
+}
+
+function loadBank(): Promise<void> {
+  if (!ctx) return Promise.resolve();
+  if (!bankAll) bankAll = Promise.all(Object.keys(FILES).map((key) => loadOne(key))).then(() => undefined);
+  return bankAll;
+}
+
+/** Resolves once the reel-loop sample is decoded. Other cues keep loading behind it. */
+export function whenSpinReady(): Promise<void> {
+  unlockAudio();
+  return loadOne("spin");
 }
 
 function makeNoise(ac: AudioContext, seconds: number, kind: "white" | "brown"): AudioBuffer {
