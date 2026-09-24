@@ -3622,7 +3622,7 @@
 }
 
 .top-ticker.is-idle {
-  display: none;
+  visibility: hidden;
 }
 
 .jp-row {
@@ -5024,6 +5024,13 @@ html:-webkit-full-screen {
   color: var(--color-muted);
 }
 
+.job-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
 .job-chip b {
   color: var(--color-gold-2);
   font-variant-numeric: tabular-nums;
@@ -5784,12 +5791,13 @@ html:-webkit-full-screen {
   font-size: 0.98rem;
 }
 
-.stage.shell-mw .top-ticker:not(.is-idle),
-.stage.shell-pwa .top-ticker:not(.is-idle) {
+.stage.shell-mw .top-ticker,
+.stage.shell-pwa .top-ticker {
   height: 1.35rem;
   min-height: 1.35rem;
   max-height: 1.35rem;
   margin-bottom: 2px;
+  display: flex;
 }
 
 .stage.shell-mw .board-job,

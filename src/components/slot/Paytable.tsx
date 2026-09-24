@@ -108,10 +108,10 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             <div>
               <div className="pay-name">LÍSTOK · jediný kľúč k potu</div>
               <div className="pay-vals">
-                <span>SIVÝ ULICA</span>
-                <span>MODRÝ OKRES</span>
-                <span>FIALOVÝ KRAJ</span>
-                <span>ZLATÝ ŠTÁT</span>
+                <span>SIVÝ 1-FTTB</span>
+                <span>MODRÝ 2-FTTB</span>
+                <span>FIALOVÝ 3-FTTB</span>
+                <span>ZLATÝ 4-FTTB</span>
               </div>
               <div className="pay-quip">Neplatí 8+. Neskáče do SIGNÁL. Max 1 na spin.</div>
             </div>
@@ -119,9 +119,9 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
         </div>
         <ul className="rules">
           <li>
-            Štyri poty: ULICA 500 / 1 800, OKRES 4 000 / 14 000, KRAJ 28 000 / 90 000, ŠTÁT 120 000 / 220 000.
+            Štyri poty od najnižšieho: 1-FTTB 500 / 1 800, 2-FTTB 4 000 / 14 000, 3-FTTB 28 000 / 90 000, 4-FTTB 120 000 / 220 000.
             Padnú len cez LÍSTOK po resolve tumble — nikdy mystery mid-tumble, nikdy 8+, nikdy SIGNÁL.
-            Must-hit: keď meter prekročí skrytý prah, tá farba je do 15 spinov, 16. spin ju donúti. ŠTÁT 70 / 15 / 15.
+            Must-hit: keď meter prekročí skrytý prah, tá farba je do 15 spinov, 16. spin ju donúti. 4-FTTB 70 / 15 / 15.
           </li>
           <li>
             4 a viac scatterov kdekoľvek na obrazovke — aj počas tumble — spustí 15 free spins.
@@ -133,7 +133,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
           <li>4 scattere = 15 voľných točení. V bonuse 3+ scattere = +5. Výplata scatteru ostáva 4 / 5 / 6.</li>
           <li>
             Lístok vo feature smie padnúť, ceremónia ide až po SIEŤ SPADLA. Banner je{" "}
-            <code>ULICA · 1 742,20</code> — žiadny WinBox, žiadny terminál.
+            <code>1-FTTB · 1 742,20</code> — žiadny WinBox, žiadny terminál.
           </li>
           <li>Ante 1.20× zdvojnásobí 4tv, nie šancu lístka. Buy 100× = LIVE so SIGNÁL 0×. Pity je IDLE meter, nikdy jackpot.</li>
           <li>
@@ -141,7 +141,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             (+30). Po spustení bar padne na 0. Kúpiť sa nedá.
           </li>
           <li>
-            Od kreditu 100 € zákazky: BASE len v základnej hre, LIVE len v PARKNET. MULTI TUMBLE je
+            Od kreditu 100 € tikety: BASE len v základnej hre, LIVE len v PARKNET. MULTI TUMBLE je
             2+ pády, SÚČET TUMBLE sčíta pády. NAHRAJ PRÍLOHY zráta všetky kusy znaku na valcoch.
             TACHYKARDIA a POHOTOVOSŤ platia v LIVE. BOX DO OBÝVAČKY je Arris set-top. Duel online
             točíte naraz, live skóre. Víťaz berie výhry oboch.

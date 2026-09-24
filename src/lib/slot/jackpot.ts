@@ -16,10 +16,10 @@ export interface TierDef {
 }
 
 export const TIERS: readonly TierDef[] = [
-  { id: "ulica", name: "ULICA", seed: 500, cap: 1_800, contrib: 0.008, winnerShare: 1 },
-  { id: "okres", name: "OKRES", seed: 4_000, cap: 14_000, contrib: 0.006, winnerShare: 1 },
-  { id: "kraj", name: "KRAJ", seed: 28_000, cap: 90_000, contrib: 0.005, winnerShare: 1 },
-  { id: "stat", name: "ŠTÁT", seed: 120_000, cap: 220_000, contrib: 0.004, winnerShare: 0.7 },
+  { id: "ulica", name: "1-FTTB", seed: 500, cap: 1_800, contrib: 0.008, winnerShare: 1 },
+  { id: "okres", name: "2-FTTB", seed: 4_000, cap: 14_000, contrib: 0.006, winnerShare: 1 },
+  { id: "kraj", name: "3-FTTB", seed: 28_000, cap: 90_000, contrib: 0.005, winnerShare: 1 },
+  { id: "stat", name: "4-FTTB", seed: 120_000, cap: 220_000, contrib: 0.004, winnerShare: 0.7 },
 ] as const;
 
 export const TIER_BY_ID: Record<TierId, TierDef> = {

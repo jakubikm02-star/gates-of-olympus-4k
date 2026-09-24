@@ -686,7 +686,7 @@ export function useSlotGame() {
     async (board: BoardSnap) => {
       const credit = board.credit > 0 ? board.credit : 0;
       const jackpots = board.hits;
-      const main = jackpots[0] ?? { id: "ulica" as TierId, name: "ULICA", payout: credit, table: 0 };
+      const main = jackpots[0] ?? { id: "ulica" as TierId, name: "1-FTTB", payout: credit, table: 0 };
       const payout = jackpots.reduce((s, h) => s + h.payout, 0) + credit;
       if (payout <= 0) return;
       const shown: JackpotHit = { ...main, payout: main.payout };
@@ -741,9 +741,9 @@ export function useSlotGame() {
       setBalance((b) => +(b + next.payout).toFixed(2));
       const parts = rpFromJob(next.payout, next.stake);
       if (parts.total) pushRank(parts.total, parts);
-      setSpinTape((t) => [{ label: "ZÁKAZKA", amount: `+${formatMoney(next.payout)} · +${parts.total} RP` }, ...t].slice(0, 8));
-      setJobToast(`ZÁKAZKA +${formatMoney(next.payout)} · +${parts.total} RP`);
-      setTopLine(`ZÁKAZKA +${formatMoney(next.payout)}`);
+      setSpinTape((t) => [{ label: "TIKET", amount: `+${formatMoney(next.payout)} · +${parts.total} RP` }, ...t].slice(0, 8));
+      setJobToast(`TIKET +${formatMoney(next.payout)} · +${parts.total} RP`);
+      setTopLine(`TIKET +${formatMoney(next.payout)}`);
       sfx.playCollect();
     } else if (st === "fail") {
       jobRef.current = null;
@@ -1793,9 +1793,9 @@ export function useSlotGame() {
     setJob(taken);
     setJobOffer(null);
     setSpendOpen(Boolean(taken.mystery));
-    setTopLine(`${taken.title} · stávka ${formatMoney(taken.lockBet)} zamknutá`);
+    setTopLine(`${taken.goal || taken.detail} · stávka ${formatMoney(taken.lockBet)} zamknutá`);
     if (taken.mystery) {
-      setJobToast(`OTRS OTVORENÝ · ${taken.title}`);
+      setJobToast(`OTRS OTVORENÝ · ${taken.goal || taken.detail}`);
     }
     sfx.playClick();
   }, []);

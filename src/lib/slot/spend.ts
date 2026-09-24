@@ -13,6 +13,8 @@ export interface JobCard {
   template: string;
   title: string;
   detail: string;
+  /** Plain target shown under the reels. Creative title stays on the picker only. */
+  goal?: string;
   stake: number;
   payout: number;
   need: number;
@@ -62,7 +64,7 @@ const TEMPLATES: {
   { id: "retaz", titles: ["REŤAZ", "TRI V RADE", "BEZ PRESTÁVKY"], kind: "wins", scope: "base", need: [3, 3], until: [40, 55], line: "výhier v rade" },
   { id: "plechovky", titles: ["PLECHOVKY", "RAMPA HUČÍ", "PLECH NA PLECH"], kind: "tumbles", scope: "live", need: [3, 8], until: [12, 22], line: "spinov s násobičom v LIVE" },
   { id: "tv", titles: ["4TV", "ŠTVORKA NA STENE", "KONTROLA 4KY"], kind: "live", scope: "base", need: [1, 1], until: [30, 50], line: "4tv trigger" },
-  { id: "pot", titles: ["POT", "SIVÝ LÍSTOK", "ULICA PADÁ"], kind: "ticket", scope: "base", need: [1, 1], until: [30, 50], line: "sivý lístok ULICA" },
+  { id: "pot", titles: ["POT", "SIVÝ LÍSTOK", "ULICA PADÁ"], kind: "ticket", scope: "base", need: [1, 1], until: [30, 50], line: "lístok 1-FTTB" },
   { id: "sucho", titles: ["SUCHO", "TICHÁ ZÓNA", "RAMPA STOJÍ"], kind: "deads", scope: "base", need: [8, 18], until: [20, 35], line: "mŕtvych spinov" },
   { id: "vynos", titles: ["VÝNOS", "PDF 8+", "PAPIER PLATÍ"], kind: "pdf", scope: "base", need: [1, 2], until: [30, 50], line: "PDF 8+" },
   { id: "duo", titles: ["DUO", "DVA CLUSTRE", "DVOJIČKA"], kind: "wins", scope: "base", need: [2, 4], until: [30, 50], line: "dva clustre na spine" },
@@ -73,6 +75,8 @@ const TEMPLATES: {
   { id: "hydra", titles: ["HYDRA", "DVA ZNAKY", "DVOJITÝ VÝJAZD"], kind: "hydra", scope: "base", need: [1, 3], until: [50, 80], line: "výher dvoch znakov" },
   { id: "prilohy", titles: ["NAHRAJ PRÍLOHY", "SCAN DO OTRS", "FOTO NA TIKET"], kind: "collect", scope: "any", payIds: ["rj45", "router", "hap", "roof", "arris", "case", "dacia", "meter", "pdf"], need: [30, 80], until: [12, 28], line: "kusov na valcoch" },
 ];
+
+export const JOB_TEMPLATE_IDS: readonly string[] = TEMPLATES.map((t) => t.id);
 
 function rngRange(rng: () => number, a: number, b: number): number {
   return a + rng() * (b - a);
@@ -291,12 +295,14 @@ function makeJob(
                 ? "výher krytinou cestou domov"
                 : t.line;
   const tag = t.scope === "live" ? " · LIVE" : t.scope === "any" ? " · BASE+LIVE" : "";
+  const goal = t.kind === "hydra" ? line : `${needNow}× ${line}`;
   return {
     id: `${t.id}-${floor}-${mystery ? "rnd" : "pick"}-${Math.floor(rng() * 1e6)}`,
     floor,
     template: t.id,
     title,
-    detail: `${t.kind === "hydra" ? line : `${needNow}× ${line}`} · ${limit} ${spinWord(limit)}${tag}`,
+    detail: `${goal} · ${limit} ${spinWord(limit)}${tag}`,
+    goal,
     stake,
     payout,
     need: needNow,
@@ -323,7 +329,7 @@ export function dealJobs(rng: () => number, credit: number, bet: number): JobCar
     TEMPLATES.filter((t) => !used.has(t.id)),
     rng,
   );
-  const bonusT = rest[0] ?? bag[0];
+  const bonusT = rest[0] ?? pickOne(TEMPLATES, rng);
   const bonusFloor = floors[Math.floor(rng() * floors.length)] ?? "stred";
   const bonus = makeJob(bonusT, bonusFloor, credit, bet, rng, 1.15, true);
   return [...three, bonus];

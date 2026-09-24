@@ -334,7 +334,7 @@ export function SlotGame() {
                   className={`job-chip ${g.job.scope === "live" ? "is-live" : ""} ${g.job.scope === "any" ? "is-any" : ""} ${g.jobToast ? "is-hot" : ""} ${jobLeft(g.job) <= 5 ? "is-late" : ""}`}
                 >
                   <i>{jobScopeLabel(g.job)}</i>
-                  <span>{g.job.title}</span>
+                  <span>{g.job.goal || g.job.detail}</span>
                   <b>
                     {jobMeter(g.job)}
                   </b>
@@ -398,7 +398,7 @@ export function SlotGame() {
               </p>
               <p>
                 STÁVKA <b>{formatMoney(g.stake)}</b>
-                {g.job ? <em className="bet-lock"> ZÁKAZKA</em> : null}
+                {g.job ? <em className="bet-lock"> TIKET</em> : null}
               </p>
             </div>
           </div>
@@ -510,7 +510,7 @@ export function SlotGame() {
           </button>
           {g.surplus && !g.inFs && !g.duel && (
             <button type="button" className="chip-btn gold" onClick={g.openSpend} disabled={g.busy}>
-              ZÁKAZKY
+              TIKETY
             </button>
           )}
           {g.started && !g.inFs && (

@@ -47,7 +47,7 @@ export function SpendSheet({ open, onClose, credit, job, offer, onJob }: Props) 
             <p className="modal-lead">Úloha, podmienky, cena a zisk sú teraz známe.</p>
             <div className="otrs-note">
               <em>{job.title}</em>
-              <span>{job.detail}</span>
+              <span>{job.goal || job.detail}</span>
               <strong>
                 {jobClock(job)} · stávka {formatMoney(job.lockBet || 0)} zamknutá
               </strong>
@@ -69,7 +69,7 @@ export function SpendSheet({ open, onClose, credit, job, offer, onJob }: Props) 
         ) : (
           <>
             <header className="modal-head">
-              <h2 id="spend-title">ZÁKAZKY</h2>
+              <h2 id="spend-title">TIKETY</h2>
               <button type="button" className="icon-btn" onClick={onClose} aria-label="Zavrieť">
                 ×
               </button>
@@ -82,7 +82,7 @@ export function SpendSheet({ open, onClose, credit, job, offer, onJob }: Props) 
 
             {job ? (
               <p className={`spend-active ${jobLeft(job) <= 5 ? "is-late" : ""}`}>
-                {job.title} · {jobMeter(job)}
+                {job.goal || job.detail} · {jobMeter(job)}
                 <span>
                   {jobScopeLabel(job)} · {jobClock(job)} · stávka {formatMoney(job.lockBet || 0)} zamknutá
                 </span>

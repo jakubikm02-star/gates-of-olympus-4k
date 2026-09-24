@@ -17,7 +17,7 @@ import {
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain } from "./pick-bonus.ts";
 import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta } from "./duel.ts";
-import { canSpend, dealJobs, hydraSplit, jobClock, jobLeft, jobStatus, symbolNeed, tickJob, spinWord, JOB_BANK } from "./spend.ts";
+import { canSpend, dealJobs, hydraSplit, jobClock, jobLeft, jobStatus, symbolNeed, tickJob, spinWord, JOB_BANK, JOB_TEMPLATE_IDS } from "./spend.ts";
 import { ORB_TABLE, ORB_VALUES } from "./symbols.ts";
 
 describe("park jackpots", () => {
@@ -350,6 +350,21 @@ describe("míňať", () => {
     const same = small.map((j) => `${j.template}:${j.need}:${j.limit}:${j.title}`).join("|");
     const alt = other.map((j) => `${j.template}:${j.need}:${j.limit}:${j.title}`).join("|");
     assert.notEqual(same, alt);
+  });
+
+  it("OTRS rolls every job template in the game", () => {
+    let s = 7;
+    const rng = () => {
+      s = (s * 1664525 + 1013904223) >>> 0;
+      return s / 0x100000000;
+    };
+    const seen = new Set<string>();
+    for (let i = 0; i < 800; i++) {
+      const otrs = dealJobs(rng, 5000, 2).find((j) => j.mystery);
+      if (otrs) seen.add(otrs.template);
+    }
+    const missing = JOB_TEMPLATE_IDS.filter((id) => !seen.has(id));
+    assert.deepEqual(missing, []);
   });
 
   it("Slovak spin words and SPLNENÁ", () => {
