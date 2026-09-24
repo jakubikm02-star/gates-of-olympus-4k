@@ -16,7 +16,7 @@ import {
 } from "./jackpot.ts";
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain } from "./pick-bonus.ts";
-import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta } from "./duel.ts";
+import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta, canDuelSpin, duelView, forfeitDuel } from "./duel.ts";
 import { canSpend, dealJobs, hydraSplit, jobClock, jobLeft, jobStatus, symbolNeed, tickJob, spinWord, JOB_BANK, JOB_TEMPLATE_IDS } from "./spend.ts";
 import { ORB_TABLE, ORB_VALUES } from "./symbols.ts";
 
@@ -918,7 +918,21 @@ describe("duel", () => {
     assert.equal(o.phase, "done");
     assert.equal(duelWinner(o), 0);
     assert.equal(duelPot(o), 50);
-    assert.equal(duelCreditDelta(o, 0), 20);
-    assert.equal(duelCreditDelta(o, 1), -20);
+    assert.equal(duelCreditDelta(o, 0), 50);
+    assert.equal(duelCreditDelta(o, 1), 0);
+    assert.equal(duelCreditDelta(t, 0), 50);
+    assert.equal(duelCreditDelta(t, 1), 50);
+    const ahead = tickDuel(startDuel({ mode: "spins", a: "A", b: "B", bet: 1, kind: "online", you: 0, need: 10 }), 5);
+    assert.equal(canDuelSpin(ahead), false);
+    assert.equal(duelView(ahead).waiting, true);
+    assert.equal(duelView(ahead).k, 0);
+    assert.equal(duelView(ahead).mine, 0);
+    const caught = applyPeerTick(ahead, 1, 2);
+    assert.equal(canDuelSpin(caught), true);
+    assert.equal(duelView(caught).k, 1);
+    assert.equal(duelView(caught).mine, 5);
+    const folded = forfeitDuel(caught, 0);
+    assert.equal(duelCreditDelta(folded, 0), 0);
+    assert.equal(duelCreditDelta(folded, 1), duelPot(folded));
   });
 });

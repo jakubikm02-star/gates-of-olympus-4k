@@ -77,7 +77,7 @@ function HoldSpin({
       onPointerDown={down}
       onPointerUp={up}
       onPointerCancel={up}
-      disabled={!g.started || g.busy || g.buyAsk}
+      disabled={!g.canSpin}
       aria-label={label ?? "Točiť"}
     >
       <RefreshCw size={34} strokeWidth={2.6} />
@@ -115,7 +115,7 @@ export function SlotGame() {
 
   return (
     <div
-      className={`stage shell-${shell} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""}`}
+      className={`stage shell-${shell} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""}`}
     >
       <div className="stage-bg" />
       <div className="stage-glow" />
@@ -213,7 +213,7 @@ export function SlotGame() {
               type="button"
               className={`parchment ante ${g.ante ? "on" : ""}`}
               onClick={() => g.setAnte(!g.ante)}
-              disabled={g.busy}
+              disabled={g.busy || Boolean(g.duel) || Boolean(g.duelLink)}
             >
               <em>ANTE BET</em>
               <strong>{g.perk.anteMul.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}×</strong>
@@ -246,6 +246,7 @@ export function SlotGame() {
           <section className="board-wrap">
             <div className="board-stage">
             <div className="board-stage-inner">
+            {g.duel && g.duel.phase === "play" ? <DuelBar duel={g.duel} onForfeit={g.foldDuel} /> : null}
             <div className="board-meter">
               {g.inFs ? (
                 <div className="fs-hero" aria-live="polite">
@@ -327,8 +328,7 @@ export function SlotGame() {
               </span>
             ))}
             </div>
-            <div className={`board-job ${(g.job && (g.job.scope !== "base" || !g.inFs)) || (g.duel && g.duel.phase === "play") ? "has-job" : ""}`}>
-              {g.duel && g.duel.phase === "play" && <DuelBar duel={g.duel} />}
+            <div className={`board-job ${g.job && (g.job.scope !== "base" || !g.inFs) ? "has-job" : ""}`}>
               {g.job && (g.job.scope !== "base" || !g.inFs) && (
                 <div
                   className={`job-chip ${g.job.scope === "live" ? "is-live" : ""} ${g.job.scope === "any" ? "is-any" : ""} ${g.jobToast ? "is-hot" : ""} ${jobLeft(g.job) <= 5 ? "is-late" : ""}`}
@@ -368,7 +368,7 @@ export function SlotGame() {
             />
             {g.throwBolt && <span className="bolt" />}
             <div className="ls-spin">
-              <HoldSpin g={g} spinning={spinning} className={`spin-btn ls-hold ${g.busy ? "is-busy" : ""} ${g.turbo ? "is-turbo" : ""}`} label={g.turbo ? "Turbo točenie" : "Točiť · drž pre turbo"} />
+              <HoldSpin g={g} spinning={spinning} className={`spin-btn ls-hold ${g.busy ? "is-busy" : ""} ${!g.canSpin && g.duel ? "is-locked" : ""} ${g.turbo ? "is-turbo" : ""}`} label={g.turbo ? "Turbo točenie" : "Točiť · drž pre turbo"} />
               <span>{g.turbo ? "TURBO" : "DRŽ PRE TURBO"}</span>
             </div>
           </aside>
@@ -435,9 +435,9 @@ export function SlotGame() {
             </button>
             <button
               type="button"
-              className={`spin-btn hud-spin ${g.busy ? "is-busy" : ""} ${g.turbo ? "is-turbo" : ""}`}
+              className={`spin-btn hud-spin ${g.busy ? "is-busy" : ""} ${!g.canSpin && g.duel ? "is-locked" : ""} ${g.turbo ? "is-turbo" : ""}`}
               onClick={() => void g.spin()}
-              disabled={!g.started || g.busy || g.buyAsk}
+              disabled={!g.canSpin}
               aria-label="Točiť"
             >
               <RefreshCw size={34} strokeWidth={2.6} />
@@ -513,17 +513,17 @@ export function SlotGame() {
               TIKETY
             </button>
           )}
-          {g.started && !g.inFs && (
+          {g.started && !g.inFs && !g.duel && !g.duelLink && (
             <button
               type="button"
-              className={`chip-btn ${g.duel ? "gold" : ""}`}
-              onClick={() => (g.duel || g.duelLink ? g.endDuel() : g.setDuelOpen(true))}
-              disabled={g.busy && !g.duel && !g.duelLink}
+              className="chip-btn"
+              onClick={() => g.setDuelOpen(true)}
+              disabled={g.busy}
             >
-              {g.duel || g.duelLink ? "KONIEC DUELU" : "DUEL"}
+              DUEL
             </button>
           )}
-          {g.autoReason && !g.autoOn && <span className="auto-stop">{g.autoReason}</span>}
+          {g.autoReason && !g.autoOn && !g.duel && <span className="auto-stop">{g.autoReason}</span>}
           {g.balance < g.stake && (
             <button type="button" className="chip-btn gold" onClick={g.refill}>
               BANKROT +{START_BALANCE}
@@ -726,7 +726,10 @@ export function SlotGame() {
           onPeerName={g.setDuelPeer}
           onGo={g.beginOnline}
           onTick={g.applyRemoteTick}
+          onForfeit={g.noteForfeit}
+          onPeerNet={g.notePeerNet}
           onEnd={g.endDuel}
+          inFs={g.inFs}
         />
       ) : null}
       {g.jpHit && (

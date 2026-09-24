@@ -19,6 +19,12 @@ export interface Duel {
   phase: DuelPhase;
   bet: number;
   room?: string;
+  /** My last spin, hidden until the opponent reaches the same k. */
+  held: number;
+  /** Seat that forfeited. Their stack stays, the other takes the pot. */
+  forfeit: 0 | 1 | null;
+  /** Opponent is inside PARKNET on the current spin. */
+  peerNet?: boolean;
 }
 
 export interface DuelLink {
@@ -27,6 +33,8 @@ export interface DuelLink {
   name: string;
   mode: DuelMode;
   bet: number;
+  need: number;
+  ante: boolean;
 }
 
 const CODE = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -53,11 +61,13 @@ export function startDuel(opts: {
   kind?: DuelKind;
   you?: 0 | 1;
   room?: string;
+  need?: number;
 }): Duel {
+  const need = opts.need && opts.need > 0 ? Math.round(opts.need) : opts.mode === "live" ? 1 : 10;
   return {
     kind: opts.kind ?? "hotseat",
     mode: opts.mode,
-    need: opts.mode === "live" ? 1 : 10,
+    need,
     have: 0,
     turn: 0,
     you: opts.you ?? 0,
@@ -65,6 +75,9 @@ export function startDuel(opts: {
     phase: "play",
     bet: Math.max(0.01, opts.bet),
     room: opts.room,
+    held: 0,
+    forfeit: null,
+    peerNet: false,
   };
 }
 
@@ -83,8 +96,16 @@ export function tickDuel(d: Duel, cash: number, seatN?: 0 | 1): Duel {
     have: seats[who].have + 1,
   };
   if (d.kind === "online") {
+    const other: 0 | 1 = who === 0 ? 1 : 0;
+    const ahead = seats[other].have < seats[who].have;
     const done = seats[0].have >= d.need && seats[1].have >= d.need;
-    return { ...d, seats, have: seats[d.you].have, phase: done ? "done" : "play" };
+    return {
+      ...d,
+      seats,
+      have: seats[d.you].have,
+      held: who === d.you && ahead ? Math.max(0, cash) : who === d.you ? 0 : d.held,
+      phase: done ? "done" : "play",
+    };
   }
   const have = seats[who].have;
   if (have < d.need) return { ...d, seats, have };
@@ -97,8 +118,14 @@ export function applyPeerTick(d: Duel, have: number, score: number): Duel {
   const other: 0 | 1 = d.you === 0 ? 1 : 0;
   const seats: [DuelSeat, DuelSeat] = [{ ...d.seats[0] }, { ...d.seats[1] }];
   seats[other] = { ...seats[other], have: Math.max(seats[other].have, have), score };
+  const caught = seats[d.you].have <= seats[other].have;
   const done = seats[0].have >= d.need && seats[1].have >= d.need;
-  return { ...d, seats, phase: d.phase === "play" && done ? "done" : d.phase };
+  return {
+    ...d,
+    seats,
+    held: caught ? 0 : d.held,
+    phase: d.phase === "play" && done ? "done" : d.phase,
+  };
 }
 
 export function confirmSwap(d: Duel): Duel {
@@ -117,12 +144,38 @@ export function duelPot(d: Duel): number {
   return +(d.seats[0].score + d.seats[1].score).toFixed(2);
 }
 
-/** Winner already has their own wins in credit; they collect the other seat's score. Loser pays theirs back. */
+/** Wins were not paid into credit. Winner takes both. Tie returns each their own. Forfeit gives the pot to the other seat. */
 export function duelCreditDelta(d: Duel, seat: 0 | 1): number {
+  if (d.forfeit != null) return seat === d.forfeit ? 0 : duelPot(d);
   const w = duelWinner(d);
-  if (w === null) return 0;
-  if (seat === w) return d.seats[seat === 0 ? 1 : 0].score;
-  return -d.seats[seat].score;
+  if (w === null) return d.seats[seat].score;
+  return seat === w ? duelPot(d) : 0;
+}
+
+export function forfeitDuel(d: Duel, seat: 0 | 1): Duel {
+  const seats: [DuelSeat, DuelSeat] = [
+    { ...d.seats[0], have: Math.max(d.seats[0].have, d.need) },
+    { ...d.seats[1], have: Math.max(d.seats[1].have, d.need) },
+  ];
+  return { ...d, seats, have: d.need, phase: "done", held: 0, forfeit: seat, peerNet: false };
+}
+
+export function canDuelSpin(d: Duel): boolean {
+  if (d.phase !== "play") return false;
+  if (d.kind !== "online") return true;
+  if (d.seats[d.you].have >= d.need) return false;
+  const peer: 0 | 1 = d.you === 0 ? 1 : 0;
+  return d.seats[d.you].have <= d.seats[peer].have;
+}
+
+/** Shared k. Ahead player's last win stays off the bar until the other seat catches up. */
+export function duelView(d: Duel): { k: number; mine: number; peer: number; waiting: boolean } {
+  const peer: 0 | 1 = d.you === 0 ? 1 : 0;
+  const k = d.kind === "online" ? Math.min(d.seats[0].have, d.seats[1].have) : d.seats[d.turn].have;
+  const mine = +((d.kind === "online" ? d.seats[d.you].score - (d.held || 0) : d.seats[d.turn].score)).toFixed(2);
+  const peerScore = d.kind === "online" ? d.seats[peer].score : d.seats[d.turn === 0 ? 1 : 0].score;
+  const waiting = d.kind === "online" && d.phase === "play" && d.seats[d.you].have > d.seats[peer].have;
+  return { k, mine, peer: peerScore, waiting };
 }
 
 export function duelLeft(d: Duel): number {

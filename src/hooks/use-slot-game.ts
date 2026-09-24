@@ -42,7 +42,8 @@ import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from 
 import { emptyBoard, isEligibleBet, ticketResolve, type BoardSnap, type JackpotHit, type TierId } from "@/lib/slot/jackpot";
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
 import { bumpDesk, bumpLocalDesk, deskToday, emptyDesk, fetchDesk, type DeskDay } from "@/lib/slot/desk-api";
-import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, duelMineDone, duelWinner, duelPot, duelCreditDelta, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
+import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, duelPot, duelCreditDelta, forfeitDuel, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
+import { duelForfeit, duelLeave } from "@/lib/slot/duel-api";
 import {
   canSpend,
   dealJobs,
@@ -195,6 +196,10 @@ export function useSlotGame() {
   const [duelPeer, setDuelPeer] = useState("");
   const pendingPeerTick = useRef<{ have: number; score: number } | null>(null);
   const duelSettled = useRef(false);
+  const duelBlanks = useRef(0);
+  const settleGen = useRef(0);
+  const duelFastRef = useRef(false);
+  const skipDuelTick = useRef(false);
   const autoFloorRef = useRef(0);
   const bannerWait = useRef<(() => void) | null>(null);
   const bannerOpen = useRef(false);
@@ -518,6 +523,7 @@ export function useSlotGame() {
   }, [jobToast]);
 
   const dur = useCallback((base: number) => {
+    if (duelFastRef.current || abort.current.skip) return 0;
     if (turboRef.current) return Math.round(base * 0.34);
     if (quickRef.current) return Math.round(base * 0.62);
     return base;
@@ -696,7 +702,7 @@ export function useSlotGame() {
       setBalance((b) => +(b + payout).toFixed(2));
       setBestWin((w) => Math.max(w, payout));
       setSpinTape((t) => [{ label: shown.name, amount: formatMoney(payout) }, ...t].slice(0, 8));
-      if (autoRef.current) {
+      if (autoRef.current && !duelRef.current) {
         autoRef.current = false;
         setAutoOn(false);
         setAutoLeft(0);
@@ -731,6 +737,7 @@ export function useSlotGame() {
   );
 
   const settleJob = useCallback((ev: JobEvent) => {
+    if (duelRef.current) return;
     const cur = jobRef.current;
     if (!cur) return;
     const next = tickJob(cur, ev);
@@ -822,8 +829,9 @@ export function useSlotGame() {
     setPityByBet(pityByBetRef.current);
     await waitForPick();
     const cash = +(pickTotalXRef.current * betNow).toFixed(2);
+    const escrow = Boolean(duelRef.current && duelRef.current.phase !== "done");
     if (cash > 0) {
-      setBalance((b) => +(b + cash).toFixed(2));
+      if (!escrow) setBalance((b) => +(b + cash).toFixed(2));
       setDisplayWin(cash);
       setSpinWin(cash);
       setBestWin((w) => Math.max(w, cash));
@@ -864,9 +872,11 @@ export function useSlotGame() {
       const cost = opts?.buy ? +(currentBet * buyXOf(perk.id)).toFixed(2) : isFree ? 0 : currentStake;
 
       if (!isFree && balanceRef.current < cost) {
+        skipDuelTick.current = true;
         setMessage("Nedostatok kreditu — doplň demo zostatok");
         return "ok";
       }
+      skipDuelTick.current = false;
 
       setWinMask(null);
       if (!isFree) {
@@ -1267,7 +1277,8 @@ export function useSlotGame() {
         setBestWin((w) => Math.max(w, cash));
       }
       await wait(dur(400));
-      if (cash > 0 && !isFree && !inFsRef.current) {
+      const escrow = Boolean(duelRef.current && duelRef.current.phase !== "done");
+      if (cash > 0 && !isFree && !inFsRef.current && !escrow) {
         setBalance((b) => +(b + cash).toFixed(2));
         sfx.playPayout();
       }
@@ -1298,7 +1309,7 @@ export function useSlotGame() {
           noteResult(false);
           const dead = rpFromDead(currentBet, standing(rankRef.current.rp).entry);
           if (dead.total) pushRank(dead.total, dead);
-          if (perk.deadRebate > 0) {
+          if (perk.deadRebate > 0 && !escrow) {
             const back = +(currentBet * perk.deadRebate).toFixed(2);
             if (back > 0) {
               setBalance((b) => +(b + back).toFixed(2));
@@ -1385,26 +1396,62 @@ export function useSlotGame() {
   const settleDuel = useCallback((d: Duel) => {
     if (d.phase !== "done" || duelSettled.current) return;
     duelSettled.current = true;
-    const pot = duelPot(d);
-    const w = duelWinner(d);
+    autoRef.current = false;
+    setAutoOn(false);
+    setAutoLeft(0);
+    setAutoReason(null);
     if (d.kind === "online") {
       const delta = duelCreditDelta(d, d.you);
-      if (delta) setBalance((b) => +Math.max(0, b + delta).toFixed(2));
+      if (delta) setBalance((b) => +(b + delta).toFixed(2));
+    } else {
+      const pot = duelPot(d);
+      if (pot) setBalance((b) => +(b + pot).toFixed(2));
     }
-    if (w === null) {
+    const pot = duelPot(d);
+    const w = d.forfeit != null ? (d.forfeit === 0 ? 1 : 0) : duelWinner(d);
+    if (d.forfeit != null) {
+      setTopLine(d.forfeit === d.you ? "VZDAL SI SA · stack berie súper" : `SÚPER SA VZDAL · BANK ${formatMoney(pot)}`);
+      setJobToast(d.forfeit === d.you ? "VZDAŤ" : `BANK ${formatMoney(pot)}`);
+    } else if (w === null) {
       setTopLine("DUEL REMÍZA · každý si necháva svoju výhru");
       setJobToast("REMÍZA");
-      return;
+    } else {
+      const take = `${d.seats[w].name} BERIE BANK ${formatMoney(pot)}`;
+      setTopLine(take);
+      setJobToast(`BANK ${formatMoney(pot)}`);
+      setSpinTape((t) => [{ label: "DUEL BANK", amount: formatMoney(pot) }, ...t].slice(0, 8));
     }
-    const take = `${d.seats[w].name} BERIE BANK ${formatMoney(pot)}`;
-    setTopLine(take);
-    setJobToast(`BANK ${formatMoney(pot)}`);
-    setSpinTape((t) => [{ label: "DUEL BANK", amount: formatMoney(pot) }, ...t].slice(0, 8));
+    const gen = ++settleGen.current;
+    window.setTimeout(() => {
+      if (settleGen.current !== gen) return;
+      settleGen.current += 1;
+      duelSettled.current = false;
+      duelBlanks.current = 0;
+      duelRef.current = null;
+      setDuel(null);
+      setDuelLink(null);
+      setDuelPeer("");
+      setDuelOpen(false);
+      setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
+    }, 1600);
   }, []);
 
   const playRound = useCallback(
     async (opts?: { buy?: boolean; resumeFs?: boolean }) => {
       if (busyRef.current) return;
+      const gate = duelRef.current;
+      if (
+        gate &&
+        gate.phase === "play" &&
+        gate.kind === "online" &&
+        !opts?.resumeFs &&
+        !inFsRef.current &&
+        !opts?.buy &&
+        !canDuelSpin(gate)
+      ) {
+        return;
+      }
+      if (opts?.buy && duelRef.current) return;
       busyRef.current = true;
       setBusy(true);
       abort.current.aborted = false;
@@ -1416,8 +1463,13 @@ export function useSlotGame() {
       const playFsSpins = async () => {
         const sess = fsSessionRef.current;
         let hitCap = false;
+        const duelCap = duelRef.current && duelRef.current.phase !== "done" ? Date.now() + 90_000 : 0;
         persistNow();
         while (sess.left > 0) {
+          if (duelCap && Date.now() >= duelCap) {
+            duelFastRef.current = true;
+            abort.current.skip = true;
+          }
           setFsLeft(sess.left);
           persistNow();
           const inner = await runSequence({ free: true });
@@ -1448,6 +1500,7 @@ export function useSlotGame() {
           }
           await wait(dur(160), abort.current);
         }
+        duelFastRef.current = false;
         return hitCap;
       };
 
@@ -1479,7 +1532,8 @@ export function useSlotGame() {
         if (featureTotal > 0 || hitCap) sfx.playBigWin();
         else sfx.playPayout();
         sfx.stopLiveBed();
-        if (fsCash > 0) setBalance((b) => +(b + fsCash).toFixed(2));
+        const escrow = Boolean(duelRef.current && duelRef.current.phase !== "done");
+        if (fsCash > 0 && !escrow) setBalance((b) => +(b + fsCash).toFixed(2));
         if (featureTotal > 0) bumpToday(0, featureTotal);
         roundCashRef.current = featureTotal;
         const bought = sess.bought;
@@ -1621,7 +1675,7 @@ export function useSlotGame() {
       const fsCount = fsSpinsOf(rankIdNow);
       const applyBoughtRank = makeApplyBought(betNow, buyCost, buyXNow, rankIdNow);
 
-      if (autoRef.current && autoHaltRef.current) {
+      if (autoRef.current && autoHaltRef.current && !duelRef.current) {
         if (r === "fs") {
           autoRef.current = false;
           setAutoOn(false);
@@ -1701,14 +1755,16 @@ export function useSlotGame() {
       }
 
       const live = duelRef.current;
-      if (live?.phase === "play") {
+      if (live?.phase === "play" && !skipDuelTick.current) {
         const next = tickDuel(live, roundCashRef.current);
         duelRef.current = next;
         setDuel(next);
+        duelBlanks.current = 0;
         if (next.phase === "swap" || next.phase === "done") {
           autoRef.current = false;
           setAutoOn(false);
           setAutoLeft(0);
+          setAutoReason(null);
         }
         if (next.phase === "done") settleDuel(next);
       }
@@ -1753,22 +1809,23 @@ export function useSlotGame() {
       return;
     }
     const d = duelRef.current;
-    if (d && (d.phase !== "play" || d.mode === "live")) return;
-    if (d?.kind === "online" && d.seats[d.you].have >= d.need) return;
+    if (d) {
+      if (d.phase !== "play") return;
+      if (!canDuelSpin(d)) return;
+    }
     await playRound();
   }, [started, playRound]);
 
   const buyBonus = useCallback(() => {
     if (!started || busyRef.current || inFsRef.current) return;
-    if (duelRef.current?.mode === "spins") return;
-    if (duelRef.current?.kind === "online" && duelMineDone(duelRef.current)) return;
+    if (duelRef.current || duelLinkRef.current) return;
     setBuyAsk(true);
   }, [started]);
 
   const cancelBuy = useCallback(() => setBuyAsk(false), []);
 
   const confirmBuy = useCallback(async () => {
-    if (!started || busyRef.current || inFsRef.current) return;
+    if (!started || busyRef.current || inFsRef.current || duelRef.current) return;
     setBuyAsk(false);
     await playRound({ buy: true });
   }, [started, playRound]);
@@ -1803,7 +1860,8 @@ export function useSlotGame() {
   const startAuto = useCallback((n: number) => {
     if (busyRef.current || inFsRef.current) return;
     const d = duelRef.current;
-    if (d && (d.phase !== "play" || d.mode === "live")) return;
+    if (d && d.phase !== "play") return;
+    if (d && !canDuelSpin(d)) return;
     const capped = d ? Math.min(n, duelLeft(d)) : n;
     if (capped <= 0) return;
     autoFloorRef.current = balanceRef.current * 0.5;
@@ -1830,13 +1888,15 @@ export function useSlotGame() {
     void (async () => {
       await wait(200);
       if (cancel || !autoRef.current) return;
+      const live = duelRef.current;
+      if (live && !canDuelSpin(live)) return;
       setAutoLeft((n) => n - 1);
       await playRound();
     })();
     return () => {
       cancel = true;
     };
-  }, [autoOn, autoLeft, busy, inFs, started, playRound]);
+  }, [autoOn, autoLeft, busy, inFs, started, playRound, duel]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1853,11 +1913,49 @@ export function useSlotGame() {
       }
       if (e.code !== "Space") return;
       if (busyRef.current) return;
+      const live = duelRef.current;
+      if (live && !canDuelSpin(live)) return;
       if (!inFsRef.current) void playRound();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [started, playRound, stopReels, closeBanner, finishPick]);
+
+  const duelSpinOpen = Boolean(
+    duel && duel.kind === "online" && duel.phase === "play" && !busy && !inFs && canDuelSpin(duel),
+  );
+  useEffect(() => {
+    if (!duelSpinOpen) return;
+    const t = window.setTimeout(() => {
+      const cur = duelRef.current;
+      if (!cur || cur.phase !== "play" || busyRef.current || inFsRef.current || !canDuelSpin(cur)) return;
+      duelBlanks.current += 1;
+      if (duelBlanks.current >= 3) {
+        const link = duelLinkRef.current;
+        if (link) {
+          void duelForfeit(link.room, cur.you === 0 ? "host" : "guest", {
+            have: cur.seats[cur.you].have,
+            score: cur.seats[cur.you].score,
+          }).catch(() => {});
+        }
+        const next = forfeitDuel(cur, cur.you);
+        duelRef.current = next;
+        setDuel(next);
+        settleDuel(next);
+        return;
+      }
+      const betNow = BETS[betIndexRef.current];
+      const perk = perkOf(standing(rankRef.current.rp).id);
+      const cost = anteRef.current ? +(betNow * perk.anteMul).toFixed(2) : betNow;
+      if (balanceRef.current >= cost) setBalance((b) => +(Math.max(0, b - cost)).toFixed(2));
+      const next = tickDuel(cur, 0);
+      duelRef.current = next;
+      setDuel(next);
+      setTopLine(`ČAS · SPIN ${next.seats[cur.you].have} = 0`);
+      if (next.phase === "done") settleDuel(next);
+    }, 20_000);
+    return () => window.clearTimeout(t);
+  }, [duelSpinOpen, settleDuel]);
 
   return {
     started,
@@ -1875,10 +1973,9 @@ export function useSlotGame() {
     setQuick,
     ante,
     setAnte: (v: boolean) => {
-      if (!busyRef.current) {
-        setAnte(v);
-        sfx.playClick();
-      }
+      if (busyRef.current || duelRef.current || duelLinkRef.current) return;
+      setAnte(v);
+      sfx.playClick();
     },
     grid,
     holdGrid,
@@ -1982,20 +2079,15 @@ export function useSlotGame() {
       !inFs &&
       !buyAsk &&
       balance >= stake &&
-      (!duel ||
-        (duel.phase === "play" &&
-          duel.mode === "spins" &&
-          (duel.kind !== "online" || !duelMineDone(duel)))),
+      (!duel || (duel.phase === "play" && canDuelSpin(duel))),
     canBuy:
       started &&
       !busy &&
       !inFs &&
       !buyAsk &&
-      balance >= +(bet * buyX).toFixed(2) &&
-      (!duel ||
-        (duel.phase === "play" &&
-          duel.mode === "live" &&
-          (duel.kind !== "online" || !duelMineDone(duel)))),
+      !duel &&
+      !duelLink &&
+      balance >= +(bet * buyX).toFixed(2),
     surplus: canSpend(balance),
     spendOpen,
     setSpendOpen,
@@ -2011,59 +2103,85 @@ export function useSlotGame() {
     duelLink,
     duelPeer,
     setDuelPeer,
-    hostDuel: (mode: DuelMode, name: string, betAmt?: number) => {
-      if (duelRef.current) return;
-      const room = makeRoomCode();
+    hostDuel: (mode: DuelMode, name: string, betAmt?: number, need = 10, anteOn = false) => {
+      if (duelRef.current || jobRef.current || inFsRef.current) return;
       const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
+      const spins = need > 0 ? Math.round(need) : 10;
+      if (balanceRef.current < +(stake * spins * 1.2).toFixed(2)) return;
+      const i = BETS.reduce((best, v, idx) => (Math.abs(v - stake) < Math.abs(BETS[best] - stake) ? idx : best), 0);
+      setBetIndex(i);
+      betIndexRef.current = i;
+      setAnte(anteOn);
+      anteRef.current = anteOn;
+      const room = makeRoomCode();
       setDuelLink({
         room,
         role: "host",
         name: name.trim().slice(0, 16) || "HRÁČ 1",
         mode,
-        bet: stake,
+        bet: BETS[i],
+        need: spins,
+        ante: anteOn,
       });
       setDuelPeer("");
       setDuelOpen(true);
       sfx.playClick();
     },
-    joinDuel: (mode: DuelMode, name: string, code: string, betAmt?: number) => {
-      if (duelRef.current) return;
+    joinDuel: (mode: DuelMode, name: string, code: string, betAmt?: number, need = 10, anteOn = false) => {
+      if (duelRef.current || jobRef.current || inFsRef.current) return;
       const room = code.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 4);
       if (room.length < 4) return;
+      const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
+      const spins = need > 0 ? Math.round(need) : 10;
+      if (balanceRef.current < +(stake * spins * 1.2).toFixed(2)) return;
+      const i = BETS.reduce((best, v, idx) => (Math.abs(v - stake) < Math.abs(BETS[best] - stake) ? idx : best), 0);
+      setBetIndex(i);
+      betIndexRef.current = i;
+      setAnte(anteOn);
+      anteRef.current = anteOn;
       setDuelLink({
         room,
         role: "guest",
         name: name.trim().slice(0, 16) || "HRÁČ 2",
         mode,
-        bet: betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current],
+        bet: BETS[i],
+        need: spins,
+        ante: anteOn,
       });
       setDuelPeer("");
       setDuelOpen(true);
       sfx.playClick();
     },
-    beginOnline: (peerName: string, bet: number, mode: DuelMode) => {
+    beginOnline: (peerName: string, bet: number, mode: DuelMode, need = 10, anteOn = false) => {
       const link = duelLinkRef.current;
       if (!link) return;
       if (duelRef.current?.room === link.room && duelRef.current.phase === "play") return;
       const you: 0 | 1 = link.role === "host" ? 0 : 1;
       const hostName = link.role === "host" ? link.name : peerName;
       const guestName = link.role === "guest" ? link.name : peerName;
+      const spins = need > 0 ? Math.round(need) : link.need || 10;
       const i = BETS.reduce((best, v, idx) => (Math.abs(v - bet) < Math.abs(BETS[best] - bet) ? idx : best), 0);
       setBetIndex(i);
+      betIndexRef.current = i;
+      const anteMatch = anteOn || link.ante;
+      setAnte(anteMatch);
+      anteRef.current = anteMatch;
       const next = startDuel({
-        mode,
+        mode: mode === "live" ? "spins" : mode,
         a: hostName,
         b: guestName,
         bet: BETS[i],
         kind: "online",
         you,
         room: link.room,
+        need: spins,
       });
       duelSettled.current = false;
+      duelBlanks.current = 0;
       duelRef.current = next;
       setDuel(next);
       setDuelOpen(false);
-      setTopLine(`DUEL ONLINE · ${hostName} vs ${guestName}`);
+      setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
       const pending = pendingPeerTick.current;
       if (pending) {
         pendingPeerTick.current = null;
@@ -2084,17 +2202,54 @@ export function useSlotGame() {
       setDuel(next);
       if (next.phase === "done") settleDuel(next);
     },
-    beginDuel: (mode: DuelMode, a: string, b: string, betAmt?: number) => {
+    notePeerNet: (net: boolean) => {
+      const cur = duelRef.current;
+      if (!cur || Boolean(cur.peerNet) === net) return;
+      const next = { ...cur, peerNet: net };
+      duelRef.current = next;
+      setDuel(next);
+    },
+    noteForfeit: (who: 0 | 1) => {
+      const cur = duelRef.current;
+      if (!cur || cur.phase === "done" || duelSettled.current) return;
+      const next = forfeitDuel(cur, who);
+      duelRef.current = next;
+      setDuel(next);
+      settleDuel(next);
+    },
+    foldDuel: () => {
+      const cur = duelRef.current;
+      if (!cur || cur.phase !== "play") return;
+      const who: 0 | 1 = cur.kind === "online" ? cur.you : cur.turn;
+      const link = duelLinkRef.current;
+      if (cur.kind === "online" && link) {
+        void duelForfeit(link.room, who === 0 ? "host" : "guest", {
+          have: cur.seats[who].have,
+          score: cur.seats[who].score,
+        }).catch(() => {});
+      }
+      const next = forfeitDuel(cur, who);
+      duelRef.current = next;
+      setDuel(next);
+      settleDuel(next);
+    },
+    beginDuel: (mode: DuelMode, a: string, b: string, betAmt?: number, need = 10, anteOn = false) => {
       if (busyRef.current || inFsRef.current || jobRef.current || duelRef.current) return;
       const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
+      const spins = need > 0 ? Math.round(need) : 10;
+      if (balanceRef.current < +(stake * spins * 1.2).toFixed(2)) return;
       const i = BETS.reduce((best, v, idx) => (Math.abs(v - stake) < Math.abs(BETS[best] - stake) ? idx : best), 0);
       setBetIndex(i);
-      const next = startDuel({ mode, a, b, bet: BETS[i] });
+      betIndexRef.current = i;
+      setAnte(anteOn);
+      anteRef.current = anteOn;
+      const next = startDuel({ mode, a, b, bet: BETS[i], need: spins });
       duelSettled.current = false;
+      duelBlanks.current = 0;
       duelRef.current = next;
       setDuel(next);
       setDuelOpen(false);
-      setTopLine(`DUEL · ${next.seats[0].name} vs ${next.seats[1].name}`);
+      setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
       sfx.playClick();
     },
     swapDuel: () => {
@@ -2107,12 +2262,33 @@ export function useSlotGame() {
       sfx.playClick();
     },
     endDuel: () => {
+      const cur = duelRef.current;
+      const link = duelLinkRef.current;
+      if (cur && cur.phase === "play") {
+        const who: 0 | 1 = cur.kind === "online" ? cur.you : cur.turn;
+        if (cur.kind === "online" && link) {
+          void duelForfeit(link.room, who === 0 ? "host" : "guest", {
+            have: cur.seats[who].have,
+            score: cur.seats[who].score,
+          }).catch(() => {});
+        }
+        const next = forfeitDuel(cur, who);
+        duelRef.current = next;
+        setDuel(next);
+        settleDuel(next);
+        return;
+      }
+      if (link && !cur) void duelLeave(link.room, link.role).catch(() => {});
+      settleGen.current += 1;
       duelSettled.current = false;
+      duelBlanks.current = 0;
+      duelFastRef.current = false;
       duelRef.current = null;
       setDuel(null);
       setDuelLink(null);
       setDuelPeer("");
       setDuelOpen(false);
+      setAutoReason(null);
       setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
     },
   };
