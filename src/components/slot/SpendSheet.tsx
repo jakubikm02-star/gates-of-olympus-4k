@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { formatMoney } from "@/lib/slot/format";
-import { jobClock, jobLeft, jobMeter, jobScopeLabel, spinWord, type DailyBoard, type JobCard } from "@/lib/slot/spend";
+import { jobClock, jobLeft, jobMeter, jobScopeLabel, jobShownGoal, spinWord, type DailyBoard, type JobCard } from "@/lib/slot/spend";
 
 interface Props {
   open: boolean;
@@ -50,7 +50,7 @@ export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob }: 
             <p className="modal-lead">Úloha, podmienky, cena a zisk sú teraz známe.</p>
             <div className="otrs-note">
               <em>{job.title}</em>
-              <span>{job.goal || job.detail}</span>
+              <span>{jobShownGoal(job)}</span>
               <strong>
                 {jobClock(job)} · stávka {formatMoney(job.lockBet || 0)} zamknutá
               </strong>
@@ -85,7 +85,7 @@ export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob }: 
 
             {job && !job.mystery ? (
               <p className={`spend-active ${jobLeft(job) <= 5 ? "is-late" : ""}`}>
-                {job.goal || job.detail} · {jobMeter(job)}
+                {jobShownGoal(job)} · {jobMeter(job)}
                 <span>
                   {jobScopeLabel(job)} · {jobClock(job)} · stávka {formatMoney(job.lockBet || 0)} zamknutá
                 </span>
@@ -110,7 +110,7 @@ export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob }: 
                   >
                     <span className="spend-body">
                       <em>{card.title}</em>
-                      <span>{jobScopeLabel(card)} · {card.detail}</span>
+                      <span>{jobScopeLabel(card)} · {jobShownGoal(card)}</span>
                       <strong className="spend-dead">
                         do {card.limit} {spinWord(card.limit)} · stávka {formatMoney(card.lockBet)}
                       </strong>

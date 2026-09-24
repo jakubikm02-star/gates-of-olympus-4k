@@ -49,6 +49,7 @@ import {
   dealJobs,
   freshDaily,
   jobParknetBroke,
+  jobShownGoal,
   jobStatus,
   stampDaily,
   tickJob,
@@ -2013,9 +2014,9 @@ export function useSlotGame() {
     jobRef.current = taken;
     setJob(taken);
     setSpendOpen(Boolean(taken.mystery));
-    setTopLine(`${taken.goal || taken.detail} · stávka ${formatMoney(taken.lockBet)} zamknutá`);
+    setTopLine(`${jobShownGoal(taken)} · stávka ${formatMoney(taken.lockBet)} zamknutá`);
     if (taken.mystery) {
-      setJobToast(`OTRS OTVORENÝ · ${taken.goal || taken.detail}`);
+      setJobToast(`OTRS OTVORENÝ · ${jobShownGoal(taken)}`);
     }
     sfx.playClick();
   }, []);

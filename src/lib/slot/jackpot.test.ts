@@ -17,8 +17,8 @@ import {
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain } from "./pick-bonus.ts";
 import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta, canDuelSpin, duelView, forfeitDuel } from "./duel.ts";
-import { canSpend, dealJobs, freshDaily, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobParknetBroke, jobStatus, stampDaily, symbolNeed, tickJob, spinWord, JOB_BANK, JOB_TEMPLATE_IDS, type JobCard } from "./spend.ts";
-import { ORB_TABLE, ORB_VALUES } from "./symbols.ts";
+import { PAY_SYMBOLS, payName, ORB_TABLE, ORB_VALUES } from "./symbols.ts";
+import { canSpend, dealJobs, freshDaily, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobMeter, jobParknetBroke, jobStatus, stampDaily, symbolNeed, tickJob, spinWord, JOB_BANK, JOB_TEMPLATE_IDS, type JobCard } from "./spend.ts";
 
 describe("park jackpots", () => {
   it("takes 2.3% visible + 0.3% reserve", () => {
@@ -371,6 +371,31 @@ describe("míňať", () => {
     assert.equal(held.marks[0], "ok");
     const otrs = { ...board.cards[1], mystery: true };
     assert.equal(stampDaily(stamped, otrs, "fail"), stamped);
+  });
+
+  it("names collected symbols from the paytable, not nicknames", () => {
+    const official = new Set(PAY_SYMBOLS.map((s) => s.name));
+    let s = 11;
+    const rng = () => {
+      s = (s * 1664525 + 1013904223) >>> 0;
+      return s / 0x100000000;
+    };
+    for (let i = 0; i < 30; i++) {
+      for (const job of dealJobs(rng, 8000, 1)) {
+        if (job.kind !== "symbol" && job.kind !== "collect" && job.kind !== "hydra") continue;
+        const text = `${job.goal ?? ""} ${jobMeter(job)}`;
+        if (job.payId) {
+          const name = payName(job.payId);
+          assert.equal(official.has(name), true);
+          assert.equal(text.includes(name), true, text);
+        }
+        if (job.payIdB) {
+          const name = payName(job.payIdB);
+          assert.equal(text.includes(name), true, text);
+        }
+        assert.equal(/\bDAC\b|\bHAP\b|\bKRYT\b|\bKUF\b|WifiPRO/.test(text), false, text);
+      }
+    }
   });
 
   it("OTRS rolls every job template in the game", () => {

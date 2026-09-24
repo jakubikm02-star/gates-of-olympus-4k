@@ -1,4 +1,4 @@
-import { PAY_SYMBOLS, type PayId } from "./symbols.ts";
+import { PAY_SYMBOLS, payName, type PayId } from "./symbols.ts";
 import type { TierId } from "./jackpot";
 
 /** Jobs unlock at this credit, any bet. */
@@ -70,9 +70,9 @@ const TEMPLATES: {
   { id: "sucho", titles: ["SUCHO", "TICHÁ ZÓNA", "RAMPA STOJÍ"], kind: "deads", scope: "base", need: [8, 18], until: [20, 35], line: "mŕtvych spinov" },
   { id: "vynos", titles: ["VÝNOS", "PDF 8+", "PAPIER PLATÍ"], kind: "pdf", scope: "base", need: [1, 2], until: [30, 50], line: "PDF 8+" },
   { id: "duo", titles: ["DUO", "DVA CLUSTRE", "DVOJIČKA"], kind: "wins", scope: "base", need: [2, 4], until: [30, 50], line: "dva clustre na spine" },
-  { id: "wifipro", titles: ["DOPOJ WIFIPRO", "WIFI NA STRECHE", "HESLO NA SPODKU"], kind: "symbol", scope: "base", payIds: ["router", "hap"], need: [2, 4], until: [45, 65], line: "výher WifiPRO" },
-  { id: "stb", titles: ["DOPOJ STB", "BOX DO OBÝVAČKY", "SET-TOP NA STÔL"], kind: "symbol", scope: "base", payIds: ["arris"], need: [2, 4], until: [45, 70], line: "výher Arris set-top boxom" },
-  { id: "domov", titles: ["CESTOU DOMOV", "POSLEDNÝ VÝJAZD", "CESTA SPÄŤ"], kind: "symbol", scope: "base", payIds: ["dacia", "roof"], need: [1, 2], until: [60, 90], line: "výher cestou domov" },
+  { id: "wifipro", titles: ["DOPOJ WIFIPRO", "WIFI NA STRECHE", "HESLO NA SPODKU"], kind: "symbol", scope: "base", payIds: ["router", "hap"], need: [2, 4], until: [45, 65], line: "výhier symbolu" },
+  { id: "stb", titles: ["DOPOJ STB", "BOX DO OBÝVAČKY", "SET-TOP NA STÔL"], kind: "symbol", scope: "base", payIds: ["arris"], need: [2, 4], until: [45, 70], line: "výhier symbolu" },
+  { id: "domov", titles: ["CESTOU DOMOV", "POSLEDNÝ VÝJAZD", "CESTA SPÄŤ"], kind: "symbol", scope: "base", payIds: ["dacia", "roof"], need: [1, 2], until: [60, 90], line: "výhier symbolu" },
   { id: "noc", titles: ["POHOTOVOSŤ", "SLUŽBA POHOTOVOSŤ", "VÝJAZD PO KÚPE"], kind: "buy", scope: "live", need: [6, 12], until: [15, 25], line: "výher v kúpenom PARKNET" },
   { id: "hydra", titles: ["HYDRA", "DVA ZNAKY", "DVOJITÝ VÝJAZD"], kind: "hydra", scope: "base", need: [1, 3], until: [50, 80], line: "výher dvoch znakov" },
   { id: "prilohy", titles: ["NAHRAJ PRÍLOHY", "SCAN DO OTRS", "FOTO NA TIKET"], kind: "collect", scope: "any", payIds: ["rj45", "router", "hap", "roof", "arris", "case", "dacia", "meter", "pdf"], need: [30, 80], until: [12, 28], line: "kusov na valcoch" },
@@ -135,25 +135,18 @@ export function jobClock(job: JobCard, inLive = false): string {
   return `ešte ${left} ${spinWord(left)}`;
 }
 
-const SHORT_PAY: Record<PayId, string> = {
-  rj45: "RJ45",
-  router: "WIFI",
-  hap: "HAP",
-  roof: "KRYT",
-  arris: "STB",
-  case: "KUF",
-  dacia: "DAC",
-  meter: "OLP",
-  pdf: "PDF",
-};
-
-export function payShort(id: PayId): string {
-  return SHORT_PAY[id] ?? id.toUpperCase();
+export function jobShownGoal(job: JobCard): string {
+  if (job.kind === "hydra" && job.payId && job.payIdB && job.needB) {
+    return `${payName(job.payId)} ${job.need}× + ${payName(job.payIdB)} ${job.needB}×`;
+  }
+  if (job.kind === "collect" && job.payId) return `${job.need}× kusov ${payName(job.payId)} na valcoch`;
+  if (job.kind === "symbol" && job.payId) return `${job.need}× výhier ${payName(job.payId)}`;
+  return job.goal || job.detail;
 }
 
 export function jobMeter(job: JobCard): string {
   if (job.kind === "hydra" && job.payId && job.payIdB) {
-    return `${payShort(job.payId)} ${job.have}/${job.need} · ${payShort(job.payIdB)} ${job.haveB ?? 0}/${job.needB ?? 0}`;
+    return `${payName(job.payId)} ${job.have}/${job.need} · ${payName(job.payIdB)} ${job.haveB ?? 0}/${job.needB ?? 0}`;
   }
   if (job.kind === "collect") return `${job.have}/${job.need} ks`;
   return `${job.have}/${job.need}`;
@@ -284,18 +277,12 @@ function makeJob(
   }
   const line =
     t.kind === "hydra" && payId && payIdB && needB
-      ? `${payShort(payId)} ${needNow}× + ${payShort(payIdB)} ${needB}×`
+      ? `${payName(payId)} ${needNow}× + ${payName(payIdB)} ${needB}×`
       : t.kind === "collect" && payId
-        ? `kusov ${payShort(payId)} na valcoch`
-        : payId === "router" || payId === "hap"
-          ? "výher WifiPRO"
-          : payId === "arris"
-            ? "výher Arris set-top boxom"
-            : payId === "dacia"
-              ? "výher Daciou cestou domov"
-              : payId === "roof"
-                ? "výher krytinou cestou domov"
-                : t.line;
+        ? `kusov ${payName(payId)} na valcoch`
+        : t.kind === "symbol" && payId
+          ? `výhier ${payName(payId)}`
+          : t.line;
   const tag = t.scope === "live" ? " · LIVE" : t.scope === "any" ? " · BASE+LIVE" : "";
   const goal = t.kind === "hydra" ? line : `${needNow}× ${line}`;
   return {
@@ -515,7 +502,7 @@ export function jobLcd(job: JobCard, verdict: "run" | "ok" | "fail"): { header: 
   const left = jobLeft(job);
   const cap = jobCap(job);
   const miss = Math.max(0, job.need - job.have);
-  const goal = (job.goal || job.detail || "CIEĽ").split("·")[0]?.trim() || "CIEĽ";
+  const goal = jobShownGoal(job).split("·")[0]?.trim() || "CIEĽ";
   const rows: LcdRow[] = [
     { pin: 1, label: "CIEĽ", value: goal },
     { pin: 2, label: "SPINY", value: `${left} / ${job.limit}` },
