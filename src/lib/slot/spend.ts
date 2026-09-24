@@ -453,6 +453,26 @@ export function jobStatus(job: JobCard): "run" | "ok" | "fail" {
   return "run";
 }
 
+/** Goal can only land inside PARKNET, or the goal is to start it. */
+export function jobNeedsParknet(job: JobCard): boolean {
+  if (job.kind === "buy" || job.kind === "live") return true;
+  return job.scope === "live";
+}
+
+/**
+ * No way left into PARKNET.
+ * A buy-only ticket dies when the purchase itself is unaffordable.
+ * Any other PARKNET ticket dies only when both a spin and a buy are out of reach.
+ */
+export function jobParknetBroke(job: JobCard, credit: number, spinCost: number, buyCost: number): boolean {
+  if (!jobNeedsParknet(job) || jobDone(job) || job.seal) return false;
+  const wallet = +credit.toFixed(2);
+  const buy = +Math.max(0, buyCost).toFixed(2);
+  if (job.kind === "buy") return wallet < buy;
+  const spin = +Math.max(0, spinCost).toFixed(2);
+  return wallet < spin && wallet < buy;
+}
+
 export function jobChip(job: JobCard): string {
   return `TIKET ${job.have}/${job.need} · ${jobLeft(job)}`;
 }

@@ -47,6 +47,7 @@ import { duelForfeit, duelLeave } from "@/lib/slot/duel-api";
 import {
   canSpend,
   dealJobs,
+  jobParknetBroke,
   jobStatus,
   tickJob,
   freeSpinsLabel,
@@ -859,6 +860,33 @@ export function useSlotGame() {
       setJob(next);
     }
   }, [pushRank]);
+
+  const failParknetJob = useCallback((cur: JobCard) => {
+    const burned = { ...cur, seal: false, spun: cur.limit };
+    jobRef.current = null;
+    setJob(null);
+    setSpinTape((t) => [{ label: "TIKET", amount: `−${formatMoney(burned.stake)}` }, ...t].slice(0, 8));
+    autoRef.current = false;
+    setAutoOn(false);
+    setAutoLeft(0);
+    lcdRoll.current = true;
+    setLcdFlash({ job: burned, verdict: "fail" });
+    setTopLine("NEÚSPEŠNÝ TIKET · MÁLO KREDITU NA PARKNET");
+    sfx.playThunder();
+  }, []);
+
+  useEffect(() => {
+    if (busy || inFs || duel) return;
+    const cur = jobRef.current;
+    if (!cur) return;
+    const betNow = cur.lockBet > 0 ? cur.lockBet : BETS[betIndexRef.current];
+    const rankId = standing(rankRef.current.rp).id;
+    const perk = perkOf(rankId);
+    const spinCost = ante ? +(betNow * perk.anteMul).toFixed(2) : betNow;
+    const buyCost = +(betNow * buyXOf(rankId)).toFixed(2);
+    if (!jobParknetBroke(cur, balance, spinCost, buyCost)) return;
+    failParknetJob(cur);
+  }, [balance, job, busy, inFs, duel, ante, failParknetJob]);
 
   const waitForPick = useCallback(() => {
     return new Promise<void>((resolve) => {

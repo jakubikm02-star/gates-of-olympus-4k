@@ -17,7 +17,7 @@ import {
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain } from "./pick-bonus.ts";
 import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta, canDuelSpin, duelView, forfeitDuel } from "./duel.ts";
-import { canSpend, dealJobs, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobStatus, symbolNeed, tickJob, spinWord, JOB_BANK, JOB_TEMPLATE_IDS, type JobCard } from "./spend.ts";
+import { canSpend, dealJobs, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobParknetBroke, jobStatus, symbolNeed, tickJob, spinWord, JOB_BANK, JOB_TEMPLATE_IDS, type JobCard } from "./spend.ts";
 import { ORB_TABLE, ORB_VALUES } from "./symbols.ts";
 
 describe("park jackpots", () => {
@@ -1033,6 +1033,21 @@ describe("tiket meter", () => {
     assert.equal(fail.rows[0]?.value, "----");
     assert.equal(fail.rows[5]?.value, "0.0");
     assert.match(fail.rows[6]?.value ?? "", /50/);
+  });
+
+  it("drops a PARKNET ticket when the wallet can no longer enter", () => {
+    const live = blank({ template: "plechovky", kind: "tumbles", scope: "live", need: 4, have: 0, limit: 12, spun: 0 });
+    assert.equal(jobParknetBroke(live, 0.1, 1, 100), true);
+    assert.equal(jobParknetBroke(live, 5, 1, 100), false);
+    assert.equal(jobParknetBroke(live, 120, 1, 100), false);
+    const buy = blank({ template: "noc", kind: "buy", scope: "live", need: 6, have: 0, limit: 15, spun: 0 });
+    assert.equal(jobParknetBroke(buy, 40, 1, 100), true);
+    assert.equal(jobParknetBroke(buy, 100, 1, 100), false);
+    const trigger = blank({ template: "siet", kind: "live", scope: "base", need: 1, have: 0, limit: 30, spun: 4 });
+    assert.equal(jobParknetBroke(trigger, 0.05, 0.2, 20), true);
+    assert.equal(jobParknetBroke(trigger, 1, 0.2, 20), false);
+    const base = blank({ template: "zber", kind: "wins", scope: "base", need: 4, have: 1, limit: 20, spun: 3 });
+    assert.equal(jobParknetBroke(base, 0, 1, 100), false);
   });
 });
 
