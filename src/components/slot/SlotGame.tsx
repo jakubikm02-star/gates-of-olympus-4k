@@ -327,7 +327,7 @@ export function SlotGame() {
               </span>
             ))}
             </div>
-            <div className="board-job">
+            <div className={`board-job ${(g.job && (g.job.scope !== "base" || !g.inFs)) || (g.duel && g.duel.phase === "play") ? "has-job" : ""}`}>
               {g.duel && g.duel.phase === "play" && <DuelBar duel={g.duel} />}
               {g.job && (g.job.scope !== "base" || !g.inFs) && (
                 <div

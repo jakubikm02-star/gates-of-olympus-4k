@@ -5802,16 +5802,42 @@ html:-webkit-full-screen {
 
 .stage.shell-mw .board-job,
 .stage.shell-pwa .board-job {
-  margin-top: 0;
+  margin: 0;
   height: 0;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
+  flex: 0 0 auto;
 }
 
-.stage.shell-mw .board-job:not(:empty),
-.stage.shell-pwa .board-job:not(:empty) {
-  height: 1.05rem;
-  margin-top: 2px;
+.stage.shell-mw .board-job.has-job,
+.stage.shell-pwa .board-job.has-job {
+  height: auto;
+  min-height: 2.85rem;
+  margin-top: 6px;
+  padding: 5px 8px 6px;
+  overflow: hidden;
+  z-index: 7;
+  background: rgb(8 12 16 / 0.94);
+  border: 1px solid rgb(240 196 25 / 0.55);
+  border-radius: 8px;
+}
+
+.stage.shell-mw .job-chip,
+.stage.shell-pwa .job-chip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1px 8px;
+  width: 100%;
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.stage.shell-mw .job-chip em,
+.stage.shell-pwa .job-chip em {
+  grid-column: 1 / -1;
+  text-align: right;
+  font-size: 0.64rem;
 }
 
 .stage.shell-mw .bottom-hud,
@@ -5981,6 +6007,39 @@ html:-webkit-full-screen {
   font-size: clamp(0.95rem, 3.4vw, 1.2rem);
   align-self: end;
   text-align: right;
+}
+
+.stage.shell-pc .atm-desk.atm-modal {
+  width: min(980px, 74vw);
+  max-width: 980px;
+  padding: 28px 36px 26px;
+}
+
+.stage.shell-pc .atm-desk.atm-modal header {
+  margin: -28px -36px 16px;
+  padding: 16px 24px;
+  font-size: 1.35rem;
+}
+
+.stage.shell-pc .atm-desk.atm-modal .atm-kicker {
+  font-size: 0.92rem;
+  margin-bottom: 12px;
+}
+
+.stage.shell-pc .atm-desk.atm-modal dt {
+  font-size: 0.95rem;
+}
+
+.stage.shell-pc .atm-desk.atm-modal dd {
+  font-size: 3.1rem;
+}
+
+.stage.shell-pc .atm-desk.atm-modal .atm-me {
+  font-size: 1.45rem;
+}
+
+.stage.shell-pc .atm-desk.atm-modal dl > div {
+  padding: 16px 4px;
 }
 
 .atm-desk.atm-modal .chip-btn {
