@@ -194,7 +194,6 @@ export function useSlotGame() {
   const [spendOpen, setSpendOpen] = useState(false);
   const [jobToast, setJobToast] = useState<string | null>(null);
   const [lcdFlash, setLcdFlash] = useState<{ job: JobCard; verdict: "ok" | "fail" } | null>(null);
-  const lcdRoll = useRef(false);
   const [hydrated, setHydrated] = useState(false);
   const [autoLeft, setAutoLeft] = useState(0);
   const [autoOn, setAutoOn] = useState(false);
@@ -576,18 +575,7 @@ export function useSlotGame() {
 
   useEffect(() => {
     if (!lcdFlash) return;
-    const roll = lcdRoll.current;
-    lcdRoll.current = false;
-    const t = window.setTimeout(() => {
-      setLcdFlash(null);
-      if (!roll || jobRef.current || inFsRef.current || duelRef.current) return;
-      if (!canSpend(balanceRef.current)) return;
-      autoRef.current = false;
-      setAutoOn(false);
-      setAutoLeft(0);
-      setJobOffer(dealJobs(createRng(), balanceRef.current, BETS[betIndexRef.current]));
-      setSpendOpen(true);
-    }, 1200);
+    const t = window.setTimeout(() => setLcdFlash(null), 4000);
     return () => window.clearTimeout(t);
   }, [lcdFlash]);
 
@@ -842,7 +830,6 @@ export function useSlotGame() {
       const parts = rpFromJob(next.payout, next.stake);
       if (parts.total) pushRank(parts.total, parts);
       setSpinTape((t) => [{ label: "TIKET", amount: `+${formatMoney(next.payout)} · +${parts.total} RP` }, ...t].slice(0, 8));
-      lcdRoll.current = false;
       setLcdFlash({ job: next, verdict: "ok" });
       sfx.playCoin();
     } else if (st === "fail") {
@@ -852,7 +839,6 @@ export function useSlotGame() {
       autoRef.current = false;
       setAutoOn(false);
       setAutoLeft(0);
-      lcdRoll.current = true;
       setLcdFlash({ job: next, verdict: "fail" });
       sfx.playThunder();
     } else {
@@ -869,7 +855,6 @@ export function useSlotGame() {
     autoRef.current = false;
     setAutoOn(false);
     setAutoLeft(0);
-    lcdRoll.current = true;
     setLcdFlash({ job: burned, verdict: "fail" });
     setTopLine("NEÚSPEŠNÝ TIKET · MÁLO KREDITU NA PARKNET");
     sfx.playThunder();
