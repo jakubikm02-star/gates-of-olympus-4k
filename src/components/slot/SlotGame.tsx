@@ -423,12 +423,16 @@ export function SlotGame() {
                 winLine
               )}
             </p>
-            {g.payHint && (
-              <p className="pay-hint">
-                <img src={g.payHint.src} alt="" />
-                {g.payHint.count}× {g.payHint.name} = {g.payHint.amount}
-              </p>
-            )}
+            <p className={`pay-hint ${g.payHint ? "" : "is-idle"}`} aria-hidden={!g.payHint}>
+              {g.payHint ? (
+                <>
+                  <img src={g.payHint.src} alt="" />
+                  {g.payHint.count}× {g.payHint.name} = {g.payHint.amount}
+                </>
+              ) : (
+                "\u00a0"
+              )}
+            </p>
           </div>
 
           <div className="hud-right">

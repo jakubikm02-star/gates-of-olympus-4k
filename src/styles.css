@@ -1431,9 +1431,10 @@
   gap: 1px;
   min-width: 0;
   width: 100%;
-  height: auto;
-  min-height: 2.4em;
-  max-height: none;
+  height: calc(1.35em + 20px);
+  min-height: calc(1.35em + 20px);
+  max-height: calc(1.35em + 20px);
+  flex-shrink: 0;
   overflow: hidden;
   position: relative;
 }
@@ -1441,7 +1442,12 @@
 .pay-hint {
   margin: 0;
   position: static;
-  max-width: 100%;
+  box-sizing: border-box;
+  width: 100%;
+  height: 18px;
+  min-height: 18px;
+  max-height: 18px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1449,13 +1455,17 @@
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.06em;
-  line-height: 1.15;
+  line-height: 18px;
   color: #fff;
   text-shadow: 0 1px 2px #000;
   pointer-events: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.pay-hint.is-idle {
+  visibility: hidden;
 }
 
 .pay-hint img {
@@ -1871,13 +1881,17 @@
 .win-line {
   margin: 0;
   max-width: 100%;
+  box-sizing: border-box;
   text-align: center;
   font-family: var(--font-display);
   font-weight: 700;
   letter-spacing: 0.08em;
-  font-size: clamp(0.95rem, 2.4vw, 1.45rem);
-  line-height: 1.15;
-  height: auto;
+  font-size: clamp(0.95rem, 2.4vw, 1.35rem);
+  line-height: 1.35em;
+  height: 1.35em;
+  min-height: 1.35em;
+  max-height: 1.35em;
+  flex-shrink: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -3537,9 +3551,9 @@
   .win-stack {
     width: 100%;
     order: -1;
-    min-height: 1.7rem;
-    height: auto;
-    max-height: none;
+    height: calc(1.35em + 20px);
+    min-height: calc(1.35em + 20px);
+    max-height: calc(1.35em + 20px);
   }
   .hud-left,
   .hud-right {
@@ -4670,14 +4684,16 @@ html:-webkit-full-screen {
 .stage.is-ls .win-stack {
   width: auto;
   order: 0;
-  height: auto;
-  min-height: 0;
-  max-height: none;
+  height: calc(1.35em + 20px);
+  min-height: calc(1.35em + 20px);
+  max-height: calc(1.35em + 20px);
 }
 
 .stage.is-ls .win-line {
-  font-size: clamp(1.05rem, 3.2vh, 1.7rem);
-  height: auto;
+  font-size: clamp(1.05rem, 3.2vh, 1.35rem);
+  height: 1.35em;
+  min-height: 1.35em;
+  max-height: 1.35em;
 }
 
 .stage.is-ls .parchment {
@@ -6219,11 +6235,11 @@ html:-webkit-full-screen {
 .stage.shell-mw .win-stack,
 .stage.shell-pwa .win-stack {
   grid-area: win;
-  min-height: 1.35rem;
-  height: auto;
-  max-height: none;
+  height: calc(1.2rem + 18px);
+  min-height: calc(1.2rem + 18px);
+  max-height: calc(1.2rem + 18px);
   margin: 0;
-  padding: 2px 8px 1px;
+  padding: 0 8px;
   order: 0;
   z-index: 9;
   background: #07090d;
@@ -6231,15 +6247,27 @@ html:-webkit-full-screen {
 
 .stage.shell-mw .win-line,
 .stage.shell-pwa .win-line {
-  font-size: 1.05rem;
-  line-height: 1.15;
-  height: auto;
+  font-size: 1rem;
+  line-height: 1.2rem;
+  height: 1.2rem;
+  min-height: 1.2rem;
+  max-height: 1.2rem;
 }
 
 .stage.shell-mw .pay-hint,
 .stage.shell-pwa .pay-hint {
   position: static;
-  font-size: 0.68rem;
+  height: 16px;
+  min-height: 16px;
+  max-height: 16px;
+  line-height: 16px;
+  font-size: 0.62rem;
+}
+
+.stage.shell-mw .pay-hint img,
+.stage.shell-pwa .pay-hint img {
+  width: 14px;
+  height: 14px;
 }
 
 .stage.shell-mw .hud-left,
