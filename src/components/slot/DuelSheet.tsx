@@ -21,9 +21,9 @@ interface Props {
   bet: number;
   credit: number;
   onClose: () => void;
-  onStart: (mode: DuelMode, a: string, b: string, bet: number, need: number, ante: boolean) => void;
-  onHost: (mode: DuelMode, name: string, bet: number, need: number, ante: boolean) => void;
-  onJoin: (mode: DuelMode, name: string, code: string, bet: number, need: number, ante: boolean) => void;
+  onStart: (mode: DuelMode, a: string, b: string, bet: number, need: number, ante: boolean) => string;
+  onHost: (mode: DuelMode, name: string, bet: number, need: number, ante: boolean) => string;
+  onJoin: (mode: DuelMode, name: string, code: string, bet: number, need: number, ante: boolean) => string;
   onSwap: () => void;
   onEnd: () => void;
 }
@@ -105,6 +105,7 @@ export function DuelLink({
 
   useEffect(() => {
     let stop = false;
+    let ready = false;
     const boot = async () => {
       try {
         if (link.role === "host") {
@@ -116,13 +117,17 @@ export function DuelLink({
             need: link.need || 10,
             ante: link.ante,
           });
-          if (!stop) setStatus("Kód je živý. Pošli ho kamošovi.");
+          if (stop) return;
+          ready = true;
+          setErr("");
+          setStatus("Kód je živý. Pošli ho kamošovi.");
         } else {
           const snap = await duelJoin(link.room, link.name);
-          if (!stop) {
-            onPeerNameRef.current(snap.hostName);
-            setStatus("Si v miestnosti. Čakám na ŠTART.");
-          }
+          if (stop) return;
+          ready = true;
+          onPeerNameRef.current(snap.hostName);
+          setErr("");
+          setStatus("Si v miestnosti. Čakám na ŠTART.");
         }
       } catch (e) {
         if (!stop) setErr(e instanceof Error ? e.message : "Spojenie zlyhalo");
@@ -131,6 +136,7 @@ export function DuelLink({
     void boot();
 
     const tick = window.setInterval(() => {
+      if (!ready) return;
       void (async () => {
         try {
           const snap = await duelPoll(link.room);
@@ -204,7 +210,7 @@ export function DuelLink({
       stop = true;
       window.clearInterval(tick);
     };
-  }, [link.room, link.role, link.name, link.mode, bet]);
+  }, [link.room, link.role, link.name, link.mode, link.bet, link.need, link.ante, bet]);
 
   useEffect(() => {
     if (!duel || duel.kind !== "online" || duel.phase !== "play") return;
@@ -306,6 +312,7 @@ export function DuelSheet({
   const [stake, setStake] = useState(bet);
   const [invite, setInvite] = useState<DuelSnap | null>(null);
   const [peekErr, setPeekErr] = useState("");
+  const [block, setBlock] = useState("");
   useEffect(() => {
     if (!open) {
       setInvite(null);
@@ -399,9 +406,9 @@ export function DuelSheet({
             <div className="duel-tabs">
               <button
                 type="button"
-                className="chip-btn gold"
+                className="chip-btn gold duel-go"
                 disabled={credit < seatCost(invite.need, invite.bet)}
-                onClick={() => onJoin(invite.mode, a, invite.code, invite.bet, invite.need, invite.ante)}
+                onClick={() => setBlock(onJoin(invite.mode, a, invite.code, invite.bet, invite.need, invite.ante))}
               >
                 PRIJAŤ
               </button>
@@ -446,9 +453,9 @@ export function DuelSheet({
                 </label>
                 <button
                   type="button"
-                  className="chip-btn gold"
+                  className="chip-btn gold duel-go"
                   disabled={credit < seatCost(need, stake)}
-                  onClick={() => onStart("spins", a, b, stake, need, anteOn)}
+                  onClick={() => setBlock(onStart("spins", a, b, stake, need, anteOn))}
                 >
                   ZAČNI PRI STOLE
                 </button>
@@ -461,9 +468,9 @@ export function DuelSheet({
                 </label>
                 <button
                   type="button"
-                  className="chip-btn gold"
+                  className="chip-btn gold duel-go"
                   disabled={credit < seatCost(need, stake)}
-                  onClick={() => onHost("spins", a, stake, need, anteOn)}
+                  onClick={() => setBlock(onHost("spins", a, stake, need, anteOn))}
                 >
                   VYTVORIŤ KÓD
                 </button>
@@ -505,6 +512,7 @@ export function DuelSheet({
                 {peekErr ? <p className="spend-active is-late">{peekErr}</p> : null}
               </>
             )}
+            {block ? <p className="spend-active is-late">{block}</p> : null}
           </>
         )}
       </div>

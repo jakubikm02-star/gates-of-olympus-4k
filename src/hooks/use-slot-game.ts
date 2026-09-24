@@ -2137,10 +2137,14 @@ export function useSlotGame() {
     duelPeer,
     setDuelPeer,
     hostDuel: (mode: DuelMode, name: string, betAmt?: number, need = 10, anteOn = false) => {
-      if (duelRef.current || jobRef.current || inFsRef.current) return;
+      if (duelRef.current) return "Už beží duel.";
+      if (inFsRef.current) {
+        setTopLine("DOTOČ PARKNET, POTOM DUEL");
+        return "Dotoč PARKNET, potom duel.";
+      }
       const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
       const spins = need > 0 ? Math.round(need) : 10;
-      if (balanceRef.current < +(stake * spins * 1.2).toFixed(2)) return;
+      if (balanceRef.current < +(stake * spins * 1.2).toFixed(2)) return "Málo kreditu.";
       const i = BETS.reduce((best, v, idx) => (Math.abs(v - stake) < Math.abs(BETS[best] - stake) ? idx : best), 0);
       setBetIndex(i);
       betIndexRef.current = i;
@@ -2159,14 +2163,19 @@ export function useSlotGame() {
       setDuelPeer("");
       setDuelOpen(true);
       sfx.playClick();
+      return "";
     },
     joinDuel: (mode: DuelMode, name: string, code: string, betAmt?: number, need = 10, anteOn = false) => {
-      if (duelRef.current || jobRef.current || inFsRef.current) return;
+      if (duelRef.current) return "Už beží duel.";
+      if (inFsRef.current) {
+        setTopLine("DOTOČ PARKNET, POTOM DUEL");
+        return "Dotoč PARKNET, potom duel.";
+      }
       const room = code.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 4);
-      if (room.length < 4) return;
+      if (room.length < 4) return "Kód má 4 znaky.";
       const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
       const spins = need > 0 ? Math.round(need) : 10;
-      if (balanceRef.current < +(stake * spins * 1.2).toFixed(2)) return;
+      if (balanceRef.current < +(stake * spins * 1.2).toFixed(2)) return "Málo kreditu.";
       const i = BETS.reduce((best, v, idx) => (Math.abs(v - stake) < Math.abs(BETS[best] - stake) ? idx : best), 0);
       setBetIndex(i);
       betIndexRef.current = i;
@@ -2184,6 +2193,7 @@ export function useSlotGame() {
       setDuelPeer("");
       setDuelOpen(true);
       sfx.playClick();
+      return "";
     },
     beginOnline: (peerName: string, bet: number, mode: DuelMode, need = 10, anteOn = false) => {
       const link = duelLinkRef.current;
@@ -2267,10 +2277,12 @@ export function useSlotGame() {
       settleDuel(next);
     },
     beginDuel: (mode: DuelMode, a: string, b: string, betAmt?: number, need = 10, anteOn = false) => {
-      if (busyRef.current || inFsRef.current || jobRef.current || duelRef.current) return;
+      if (busyRef.current) return "Počkaj, kým dotočí.";
+      if (inFsRef.current) return "Dotoč PARKNET, potom duel.";
+      if (duelRef.current) return "Už beží duel.";
       const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
       const spins = need > 0 ? Math.round(need) : 10;
-      if (balanceRef.current < +(stake * spins * 1.2).toFixed(2)) return;
+      if (balanceRef.current < +(stake * spins * 1.2).toFixed(2)) return "Málo kreditu.";
       const i = BETS.reduce((best, v, idx) => (Math.abs(v - stake) < Math.abs(BETS[best] - stake) ? idx : best), 0);
       setBetIndex(i);
       betIndexRef.current = i;
@@ -2284,6 +2296,7 @@ export function useSlotGame() {
       setDuelOpen(false);
       setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
       sfx.playClick();
+      return "";
     },
     swapDuel: () => {
       const cur = duelRef.current;
