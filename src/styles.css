@@ -5907,27 +5907,94 @@ html:-webkit-full-screen {
   pointer-events: none;
 }
 
-.atm-desk.atm-modal {
-  width: min(360px, 92vw);
-  max-width: 360px;
+.atm-desk.atm-modal,
+.atm-desk.in-info {
+  width: min(640px, 96vw);
+  max-width: 640px;
   margin: auto;
-  padding: 10px 12px 12px;
-}
-
-.atm-desk.atm-modal header {
-  margin: -10px -12px 8px;
-  padding: 6px 10px;
+  padding: 18px 18px 16px;
 }
 
 .atm-desk.in-info {
   width: 100%;
   max-width: none;
-  margin: 0 0 12px;
+  margin: 0 0 14px;
+}
+
+.atm-desk.atm-modal header,
+.atm-desk.in-info header {
+  margin: -18px -18px 12px;
+  padding: 12px 16px;
+  font-size: 1.05rem;
+  letter-spacing: 0.2em;
+}
+
+.atm-desk.atm-modal .atm-kicker,
+.atm-desk.in-info .atm-kicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  margin: 0 0 8px;
+}
+
+.atm-desk.atm-modal dl,
+.atm-desk.in-info dl {
+  grid-template-columns: 1fr;
+}
+
+.atm-desk.atm-modal dl > div,
+.atm-desk.in-info dl > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "label label"
+    "all me";
+  align-items: end;
+  gap: 2px 16px;
+  border-right: 0;
+  border-bottom: 1px dashed rgb(140 224 192 / 0.35);
+  padding: 12px 2px;
+}
+
+.atm-desk.atm-modal dl > div:last-child,
+.atm-desk.in-info dl > div:last-child {
+  border-bottom: 0;
+}
+
+.atm-desk.atm-modal dt,
+.atm-desk.in-info dt {
+  grid-area: label;
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+}
+
+.atm-desk.atm-modal dd,
+.atm-desk.in-info dd {
+  grid-area: all;
+  font-size: clamp(1.7rem, 7vw, 2.4rem);
+  line-height: 1;
+  overflow: visible;
+}
+
+.atm-desk.atm-modal .atm-me,
+.atm-desk.in-info .atm-me {
+  grid-area: me;
+  font-size: clamp(0.95rem, 3.4vw, 1.2rem);
+  align-self: end;
+  text-align: right;
 }
 
 .atm-desk.atm-modal .chip-btn {
   width: 100%;
-  margin-top: 8px;
+  height: 48px;
+  margin-top: 14px;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 720px) {
+  .modal-back:has(.atm-modal) {
+    align-items: center;
+    padding: 12px;
+  }
 }
 
 
