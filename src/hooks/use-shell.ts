@@ -17,8 +17,12 @@ function readShell(): Shell {
 }
 
 function syncAppHeight(): void {
-  const h = window.visualViewport?.height ?? window.innerHeight;
-  document.documentElement.style.setProperty("--app-h", `${Math.round(h)}px`);
+  const vv = window.visualViewport;
+  const h = vv?.height ?? window.innerHeight;
+  const top = vv?.offsetTop ?? 0;
+  const root = document.documentElement;
+  root.style.setProperty("--app-h", `${Math.round(h)}px`);
+  root.style.setProperty("--app-top", `${Math.round(top)}px`);
 }
 
 export function useShell(): Shell {

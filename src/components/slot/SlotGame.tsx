@@ -111,7 +111,7 @@ export function SlotGame() {
           : "GOOD LUCK!"
         : g.displayWin > 0 || g.payHint
           ? null
-          : "";
+          : "GOOD LUCK";
 
   return (
     <div
