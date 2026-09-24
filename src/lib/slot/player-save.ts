@@ -168,6 +168,7 @@ function jobSave(raw: unknown): JobCard | null {
       : undefined,
     needB: r.needB != null ? Math.min(40, Math.max(0, Math.floor(num(r.needB, 0)))) : undefined,
     haveB: r.haveB != null ? Math.min(40, Math.max(0, Math.floor(num(r.haveB, 0)))) : undefined,
+    seal: r.seal === true ? true : undefined,
   };
 }
 

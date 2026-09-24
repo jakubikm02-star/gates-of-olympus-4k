@@ -17,7 +17,7 @@ import {
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain } from "./pick-bonus.ts";
 import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta, canDuelSpin, duelView, forfeitDuel } from "./duel.ts";
-import { canSpend, dealJobs, hydraSplit, jobClock, jobLeft, jobStatus, symbolNeed, tickJob, spinWord, JOB_BANK, JOB_TEMPLATE_IDS } from "./spend.ts";
+import { canSpend, dealJobs, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobStatus, symbolNeed, tickJob, spinWord, JOB_BANK, JOB_TEMPLATE_IDS, type JobCard } from "./spend.ts";
 import { ORB_TABLE, ORB_VALUES } from "./symbols.ts";
 
 describe("park jackpots", () => {
@@ -886,6 +886,153 @@ describe("míňať", () => {
     assert.equal(done.haveB, 2);
     assert.equal(jobStatus(done), "ok");
     assert.equal(jobClock({ ...job, have: 0, spun: 50 }), "NEÚSPEŠNÝ TIKET");
+  });
+});
+
+describe("tiket meter", () => {
+  const blank = (over: Partial<JobCard> & Pick<JobCard, "template" | "kind">): JobCard => ({
+    id: "t",
+    floor: "stred",
+    title: "T",
+    detail: "",
+    goal: "4× PDF 8+",
+    stake: 50,
+    payout: 90,
+    need: 4,
+    have: 0,
+    limit: 10,
+    spun: 0,
+    lockBet: 1,
+    ...over,
+  });
+  const miss = {
+    win: false,
+    dead: true,
+    tumbles: 0,
+    live: false,
+    ticket: null,
+    pdf: false,
+    signal: 0,
+    clusters: 0,
+    orbs: false,
+  };
+
+  it("fails SUCHO when the dead spins left cannot cover the gap", () => {
+    const next = tickJob(blank({ template: "sucho", kind: "deads", need: 8, have: 4, limit: 10, spun: 6 }), miss);
+    assert.equal(next.have, 5);
+    assert.equal(jobLeft(next), 3);
+    assert.equal(jobStatus(next), "run");
+    const early = tickJob(blank({ template: "sucho", kind: "deads", need: 8, have: 4, limit: 10, spun: 6 }), {
+      ...miss,
+      dead: false,
+      win: false,
+    });
+    assert.equal(early.have, 4);
+    assert.equal(jobStatus(early), "fail");
+  });
+
+  it("kills SUCHO the moment a win or 4tv lands", () => {
+    const won = tickJob(blank({ template: "sucho", kind: "deads", need: 8, have: 6, limit: 20, spun: 1 }), {
+      ...miss,
+      win: true,
+      dead: false,
+    });
+    assert.equal(jobStatus(won), "fail");
+    const tv = tickJob(blank({ template: "sucho", kind: "deads", need: 8, have: 6, limit: 20, spun: 1 }), {
+      ...miss,
+      live: true,
+    });
+    assert.equal(jobStatus(tv), "fail");
+  });
+
+  it("fails a symbol ticket as soon as the remaining spins are short", () => {
+    const pdf = tickJob(blank({ template: "vynos", kind: "pdf", need: 4, have: 1, limit: 10, spun: 7 }), miss);
+    assert.equal(pdf.have, 1);
+    assert.equal(jobStatus(pdf), "fail");
+    const sym = tickJob(
+      blank({ template: "wifipro", kind: "symbol", payId: "rj45", goal: "4× RJ45 8+", need: 4, have: 1, limit: 10, spun: 7 }),
+      { ...miss, pays: ["pdf"] },
+    );
+    assert.equal(jobStatus(sym), "fail");
+  });
+
+  it("does not treat a jackpot ticket as a ZBER hit", () => {
+    const next = tickJob(blank({ template: "zber", kind: "wins", goal: "4× výherných spinov", need: 4, have: 1, limit: 30, spun: 2 }), {
+      ...miss,
+      ticket: "ulica",
+    });
+    assert.equal(next.have, 1);
+    assert.equal(jobStatus(next), "run");
+  });
+
+  it("keeps REŤAZ alive until the clock actually ends", () => {
+    const next = tickJob(blank({ template: "retaz", kind: "wins", need: 3, have: 2, limit: 5, spun: 2 }), miss);
+    assert.equal(next.have, 0);
+    assert.equal(jobLeft(next), 2);
+    assert.equal(jobStatus(next), "run");
+  });
+
+  it("fails PLECHOVKY only above 6 cans per remaining spin", () => {
+    const alive = tickJob(
+      blank({ template: "plechovky", kind: "tumbles", scope: "live", need: 8, have: 1, limit: 4, spun: 1 }),
+      { ...miss, liveSpin: true, orbs: true, orbCount: 1 },
+    );
+    assert.equal(alive.have, 2);
+    assert.equal(jobStatus(alive), "run");
+    const dead = tickJob(
+      blank({ template: "plechovky", kind: "tumbles", scope: "live", need: 8, have: 1, limit: 3, spun: 1 }),
+      { ...miss, liveSpin: true, orbCount: 0 },
+    );
+    assert.equal(jobStatus(dead), "fail");
+  });
+
+  it("fails DUO/HYDRA when either branch can no longer land", () => {
+    const next = tickJob(
+      blank({
+        template: "hydra",
+        kind: "hydra",
+        payId: "rj45",
+        payIdB: "pdf",
+        need: 3,
+        have: 3,
+        needB: 2,
+        haveB: 0,
+        limit: 10,
+        spun: 8,
+      }),
+      miss,
+    );
+    assert.equal(jobStatus(next), "fail");
+  });
+
+  it("holds SIGNÁL until the LIVE feature closes", () => {
+    const mid = tickJob(blank({ template: "signal", kind: "signal", scope: "live", need: 10, have: 1, limit: 2, spun: 1 }), {
+      ...miss,
+      liveSpin: true,
+      orbSum: 2,
+    });
+    assert.equal(mid.seal, true);
+    assert.equal(jobStatus(mid), "run");
+    const over = tickJob(mid, { ...miss, featureOver: true, spun: false });
+    assert.equal(jobStatus(over), "fail");
+  });
+
+  it("draws PASS and FAIL on the same seven rows", () => {
+    const job = blank({ template: "wifipro", kind: "symbol", have: 1, need: 4, limit: 31, spun: 28, goal: "4× RJ45 8+" });
+    assert.equal(jobChip(job), "TIKET 1/4 · 3");
+    const run = jobLcd(job, "run");
+    assert.equal(run.header, "TIKET");
+    assert.equal(run.rows[1]?.value, "3 / 31");
+    assert.equal(run.rows[4]?.value, "3");
+    assert.equal(run.rows[5]?.value, "----");
+    const pass = jobLcd({ ...job, have: 4 }, "ok");
+    assert.equal(pass.header, "PASS");
+    assert.equal(pass.rows[5]?.value, "+90");
+    const fail = jobLcd(job, "fail");
+    assert.equal(fail.header, "FAIL");
+    assert.equal(fail.rows[0]?.value, "----");
+    assert.equal(fail.rows[5]?.value, "0.0");
+    assert.match(fail.rows[6]?.value ?? "", /50/);
   });
 });
 

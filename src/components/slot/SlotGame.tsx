@@ -3,7 +3,7 @@ import { Volume2, VolumeX, Info, RefreshCw, Menu } from "lucide-react";
 import { START_BALANCE, BETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
-import { jobClock, jobLeft, jobMeter, jobScopeLabel } from "@/lib/slot/spend";
+import { jobChip } from "@/lib/slot/spend";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { useShell } from "@/hooks/use-shell";
 import { SlotGrid } from "./Grid";
@@ -14,6 +14,7 @@ import { RankBadge } from "./RankBadge";
 import { RankPanel } from "./RankPanel";
 import { RankToast } from "./RankToast";
 import { SpendSheet } from "./SpendSheet";
+import { TicketLcd } from "./TicketLcd";
 import { DuelSheet, DuelBar, DuelLink } from "./DuelSheet";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
@@ -89,6 +90,7 @@ export function SlotGame() {
   const g = useSlotGame();
   const shell = useShell();
   const [deskOpen, setDeskOpen] = useState(false);
+  const [lcdOn, setLcdOn] = useState(false);
   const spinning = g.phase === "spinning" || g.phase === "landing";
   const resolving =
     spinning ||
@@ -115,7 +117,7 @@ export function SlotGame() {
 
   return (
     <div
-      className={`stage shell-${shell} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""}`}
+      className={`stage shell-${shell} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""} ${g.lcdFlash || (lcdOn && g.job) ? "has-lcd" : ""}`}
     >
       <div className="stage-bg" />
       <div className="stage-glow" />
@@ -328,21 +330,15 @@ export function SlotGame() {
               </span>
             ))}
             </div>
-            <div className={`board-job ${g.job && (g.job.scope !== "base" || !g.inFs) ? "has-job" : ""}`}>
-              {g.job && (g.job.scope !== "base" || !g.inFs) && (
-                <div
-                  className={`job-chip ${g.job.scope === "live" ? "is-live" : ""} ${g.job.scope === "any" ? "is-any" : ""} ${g.jobToast ? "is-hot" : ""} ${jobLeft(g.job) <= 5 ? "is-late" : ""}`}
+            <div className={`board-job ${g.job ? "has-job" : ""}`}>
+              {g.job && (
+                <button
+                  type="button"
+                  className={`job-chip ${(g.job.limit - g.job.spun) <= 5 ? "is-late" : ""}`}
+                  onClick={() => setLcdOn((v) => !v)}
                 >
-                  <i>{jobScopeLabel(g.job)}</i>
-                  <span>{g.job.goal || g.job.detail}</span>
-                  <b>
-                    {jobMeter(g.job)}
-                  </b>
-                  <em>
-                    {jobClock(g.job, g.inFs)}
-                    {g.job.lockBet ? ` · ${formatMoney(g.job.lockBet)}` : ""}
-                  </em>
-                </div>
+                  <span>{jobChip(g.job)}</span>
+                </button>
               )}
             </div>
             </div>
@@ -375,6 +371,9 @@ export function SlotGame() {
         </div>
 
         <footer className="bottom-hud">
+          {(g.lcdFlash || (lcdOn && g.job)) && (
+            <TicketLcd job={(g.lcdFlash?.job ?? g.job)!} verdict={g.lcdFlash?.verdict ?? "run"} />
+          )}
           <div className="hud-left">
             <button
               type="button"

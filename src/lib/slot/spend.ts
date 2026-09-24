@@ -30,6 +30,8 @@ export interface JobCard {
   payIdB?: PayId;
   needB?: number;
   haveB?: number;
+  /** Clock is dead but the LIVE feature has not closed yet. */
+  seal?: boolean;
 }
 
 /** Share of bank → stake band. Spins-at-bet is the other axis. */
@@ -352,6 +354,10 @@ export interface JobEvent {
   buyOver?: boolean;
   liveSpin?: boolean;
   shown?: number;
+  /** Cans on the resolved grid. PLECHOVKY caps a spin at 6. */
+  orbCount?: number;
+  /** Natural or bought PARKNET just closed. */
+  featureOver?: boolean;
 }
 
 function jobOnThisSpin(job: JobCard, ev: JobEvent): boolean {
@@ -364,6 +370,10 @@ function jobOnThisSpin(job: JobCard, ev: JobEvent): boolean {
 }
 
 export function tickJob(job: JobCard, ev: JobEvent): JobCard {
+  if (job.seal) {
+    if (!ev.featureOver) return job;
+    return jobDone(job) ? { ...job, seal: false } : { ...job, seal: false, spun: job.limit };
+  }
   if (job.template === "retaz" && job.need > 3) {
     job = { ...job, need: 3, limit: Math.max(job.limit, 50) };
   }
@@ -379,7 +389,7 @@ export function tickJob(job: JobCard, ev: JobEvent): JobCard {
   }
   if (job.kind === "deads" && ev.dead) add = 1;
   if (job.kind === "tumbles") {
-    if (job.template === "plechovky") add = ev.orbs ? 1 : 0;
+    if (job.template === "plechovky") add = Math.min(6, Math.max(0, Math.floor(ev.orbCount ?? (ev.orbs ? 1 : 0))));
     else add = Math.max(0, ev.tumbles);
   }
   if (job.kind === "chain") add = ev.tumbles >= 2 ? 1 : 0;
@@ -401,13 +411,103 @@ export function tickJob(job: JobCard, ev: JobEvent): JobCard {
     ev.buyOver && job.kind === "buy" && !done
       ? job.limit
       : job.spun + (ev.spun === false ? 0 : 1);
-  return { ...job, have: nextHave, haveB: job.kind === "hydra" ? haveB : job.haveB, spun };
+  const next: JobCard = { ...job, have: nextHave, haveB: job.kind === "hydra" ? haveB : job.haveB, spun };
+  if (!jobHopeless(next, ev)) return next;
+  if (next.template === "signal" && (ev.liveSpin || ev.bought) && !ev.featureOver) {
+    return { ...next, spun: next.limit, seal: true };
+  }
+  return { ...next, seal: false, spun: next.limit };
+}
+
+/** Max progress one future spin can still add. Null = no ceiling, fail only when the clock hits zero. */
+export function jobCap(job: JobCard): number | null {
+  const id = job.template;
+  if (id === "retaz" || id === "balik" || id === "siet" || id === "pot" || id === "signal" || id === "noc") return null;
+  if (id === "plechovky") return 6;
+  if (id === "pada") return 20;
+  if (id === "prilohy" || job.kind === "collect") return 30;
+  return 1;
+}
+
+/** True when the ticket can no longer be finished. Called after the spin is already counted. */
+export function jobHopeless(job: JobCard, ev?: JobEvent): boolean {
+  if (jobDone(job)) return false;
+  const left = Math.max(0, job.limit - job.spun);
+  if (left <= 0) return true;
+  if (job.template === "sucho" && ev && (ev.win || ev.live)) return true;
+  const cap = jobCap(job);
+  if (cap == null) return false;
+  const room = left * cap;
+  if (job.kind === "hydra") {
+    const a = job.need - job.have;
+    const b = (job.needB ?? 1) - (job.haveB ?? 0);
+    return a > room || b > room;
+  }
+  return job.need - job.have > room;
 }
 
 export function jobStatus(job: JobCard): "run" | "ok" | "fail" {
   if (jobDone(job)) return "ok";
+  if (job.seal) return "run";
   if (job.spun >= job.limit) return "fail";
   return "run";
+}
+
+export function jobChip(job: JobCard): string {
+  return `TIKET ${job.have}/${job.need} · ${jobLeft(job)}`;
+}
+
+function lcdInt(n: number): string {
+  return Math.round(Math.abs(n)).toLocaleString("sk-SK");
+}
+
+export interface LcdRow {
+  pin: number;
+  label: string;
+  value: string;
+}
+
+/** Frozen meter. Same seven rows for run, PASS and FAIL. */
+export function jobLcd(job: JobCard, verdict: "run" | "ok" | "fail"): { header: "TIKET" | "PASS" | "FAIL"; rows: LcdRow[] } {
+  const left = jobLeft(job);
+  const cap = jobCap(job);
+  const miss = Math.max(0, job.need - job.have);
+  const goal = (job.goal || job.detail || "CIEĽ").split("·")[0]?.trim() || "CIEĽ";
+  const rows: LcdRow[] = [
+    { pin: 1, label: "CIEĽ", value: goal },
+    { pin: 2, label: "SPINY", value: `${left} / ${job.limit}` },
+    {
+      pin: 3,
+      label: "HOTOVÉ",
+      value: job.kind === "hydra" ? `${job.have}+${job.haveB ?? 0}` : String(job.have),
+    },
+    {
+      pin: 4,
+      label: "TREBA",
+      value:
+        job.kind === "hydra"
+          ? `${miss}+${Math.max(0, (job.needB ?? 0) - (job.haveB ?? 0))}`
+          : String(miss),
+    },
+    { pin: 5, label: "MAX", value: cap == null ? "----" : String(left * cap) },
+    {
+      pin: 6,
+      label: "STAV",
+      value: verdict === "ok" ? `+${lcdInt(job.payout)}` : verdict === "fail" ? "0.0" : "----",
+    },
+    {
+      pin: 7,
+      label: "BANK",
+      value: verdict === "fail" ? `−${lcdInt(job.stake)}` : `${lcdInt(job.stake)} → ${lcdInt(job.payout)}`,
+    },
+  ];
+  if (verdict === "fail") {
+    for (const row of rows) {
+      if (row.pin === 6 || row.pin === 7) continue;
+      row.value = "----";
+    }
+  }
+  return { header: verdict === "ok" ? "PASS" : verdict === "fail" ? "FAIL" : "TIKET", rows };
 }
 
 export function canSpend(credit: number, _bet = 0): boolean {

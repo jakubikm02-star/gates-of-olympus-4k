@@ -5019,9 +5019,15 @@ html:-webkit-full-screen {
   justify-content: center;
   gap: 8px;
   margin: 0;
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-  color: var(--color-muted);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-gold-2);
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .job-chip span {
@@ -5071,6 +5077,159 @@ html:-webkit-full-screen {
 
 .job-chip.is-any {
   color: #c9ddff;
+}
+
+.ticket-lcd {
+  position: absolute;
+  z-index: 7;
+  left: 4px;
+  width: min(440px, 34%);
+  top: 0;
+  bottom: -42px;
+  pointer-events: none;
+  font-family: ui-monospace, "Courier New", monospace;
+}
+
+.stage.shell-mw .ticket-lcd,
+.stage.shell-pwa .ticket-lcd {
+  width: auto;
+  right: 72px;
+  top: 1.35rem;
+  bottom: -44px;
+}
+
+.stage.has-lcd .win-stack {
+  position: relative;
+  z-index: 8;
+  background: #07090d;
+}
+
+.nf-bezel {
+  height: 100%;
+  padding: 6px;
+  border-radius: 8px;
+  background: #14171c;
+  box-shadow:
+    inset 0 0 0 1px #2a2e34,
+    0 8px 18px rgb(0 0 0 / 0.45);
+}
+
+.nf-screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 4px 6px 3px;
+  background: #1147b8;
+  border-radius: 2px;
+  color: #f4f7ff;
+  box-shadow: inset 0 0 0 2px #0a2f86;
+}
+
+.nf-screen header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 6px;
+  min-height: 16px;
+  padding-bottom: 2px;
+  border-bottom: 2px solid #ff2a2a;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.nf-brand {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.nf-screen header strong {
+  font-size: 12px;
+  letter-spacing: 0.16em;
+}
+
+.ticket-lcd.is-ok .nf-screen header strong {
+  color: #d8ff8a;
+}
+
+.ticket-lcd.is-fail .nf-screen header strong {
+  color: #ffd0d0;
+}
+
+.ticket-lcd.is-fail .nf-screen {
+  background: #0c3278;
+}
+
+.nf-bat {
+  justify-self: end;
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 10px;
+}
+
+.nf-bat b {
+  display: block;
+  width: 3px;
+  background: #f4f7ff;
+}
+
+.nf-bat b:nth-child(1) {
+  height: 4px;
+}
+
+.nf-bat b:nth-child(2) {
+  height: 7px;
+}
+
+.nf-bat b:nth-child(3) {
+  height: 10px;
+}
+
+.nf-screen ol {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.nf-screen li {
+  display: grid;
+  grid-template-columns: 18px 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+  font-size: 11px;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+}
+
+.nf-screen li b {
+  display: grid;
+  place-items: center;
+  height: 14px;
+  background: #ffe14a;
+  color: #1a1400;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.nf-screen li em {
+  font-style: normal;
+  font-weight: 700;
+  color: #f4f7ff;
+}
+
+.nf-screen li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .spend-job.is-live {
@@ -5894,13 +6053,12 @@ html:-webkit-full-screen {
 
 .stage.shell-mw .job-chip,
 .stage.shell-pwa .job-chip {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 1px 8px;
+  display: flex;
+  justify-content: center;
   width: 100%;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   line-height: 1.25;
+  letter-spacing: 0.14em;
 }
 
 .stage.shell-mw .job-chip em,

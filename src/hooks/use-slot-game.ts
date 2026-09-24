@@ -150,6 +150,8 @@ export function useSlotGame() {
   const [jobOffer, setJobOffer] = useState<JobCard[] | null>(null);
   const [spendOpen, setSpendOpen] = useState(false);
   const [jobToast, setJobToast] = useState<string | null>(null);
+  const [lcdFlash, setLcdFlash] = useState<{ job: JobCard; verdict: "ok" | "fail" } | null>(null);
+  const lcdRoll = useRef(false);
   const [hydrated, setHydrated] = useState(false);
   const [autoLeft, setAutoLeft] = useState(0);
   const [autoOn, setAutoOn] = useState(false);
@@ -301,9 +303,16 @@ export function useSlotGame() {
       bought: Boolean(s.fsBought),
       triggerCash: s.fsTriggerCash ?? 0,
     };
-    const loaded = s.job ? { ...s.job, lockBet: s.job.lockBet || BETS[s.betIndex] } : null;
-    setJob(loaded);
-    jobRef.current = loaded;
+    const loadedRaw = s.job ? { ...s.job, lockBet: s.job.lockBet || BETS[s.betIndex] } : null;
+    const loaded =
+      loadedRaw?.seal && !(s.inFs && s.fsLeft > 0)
+        ? { ...loadedRaw, seal: false, spun: loadedRaw.limit }
+        : loadedRaw;
+    setJob(loaded && loaded.spun >= loaded.limit && loaded.have < loaded.need ? null : loaded);
+    jobRef.current = loaded && loaded.spun >= loaded.limit && loaded.have < loaded.need ? null : loaded;
+    if (loaded && loaded !== loadedRaw && loaded.spun >= loaded.limit) {
+      setLcdFlash({ job: loaded, verdict: "fail" });
+    }
     pendingLiveTicketRef.current = s.pendingLiveTicket;
     const day = deskToday();
     const mineDay = s.deskDay === day
@@ -521,6 +530,23 @@ export function useSlotGame() {
     const t = window.setTimeout(() => setJobToast(null), 1800);
     return () => window.clearTimeout(t);
   }, [jobToast]);
+
+  useEffect(() => {
+    if (!lcdFlash) return;
+    const roll = lcdRoll.current;
+    lcdRoll.current = false;
+    const t = window.setTimeout(() => {
+      setLcdFlash(null);
+      if (!roll || jobRef.current || inFsRef.current || duelRef.current) return;
+      if (!canSpend(balanceRef.current)) return;
+      autoRef.current = false;
+      setAutoOn(false);
+      setAutoLeft(0);
+      setJobOffer(dealJobs(createRng(), balanceRef.current, BETS[betIndexRef.current]));
+      setSpendOpen(true);
+    }, 1200);
+    return () => window.clearTimeout(t);
+  }, [lcdFlash]);
 
   const dur = useCallback((base: number) => {
     if (duelFastRef.current || abort.current.skip) return 0;
@@ -749,15 +775,18 @@ export function useSlotGame() {
       const parts = rpFromJob(next.payout, next.stake);
       if (parts.total) pushRank(parts.total, parts);
       setSpinTape((t) => [{ label: "TIKET", amount: `+${formatMoney(next.payout)} · +${parts.total} RP` }, ...t].slice(0, 8));
-      setJobToast(`TIKET +${formatMoney(next.payout)} · +${parts.total} RP`);
-      setTopLine(`TIKET +${formatMoney(next.payout)}`);
-      sfx.playCollect();
+      lcdRoll.current = false;
+      setLcdFlash({ job: next, verdict: "ok" });
+      sfx.playCoin();
     } else if (st === "fail") {
       jobRef.current = null;
       setJob(null);
       setSpinTape((t) => [{ label: "TIKET", amount: `−${formatMoney(next.stake)}` }, ...t].slice(0, 8));
-      setJobToast(`NEÚSPEŠNÝ TIKET −${formatMoney(next.stake)}`);
-      setTopLine(`NEÚSPEŠNÝ TIKET −${formatMoney(next.stake)}`);
+      autoRef.current = false;
+      setAutoOn(false);
+      setAutoLeft(0);
+      lcdRoll.current = true;
+      setLcdFlash({ job: next, verdict: "fail" });
       sfx.playThunder();
     } else {
       jobRef.current = next;
@@ -1341,6 +1370,7 @@ export function useSlotGame() {
           orbs: orbSum > 0,
           pays: [...payHits],
           orbSum,
+          orbCount: orbs.length,
           bought: boughtFs,
           liveSpin,
           shown: shownCount,
@@ -1568,6 +1598,7 @@ export function useSlotGame() {
             clusters: 0,
             orbs: peak > 0,
             spun: false,
+            featureOver: true,
           });
         } else {
           settleJob({
@@ -1583,6 +1614,7 @@ export function useSlotGame() {
             spun: false,
             bought: true,
             buyOver: true,
+            featureOver: true,
           });
         }
         setPhase("idle");
@@ -2096,6 +2128,7 @@ export function useSlotGame() {
     job,
     jobOffer,
     jobToast,
+    lcdFlash,
     surplusX: JOB_BANK,
     duel,
     duelOpen,
