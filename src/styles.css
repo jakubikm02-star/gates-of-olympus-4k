@@ -1428,29 +1428,34 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 2.6em;
-  min-height: 2.6em;
-  max-height: 2.6em;
+  gap: 1px;
+  min-width: 0;
+  width: 100%;
+  height: auto;
+  min-height: 2.4em;
+  max-height: none;
   overflow: hidden;
   position: relative;
 }
 
 .pay-hint {
   margin: 0;
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: static;
+  max-width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
   color: #fff;
   text-shadow: 0 1px 2px #000;
   pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pay-hint img {
@@ -1865,14 +1870,17 @@
 
 .win-line {
   margin: 0;
+  max-width: 100%;
   text-align: center;
   font-family: var(--font-display);
   font-weight: 700;
   letter-spacing: 0.08em;
   font-size: clamp(0.95rem, 2.4vw, 1.45rem);
-  line-height: 1.2;
-  height: 1.4em;
+  line-height: 1.15;
+  height: auto;
   overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   color: #f0c419;
   text-shadow: 0 2px 0 #1a1400, 0 0 16px rgb(240 196 25 / 0.45);
 }
@@ -3529,7 +3537,9 @@
   .win-stack {
     width: 100%;
     order: -1;
-    min-height: 1.6em;
+    min-height: 1.7rem;
+    height: auto;
+    max-height: none;
   }
   .hud-left,
   .hud-right {
@@ -5138,8 +5148,8 @@ html:-webkit-full-screen {
 .ticket-lcd {
   position: absolute;
   z-index: 7;
-  left: 4px;
-  width: min(440px, 34%);
+  left: 8px;
+  width: min(280px, 27%);
   top: 0;
   bottom: -42px;
   pointer-events: none;
@@ -5149,8 +5159,9 @@ html:-webkit-full-screen {
 .stage.shell-mw .ticket-lcd,
 .stage.shell-pwa .ticket-lcd {
   width: auto;
+  left: 4px;
   right: 72px;
-  top: 1.35rem;
+  top: 2.85rem;
   bottom: -44px;
 }
 
@@ -5158,6 +5169,7 @@ html:-webkit-full-screen {
   position: relative;
   z-index: 8;
   background: #07090d;
+  border-radius: 8px;
 }
 
 .nf-bezel {
@@ -6152,11 +6164,27 @@ html:-webkit-full-screen {
 .stage.shell-mw .win-stack,
 .stage.shell-pwa .win-stack {
   grid-area: win;
-  min-height: 1.15em;
-  height: 1.15em;
-  max-height: 1.15em;
+  min-height: 1.35rem;
+  height: auto;
+  max-height: none;
   margin: 0;
+  padding: 2px 8px 1px;
   order: 0;
+  z-index: 9;
+  background: #07090d;
+}
+
+.stage.shell-mw .win-line,
+.stage.shell-pwa .win-line {
+  font-size: 1.05rem;
+  line-height: 1.15;
+  height: auto;
+}
+
+.stage.shell-mw .pay-hint,
+.stage.shell-pwa .pay-hint {
+  position: static;
+  font-size: 0.68rem;
 }
 
 .stage.shell-mw .hud-left,
