@@ -213,7 +213,8 @@ export function DuelLink({
   }, [link.room, link.role, link.name, link.mode, link.bet, link.need, link.ante, bet]);
 
   useEffect(() => {
-    if (!duel || duel.kind !== "online" || duel.phase !== "play") return;
+    if (!duel || duel.kind !== "online") return;
+    if (duel.phase !== "play" && duel.phase !== "done") return;
     const send = () => {
       const have = duel.seats[duel.you].have;
       const score = Math.max(0, +(duel.seats[duel.you].score - (duel.held || 0)).toFixed(2));
@@ -225,7 +226,8 @@ export function DuelLink({
       }).catch(() => {});
     };
     send();
-    const id = window.setInterval(send, 4000);
+    if (duel.phase !== "play") return;
+    const id = window.setInterval(send, 1500);
     return () => window.clearInterval(id);
   }, [duel, link.room, link.role, link.name, link.ante]);
 

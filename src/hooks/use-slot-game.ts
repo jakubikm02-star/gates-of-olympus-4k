@@ -43,7 +43,7 @@ import { emptyBoard, isEligibleBet, ticketResolve, type BoardSnap, type JackpotH
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
 import { bumpDesk, bumpLocalDesk, deskToday, emptyDesk, fetchDesk, type DeskDay } from "@/lib/slot/desk-api";
 import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, duelPot, duelCreditDelta, forfeitDuel, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
-import { duelForfeit, duelLeave } from "@/lib/slot/duel-api";
+import { duelForfeit, duelLeave, duelTick } from "@/lib/slot/duel-api";
 import {
   canSpend,
   dealJobs,
@@ -1602,19 +1602,14 @@ export function useSlotGame() {
       setJobToast(`BANK ${formatMoney(pot)}`);
       setSpinTape((t) => [{ label: "DUEL BANK", amount: formatMoney(pot) }, ...t].slice(0, 8));
     }
-    const gen = ++settleGen.current;
-    window.setTimeout(() => {
-      if (settleGen.current !== gen) return;
-      settleGen.current += 1;
-      duelSettled.current = false;
-      duelBlanks.current = 0;
-      duelRef.current = null;
-      setDuel(null);
-      setDuelLink(null);
-      setDuelPeer("");
-      setDuelOpen(false);
-      setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
-    }, 1600);
+    const link = duelLinkRef.current;
+    if (d.kind === "online" && link) {
+      void duelTick(link.room, link.role, d.seats[d.you].have, d.seats[d.you].score, {
+        name: link.name,
+        ante: Boolean(link.ante),
+        net: false,
+      }).catch(() => {});
+    }
   }, []);
 
   const playRound = useCallback(

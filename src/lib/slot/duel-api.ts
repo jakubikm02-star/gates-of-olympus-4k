@@ -183,12 +183,13 @@ export async function duelTick(
     if (role === "host") patch.host_name = packed;
     else patch.guest_name = packed;
   }
-  const rows = await rest(`duel_rooms?code=eq.${encodeURIComponent(code)}`, {
+  const haveCol = role === "host" ? "host_have" : "guest_have";
+  const rows = await rest(`duel_rooms?code=eq.${encodeURIComponent(code)}&${haveCol}=lte.${have}`, {
     method: "PATCH",
     body: JSON.stringify(patch),
   });
-  if (!rows[0]) throw new Error("miestnosť neexistuje");
-  return snap(rows[0]);
+  if (rows[0]) return snap(rows[0]);
+  return duelPoll(code);
 }
 
 export async function duelForfeit(
