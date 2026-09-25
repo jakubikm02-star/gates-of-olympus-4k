@@ -145,9 +145,9 @@ export const ALL_ART: readonly string[] = [
   "/symbols/can.png",
   "/art/paas-idle.png?v=3",
   "/art/paas-run.png?v=3",
-  "/art/paas-anti.png?v=3",
-  "/art/paas-bolt.png?v=3",
-  "/art/paas-win.png?v=3",
+  "/art/paas-anti.png?v=4",
+  "/art/paas-bolt.png?v=4",
+  "/art/paas-win.png?v=4",
   "/art/parking-bg.jpg",
 ];
 

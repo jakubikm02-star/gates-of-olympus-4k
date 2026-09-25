@@ -56,8 +56,8 @@ function HandBolt({ strike }: { strike: { r: number; c: number } | null }) {
     const drawnH = 936 * scale;
     const ox = (pr.width - drawnW) / 2;
     const oy = pr.height - drawnH;
-    const hx = pr.left + ox + (1 - 0.849) * drawnW;
-    const hy = pr.top + oy + 0.322 * drawnH;
+    const hx = pr.left + ox + (1 - 0.631) * drawnW;
+    const hy = pr.top + oy + 0.247 * drawnH;
     setShot({
       w: sr.width,
       h: sr.height,
@@ -421,17 +421,17 @@ export function SlotGame() {
               className={`park-pose is-flip ${god === "run" ? "on" : ""}`}
             />
             <img
-              src="/art/paas-anti.png?v=3"
+              src="/art/paas-anti.png?v=4"
               alt=""
               className={`park-pose ${god === "anti" ? "on" : ""}`}
             />
             <img
-              src="/art/paas-bolt.png?v=3"
+              src="/art/paas-bolt.png?v=4"
               alt=""
               className={`park-pose is-flip ${god === "bolt" ? "on" : ""}`}
             />
             <img
-              src="/art/paas-win.png?v=3"
+              src="/art/paas-win.png?v=4"
               alt=""
               className={`park-pose ${god === "win" ? "on" : ""}`}
             />
