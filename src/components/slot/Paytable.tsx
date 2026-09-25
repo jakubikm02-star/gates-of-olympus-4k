@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { MATH_NOTE, PAY_SYMBOLS, SCATTER, TICKETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
+import { unlockAudio } from "@/lib/slot/audio";
 import type { DeskDay } from "@/lib/slot/desk-api";
 
 interface Props {
@@ -9,6 +10,81 @@ interface Props {
   bet: number;
   desk?: DeskDay;
   mine?: DeskDay;
+}
+
+const SOUND_CUES: { name: string; src: string; loop?: boolean; when: string }[] = [
+  { name: "Klik", src: "/sfx/click.mp3", when: "Tlačidlá, stávka, ante, menu." },
+  { name: "Točenie", src: "/sfx/spin.mp3?v=trailer1", loop: true, when: "Slučka od štartu točenia, kým valce bežia. Pri 2+ scatteroch stíchne." },
+  { name: "Dopad 1", src: "/sfx/land.mp3?v=keys1", when: "Náhodne jeden z troch, keď stĺpec zastane." },
+  { name: "Dopad 2", src: "/sfx/land2.mp3?v=keys1", when: "Náhodne jeden z troch, keď stĺpec zastane." },
+  { name: "Dopad 3", src: "/sfx/land3.mp3?v=keys1", when: "Náhodne jeden z troch, keď stĺpec zastane." },
+  { name: "Scatter", src: "/sfx/scatter.mp3", when: "1. a 2. scatter pri dopade alebo v páde." },
+  { name: "Harfa", src: "/sfx/harp.mp3", when: "3. scatter. Spolu s ním ide aj Zber." },
+  { name: "Hrom", src: "/sfx/thunder.mp3?v=park1", when: "4. scatter, hod plechoviek, +5 FS, ohlásenie free spinov a neúspešný tiket." },
+  { name: "Napätie", src: "/sfx/bonus-loop.mp3?v=4ka1", loop: true, when: "Base, keď sú 2+ scattere a valce ešte idú." },
+  { name: "Minca", src: "/sfx/coin.mp3", when: "Výhra v sekvencii pod 5×. Aj splnený tiket." },
+  { name: "Výhra", src: "/sfx/win.mp3?v=phaser1", when: "Výhra v sekvencii od 5× do 20×." },
+  { name: "Výhra plná", src: "/sfx/win-full.mp3?v=tumble2", when: "Výhra v sekvencii od 20×." },
+  { name: "Prasknutie", src: "/sfx/pop.mp3?v=pneumatic1", when: "Výherné symboly zmiznú pred pádom." },
+  { name: "Pád", src: "/sfx/tumble.mp3?v=mech1", when: "Nové symboly padnú. Ďalší pád je o niečo vyšší." },
+  { name: "Plechovka", src: "/sfx/can-open.mp3?v=open2", when: "Dopad plechovky a jej započítanie do výhry." },
+  { name: "Rampa", src: "/sfx/zap.mp3?v=park1", when: "Plechovka po páde. Spolu s ňou ide aj Elektrika." },
+  { name: "Elektrika", src: "/sfx/electric.mp3?v=park1", when: "Spolu s Rampou pri plechovke po páde." },
+  { name: "Zber", src: "/sfx/collect.mp3", when: "Výhra lístka (pot) a tretí scatter." },
+  { name: "Výplata", src: "/sfx/payout.mp3", when: "Výhra sa pripíše na kredit v base, mimo duelu." },
+  { name: "Štart feature", src: "/sfx/fs-start.mp3?v=build1", when: "Začiatok PARKNET / 4ka TV." },
+  { name: "Podklad feature", src: "/sfx/fs-bed.mp3?v=moon2", loop: true, when: "Počas celej feature. V hre naskočí na náhodnom mieste skladby." },
+  { name: "Kontrola", src: "/sfx/kontrola.mp3?v=ignition1", when: "Štart KONTROLA." },
+  { name: "Big win A", src: "/sfx/table-a.mp3?v=glitch1", when: "Náhodne A alebo B: BIG od 20×, MEGA od 35×, SUPER MEGA od 50×, aj koniec feature s výhrou. MAX 5000× hrá to isté." },
+  { name: "Big win B", src: "/sfx/table-b.mp3?v=fail1", when: "Náhodne A alebo B pri veľkej výhre a na konci feature." },
+];
+
+function SoundSheet() {
+  const audio = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    return () => {
+      audio.current?.pause();
+    };
+  }, []);
+  const play = (src: string, loop = false) => {
+    unlockAudio();
+    if (!audio.current) audio.current = new Audio();
+    const el = audio.current;
+    el.pause();
+    el.loop = loop;
+    el.src = src;
+    el.volume = 0.85;
+    void el.play();
+  };
+  const stop = () => {
+    audio.current?.pause();
+  };
+  return (
+    <details className="sound-sheet">
+      <summary>ZVUKY · prehrať a kedy hrajú</summary>
+      <p className="sound-note">Tlačidlo (i) dole vľavo. Slučky zastav tlačidlom Stop. Stlmenie hry tento náhľad nestíši.</p>
+      {SOUND_CUES.map((cue) => (
+        <div className="sound-row" key={cue.src}>
+          <button type="button" onClick={() => play(cue.src, cue.loop)}>
+            {cue.loop ? "Slučka" : "Hraj"}
+          </button>
+          <div>
+            <b>{cue.name}</b>
+            <span>{cue.when}</span>
+          </div>
+        </div>
+      ))}
+      <div className="sound-row">
+        <button type="button" onClick={stop}>
+          Stop
+        </button>
+        <div>
+          <b>Stop</b>
+          <span>Zastaví náhľad. Hru nechá bežať.</span>
+        </div>
+      </div>
+    </details>
+  );
 }
 
 export function Paytable({ open, onClose, bet, desk, mine }: Props) {
@@ -39,6 +115,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
         <p className="modal-lead">
           8+ kdekoľvek na 6×5. Stávka {bet.toFixed(2)}. Demo — žiadne vklady.
         </p>
+        <SoundSheet />
         {desk && mine ? (
           <div className="atm-desk in-info" aria-label="Dnešný counter automatu">
             <header>
@@ -61,6 +138,19 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
                 <dt>MAX</dt>
                 <dd>{formatMoney(desk.best)}</dd>
                 <dd className="atm-me">TY {formatMoney(mine.best)}</dd>
+              </div>
+            </dl>
+            <p className="atm-kicker atm-ticket-kicker">TIKETY · LEN TY · MIMO OBRATU</p>
+            <dl className="atm-tickets">
+              <div>
+                <dt>VYHRANÉ</dt>
+                <dd>{formatMoney(mine.ticketWon)}</dd>
+                <dd className="atm-me">vyplatená výhra</dd>
+              </div>
+              <div>
+                <dt>PREHRANÉ</dt>
+                <dd className="is-loss">{formatMoney(mine.ticketLost)}</dd>
+                <dd className="atm-me">stávka zlyhaného</dd>
               </div>
             </dl>
           </div>
@@ -88,7 +178,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
                 <span>2 3 4 5 6 8 10 12 15</span>
                 <span>20 25 50 100 250 500</span>
               </div>
-              <div className="pay-quip">Rampa ich hodí. Sčítajú sa, nenásobia. Bez výhry prepadnú.</div>
+              <div className="pay-quip">Rampa ich hodí. Sčítajú sa, nenásobia. Bez výhry ostanú, efekt nenastane.</div>
             </div>
           </div>
           <div className="pay-row">
@@ -128,9 +218,9 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             Scatter ostane na poli, kým bonus nezačne. 4ka TV trigger bije lístok: ceremónia čaká.
           </li>
           <li>Výherné symboly zmiznú, nové spadnú zhora (tumble). Plechovky, scatter aj lístok tumble prežijú.</li>
-          <li>Násobiče nepadajú z valca ako RJ45. Rampa ich pustí ako energy plechovky. 15 hodnôt, sčítajú sa (50+100=150, nie 5 000). Aktivujú sa až na konci reťaze, a len ak bola výhra. 2/3/5 sú ~70 % plechoviek; 500× je vzácnejšia ako PDF 8+.</li>
-          <li>Base: súčet plechoviek × celá tumble sekvencia, potom reset. Vo FS tečú do Mbps a ostávajú; bez výhry prepadnú ako tapeta.</li>
-          <li>4 scattere = 15 voľných točení. V bonuse 3+ scattere = +5. Výplata scatteru ostáva 4 / 5 / 6.</li>
+          <li>Násobiče nepadajú z valca ako RJ45. Rampa ich pustí ako energy plechovky. 15 hodnôt, sčítajú sa (50+100=150, nie 5 000). Aktivujú sa až na konci reťaze, a len ak bola výhra. 2–5 sú asi 72 % plechoviek, priemer ~7×.</li>
+          <li>Base: súčet plechoviek × celá tumble sekvencia, potom reset. Vo FS sa plechovka pripočíta do Mbps len na výhernom spine a najprv sa sčíta (50+5=55), potom sa sekvencia zapíše ako 55× tumble. Výhra bez novej plechovky je samotný tumble — uložený Mbps sa na ňu nepúšťa. Bez výhry ostanú na mieste a nič sa nestane.</li>
+          <li>4 scattere = 15 voľných točení. V bonuse 3+ scattere = +5. Výplata scatteru je 3× / 5× / 100×.</li>
           <li>
             Lístok vo feature smie padnúť, ceremónia ide až po SIEŤ SPADLA. Banner je{" "}
             <code>1-FTTB · 1 742,20</code> — žiadny WinBox, žiadny terminál.
@@ -141,10 +231,9 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             (+30). Po spustení bar padne na 0. Kúpiť sa nedá.
           </li>
           <li>
-            Od kreditu 100 € tikety: BASE len v základnej hre, LIVE len v PARKNET. MULTI TUMBLE je
-            2+ pády, SÚČET TUMBLE sčíta pády. NAHRAJ PRÍLOHY zráta všetky kusy znaku na valcoch.
-            TACHYKARDIA a POHOTOVOSŤ platia v LIVE. BOX DO OBÝVAČKY je Arris set-top. Duel online
-            točíte naraz, live skóre. Víťaz berie výhry oboch.
+            Od kreditu 100 € tikety. Dokopy je súčet, nemusí ísť po sebe. Po sebe sú len REŤAZ
+            (mŕtvy spin radu vynuluje) a SUCHO (výhra tiket hneď končí). LIVE sa plní len v PARKNET.
+            Kúpený PARKNET je POHOTOVOSŤ. Duel online točíte naraz, live skóre. Víťaz berie výhry oboch.
           </li>
           <li>
             Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bankrot +5000 berie RP len v 5G a NEKONEČNO, najviac pol divízie.
@@ -165,7 +254,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
           <li>
             Rovnaký tvar ako Gates of Olympus: RTP okolo {(MATH_NOTE.rtp * 100).toFixed(1)} %, hit{" "}
             {(MATH_NOTE.hit * 100).toFixed(1)} %, PARKNET aj kúpa sú tá istá feature. Bonus 1/{MATH_NOTE.bonusEvery}, kúpa za 100×
-            vracia asi {(MATH_NOTE.buyEv * 100).toFixed(0)}×. High-vol demo, nie certifikát 96.50 %.
+            vracia asi {(MATH_NOTE.buyEv * 100).toFixed(1)}×. High-vol demo, nie certifikát 96.50 %.
           </li>
         </ul>
         <details className="math-box">
@@ -173,7 +262,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
           <p>
             {MATH_NOTE.spins.toLocaleString("sk-SK")} paid spinov, rovnaký engine ako hra. Hit rate{" "}
             {(MATH_NOTE.hit * 100).toFixed(2)} %. Bonus každých {MATH_NOTE.bonusEvery} točení, s ante 1/
-            {MATH_NOTE.anteBonusEvery}. Buy EV {MATH_NOTE.buyEv.toFixed(2)} (100× stávka, ante off). Max 5000×{" "}
+            {MATH_NOTE.anteBonusEvery}. Buy EV {MATH_NOTE.buyEv.toFixed(3)} (100× stávka, ante off). Max 5000×{" "}
             {MATH_NOTE.maxEvery ? `~1/${MATH_NOTE.maxEvery}` : "v tejto vzorke 0×"}.
           </p>
         </details>

@@ -58,19 +58,19 @@ const TEMPLATES: {
   line: string;
   payIds?: PayId[];
 }[] = [
-  { id: "zber", titles: ["ZBER", "OBCHÔDZKA", "DENNÁ DÁVKA"], kind: "wins", scope: "base", need: [13, 21], until: [65, 65], line: "výherných spinov" },
-  { id: "plus", titles: ["PLUS", "HOCIČO", "VÝHRY"], kind: "wins", scope: "base", need: [13, 21], until: [65, 65], line: "akýchkoľvek výhier" },
-  { id: "balik", titles: ["MULTI TUMBLE", "REŤAZ PÁDOV", "DVA A VIAC"], kind: "chain", scope: "base", need: [4, 7], until: [70, 115], line: "spinov s 2+ tumble" },
-  { id: "pada", titles: ["SÚČET TUMBLE", "PADÁ TO", "PÁDY DOLE"], kind: "tumbles", scope: "base", need: [18, 28], until: [70, 70], line: "tumble pádov súčtom" },
+  { id: "zber", titles: ["ZBER", "OBCHÔDZKA", "DENNÁ DÁVKA"], kind: "wins", scope: "base", need: [14, 22], until: [65, 65], line: "výherných spinov dokopy" },
+  { id: "plus", titles: ["PLUS", "HOCIČO", "VÝHRY"], kind: "wins", scope: "base", need: [14, 22], until: [65, 65], line: "akýchkoľvek výhier dokopy" },
+  { id: "balik", titles: ["MULTI TUMBLE", "REŤAZ PÁDOV", "DVA A VIAC"], kind: "chain", scope: "base", need: [4, 7], until: [60, 100], line: "spinov s 2+ pádmi dokopy" },
+  { id: "pada", titles: ["SÚČET TUMBLE", "PADÁ TO", "PÁDY DOLE"], kind: "tumbles", scope: "base", need: [20, 30], until: [70, 70], line: "pádov dokopy" },
   { id: "siet", titles: ["SIEŤ", "PARKNET LIVE", "ŠTYRI TELEVÍZORY"], kind: "live", scope: "base", need: [1, 1], until: [50, 720], line: "spustiť PARKNET LIVE" },
-  { id: "signal", titles: ["TACHYKARDIA", "TEP 180", "PULZ PLECHOVIEK"], kind: "signal", scope: "live", need: [10, 51], until: [30, 30], line: "násobičov súčtom v LIVE" },
-  { id: "retaz", titles: ["REŤAZ", "TRI V RADE", "BEZ PRESTÁVKY"], kind: "wins", scope: "base", need: [3, 3], until: [20, 130], line: "výhier v rade" },
-  { id: "plechovky", titles: ["PLECHOVKY", "RAMPA HUČÍ", "PLECH NA PLECH"], kind: "tumbles", scope: "live", need: [3, 9], until: [25, 30], line: "spinov s násobičom v LIVE" },
+  { id: "signal", titles: ["TACHYKARDIA", "TEP 180", "PULZ PLECHOVIEK"], kind: "signal", scope: "live", need: [10, 51], until: [30, 30], line: "z násobičov dokopy v LIVE" },
+  { id: "retaz", titles: ["REŤAZ", "TRI V RADE", "BEZ PRESTÁVKY"], kind: "wins", scope: "base", need: [3, 3], until: [15, 110], line: "výhier po sebe, mŕtvy vynuluje" },
+  { id: "plechovky", titles: ["PLECHOVKY", "RAMPA HUČÍ", "PLECH NA PLECH"], kind: "tumbles", scope: "live", need: [3, 9], until: [25, 30], line: "plechoviek dokopy v LIVE" },
   { id: "tv", titles: ["4ka TV", "ŠTVORKA NA STENE", "KONTROLA 4KY"], kind: "live", scope: "base", need: [1, 1], until: [50, 720], line: "spustiť 4ka TV" },
-  { id: "pot", titles: ["POT", "SIVÝ LÍSTOK", "ULICA PADÁ"], kind: "ticket", scope: "base", need: [1, 1], until: [30, 50], line: "lístok 1-FTTB" },
-  { id: "sucho", titles: ["SUCHO", "TICHÁ ZÓNA", "RAMPA STOJÍ"], kind: "deads", scope: "base", need: [1, 3], until: [10, 15], line: "mŕtvych spinov" },
-  { id: "vynos", titles: ["VÝNOS", "PDF 8+", "PAPIER PLATÍ"], kind: "pdf", scope: "base", need: [1, 1], until: [15, 115], line: "PDF 8+" },
-  { id: "duo", titles: ["DUO", "DVA CLUSTRE", "DVOJIČKA"], kind: "wins", scope: "base", need: [4, 7], until: [65, 100], line: "dva clustre na spine" },
+  { id: "pot", titles: ["POT", "SIVÝ LÍSTOK", "ULICA PADÁ"], kind: "ticket", scope: "base", need: [1, 1], until: [30, 50], line: "sivý lístok 1-FTTB" },
+  { id: "sucho", titles: ["SUCHO", "TICHÁ ZÓNA", "RAMPA STOJÍ"], kind: "deads", scope: "base", need: [1, 3], until: [10, 15], line: "mŕtvych spinov po sebe, výhra končí" },
+  { id: "vynos", titles: ["VÝNOS", "PDF 8+", "PAPIER PLATÍ"], kind: "pdf", scope: "base", need: [1, 1], until: [50, 180], line: "PDF aspoň 8 na jednom spine" },
+  { id: "duo", titles: ["DUO", "DVA CLUSTRE", "DVOJIČKA"], kind: "wins", scope: "base", need: [4, 7], until: [55, 90], line: "spinov s 2 klastrami dokopy" },
   {
     id: "vyherne",
     titles: ["VÝHERNÝ ZBER", "LEN ČO PLATÍ", "ZBER VÝHIER"],
@@ -79,7 +79,7 @@ const TEMPLATES: {
     payIds: ["rj45", "router", "hap", "roof", "arris", "case", "dacia", "meter", "pdf"],
     need: [1, 1],
     until: [40, 40],
-    line: "výhier symbolu",
+    line: "výhier symbolu dokopy",
   },
   {
     id: "nevyherne",
@@ -89,10 +89,10 @@ const TEMPLATES: {
     payIds: ["rj45", "router", "hap", "roof", "arris", "case", "dacia", "meter", "pdf"],
     need: [1, 1],
     until: [20, 20],
-    line: "nevýherných symbolu",
+    line: "nevýherných symbolu dokopy",
   },
-  { id: "noc", titles: ["POHOTOVOSŤ", "SLUŽBA POHOTOVOSŤ", "VÝJAZD PO KÚPE"], kind: "buy", scope: "live", need: [2, 6], until: [25, 30], line: "výher v kúpenom PARKNET" },
-  { id: "hydra", titles: ["HYDRA", "DVA ZNAKY", "DVOJITÝ VÝJAZD"], kind: "hydra", scope: "base", need: [1, 3], until: [50, 80], line: "výher dvoch znakov" },
+  { id: "noc", titles: ["POHOTOVOSŤ", "SLUŽBA POHOTOVOSŤ", "VÝJAZD PO KÚPE"], kind: "buy", scope: "live", need: [2, 6], until: [25, 30], line: "výher dokopy v kúpenom PARKNET" },
+  { id: "hydra", titles: ["HYDRA", "DVA ZNAKY", "DVOJITÝ VÝJAZD"], kind: "hydra", scope: "base", need: [1, 3], until: [50, 80], line: "výhier dvoch znakov dokopy" },
   {
     id: "odpis",
     titles: ["ODPIS NÁKLADOV", "INKASO", "UZÁVIERKA KASY", "VÝBER HOTOVOSTI", "KASA DO ŠUPLÍKA"],
@@ -163,10 +163,10 @@ export function jobClock(job: JobCard, inLive = false): string {
 
 export function jobShownGoal(job: JobCard): string {
   if (job.kind === "hydra" && job.payId && job.payIdB && job.needB) {
-    return `${payName(job.payId)} ${job.need}× + ${payName(job.payIdB)} ${job.needB}×`;
+    return `${payName(job.payId)} ${job.need}× + ${payName(job.payIdB)} ${job.needB}× výhier dokopy`;
   }
-  if (job.kind === "collect" && job.payId) return `${job.need}× nevýherných ${payName(job.payId)}`;
-  if (job.kind === "symbol" && job.payId) return `${job.need}× výhier ${payName(job.payId)}`;
+  if (job.kind === "collect" && job.payId) return `${job.need}× nevýherných ${payName(job.payId)} dokopy`;
+  if (job.kind === "symbol" && job.payId) return `${job.need}× výhier ${payName(job.payId)} dokopy`;
   if (job.kind === "cash") return job.goal || `Nazbieraj ${formatMoney(job.need)} € vo výhrach`;
   return job.goal || job.detail;
 }
@@ -186,30 +186,30 @@ export function jobScopeLabel(job: JobCard): string {
   return "BASE GAME";
 }
 
-/** Paying 8+ cluster rate per paid spin, remeasured after the Olympus tune. */
+/** Paying 8+ cluster rate per paid spin. Mild 1.08 ladder, sticky 0.156. */
 export const PAY_HIT: Record<PayId, number> = {
-  rj45: 0.064,
-  router: 0.063,
-  hap: 0.058,
-  roof: 0.051,
-  arris: 0.051,
+  rj45: 0.11,
+  router: 0.082,
+  hap: 0.062,
+  roof: 0.046,
+  arris: 0.033,
   case: 0.025,
-  dacia: 0.02,
-  meter: 0.019,
-  pdf: 0.015,
+  dacia: 0.016,
+  meter: 0.012,
+  pdf: 0.009,
 };
 
 /** Opening cells of this pay on a 6×5 land. */
 export const PAY_CELL: Record<PayId, number> = {
-  rj45: 3.78,
-  router: 3.74,
-  hap: 3.66,
-  roof: 3.56,
-  arris: 3.57,
-  case: 2.98,
-  dacia: 2.86,
-  meter: 2.76,
-  pdf: 2.59,
+  rj45: 4.38,
+  router: 4.06,
+  hap: 3.74,
+  roof: 3.48,
+  arris: 3.22,
+  case: 2.99,
+  dacia: 2.73,
+  meter: 2.53,
+  pdf: 2.37,
 };
 
 export function symbolNeed(id: PayId, until: number, hard: number): number {
@@ -226,31 +226,31 @@ export function collectNeed(id: PayId, until: number, hard: number): number {
 }
 
 /**
- * Base-game rates from 40k spins after the Olympus tune (ante off).
+ * Base-game rates after the factor pins (ante off, 50k).
  * A win is an 8+ cluster at any tumble. A miss is the opening cells of a symbol that never pays.
  */
 const WIN_RATE: Record<PayId, number> = {
-  rj45: 0.0638,
-  router: 0.0628,
-  hap: 0.0582,
-  roof: 0.0507,
-  arris: 0.0512,
-  case: 0.0249,
-  dacia: 0.0204,
-  meter: 0.0189,
-  pdf: 0.0147,
+  rj45: 0.1097,
+  router: 0.0822,
+  hap: 0.0619,
+  roof: 0.0462,
+  arris: 0.0333,
+  case: 0.0253,
+  dacia: 0.0165,
+  meter: 0.0119,
+  pdf: 0.009,
 };
 
 const MISS_CELL: Record<PayId, { mean: number; sd: number }> = {
-  rj45: { mean: 3.273, sd: 1.919 },
-  router: { mean: 3.245, sd: 1.904 },
-  hap: { mean: 3.199, sd: 1.892 },
-  roof: { mean: 3.164, sd: 1.858 },
-  arris: { mean: 3.173, sd: 1.862 },
-  case: { mean: 2.784, sd: 1.746 },
-  dacia: { mean: 2.702, sd: 1.724 },
-  meter: { mean: 2.618, sd: 1.702 },
-  pdf: { mean: 2.477, sd: 1.661 },
+  rj45: { mean: 3.917, sd: 1.754 },
+  router: { mean: 3.706, sd: 1.764 },
+  hap: { mean: 3.474, sd: 1.743 },
+  roof: { mean: 3.274, sd: 1.742 },
+  arris: { mean: 3.07, sd: 1.728 },
+  case: { mean: 2.868, sd: 1.702 },
+  dacia: { mean: 2.648, sd: 1.67 },
+  meter: { mean: 2.472, sd: 1.628 },
+  pdf: { mean: 2.321, sd: 1.598 },
 };
 
 /** Chance the ticket is cleared if every spin of the window is used. */
@@ -410,11 +410,11 @@ function makeJob(
   }
   const line =
     t.kind === "hydra" && payId && payIdB && needB
-      ? `${payName(payId)} ${needNow}× + ${payName(payIdB)} ${needB}×`
+      ? `${payName(payId)} ${needNow}× + ${payName(payIdB)} ${needB}× výhier dokopy`
       : t.kind === "collect" && payId
-        ? `nevýherných ${payName(payId)}`
+        ? `nevýherných ${payName(payId)} dokopy`
         : t.kind === "symbol" && payId
-          ? `výhier ${payName(payId)}`
+          ? `výhier ${payName(payId)} dokopy`
           : t.line;
   const tag = t.scope === "live" ? " · LIVE" : t.scope === "any" ? " · BASE+LIVE" : "";
   const goal =

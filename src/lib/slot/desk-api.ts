@@ -8,6 +8,10 @@ export interface DeskDay {
   wins: number;
   paid: number;
   best: number;
+  /** Payouts from tickets you cleared today. Not part of the machine counter. */
+  ticketWon: number;
+  /** Stakes of tickets that failed today. Not part of the machine counter. */
+  ticketLost: number;
 }
 
 function num(v: unknown): number {
@@ -27,6 +31,8 @@ function parse(raw: unknown): DeskDay {
     wins: Math.max(0, Math.floor(num(o.wins))),
     paid: Math.max(0, num(o.paid)),
     best: Math.max(0, num(o.best)),
+    ticketWon: Math.max(0, num(o.ticketWon)),
+    ticketLost: Math.max(0, num(o.ticketLost)),
   };
 }
 
@@ -45,7 +51,7 @@ async function rpc(name: string, body: Record<string, unknown>): Promise<unknown
 }
 
 export function emptyDesk(day = deskToday()): DeskDay {
-  return { day, wagered: 0, wins: 0, paid: 0, best: 0 };
+  return { day, wagered: 0, wins: 0, paid: 0, best: 0, ticketWon: 0, ticketLost: 0 };
 }
 
 export function bumpLocalDesk(prev: DeskDay, stake: number, win: number): DeskDay {
@@ -59,6 +65,20 @@ export function bumpLocalDesk(prev: DeskDay, stake: number, win: number): DeskDa
     wins: base.wins + (addWin > 0 ? 1 : 0),
     paid: +(base.paid + addWin).toFixed(2),
     best: Math.max(base.best, addWin),
+    ticketWon: base.ticketWon,
+    ticketLost: base.ticketLost,
+  };
+}
+
+/** Ticket money stays off the machine turnover. Won = payout, lost = failed stake. */
+export function bumpTicketDesk(prev: DeskDay, won: number, lost: number): DeskDay {
+  const day = deskToday();
+  const base = prev.day === day ? prev : emptyDesk(day);
+  return {
+    ...base,
+    day,
+    ticketWon: +(base.ticketWon + Math.max(0, won)).toFixed(2),
+    ticketLost: +(base.ticketLost + Math.max(0, lost)).toFixed(2),
   };
 }
 

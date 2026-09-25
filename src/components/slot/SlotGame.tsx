@@ -56,7 +56,7 @@ function HandBolt({ strike }: { strike: { r: number; c: number } | null }) {
     const drawnH = 936 * scale;
     const ox = (pr.width - drawnW) / 2;
     const oy = pr.height - drawnH;
-    const hx = pr.left + ox + (1 - 0.631) * drawnW;
+    const hx = pr.left + ox + 0.631 * drawnW;
     const hy = pr.top + oy + 0.247 * drawnH;
     setShot({
       w: sr.width,
@@ -362,6 +362,8 @@ export function SlotGame() {
               clusterPay={g.clusterPay}
               reduced={false}
               fast={g.reelFast}
+              turbo={g.turbo}
+              quick={g.quick}
               spinPace={g.spinPace ?? undefined}
               spinStrips={g.spinStrips}
               ticketLock={g.ticketLock}
@@ -428,7 +430,7 @@ export function SlotGame() {
             <img
               src="/art/paas-bolt.png?v=4"
               alt=""
-              className={`park-pose is-flip ${god === "bolt" ? "on" : ""}`}
+              className={`park-pose ${god === "bolt" ? "on" : ""}`}
             />
             <img
               src="/art/paas-win.png?v=4"
@@ -762,6 +764,23 @@ export function SlotGame() {
                 <dd className="atm-me">
                   TY <CountUp value={g.mine.best} meter />
                 </dd>
+              </div>
+            </dl>
+            <p className="atm-kicker atm-ticket-kicker">TIKETY · LEN TY · MIMO OBRATU</p>
+            <dl className="atm-tickets">
+              <div>
+                <dt>VYHRANÉ</dt>
+                <dd>
+                  <CountUp value={g.mine.ticketWon} meter />
+                </dd>
+                <dd className="atm-me">vyplatená výhra</dd>
+              </div>
+              <div>
+                <dt>PREHRANÉ</dt>
+                <dd className="is-loss">
+                  <CountUp value={g.mine.ticketLost} meter />
+                </dd>
+                <dd className="atm-me">stávka zlyhaného</dd>
               </div>
             </dl>
             <button type="button" className="chip-btn" onClick={() => setDeskOpen(false)}>

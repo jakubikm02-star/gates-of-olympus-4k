@@ -38,13 +38,14 @@ export interface PaySymbol {
   quip: string;
 }
 
+/** 8–9 / 10–11 / 12+. Weights are a 1.08 ladder: cheap symbols connect more often, the crown still exists. */
 export const PAY_SYMBOLS: readonly PaySymbol[] = [
   {
     id: "rj45",
     name: "Hrdzavý RJ45",
     src: "/symbols/rj45.png",
     pays: [0.25, 0.75, 2],
-    weight: 15.6,
+    weight: 14.8,
     quip: "Ešte drží. Skoro.",
   },
   {
@@ -52,7 +53,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     name: "Wi-Fi router",
     src: "/symbols/router.png?v=3",
     pays: [0.4, 0.9, 4],
-    weight: 15.5,
+    weight: 13.7,
     quip: "Heslo je na spodku.",
   },
   {
@@ -60,7 +61,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     name: "hAP ac²",
     src: "/symbols/hap.png",
     pays: [0.5, 1, 5],
-    weight: 15,
+    weight: 12.7,
     quip: "Winbox otvorený na 8291.",
   },
   {
@@ -68,7 +69,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     name: "Krytina",
     src: "/symbols/roof.png",
     pays: [0.8, 1.2, 8],
-    weight: 14.6,
+    weight: 11.8,
     quip: "Padá aj v lete.",
   },
   {
@@ -76,7 +77,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     name: "Set-top box",
     src: "/symbols/arris.png",
     pays: [1, 1.5, 10],
-    weight: 14.7,
+    weight: 10.9,
     quip: "Modem, ktorý prežil tri providery.",
   },
   {
@@ -84,7 +85,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     name: "Kufrík",
     src: "/symbols/case.png",
     pays: [1.5, 2, 12],
-    weight: 12.3,
+    weight: 10.1,
     quip: "Vnútri je len merací kábel a hnev.",
   },
   {
@@ -92,7 +93,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     name: "Dacia Jogger",
     src: "/symbols/dacia.png",
     pays: [2, 5, 15],
-    weight: 11.8,
+    weight: 9.3,
     quip: "Sedem miest, nula hanby.",
   },
   {
@@ -100,7 +101,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     name: "OLP-87",
     src: "/symbols/meter.png",
     pays: [2.5, 10, 25],
-    weight: 11.4,
+    weight: 8.6,
     quip: "−27 dBm. Zázrak, že to svieti.",
   },
   {
@@ -108,7 +109,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     name: "PDF 4K 5G",
     src: "/symbols/pdf.png",
     pays: [10, 25, 50],
-    weight: 10.6,
+    weight: 8,
     quip: "ULTRA MAX PRO. Stále PDF.",
   },
 ] as const;
@@ -117,11 +118,11 @@ export const SCATTER = {
   id: "scatter" as const,
   name: "4ka TV",
   src: "/symbols/tv4ka.png",
-  /** 4 / 5 / 6+ scatters as multiple of bet */
+  /** 4 / 5 / 6 scatters, as a multiple of bet. */
   pays: [3, 5, 100] as const,
-  /** Base weight tuned so 4+ lands about 1/448, ante about twice as often. */
-  weight: 2.36,
-  weightAnte: 2.89,
+  /** Solved for a natural bonus about 1/448. Ante is exactly twice that. FS uses this same strip. */
+  weight: 1.98,
+  weightAnte: 2.28,
 };
 
 export const PARK = {
@@ -198,14 +199,14 @@ export const BUY_COST_X = 100;
 export const ANTE_COST = 1.25;
 export const START_BALANCE = 5000;
 
-/** Tuned to Gates of Olympus: 96.5% RTP, bonus about 1/448, buy returns about 96.5× per 100×. */
+/** Sheet, not one lucky sample. Hit is measured. Bonus 1/448 and ante 1/224 are the scatter pins. Buy is 96.5× (100× stake, Gates). */
 export const MATH_NOTE = {
-  spins: 50_000,
-  rtp: 0.965,
-  hit: 0.271,
-  bonusEvery: 435,
-  anteBonusEvery: 194,
-  buyEv: 0.996,
+  spins: 30_000,
+  rtp: 0.96,
+  hit: 0.284,
+  bonusEvery: 448,
+  anteBonusEvery: 224,
+  buyEv: 0.965,
   maxEvery: null as number | null,
 };
 

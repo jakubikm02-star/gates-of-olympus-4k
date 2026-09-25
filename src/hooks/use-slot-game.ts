@@ -21,7 +21,6 @@ import {
   createRng,
   emptyGrid,
   evaluate,
-  expireOrbs,
   generateBuyGrid,
   generateGrid,
   findTicket,
@@ -41,7 +40,7 @@ import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
 import { emptyBoard, isEligibleBet, ticketResolve, type BoardSnap, type JackpotHit, type TierId } from "@/lib/slot/jackpot";
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
-import { bumpDesk, bumpLocalDesk, deskToday, emptyDesk, fetchDesk, type DeskDay } from "@/lib/slot/desk-api";
+import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDesk, type DeskDay } from "@/lib/slot/desk-api";
 import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, duelPot, duelCreditDelta, forfeitDuel, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
 import { duelForfeit, duelLeave, duelTick } from "@/lib/slot/duel-api";
 import {
@@ -92,9 +91,7 @@ function writeLocal(s: PlayerSave): void {
   writeLocalSave(s);
 }
 
-function hasOrb(board: Cell[][]): boolean {
-  return board.some((row) => row.some((c) => c.kind === "mult"));
-}
+
 
 function decodeArt(src: string): Promise<void> {
   return new Promise((resolve) => {
@@ -361,7 +358,6 @@ export function useSlotGame() {
     const dead = Boolean(loaded && loaded.spun >= loaded.limit && loaded.have < loaded.need);
     setJob(dead ? null : loaded);
     jobRef.current = dead ? null : loaded;
-    if (dead && loaded) setTicketSeal({ job: loaded, verdict: "fail" });
     pendingLiveTicketRef.current = s.pendingLiveTicket;
     if (s.dailyCards.length === 3 && s.dailyDay === deskToday()) {
       const board = { day: s.dailyDay, cards: s.dailyCards, marks: s.dailyMarks };
@@ -372,12 +368,34 @@ export function useSlotGame() {
       setDaily(null);
     }
     const day = deskToday();
-    const mineDay = s.deskDay === day
-      ? { day, wagered: s.deskWagered, paid: s.deskPaid, best: s.deskBest, wins: 0 }
-      : emptyDesk(day);
+    const sameDay = s.deskDay === day;
+    let ticketLost = sameDay ? s.deskTicketLost : 0;
+    if (dead && loaded) {
+      ticketLost = +(ticketLost + Math.max(0, loaded.stake)).toFixed(2);
+      setTicketSeal({ job: loaded, verdict: "fail" });
+    }
+    const mineDay: DeskDay = {
+      day,
+      wagered: sameDay ? s.deskWagered : 0,
+      paid: sameDay ? s.deskPaid : 0,
+      best: sameDay ? s.deskBest : 0,
+      wins: 0,
+      ticketWon: sameDay ? s.deskTicketWon : 0,
+      ticketLost,
+    };
     mineRef.current = mineDay;
     setMine(mineDay);
-    saveSnapRef.current = s;
+    saveSnapRef.current = {
+      ...s,
+      job: dead ? null : s.job,
+      deskDay: day,
+      deskWagered: mineDay.wagered,
+      deskPaid: mineDay.paid,
+      deskBest: mineDay.best,
+      deskTicketWon: mineDay.ticketWon,
+      deskTicketLost: mineDay.ticketLost,
+    };
+    if (dead) writeLocal(saveSnapRef.current);
   }, []);
 
   const flushSave = useCallback((payload?: PlayerSave) => {
@@ -394,6 +412,12 @@ export function useSlotGame() {
     void bumpDesk(stake, win)
       .then(setDesk)
       .catch(() => {});
+  }, []);
+
+  const noteTicket = useCallback((won: number, lost: number) => {
+    const nextMine = bumpTicketDesk(mineRef.current, won, lost);
+    mineRef.current = nextMine;
+    setMine(nextMine);
   }, []);
 
   const persistNow = useCallback(() => {
@@ -426,6 +450,8 @@ export function useSlotGame() {
       deskWagered: mineRef.current.wagered,
       deskPaid: mineRef.current.paid,
       deskBest: mineRef.current.best,
+      deskTicketWon: mineRef.current.ticketWon,
+      deskTicketLost: mineRef.current.ticketLost,
       updatedAt: Date.now(),
     };
     saveSnapRef.current = next;
@@ -506,6 +532,8 @@ export function useSlotGame() {
       deskWagered: mineRef.current.wagered,
       deskPaid: mineRef.current.paid,
       deskBest: mineRef.current.best,
+      deskTicketWon: mineRef.current.ticketWon,
+      deskTicketLost: mineRef.current.ticketLost,
     };
     saveSnapRef.current = payload;
     writeLocal(payload);
@@ -858,6 +886,7 @@ export function useSlotGame() {
       jobRef.current = null;
       setJob(null);
       setBalance((b) => +(b + next.payout).toFixed(2));
+      noteTicket(next.payout, 0);
       const parts = rpFromJob(next.payout, next.stake);
       if (parts.total) pushRank(parts.total, parts);
       setSpinTape((t) => [{ label: "TIKET", amount: `+${formatMoney(next.payout)} · +${parts.total} RP` }, ...t].slice(0, 8));
@@ -868,6 +897,7 @@ export function useSlotGame() {
     } else if (st === "fail") {
       jobRef.current = null;
       setJob(null);
+      noteTicket(0, next.stake);
       setSpinTape((t) => [{ label: "TIKET", amount: `−${formatMoney(next.stake)}` }, ...t].slice(0, 8));
       autoRef.current = false;
       setAutoOn(false);
@@ -880,12 +910,13 @@ export function useSlotGame() {
       jobRef.current = next;
       setJob(next);
     }
-  }, [pushRank, stampDailyJob]);
+  }, [pushRank, stampDailyJob, noteTicket]);
 
   const failParknetJob = useCallback((cur: JobCard) => {
     const burned = { ...cur, seal: false, spun: cur.limit };
     jobRef.current = null;
     setJob(null);
+    noteTicket(0, burned.stake);
     setSpinTape((t) => [{ label: "TIKET", amount: `−${formatMoney(burned.stake)}` }, ...t].slice(0, 8));
     autoRef.current = false;
     setAutoOn(false);
@@ -895,7 +926,7 @@ export function useSlotGame() {
     stampDailyJob(burned, "fail");
     setTopLine("NEÚSPEŠNÝ TIKET · MÁLO KREDITU NA PARKNET");
     sfx.playThunder();
-  }, [stampDailyJob]);
+  }, [stampDailyJob, noteTicket]);
 
   useEffect(() => {
     if (busy || inFs || duel) return;
@@ -1341,17 +1372,6 @@ export function useSlotGame() {
         }
       }
 
-      if ((isFree || inFsRef.current) && sequenceX <= 0 && hasOrb(board)) {
-        setTopLine("BEZ VÝHRY PLECHOVKY PREPADNÚ");
-        const gone = expireOrbs(board, rng);
-        setExpiredUids(gone.expired);
-        board = gone.grid;
-        setGrid(cloneGrid(board));
-        sfx.playPop();
-        await wait(dur(360), abort.current);
-        setExpiredUids([]);
-      }
-
       const orbs = listOrbs(board);
       const orbSum = orbs.reduce((s, o) => s + o.mult, 0);
       const willThrow = sequenceX > 0 && orbSum > 0;
@@ -1382,9 +1402,6 @@ export function useSlotGame() {
         } else {
           applied = orbSum;
         }
-        const gone = expireOrbs(board, rng);
-        board = gone.grid;
-        setGrid(cloneGrid(board));
         setSeqMult(applied);
         const baseCash = +(sequenceX * currentBet).toFixed(2);
         const boosted = +(sequenceX * applied * currentBet).toFixed(2);
@@ -1399,10 +1416,6 @@ export function useSlotGame() {
         await wait(dur(520), abort.current);
         setThrowBolt(false);
         setActivatingMult(false);
-      } else if ((isFree || inFsRef.current) && sequenceX > 0) {
-        applied = Math.max(1, globalMultRef.current);
-        setSeqMult(applied);
-        if (applied > 1) setTopLine(`Mbps ×${applied}`);
       } else {
         setSeqMult(1);
       }
@@ -1518,10 +1531,10 @@ export function useSlotGame() {
           pdf: pdfHit,
           signal: 0,
           clusters: clusterCount,
-          orbs: orbSum > 0,
+          orbs: willThrow,
           pays: [...payHits],
-          orbSum,
-          orbCount: orbs.length,
+          orbSum: willThrow ? orbSum : 0,
+          orbCount: willThrow ? orbs.length : 0,
           bought: boughtFs,
           liveSpin,
           shown: shownCount,

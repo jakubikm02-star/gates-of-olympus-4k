@@ -20,8 +20,23 @@ function nextUid(): number {
   return uidSeq;
 }
 
-/** Column stick copies a pay symbol down. Never clumps 4ka TV. */
-const COL_STICKY = 0.17;
+/**
+ * One published fact per knob. Do not slide these to chase a sample RTP.
+ * sticky — hit frequency 28.82%.
+ * baseThrow — official split. Ante +25% at the same 96.5% RTP forces the
+ *   non-feature game to return ~0.72. Naked clusters at that hit rate return
+ *   ~0.42, so cans add the rest. A 500× every 15 000 spins would add ~0.60
+ *   alone and break the split; that tracker figure loses.
+ * fsThrow — 100× buy returns ~96.5× (Gates RTP) under the real rule:
+ *   stored Mbps multiplies a free spin only when a new can is on that win.
+ *   0.30, measured ~96× on ~6.5k buys. Entry uses the base throw.
+ */
+export const mathTune = {
+  /** Chance Zeus throws on a screen. Opening and every tumble share it. */
+  baseThrow: 0.036,
+  fsThrow: 0.3,
+  sticky: 0.156,
+};
 
 function pickWeighted<T extends { w: number }>(items: readonly T[], rng: () => number): T {
   let total = 0;
@@ -71,25 +86,23 @@ export function randomOrb(rng: () => number, _fs = false): Cell {
   return { uid: nextUid(), kind: "mult", mult: m };
 }
 
-/** Cans never ride the strip — rampa drops them after the stop / tumble. */
-export function randomCell(rng: () => number, ante: boolean, live = false): Cell {
-  const scatterW = live ? 3.2 : ante ? SCATTER.weightAnte : SCATTER.weight;
+/** Cans never ride the strip — rampa drops them after the stop / tumble. FS uses the same strip as base. Ante only swaps the scatter weight. */
+export function randomCell(rng: () => number, ante: boolean, _live = false): Cell {
+  const scatterW = ante ? SCATTER.weightAnte : SCATTER.weight;
   const payW = PAY_SYMBOLS.reduce((s, p) => s + p.weight, 0);
   const t = payW + scatterW;
   const r = rng() * t;
   if (r < scatterW) return { uid: nextUid(), kind: "scatter" };
-  return randomPayCell(rng, live);
+  return randomPayCell(rng);
 }
 
-/** Tall looping column: 3×5 with empty track so the shot isn’t a packed icon wall. */
+/** Consistent filler for the reel. No holes and no cans — symbols stay themselves while they scroll. */
 export function makeSpinStrip(rng: () => number, live = false): Cell[] {
   const pat: Cell[] = [];
-  for (let i = 0; i < ROWS; i++) {
-    if (rng() < 0.22) pat.push({ uid: nextUid(), kind: "pay", payId: "rj45", gone: true });
-    else if (live) pat.push(randomCell(rng, false, true));
-    else pat.push(randomPayCell(rng));
+  for (let i = 0; i < ROWS * 3; i++) {
+    pat.push(live ? randomCell(rng, false, true) : randomPayCell(rng));
   }
-  return [...pat, ...pat, ...pat];
+  return pat;
 }
 
 export function generateGrid(rng: () => number, ante: boolean, live = false): Cell[][] {
@@ -98,7 +111,7 @@ export function generateGrid(rng: () => number, ante: boolean, live = false): Ce
     let prev: Cell | null = null;
     for (let r = 0; r < ROWS; r++) {
       let cell: Cell;
-      if (prev?.kind === "pay" && prev.payId && rng() < COL_STICKY) {
+      if (prev?.kind === "pay" && prev.payId && rng() < mathTune.sticky) {
         cell = { uid: nextUid(), kind: "pay", payId: prev.payId };
       } else {
         cell = randomCell(rng, ante, live);
@@ -138,15 +151,11 @@ export function generateBuyGrid(rng: () => number): Cell[][] {
 }
 
 export function zeusDropCount(rng: () => number, fs: boolean, afterTumble: boolean): number {
-  // Base: ~18 % of spins show a can. LIVE: ~8 cans / 15 FS, never from the strip.
-  const p = afterTumble ? (fs ? 0.125 : 0.024) : fs ? 0.25 : 0.036;
+  // One throw chance per mode. Opening screen and post-tumble use the same chance.
+  void afterTumble;
+  const p = fs ? mathTune.fsThrow : mathTune.baseThrow;
   if (rng() >= p) return 0;
   const r = rng();
-  if (fs) {
-    if (r < 0.72) return 1;
-    if (r < 0.94) return 2;
-    return 3;
-  }
   if (r < 0.86) return 1;
   if (r < 0.97) return 2;
   return 3;
@@ -310,7 +319,7 @@ export function tumble(grid: Cell[][], winMask: boolean[][], rng: () => number, 
     let prev: Cell | null = null;
     for (let r = 0; r <= dest; r++) {
       let cell: Cell;
-      if (prev?.kind === "pay" && prev.payId && rng() < COL_STICKY) {
+      if (prev?.kind === "pay" && prev.payId && rng() < mathTune.sticky) {
         cell = { uid: nextUid(), kind: "pay", payId: prev.payId };
       } else {
         cell = randomCell(rng, ante, fs);
@@ -379,6 +388,12 @@ export interface PaidSpin {
   deadOrbs: number;
   globalMult: number;
   tumbles: number;
+  /** Cans actually placed this spin (opening + tumbles). */
+  orbs: number;
+  /** Bit i set when PAY_SYMBOLS[i] paid 8+ at any tumble. */
+  symbolMask: number;
+  /** Pay-symbol counts on the grid before the first throw. */
+  open: number[];
 }
 
 export function resolvePaidSpin(
@@ -386,19 +401,38 @@ export function resolvePaidSpin(
   opts: { ante: boolean; buy?: boolean; free?: boolean; globalMult: number; capRemain?: number },
 ): PaidSpin {
   const ante = opts.buy || opts.free ? false : opts.ante;
-  let board = opts.buy ? generateBuyGrid(rng) : generateGrid(rng, ante);
-  // Buy enters the feature. Orbs on that screen were making the entry much fatter than a natural trigger.
-  const n0 = opts.buy ? 0 : zeusDropCount(rng, !!opts.free, false);
-  if (n0) board = zeusDrop(board, rng, n0, !!opts.free).grid;
+  let board = opts.buy ? generateBuyGrid(rng) : generateGrid(rng, ante, !!opts.free);
+  const open = PAY_SYMBOLS.map(() => 0);
+  for (const row of board) {
+    for (const cell of row) {
+      if (cell.kind !== "pay" || !cell.payId) continue;
+      const idx = PAY_SYMBOLS.findIndex((p) => p.id === cell.payId);
+      if (idx >= 0) open[idx] += 1;
+    }
+  }
+  // Buy is a natural 4-scatter trigger: base cans, not the free-spin throw, not a dead screen.
+  let orbs = 0;
+  const n0 = zeusDropCount(rng, !!opts.free, false);
+  if (n0) {
+    const dropped = zeusDrop(board, rng, n0, !!opts.free);
+    board = dropped.grid;
+    orbs += dropped.drops.length;
+  }
 
   let sequenceX = 0;
   let scatterPeak = 0;
   let scatterPayLocked = 0;
   let tumbles = 0;
+  let symbolMask = 0;
   let nearMiss: NearMiss | null = null;
   for (;;) {
     const ev = evaluate(board);
     scatterPeak = Math.max(scatterPeak, ev.scatterCount);
+    for (const w of ev.wins) {
+      if (w.payId === "scatter") continue;
+      const idx = PAY_SYMBOLS.findIndex((p) => p.id === w.payId);
+      if (idx >= 0) symbolMask |= 1 << idx;
+    }
     const sPay = scatterPay(ev.scatterCount);
     const clusterX = ev.winX - sPay;
     const scatterDelta = Math.max(0, sPay - scatterPayLocked);
@@ -414,8 +448,12 @@ export function resolvePaidSpin(
     );
     if (!mask.some((row) => row.some(Boolean))) break;
     board = tumble(board, mask, rng, ante, !!opts.free);
-    const n = opts.buy ? 0 : zeusDropCount(rng, !!opts.free, true);
-    if (n) board = zeusDrop(board, rng, n, !!opts.free).grid;
+    const n = zeusDropCount(rng, !!opts.free, true);
+    if (n) {
+      const dropped = zeusDrop(board, rng, n, !!opts.free);
+      board = dropped.grid;
+      orbs += dropped.drops.length;
+    }
     tumbles += 1;
     if (tumbles > 48) break;
   }
@@ -423,13 +461,13 @@ export function resolvePaidSpin(
   const orbSum = sumMultipliers(board);
   let globalMult = opts.globalMult;
   let applied = 1;
+  // FS total multiplies this sequence only with a new can, added first
+  // (50+5 → 55× tumble). A win with no new can pays the raw tumble.
   if (sequenceX > 0 && orbSum > 0) {
     if (opts.free) {
       globalMult += orbSum;
       applied = Math.max(1, globalMult);
     } else applied = orbSum;
-  } else if (opts.free && sequenceX > 0 && globalMult > 1) {
-    applied = globalMult;
   }
 
   const cap = opts.capRemain ?? MAX_WIN_X;
@@ -457,6 +495,9 @@ export function resolvePaidSpin(
     deadOrbs,
     globalMult,
     tumbles,
+    orbs,
+    symbolMask,
+    open,
   };
 }
 

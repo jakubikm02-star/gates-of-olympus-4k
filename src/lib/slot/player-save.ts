@@ -45,6 +45,8 @@ export interface PlayerSave {
   deskWagered: number;
   deskPaid: number;
   deskBest: number;
+  deskTicketWon: number;
+  deskTicketLost: number;
 }
 
 export function emptyPlayerSave(): PlayerSave {
@@ -87,6 +89,8 @@ export function emptyPlayerSave(): PlayerSave {
     deskWagered: 0,
     deskPaid: 0,
     deskBest: 0,
+    deskTicketWon: 0,
+    deskTicketLost: 0,
   };
 }
 
@@ -247,6 +251,8 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.deskWagered = num(r.deskWagered, 0, 0, 1_000_000_000);
   s.deskPaid = num(r.deskPaid, 0, 0, 1_000_000_000);
   s.deskBest = num(r.deskBest, 0, 0, 1_000_000_000);
+  s.deskTicketWon = num(r.deskTicketWon, 0, 0, 1_000_000_000);
+  s.deskTicketLost = num(r.deskTicketLost, 0, 0, 1_000_000_000);
   if (!s.inFs || s.fsLeft <= 0) {
     s.inFs = false;
     s.fsLeft = 0;

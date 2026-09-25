@@ -19,6 +19,7 @@ import { pityGain, rankPeekIds, type PickTile } from "./pick-bonus.ts";
 import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta, canDuelSpin, duelView, forfeitDuel } from "./duel.ts";
 import { PAY_SYMBOLS, payName, ORB_TABLE, ORB_VALUES } from "./symbols.ts";
 import { canSpend, dealJobs, freshDaily, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobMeter, jobParknetBroke, jobShownGoal, jobStatus, missCollectPlan, stampDaily, symbolNeed, tickJob, spinWord, winCollectPlan, JOB_BANK, JOB_TEMPLATE_IDS, type JobCard } from "./spend.ts";
+import { bumpLocalDesk, bumpTicketDesk, emptyDesk } from "./desk-api.ts";
 
 describe("park jackpots", () => {
   it("takes 2.3% visible + 0.3% reserve", () => {
@@ -422,16 +423,16 @@ describe("míňať", () => {
     const easy = winCollectPlan("rj45", "lacna");
     const mid = winCollectPlan("rj45", "stred");
     const hard = winCollectPlan("rj45", "draha");
-    assert.deepEqual(easy, { need: 2, limit: 50 });
-    assert.deepEqual(mid, { need: 3, limit: 50 });
-    assert.deepEqual(hard, { need: 4, limit: 50 });
-    assert.deepEqual(winCollectPlan("pdf", "draha"), { need: 1, limit: 35 });
+    assert.deepEqual(easy, { need: 2, limit: 30 });
+    assert.deepEqual(mid, { need: 3, limit: 30 });
+    assert.deepEqual(hard, { need: 4, limit: 30 });
+    assert.deepEqual(winCollectPlan("pdf", "draha"), { need: 1, limit: 55 });
     const loose = missCollectPlan("rj45", "lacna");
     const tight = missCollectPlan("rj45", "draha");
-    assert.deepEqual(loose, { need: 58, limit: 20 });
-    assert.deepEqual(tight, { need: 151, limit: 45 });
-    assert.ok(loose.need < 20 * 3.273);
-    assert.ok(tight.need > 45 * 3.273);
+    assert.deepEqual(loose, { need: 72, limit: 20 });
+    assert.deepEqual(tight, { need: 180, limit: 45 });
+    assert.ok(loose.need < 20 * 3.917);
+    assert.ok(tight.need > 45 * 3.917);
     const jobs = dealJobs(() => 0.2, 4000, 1);
     const win = jobs.find((j) => j.template === "vyherne");
     const miss = jobs.find((j) => j.template === "nevyherne");
@@ -1230,5 +1231,26 @@ describe("duel", () => {
     const folded = forfeitDuel(caught, 0);
     assert.equal(duelCreditDelta(folded, 0), 0);
     assert.equal(duelCreditDelta(folded, 1), duelPot(folded));
+  });
+});
+
+describe("desk tickets", () => {
+  it("keeps ticket money off the machine turnover", () => {
+    const day = emptyDesk();
+    const spun = bumpLocalDesk(day, 2, 5);
+    assert.equal(spun.wagered, 2);
+    assert.equal(spun.paid, 5);
+    assert.equal(spun.ticketWon, 0);
+    assert.equal(spun.ticketLost, 0);
+    const won = bumpTicketDesk(spun, 12.5, 0);
+    const lost = bumpTicketDesk(won, 0, 4);
+    assert.equal(lost.wagered, 2);
+    assert.equal(lost.paid, 5);
+    assert.equal(lost.ticketWon, 12.5);
+    assert.equal(lost.ticketLost, 4);
+    const again = bumpLocalDesk(lost, 1, 0);
+    assert.equal(again.wagered, 3);
+    assert.equal(again.ticketWon, 12.5);
+    assert.equal(again.ticketLost, 4);
   });
 });
