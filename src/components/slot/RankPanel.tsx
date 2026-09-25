@@ -45,9 +45,9 @@ export function RankPanel({ open, onClose, stand, peak, shield, streak = 0, week
           </button>
         </header>
         <p className="modal-lead">
-          RP rastú zo sumy, výšky stávky, násobiča, série, tumble a bannerov. Vyššia stávka = viac RP.
-          Aktívna liga dáva herný perk (ante, cashback, extra FS, zľava na buy, lístky) — nie extra RP.
-          Každý týždeň klesáš o jednu skupinu na IV predchádzajúcej ligy (4KA TV II → SMART IV).
+          RP rastú zo sumy v eurách, násobiča, série, tumble a banneru. Strop jednej výhry je 200 RP.
+          Liga nedáva extra RP, nelacní buy a nepridáva lístky. Mŕtvy spin berie najviac 8 RP, KREDIT 0.
+          Raz za týždeň klesneš o 100 RP. Dlhšia pauza zoberie najviac 400 RP.
         </p>
         {weekDue > 0 && weekTarget && stand.rankIndex > 0 && (
           <p className="rank-now-streak">

@@ -126,13 +126,9 @@ export function rankStart(rankIndex: number): number {
 export const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 export const WEEKLY_CATCHUP_MAX = 4;
 
-/** One division back. 4KA TV II → 4KA TV III, not the previous group. */
+/** One division = 100 RP. Never dumps an open-ended rank in a single step. */
 export function dropOneDivision(rp: number): number {
-  const s = standing(rp);
-  if (s.rp <= 0) return 0;
-  const idx = BANDS.findIndex((b) => b.rankIndex === s.rankIndex && b.division === s.division);
-  if (idx <= 0) return 0;
-  return BANDS[idx - 1]?.floor ?? 0;
+  return Math.max(0, Math.floor(rp) - DIV_RP);
 }
 
 /** @deprecated Weekly decay no longer drops a whole group. */
@@ -465,7 +461,6 @@ export function settleBuyRank(s: {
 
 export const RELOAD_GRANT = 5000;
 export const RELOAD_STABILIZE = 80;
-const RELOAD_RTP = 0.9769;
 
 export function reloadPunish(opts: {
   bet: number;
@@ -490,24 +485,9 @@ export function reloadPunish(opts: {
   const bet = Math.max(0.01, opts.bet);
   const maxBet = Math.max(bet, opts.maxBet);
   const t = Math.min(1, Math.log2(1 + bet) / Math.log2(1 + maxBet));
-  const avgCash = maxBet * (RELOAD_RTP / BASE_HIT);
-  const perHit = rpFromSpin({
-    cash: avgCash,
-    bet: maxBet,
-    mult: 1,
-    tumbles: 0,
-    streak: 1,
-    banner: null,
-    kind: "base",
-  }).total;
-  const maxHits = (RELOAD_GRANT / maxBet) * BASE_HIT;
-  const maxFarm = maxHits * perHit;
-  const minFee = 0.35 * DIV_RP;
-  const maxFee = Math.ceil(maxFarm * 1.28);
-  const rankW = 1 + standing(opts.rp).rankIndex * 0.12;
-  const streakW = 1 + Math.min(5, Math.max(0, opts.streak - 1)) * 0.55;
-  const raw = Math.round((minFee + (maxFee - minFee) * t) * rankW * streakW);
-  const delta = raw > 0 ? -Math.min(DIV_RP / 2, raw) : 0;
+  const streakAdd = Math.min(8, Math.max(0, opts.streak - 1) * 4);
+  const raw = Math.round(8 + 42 * t) + streakAdd;
+  const delta = -Math.min(DIV_RP / 2, raw);
   return {
     delta,
     parts: { ...empty, total: delta, fromReload: delta },
@@ -515,15 +495,15 @@ export function reloadPunish(opts: {
 }
 
 export const RANK_REWARDS = [
-  { id: "sum", title: "Suma výhry", detail: "RP z reálnych eur, nie z násobku. 0.36 € ≈ 2 RP, 75 € ≈ 36 RP, 500 € ≈ 110 RP." },
-  { id: "stake", title: "Výška stávky", detail: "Vyššia stávka pri výhre pridá RP. Mŕtvy spin od SMART berie najviac 8 RP, bez ohľadu na stávku. KREDIT má miss 0." },
-  { id: "mult", title: "Násobič", detail: "Energy plechovky. ×2 ≈ +4, ×10 ≈ +12, ×50 ≈ +19." },
+  { id: "sum", title: "Suma výhry", detail: "RP z reálnych eur pri stávke 1 €. 0,36 € = 2 RP, 75 € = 42 RP, 500 € = 106 RP. Strop jednej výhry je 200 RP." },
+  { id: "stake", title: "Výška stávky", detail: "Pri rovnakom násobku vyššia stávka pridá RP, lebo výhra v eurách je väčšia. Mŕtvy spin berie najviac 8 RP na každom ranku okrem KREDIT. KREDIT má miss 0." },
+  { id: "mult", title: "Násobič", detail: "Energy plechovky navyše k sume. ×2 = +4, ×10 = +12, ×50 a viac = +20." },
   { id: "streak", title: "Séria výhier", detail: "2. výhra +2, 3. +5, 4. +9, 5.+ max +14. Mŕtvy spin zhodí na 0 — od SLOBODY jeden hold." },
   { id: "tumble", title: "Tumble reťaz", detail: "Dva a viac pádov v jednom spine: +2 až +8 RP." },
   { id: "banner", title: "BIG / MEGA / EPIC / MAX", detail: "Popup: +4 / +8 / +12 / +18." },
   { id: "bonus", title: "Bonusy", detail: "FS total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Buy je vždy 100×. LIVE je 15, od DUO 16, v NEKONEČNO 17. Kúpa sa ráta voči cene, prehra berie entry ako mŕtve spiny (max 1 divízia)." },
   { id: "rank", title: "Aktívna liga", detail: "Ante 1,22× od SMART, cashback so stropom od OPTIKA, +1 a +2 točenia v LIVE. Od SMART kontrola ukáže cenu bezpečného státia, meter sa nezrýchli. Liga nenásobí RP a nelacní buy." },
-  { id: "reload", title: "Bankrot", detail: "Dobitie +5000 berie RP len v 5G a NEKONEČNO, najviac pol divízie. Pod tým 0. 80 platených spinov bez dobitia sériu nuluje." },
+  { id: "reload", title: "Bankrot", detail: "Dobitie +5000 berie RP len v 5G a NEKONEČNO. Malá stávka berie menej, strop je pol divízie (50). Pod 5G je trest 0. 80 platených spinov bez dobitia sériu nuluje." },
   { id: "week", title: "Týždenný drop", detail: "Raz za 7 dní klesáš o jednu divíziu, nie o celú skupinu. Dlhšia pauza zoberie najviac jednu skupinu. Štít týždeň nechytá." },
 ] as const;
 
@@ -565,7 +545,7 @@ export function rpFromDead(bet: number, entry: number): RankBreakdown {
   if (entry <= 0) return empty;
   const stake = Math.max(0, bet);
   const raw = -Math.max(1, Math.round(entry * (0.9 + 0.72 * Math.log2(1 + stake))));
-  const delta = entry >= 4 ? Math.max(raw, -DEAD_RP_CAP) : raw;
+  const delta = Math.max(raw, -DEAD_RP_CAP);
   return { ...empty, total: delta, fromStake: delta };
 }
 

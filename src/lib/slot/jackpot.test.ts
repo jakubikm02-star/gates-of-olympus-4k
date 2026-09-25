@@ -134,7 +134,7 @@ describe("rank stake + perk", () => {
     assert.ok(nekOne.total < 0);
     assert.ok(nekOne.total >= nekMax.total);
     const low = rpFromDead(100, 3);
-    assert.ok(low.total < -8);
+    assert.equal(low.total, -8);
   });
 
   it("rank does not multiply RP", () => {
@@ -225,6 +225,8 @@ describe("rank stake + perk", () => {
     assert.equal(next.id, "telka");
     assert.equal(next.roman, "III");
     assert.equal(dropOneDivision(0), 0);
+    assert.equal(dropOneDivision(3827), 3727);
+    assert.equal(standing(dropOneDivision(3827)).id, "nekonecno");
     const now = 1_000_000_000_000;
     const fresh = applyWeeklyDecay(1400, 0, now);
     assert.equal(fresh.drops, 0);
