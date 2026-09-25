@@ -110,27 +110,36 @@ export function generateGrid(rng: () => number, ante: boolean, live = false): Ce
   return g;
 }
 
-/** Force 4 scatters. Buy is always 100× base bet; ante is off for this grid. */
+/** Same distribution as a natural 4-scatter land, so the buy pays like PARKNET. */
 export function generateBuyGrid(rng: () => number): Cell[][] {
+  for (let i = 0; i < 5000; i++) {
+    const g = generateGrid(rng, false);
+    let n = 0;
+    for (const row of g) for (const cell of row) if (cell.kind === "scatter") n += 1;
+    if (n >= 4) return g;
+  }
   const g = generateGrid(rng, false);
   const spots: [number, number][] = [];
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) spots.push([r, c]);
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (g[r][c].kind !== "scatter") spots.push([r, c]);
   for (let i = spots.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
     const tmp = spots[i];
     spots[i] = spots[j];
     spots[j] = tmp;
   }
-  for (let i = 0; i < 4; i++) {
+  let have = 0;
+  for (const row of g) for (const cell of row) if (cell.kind === "scatter") have += 1;
+  for (let i = 0; have < 4 && i < spots.length; i++) {
     const [r, c] = spots[i];
     g[r][c] = { uid: nextUid(), kind: "scatter" };
+    have += 1;
   }
   return g;
 }
 
 export function zeusDropCount(rng: () => number, fs: boolean, afterTumble: boolean): number {
   // Base: ~18 % of spins show a can. LIVE: ~8 cans / 15 FS, never from the strip.
-  const p = afterTumble ? (fs ? 0.16 : 0.1) : fs ? 0.32 : 0.155;
+  const p = afterTumble ? (fs ? 0.125 : 0.024) : fs ? 0.25 : 0.036;
   if (rng() >= p) return 0;
   const r = rng();
   if (fs) {
@@ -378,7 +387,8 @@ export function resolvePaidSpin(
 ): PaidSpin {
   const ante = opts.buy || opts.free ? false : opts.ante;
   let board = opts.buy ? generateBuyGrid(rng) : generateGrid(rng, ante);
-  const n0 = zeusDropCount(rng, !!opts.free, false);
+  // Buy enters the feature. Orbs on that screen were making the entry much fatter than a natural trigger.
+  const n0 = opts.buy ? 0 : zeusDropCount(rng, !!opts.free, false);
   if (n0) board = zeusDrop(board, rng, n0, !!opts.free).grid;
 
   let sequenceX = 0;
@@ -404,7 +414,7 @@ export function resolvePaidSpin(
     );
     if (!mask.some((row) => row.some(Boolean))) break;
     board = tumble(board, mask, rng, ante, !!opts.free);
-    const n = zeusDropCount(rng, !!opts.free, true);
+    const n = opts.buy ? 0 : zeusDropCount(rng, !!opts.free, true);
     if (n) board = zeusDrop(board, rng, n, !!opts.free).grid;
     tumbles += 1;
     if (tumbles > 48) break;

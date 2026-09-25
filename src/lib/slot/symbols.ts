@@ -50,7 +50,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
   {
     id: "router",
     name: "Wi-Fi router",
-    src: "/symbols/router.png",
+    src: "/symbols/router.png?v=2",
     pays: [0.4, 0.9, 4],
     weight: 15.5,
     quip: "Heslo je na spodku.",
@@ -119,10 +119,9 @@ export const SCATTER = {
   src: "/symbols/tv4ka.png",
   /** 4 / 5 / 6+ scatters as multiple of bet */
   pays: [3, 5, 100] as const,
-  /** Base weight: P(4+ on land) ~1/500; tumble toward ~1/400. */
-  weight: 2.2,
-  /** Ante ~1.26× cell weight, not 2× — clumping is pay-only. */
-  weightAnte: 2.8,
+  /** Base weight tuned so 4+ lands about 1/448, ante about twice as often. */
+  weight: 2.36,
+  weightAnte: 2.89,
 };
 
 export const PARK = {
@@ -199,15 +198,15 @@ export const BUY_COST_X = 100;
 export const ANTE_COST = 1.25;
 export const START_BALANCE = 5000;
 
-/** Baked from scripts/slot-rtp.ts 1e6 paid spins. */
+/** Tuned to Gates of Olympus: 96.5% RTP, bonus about 1/448, buy returns about 96.5× per 100×. */
 export const MATH_NOTE = {
-  spins: 1_000_000,
-  rtp: 0.9769,
-  hit: 0.3467,
-  bonusEvery: 317,
-  anteBonusEvery: 146,
-  buyEv: 1.2586,
-  maxEvery: 1_000_000 as number | null,
+  spins: 50_000,
+  rtp: 0.965,
+  hit: 0.271,
+  bonusEvery: 435,
+  anteBonusEvery: 194,
+  buyEv: 0.996,
+  maxEvery: null as number | null,
 };
 
 export function payForCount(pays: readonly [number, number, number], count: number): number {

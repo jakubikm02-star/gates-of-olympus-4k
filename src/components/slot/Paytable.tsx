@@ -163,9 +163,9 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             Do ranku sa kúpa ráta ako 100 točení. Max 5000× je strop celej feature — potom FEATURE TERMINATED.
           </li>
           <li>
-            Simulácia {MATH_NOTE.spins.toLocaleString("sk-SK")} spinov: base RTP {(MATH_NOTE.rtp * 100).toFixed(1)} % +
-            jackpot ~2.3 % contribution = tvar 96.5. Hit {(MATH_NOTE.hit * 100).toFixed(1)} %, bonus 1/{MATH_NOTE.bonusEvery}, kúpa vracia{" "}
-            {(MATH_NOTE.buyEv * 100).toFixed(0)}× z 100×. High-vol demo, nie certifikát 96.50 %.
+            Rovnaký tvar ako Gates of Olympus: RTP okolo {(MATH_NOTE.rtp * 100).toFixed(1)} %, hit{" "}
+            {(MATH_NOTE.hit * 100).toFixed(1)} %, PARKNET aj kúpa sú tá istá feature. Bonus 1/{MATH_NOTE.bonusEvery}, kúpa za 100×
+            vracia asi {(MATH_NOTE.buyEv * 100).toFixed(0)}×. High-vol demo, nie certifikát 96.50 %.
           </li>
         </ul>
         <details className="math-box">

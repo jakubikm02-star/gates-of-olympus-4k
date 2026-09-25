@@ -44,6 +44,8 @@ function run(n: number, ante: boolean, seed = 1) {
   let orbOnWin = 0;
   let orbOnWinN = 0;
   let featureSum = 0;
+  let triggerSum = 0;
+  let basePaid = 0;
   let feat100 = 0;
   let feat500 = 0;
   let feat1000 = 0;
@@ -70,6 +72,7 @@ function run(n: number, ante: boolean, seed = 1) {
       fsSpins += feat.fsSpins;
       retriggers += feat.retriggers;
       featureSum += feat.paid;
+      triggerSum += spin.paidX;
       if (feat.gm > 0) {
         fsMultSum += feat.gm;
         fsMultN += 1;
@@ -81,6 +84,7 @@ function run(n: number, ante: boolean, seed = 1) {
       if (feat.hitMax) maxHits += 1;
     } else {
       paid += spin.paidX;
+      basePaid += spin.paidX;
       if (spin.paidX > biggest) biggest = spin.paidX;
       if (spin.hitMax) maxHits += 1;
     }
@@ -102,6 +106,9 @@ function run(n: number, ante: boolean, seed = 1) {
     avgOrbOnWin: orbOnWinN ? +(orbOnWin / orbOnWinN).toFixed(2) : 0,
     avgFsMult: fsMultN ? +(fsMultSum / fsMultN).toFixed(2) : 0,
     avgFeature: bonus ? +(featureSum / bonus).toFixed(1) : 0,
+    avgTrigger: bonus ? +(triggerSum / bonus).toFixed(1) : 0,
+    baseRtp: +(basePaid / stakeOut).toFixed(4),
+    featureRtp: +((featureSum) / stakeOut).toFixed(4),
     pFeat100: bonus ? +(feat100 / bonus).toFixed(4) : 0,
     pFeat500: bonus ? +(feat500 / bonus).toFixed(4) : 0,
     pFeat1000: bonus ? +(feat1000 / bonus).toFixed(4) : 0,
@@ -114,14 +121,21 @@ function run(n: number, ante: boolean, seed = 1) {
 function buyEv(n: number, seed = 9) {
   const rng = createRng(seed);
   let paid = 0;
+  let trigger = 0;
   let maxHits = 0;
   for (let i = 0; i < n; i++) {
     const spin = resolvePaidSpin(rng, { ante: false, buy: true, globalMult: 0 });
     const feat = playFeature(rng, spin);
     paid += feat.paid;
+    trigger += spin.paidX;
     if (feat.hitMax) maxHits += 1;
   }
-  return { ev: +(paid / n / BUY_COST_X).toFixed(4), maxHits };
+  return {
+    ev: +(paid / n / BUY_COST_X).toFixed(4),
+    avg: +(paid / n).toFixed(1),
+    avgTrigger: +(trigger / n).toFixed(1),
+    maxHits,
+  };
 }
 
 const n = Number(process.argv[2] ?? 40000);
@@ -131,4 +145,4 @@ const buy = buyEv(Math.min(6000, Math.max(800, Math.floor(n / 8))), 7);
 base.buyEv = buy.ev;
 const ante = run(Math.floor(n / 2), true, 99);
 const ms = Date.now() - t0;
-console.log(JSON.stringify({ ms, base, ante, buyMaxHits: buy.maxHits }, null, 2));
+console.log(JSON.stringify({ ms, base, ante, buy }, null, 2));

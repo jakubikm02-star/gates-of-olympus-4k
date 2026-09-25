@@ -32,7 +32,7 @@ export const Route = createRootRoute({
       { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "manifest", href: "/__grok/manifest.webmanifest" },
       { rel: "preload", as: "image", href: "/symbols/rj45.png" },
-      { rel: "preload", as: "image", href: "/symbols/router.png" },
+      { rel: "preload", as: "image", href: "/symbols/router.png?v=2" },
       { rel: "preload", as: "image", href: "/symbols/hap.png" },
       { rel: "preload", as: "image", href: "/symbols/roof.png" },
       { rel: "preload", as: "image", href: "/symbols/arris.png" },
