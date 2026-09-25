@@ -239,9 +239,9 @@ export function SlotGame() {
           </aside>
 
           <section className="board-wrap">
+            {g.duel && g.duel.phase === "play" ? <DuelBar duel={g.duel} onForfeit={g.foldDuel} /> : null}
             <div className="board-stage">
             <div className="board-stage-inner">
-            {g.duel && g.duel.phase === "play" ? <DuelBar duel={g.duel} onForfeit={g.foldDuel} /> : null}
             <div className="board-meter">
               {g.inFs ? (
                 <div className="fs-hero" aria-live="polite">
