@@ -1284,30 +1284,13 @@
 .cell-img {
   position: relative;
   z-index: 1;
-  width: 78%;
-  height: 78%;
+  width: 88%;
+  height: 88%;
   object-fit: contain;
   object-position: center;
   user-select: none;
   pointer-events: none;
   color: transparent;
-  filter: url("#sym-glow");
-}
-
-#sym-glow feFlood {
-  flood-color: var(--fa, #8fdfff);
-  flood-opacity: 0.9;
-}
-
-#sym-glow-win feFlood {
-  flood-color: #ffe14a;
-  flood-opacity: 0.95;
-}
-
-.sym-glow-defs {
-  position: absolute;
-  width: 0;
-  height: 0;
 }
 
 .cell.is-mult .cell-img {
@@ -1317,24 +1300,14 @@
 
 .cell.is-win {
   z-index: 2;
-  outline: 2px solid rgb(255 225 90 / 0.85);
-  outline-offset: -3px;
-  box-shadow: inset 0 0 18px rgb(255 210 80 / 0.35);
 }
 
 .cell.is-win .cell-img {
   animation: winpulse 0.45s ease-in-out infinite;
-  filter: url("#sym-glow-win") brightness(1.12);
 }
 
 .win-fx {
-  position: absolute;
-  inset: 8%;
-  pointer-events: none;
-  z-index: 3;
-  border-radius: 18%;
-  background: radial-gradient(circle, rgb(255 230 140 / 0.38), transparent 68%);
-  box-shadow: 0 0 18px rgb(255 210 80 / 0.35);
+  display: none;
 }
 
 .win-fx::before,
@@ -1722,25 +1695,16 @@
 .cell.is-scatter .cell-img {
   width: 90%;
   height: 90%;
-  filter: url("#sym-glow-win") brightness(1.12);
   animation: scatter-idle 1.2s ease-in-out infinite;
 }
 
 .cell.is-scatter::after {
-  content: "";
-  position: absolute;
-  inset: 4%;
-  border-radius: 16%;
-  border: 3px solid rgb(255 210 80 / 0.9);
-  box-shadow: 0 0 16px rgb(80 230 255 / 0.55), inset 0 0 10px rgb(255 180 40 / 0.35);
-  pointer-events: none;
-  z-index: 1;
+  content: none;
 }
 
 @keyframes scatter-idle {
   50% {
     transform: scale(1.05);
-    filter: url("#sym-glow-win") brightness(1.2);
   }
 }
 
@@ -1755,14 +1719,15 @@
 .cell.is-park .cell-img {
   width: 88%;
   height: 88%;
-  filter: url("#sym-glow-win");
   animation: scatter-idle 1.8s ease-in-out infinite;
 }
 
 .cell.is-ticket-ulica .cell-img,
 .cell.is-ticket-okres .cell-img,
 .cell.is-ticket-kraj .cell-img,
-.cell.is-ticket-stat .cell-img { filter: url("#sym-glow"); }
+.cell.is-ticket-stat .cell-img {
+  filter: none;
+}
 
 .cell.is-park.is-lock {
   animation: ticket-pulse 400ms ease-in-out 1;
@@ -1774,12 +1739,7 @@
 }
 
 .cell.is-park::after {
-  content: "";
-  position: absolute;
-  inset: 7%;
-  border-radius: 16%;
-  border: 2px solid rgb(226 176 26 / 0.8);
-  pointer-events: none;
+  content: none;
 }
 
 .cell.is-ticket-ulica::after { border-color: rgb(197 204 212 / 0.85); }
@@ -1865,13 +1825,11 @@
 
 .cell.is-tease .cell-img {
   animation: scatter-tease 1.2s ease-in-out infinite;
-  filter: url("#sym-glow-win") brightness(1.12);
 }
 
 @keyframes scatter-tease {
   50% {
     transform: scale(1.03);
-    filter: url("#sym-glow-win") brightness(1.2);
   }
 }
 
@@ -1881,10 +1839,10 @@
 
 @keyframes scatter-slam {
   0% {
-    filter: url("#sym-glow-win") brightness(1.55);
+    filter: brightness(1.55);
   }
   100% {
-    filter: url("#sym-glow-win") brightness(1.12);
+    filter: brightness(1.12);
   }
 }
 
