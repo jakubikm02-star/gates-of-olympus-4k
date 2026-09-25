@@ -96,14 +96,12 @@ export function tickDuel(d: Duel, cash: number, seatN?: 0 | 1): Duel {
     have: seats[who].have + 1,
   };
   if (d.kind === "online") {
-    const other: 0 | 1 = who === 0 ? 1 : 0;
-    const ahead = seats[other].have < seats[who].have;
     const done = seats[0].have >= d.need && seats[1].have >= d.need;
     return {
       ...d,
       seats,
       have: seats[d.you].have,
-      held: who === d.you && ahead ? Math.max(0, cash) : who === d.you ? 0 : d.held,
+      held: 0,
       phase: done ? "done" : "play",
     };
   }
@@ -118,12 +116,11 @@ export function applyPeerTick(d: Duel, have: number, score: number): Duel {
   const other: 0 | 1 = d.you === 0 ? 1 : 0;
   const seats: [DuelSeat, DuelSeat] = [{ ...d.seats[0] }, { ...d.seats[1] }];
   seats[other] = { ...seats[other], have: Math.max(seats[other].have, have), score };
-  const caught = seats[d.you].have <= seats[other].have;
   const done = seats[0].have >= d.need && seats[1].have >= d.need;
   return {
     ...d,
     seats,
-    held: caught ? 0 : d.held,
+    held: 0,
     phase: d.phase === "play" && done ? "done" : d.phase,
   };
 }
@@ -163,18 +160,17 @@ export function forfeitDuel(d: Duel, seat: 0 | 1): Duel {
 export function canDuelSpin(d: Duel): boolean {
   if (d.phase !== "play") return false;
   if (d.kind !== "online") return true;
-  if (d.seats[d.you].have >= d.need) return false;
-  const peer: 0 | 1 = d.you === 0 ? 1 : 0;
-  return d.seats[d.you].have <= d.seats[peer].have;
+  return d.seats[d.you].have < d.need;
 }
 
-/** Shared k. Ahead player's last win stays off the bar until the other seat catches up. */
+/** Your spins and both scores. Waiting only after you finish and the other seat is still playing. */
 export function duelView(d: Duel): { k: number; mine: number; peer: number; waiting: boolean } {
   const peer: 0 | 1 = d.you === 0 ? 1 : 0;
-  const k = d.kind === "online" ? Math.min(d.seats[0].have, d.seats[1].have) : d.seats[d.turn].have;
-  const mine = +((d.kind === "online" ? d.seats[d.you].score - (d.held || 0) : d.seats[d.turn].score)).toFixed(2);
+  const k = d.kind === "online" ? d.seats[d.you].have : d.seats[d.turn].have;
+  const mine = d.kind === "online" ? d.seats[d.you].score : d.seats[d.turn].score;
   const peerScore = d.kind === "online" ? d.seats[peer].score : d.seats[d.turn === 0 ? 1 : 0].score;
-  const waiting = d.kind === "online" && d.phase === "play" && d.seats[d.you].have > d.seats[peer].have;
+  const waiting =
+    d.kind === "online" && d.phase === "play" && d.seats[d.you].have >= d.need && d.seats[peer].have < d.need;
   return { k, mine, peer: peerScore, waiting };
 }
 

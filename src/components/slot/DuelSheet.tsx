@@ -523,11 +523,9 @@ export function DuelSheet({
 export function DuelBar({ duel, onForfeit }: { duel: Duel; onForfeit?: () => void }) {
   const view = duelView(duel);
   const wait = view.waiting || (duel.kind === "online" && !canDuelSpin(duel) && duel.phase === "play");
-  const next = Math.min(duel.need, view.k + 1);
+  const nextPeer = Math.min(duel.need, duel.seats[duel.you === 0 ? 1 : 0].have);
   const caption = wait
-    ? duel.peerNet
-      ? `SÚPER V SIETI · SPIN ${next}`
-      : `ČAKÁ SA · SPIN ${next}`
+    ? `HOTOVO · SÚPER ${nextPeer}/${duel.need}`
     : `SPIN ${view.k} / ${duel.need}`;
   return (
     <div className={`duel-bar ${wait ? "is-wait" : ""}`} aria-live="polite">
