@@ -230,6 +230,10 @@ export interface RankPerk {
   deadRebate: number;
   stickyOrbs: boolean;
   orbBonus: number;
+  /** Highest safe KONTROLA price shown before the pick. 0 = blind. */
+  peekCap: number;
+  /** How many safe prices are shown. */
+  peekCount: number;
 }
 
 export const RANK_PERKS: RankPerk[] = [
@@ -247,11 +251,13 @@ export const RANK_PERKS: RankPerk[] = [
     deadRebate: 0,
     stickyOrbs: false,
     orbBonus: 0,
+    peekCap: 0,
+    peekCount: 0,
   },
   {
     id: "sloboda",
     title: "Hold série",
-    detail: "Jeden mŕtvy spin sériu výhier nezhodí.",
+    detail: "Jeden mŕtvy spin sériu výhier nezhodí. Kontrola je stále naslepo.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
@@ -262,11 +268,13 @@ export const RANK_PERKS: RankPerk[] = [
     deadRebate: 0,
     stickyOrbs: false,
     orbBonus: 0,
+    peekCap: 0,
+    peekCount: 0,
   },
   {
     id: "smart",
     title: "Ante 1,22×",
-    detail: "Ante stojí 1,22× namiesto 1,25×. Jedna prehra v sérii sa drží.",
+    detail: "Ante 1,22×. Na kontrole vidíš cenu jedného lístka do 0,20×.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
@@ -277,11 +285,13 @@ export const RANK_PERKS: RankPerk[] = [
     deadRebate: 0,
     stickyOrbs: false,
     orbBonus: 0,
+    peekCap: 0.2,
+    peekCount: 1,
   },
   {
     id: "telka",
     title: "Hold + ante",
-    detail: "Ante 1,22× a jedna prehra nestrhne sériu. Žiadne lístky navyše.",
+    detail: "Ante 1,22× a hold série. Na kontrole vidíš lístok do 0,40×.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
@@ -292,11 +302,13 @@ export const RANK_PERKS: RankPerk[] = [
     deadRebate: 0,
     stickyOrbs: false,
     orbBonus: 0,
+    peekCap: 0.4,
+    peekCount: 1,
   },
   {
     id: "optika",
     title: "3 % späť",
-    detail: "Mŕtvy spin vráti 3 % stávky. Strop 20 stávok / 100 spinov.",
+    detail: "Mŕtvy spin 3 % späť, strop 20 stávok / 100 spinov. Na kontrole vidíš lístok do 0,50×.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
@@ -307,11 +319,13 @@ export const RANK_PERKS: RankPerk[] = [
     deadRebate: 0.03,
     stickyOrbs: false,
     orbBonus: 0,
+    peekCap: 0.5,
+    peekCount: 1,
   },
   {
     id: "duo",
     title: "LIVE 16",
-    detail: "Bonus má 16 točení. Buy ostáva 100×. Postup +0,5× stávku. Cashback 3 % so stropom.",
+    detail: "LIVE 16, buy 100×, postup +0,5×. Na kontrole vidíš lístok do 0,80×.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
@@ -322,11 +336,13 @@ export const RANK_PERKS: RankPerk[] = [
     deadRebate: 0.03,
     stickyOrbs: false,
     orbBonus: 0,
+    peekCap: 0.8,
+    peekCount: 1,
   },
   {
     id: "fiveg",
     title: "LIVE 16",
-    detail: "Bonus ostáva 16 točení, buy 100×. Postup +1× stávku. Cashback 3 % so stropom.",
+    detail: "LIVE 16, buy 100×, postup +1×. Na kontrole vidíš cenu do 1×.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
@@ -337,11 +353,13 @@ export const RANK_PERKS: RankPerk[] = [
     deadRebate: 0.03,
     stickyOrbs: false,
     orbBonus: 0,
+    peekCap: 1,
+    peekCount: 1,
   },
   {
     id: "nekonecno",
     title: "LIVE 17",
-    detail: "17 točení, buy 100×. Mŕtvy spin 5 % späť, strop 20 stávok / 100 spinov. Druhá plechovka len v 20 %, keď už jedna padla. Postup +2× stávku.",
+    detail: "LIVE 17, buy 100×, 5 % späť so stropom. Na kontrole vidíš dve ceny, najviac 1× a 0,80×. Druhá plechovka len v 20 %.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
@@ -352,6 +370,8 @@ export const RANK_PERKS: RankPerk[] = [
     deadRebate: 0.05,
     stickyOrbs: false,
     orbBonus: 1,
+    peekCap: 1,
+    peekCount: 2,
   },
 ];
 
@@ -502,7 +522,7 @@ export const RANK_REWARDS = [
   { id: "tumble", title: "Tumble reťaz", detail: "Dva a viac pádov v jednom spine: +2 až +8 RP." },
   { id: "banner", title: "BIG / MEGA / EPIC / MAX", detail: "Popup: +4 / +8 / +12 / +18." },
   { id: "bonus", title: "Bonusy", detail: "FS total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Buy je vždy 100×. LIVE je 15, od DUO 16, v NEKONEČNO 17. Kúpa sa ráta voči cene, prehra berie entry ako mŕtve spiny (max 1 divízia)." },
-  { id: "rank", title: "Aktívna liga", detail: "Ante 1,22× od SMART, cashback so stropom od OPTIKA, +1 a +2 točenia v LIVE. Liga nenásobí RP, nelacní buy a nedáva lístky navyše." },
+  { id: "rank", title: "Aktívna liga", detail: "Ante 1,22× od SMART, cashback so stropom od OPTIKA, +1 a +2 točenia v LIVE. Od SMART kontrola ukáže cenu bezpečného státia, meter sa nezrýchli. Liga nenásobí RP a nelacní buy." },
   { id: "reload", title: "Bankrot", detail: "Dobitie +5000 berie RP len v 5G a NEKONEČNO, najviac pol divízie. Pod tým 0. 80 platených spinov bez dobitia sériu nuluje." },
   { id: "week", title: "Týždenný drop", detail: "Raz za 7 dní klesáš o jednu divíziu, nie o celú skupinu. Dlhšia pauza zoberie najviac jednu skupinu. Štít týždeň nechytá." },
 ] as const;

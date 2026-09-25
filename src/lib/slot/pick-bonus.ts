@@ -69,3 +69,13 @@ export function dealPickBoard(rng: () => number): PickTile[] {
   }
   return bag.map((t, id) => ({ ...t, id }));
 }
+
+/** Safe prices the rank may show before the first tap. Never an ODŤAH. */
+export function rankPeekIds(tiles: PickTile[], cap: number, count: number): number[] {
+  if (cap <= 0 || count <= 0) return [];
+  return tiles
+    .filter((t) => t.payX > 0 && t.payX <= cap + 1e-9)
+    .sort((a, b) => b.payX - a.payX || a.id - b.id)
+    .slice(0, count)
+    .map((t) => t.id);
+}

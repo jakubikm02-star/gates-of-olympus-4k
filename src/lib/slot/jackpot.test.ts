@@ -15,7 +15,7 @@ import {
   TICKET_ODDS,
 } from "./jackpot.ts";
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneDivision, fsSpinsOf, nextRebate, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
-import { pityGain } from "./pick-bonus.ts";
+import { pityGain, rankPeekIds, type PickTile } from "./pick-bonus.ts";
 import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta, canDuelSpin, duelView, forfeitDuel } from "./duel.ts";
 import { PAY_SYMBOLS, payName, ORB_TABLE, ORB_VALUES } from "./symbols.ts";
 import { canSpend, dealJobs, freshDaily, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobMeter, jobParknetBroke, jobStatus, missCollectPlan, stampDaily, symbolNeed, tickJob, spinWord, winCollectPlan, JOB_BANK, JOB_TEMPLATE_IDS, type JobCard } from "./spend.ts";
@@ -246,6 +246,19 @@ describe("kontrola pity", () => {
     assert.equal(pityGain(0, true), 2);
     assert.equal(pityGain(3, false), 30);
     assert.equal(pityGain(4, true), 0);
+    assert.equal(perkOf("kredit").peekCap, 0);
+    assert.equal(perkOf("nekonecno").peekCount, 2);
+    const tiles: PickTile[] = [
+      { id: 0, kind: "listok", payX: 0.2, title: "LÍSTOK", note: "", zone: "" },
+      { id: 1, kind: "pokuta", payX: 2, title: "POKUTA", note: "", zone: "" },
+      { id: 2, kind: "odtah", payX: 0, title: "ODŤAH", note: "", zone: "" },
+      { id: 3, kind: "listok", payX: 0.8, title: "LÍSTOK", note: "", zone: "" },
+      { id: 4, kind: "listok", payX: 1, title: "LÍSTOK", note: "", zone: "" },
+    ];
+    assert.deepEqual(rankPeekIds(tiles, 0, 1), []);
+    assert.deepEqual(rankPeekIds(tiles, 0.5, 1), [0]);
+    assert.deepEqual(rankPeekIds(tiles, 1, 2), [4, 3]);
+    assert.ok(!rankPeekIds(tiles, 5, 3).includes(2));
     assert.equal(perkOf("nekonecno").pityBonus, 0);
     assert.equal(perkOf("fiveg").pityBonus, 0);
     assert.equal(perkOf("telka").pityBonus, 0);

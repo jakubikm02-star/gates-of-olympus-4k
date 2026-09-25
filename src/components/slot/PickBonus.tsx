@@ -29,11 +29,12 @@ interface Props {
   bet: number;
   killId: number | null;
   picks: number;
+  peekIds?: number[];
   onPick: (id: number) => void;
   onDone: () => void;
 }
 
-export function PickBonus({ tiles, revealed, ended, totalX, bet, killId, picks, onPick, onDone }: Props) {
+export function PickBonus({ tiles, revealed, ended, totalX, bet, killId, picks, peekIds = [], onPick, onDone }: Props) {
   const [tab, setTab] = useState<"map" | "tickets">("map");
   const cash = +(totalX * bet).toFixed(2);
   const left = tiles.filter((t) => !revealed[t.id]).length;
@@ -118,19 +119,20 @@ export function PickBonus({ tiles, revealed, ended, totalX, bet, killId, picks, 
             {tiles.map((tile) => {
               const pos = PIN_POS[tile.id] ?? { x: 50, y: 50 };
               const open = revealed[tile.id];
+              const peek = !open && peekIds.includes(tile.id);
               const killer = tile.id === killId;
               return (
                 <button
                   key={tile.id}
                   type="button"
-                  className={`pk-pin ${open ? `is-open is-${tile.kind}` : ""} ${killer ? "is-kill" : ""}`}
+                  className={`pk-pin ${open ? `is-open is-${tile.kind}` : ""} ${peek ? "is-peek" : ""} ${killer ? "is-kill" : ""}`}
                   style={{ left: `${pos.x}%`, top: `${pos.y}%`, ["--i" as string]: String(tile.id) }}
                   disabled={open}
                   onClick={() => onPick(tile.id)}
-                  aria-label={open ? `${tile.title} ${tile.zone}` : `Parkovisko ${tile.id + 1}`}
+                  aria-label={open || peek ? `${tile.title} ${tile.zone}` : `Parkovisko ${tile.id + 1}`}
                 >
-                  <i className="pk-pin-badge">$</i>
-                  {open ? (
+                  <i className="pk-pin-badge">{peek ? "R" : "$"}</i>
+                  {open || peek ? (
                     tile.payX > 0 ? (
                       <b>{eur(+(tile.payX * bet).toFixed(2))}</b>
                     ) : (
@@ -146,6 +148,7 @@ export function PickBonus({ tiles, revealed, ended, totalX, bet, killId, picks, 
             <div className="pk-near">
               <MapPin size={18} strokeWidth={2.2} />
               Blízke parkoviská: {Math.max(0, left)}
+              {peekIds.length > 0 ? <span className="pk-rank-note">Rank ukazuje {peekIds.length === 1 ? "jedno státie" : "dve státia"}. Ťukni ho, kým nepríde odťah.</span> : null}
             </div>
           </div>
         )}

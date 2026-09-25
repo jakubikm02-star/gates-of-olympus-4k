@@ -4,6 +4,7 @@ import { START_BALANCE, BETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
 import { jobClock, jobMeter, jobShownGoal } from "@/lib/slot/spend";
+import { rankPeekIds } from "@/lib/slot/pick-bonus";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { useShell } from "@/hooks/use-shell";
 import { SlotGrid } from "./Grid";
@@ -538,6 +539,9 @@ export function SlotGame() {
           bet={g.bet}
           killId={g.pickKillId}
           picks={g.pickPicks}
+          peekIds={
+            g.duel && g.duel.phase !== "done" ? [] : rankPeekIds(g.pickTiles, g.perk.peekCap, g.perk.peekCount)
+          }
           onPick={g.revealPick}
           onDone={g.finishPick}
         />

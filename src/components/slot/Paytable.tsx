@@ -152,7 +152,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
           </li>
           <li>
             Ranked liga 4ky: KREDIT → SLOBODA → SMART → 4KA TV → OPTIKA → DUO → 5G NA DOMA → NEKONEČNO.
-            Raz za týždeň klesáš o jednu divíziu. Dlhšia pauza najviac o jednu skupinu.
+            Raz za týždeň klesáš o jednu divíziu. Od SMART kontrola ukáže cenu bezpečného státia, meter ostáva rovnaký.
           </li>
           <li>
             Win popup ako na Olympuse: BIG WIN od 20× stávky, MEGA WIN od 35×, SUPER MEGA WIN od 50×.
