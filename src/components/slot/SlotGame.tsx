@@ -91,6 +91,7 @@ export function SlotGame() {
   const shell = useShell();
   const [deskOpen, setDeskOpen] = useState(false);
   const spinning = g.phase === "spinning" || g.phase === "landing";
+  const god = g.throwBolt ? "bolt" : g.anticipate ? "anti" : spinning ? "run" : g.inFs || g.winTier || g.displayWin > 0 ? "win" : "idle";
   const resolving =
     spinning ||
     g.phase === "eval" ||
@@ -126,7 +127,7 @@ export function SlotGame() {
 
       {!g.started && (
         <div className="boot">
-          <img src="/art/ramp.png" alt="" className="boot-ramp" />
+          <img src="/art/paas-idle.png" alt="" className="boot-ramp" />
           <div className="boot-card">
             <div className="logo-plate">
               <span className="logo-kicker">PORTS of</span>
@@ -354,12 +355,35 @@ export function SlotGame() {
                 </>
               )}
             </span>
+            <div className={`park-god is-${god}`} aria-hidden="true">
             <img
-              src="/art/ramp.png"
+              src="/art/paas-idle.png"
               alt=""
-              className={`ramp ${g.throwBolt ? "throw" : ""} ${g.anticipate ? "anti" : ""}`}
+              className={`park-pose ${god === "idle" ? "on" : ""}`}
             />
-            {g.throwBolt && <span className="bolt" />}
+            <img
+              src="/art/paas-run.png"
+              alt=""
+              className={`park-pose is-flip ${god === "run" ? "on" : ""}`}
+            />
+            <img
+              src="/art/paas-anti.png"
+              alt=""
+              className={`park-pose ${god === "anti" ? "on" : ""}`}
+            />
+            <img
+              src="/art/paas-bolt.png"
+              alt=""
+              className={`park-pose is-flip ${god === "bolt" ? "on" : ""}`}
+            />
+            <img
+              src="/art/paas-win.png"
+              alt=""
+              className={`park-pose ${god === "win" ? "on" : ""}`}
+            />
+            <i className="paas-aura" />
+            {god === "bolt" && <i className="paas-zap" />}
+            </div>
             <div className="ls-spin">
               <HoldSpin g={g} spinning={spinning} className={`spin-btn ls-hold ${g.busy ? "is-busy" : ""} ${!g.canSpin && g.duel ? "is-locked" : ""} ${g.turbo ? "is-turbo" : ""}`} label={g.turbo ? "Turbo točenie" : "Točiť · drž pre turbo"} />
               <span>{g.turbo ? "TURBO" : "DRŽ PRE TURBO"}</span>

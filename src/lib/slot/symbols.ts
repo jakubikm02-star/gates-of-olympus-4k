@@ -144,7 +144,11 @@ export const ALL_ART: readonly string[] = [
   SCATTER.src,
   ...Object.values(TICKETS).map((t) => t.src),
   "/symbols/can.png",
-  "/art/ramp.png",
+  "/art/paas-idle.png",
+  "/art/paas-run.png",
+  "/art/paas-anti.png",
+  "/art/paas-bolt.png",
+  "/art/paas-win.png",
   "/art/parking-bg.jpg",
 ];
 

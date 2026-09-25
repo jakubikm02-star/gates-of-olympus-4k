@@ -42,7 +42,7 @@ export const Route = createRootRoute({
       { rel: "preload", as: "image", href: "/symbols/dacia.png" },
       { rel: "preload", as: "image", href: "/symbols/tv4ka.png" },
       { rel: "preload", as: "image", href: "/symbols/can.png" },
-      { rel: "preload", as: "image", href: "/art/ramp.png" },
+      { rel: "preload", as: "image", href: "/art/paas-idle.png" },
       { rel: "preload", as: "image", href: "/art/parking-bg.jpg" },
     ],
   }),
