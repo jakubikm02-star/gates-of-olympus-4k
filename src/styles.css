@@ -1733,6 +1733,57 @@
   animation: scatter-idle 1.2s ease-in-out infinite;
 }
 
+.cell.is-scatter::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  left: 5%;
+  top: 5%;
+  width: 90%;
+  height: 90%;
+  pointer-events: none;
+  background: linear-gradient(
+    108deg,
+    transparent 36%,
+    rgb(255 255 255 / 0.05) 44%,
+    rgb(255 255 255 / 0.9) 50%,
+    rgb(255 255 255 / 0.05) 56%,
+    transparent 64%
+  );
+  background-size: 240% 100%;
+  background-repeat: no-repeat;
+  mix-blend-mode: screen;
+  -webkit-mask-image: url("/symbols/tv4ka.png");
+  mask-image: url("/symbols/tv4ka.png");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  animation: tv-glare 3.4s ease-in-out infinite;
+}
+
+.strip-spin .cell.is-scatter::before {
+  display: none;
+}
+
+@keyframes tv-glare {
+  0%,
+  64% {
+    background-position: 130% 0;
+    opacity: 0;
+  }
+  76% {
+    opacity: 1;
+  }
+  94%,
+  100% {
+    background-position: -30% 0;
+    opacity: 0;
+  }
+}
+
 .cell.is-scatter::after {
   content: none;
 }
@@ -4890,6 +4941,7 @@
   .fly-orb,
   .reel-bolt,
   .god-bolt path,
+  .cell.is-scatter::before,
   .cell.is-tease .cell-img,
   .cell.is-slam .cell-img,
   .zeus,
@@ -6427,6 +6479,13 @@ html:-webkit-full-screen {
   }
 }
 
+.stage.shell-mw .cell.is-scatter::before,
+.stage.shell-pwa .cell.is-scatter::before {
+  left: 1%;
+  top: 1%;
+  width: 98%;
+  height: 98%;
+}
 .stage.shell-mw .cell.is-scatter::after,
 .stage.shell-pwa .cell.is-scatter::after,
 .stage.shell-mw .cell.is-scatter .scatter-label,
