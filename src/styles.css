@@ -1089,6 +1089,12 @@
   z-index: 2;
   height: auto;
   will-change: transform;
+  transform: translate3d(0, calc(var(--reel-n, 15) * -3 * 20cqh), 0);
+}
+
+.strip-travel .cell {
+  flex-basis: var(--cell-h, 20cqh);
+  height: var(--cell-h, 20cqh);
 }
 
 .strip-travel .cell-img {
@@ -1315,7 +1321,7 @@
 }
 
 .reel-col.is-landing {
-  animation: col-punch 80ms ease-out;
+  animation: none;
 }
 
 @keyframes col-punch {

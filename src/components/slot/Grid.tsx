@@ -116,149 +116,83 @@ function symbolAt(filler: Cell[], oldCol: Cell[], index: number): Cell {
   return filler[((index % n) + n) % n];
 }
 
+type DriverCol = {
+  el: HTMLDivElement | null;
+  n: number;
+  mode: "spin" | "arm" | "land" | "done";
+  y: number;
+  stop: boolean;
+  finals: Cell[] | null;
+  ms: number;
+  land: { t0: number; from: number; linearPx: number; v: number; easeMs: number } | null;
+  onDone: () => void;
+  setCells: (cells: Cell[]) => void;
+  filler: Cell[];
+  old: Cell[];
+};
+
 function TravelColumn({
   filler,
   oldCol,
   finalCol,
   stop,
   msPerCell,
-  delayMs,
   onDone,
+  bind,
 }: {
   filler: Cell[];
   oldCol: Cell[];
   finalCol: Cell[] | null;
   stop: boolean;
   msPerCell: number;
-  delayMs: number;
   onDone: () => void;
+  bind: (col: DriverCol | null) => void;
 }) {
   const n = filler.length;
   const stripRef = useRef<HTMLDivElement>(null);
-  const cellH = useRef(0);
-  const y = useRef(0);
-  const mode = useRef<"spin" | "arm" | "land" | "done">("spin");
-  const startAt = useRef(0);
-  const ready = useRef(false);
-  const msRef = useRef(msPerCell);
-  const stopRef = useRef(stop);
-  const finalRef = useRef(finalCol);
-  const onDoneRef = useRef(onDone);
-  const landRef = useRef<{ t0: number; from: number; linearPx: number; v: number; easeMs: number } | null>(null);
-  const fillerRef = useRef(filler);
-  const oldRef = useRef(oldCol);
+  const api = useRef<DriverCol | null>(null);
   const [cells, setCells] = useState<Cell[]>(() => [...filler, ...filler, ...filler, ...oldCol]);
-  const [kick, setKick] = useState(0);
 
-  msRef.current = msPerCell;
-  stopRef.current = stop;
-  finalRef.current = finalCol;
-  onDoneRef.current = onDone;
+  if (!api.current) {
+    api.current = {
+      el: null,
+      n,
+      mode: "spin",
+      y: 0,
+      stop,
+      finals: finalCol,
+      ms: msPerCell,
+      land: null,
+      onDone,
+      setCells,
+      filler,
+      old: oldCol,
+    };
+  }
+  const col = api.current;
+  col.stop = stop;
+  col.finals = finalCol;
+  col.ms = msPerCell;
+  col.onDone = onDone;
+  col.el = stripRef.current;
+
+  useLayoutEffect(() => {
+    col.el = stripRef.current;
+    bind(col);
+    return () => bind(null);
+  }, [bind, col]);
 
   useLayoutEffect(() => {
     const node = stripRef.current;
-    if (!node || ready.current) return;
-    const h = (node.firstElementChild as HTMLElement | null)?.getBoundingClientRect().height ?? 0;
-    if (h <= 0) {
-      const id = requestAnimationFrame(() => setKick((k) => k + 1));
-      return () => cancelAnimationFrame(id);
-    }
-    ready.current = true;
-    cellH.current = h;
-    y.current = -3 * n * h;
-    startAt.current = performance.now() + delayMs;
-    node.style.transform = `translate3d(0,${y.current}px,0)`;
-
-    let last = performance.now();
-    let raf = 0;
-
-    const armLand = (now: number) => {
-      const finals = finalRef.current;
-      const hNow = cellH.current;
-      if (!finals || hNow <= 0 || mode.current !== "spin") return;
-      const top = -y.current / hNow;
-      const base = Math.floor(top);
-      const frac = top - base;
-      const lead = 2;
-      const leadCells: Cell[] = [];
-      for (let i = lead; i >= 1; i--) leadCells.push(symbolAt(fillerRef.current, oldRef.current, base - i));
-      const visible: Cell[] = [];
-      for (let i = 0; i < ROWS + 1; i++) visible.push(symbolAt(fillerRef.current, oldRef.current, base + i));
-      const v = hNow / Math.max(16, msRef.current);
-      const brakePx = 1.5 * hNow;
-      const from = -((ROWS + lead) * hNow + frac * hNow);
-      landRef.current = {
-        t0: now,
-        from,
-        linearPx: Math.max(0, -from - brakePx),
-        v,
-        easeMs: Math.round((2 * brakePx) / v),
-      };
-      y.current = from;
-      mode.current = "arm";
-      setCells([...finals, ...leadCells, ...visible]);
-    };
-
-    const tick = (now: number) => {
-      const nodeNow = stripRef.current;
-      const dt = Math.min(34, now - last);
-      last = now;
-      if (!nodeNow || mode.current === "done") return;
-      if (mode.current === "spin") {
-        const hNow = cellH.current;
-        if (stopRef.current && finalRef.current && now >= startAt.current) {
-          armLand(now);
-        } else if (now >= startAt.current && hNow > 0) {
-          y.current += (hNow / Math.max(16, msRef.current)) * dt;
-          const limit = -n * hNow;
-          if (y.current > limit) y.current -= n * hNow;
-          nodeNow.style.transform = `translate3d(0,${y.current}px,0)`;
-        }
-      } else if (mode.current === "land" && landRef.current) {
-        const plan = landRef.current;
-        const elapsed = now - plan.t0;
-        const linearMs = plan.linearPx / plan.v;
-        let ny: number;
-        if (elapsed <= linearMs) ny = plan.from + plan.v * elapsed;
-        else {
-          const u = Math.min(1, (elapsed - linearMs) / plan.easeMs);
-          const eased = 1 - (1 - u) * (1 - u);
-          const easeFrom = plan.from + plan.linearPx;
-          ny = easeFrom + (0 - easeFrom) * eased;
-        }
-        y.current = ny;
-        nodeNow.style.transform = `translate3d(0,${ny}px,0)`;
-        if (elapsed >= linearMs + plan.easeMs) {
-          y.current = 0;
-          nodeNow.style.transform = "translate3d(0,0,0)";
-          mode.current = "done";
-          onDoneRef.current();
-        }
-      }
-      if (mode.current !== "done") raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(raf);
-    };
-  }, [delayMs, kick, n]);
-
-  useLayoutEffect(() => {
-    const node = stripRef.current;
-    if (!node || !ready.current) return;
-    if (mode.current === "arm" && landRef.current) {
-      landRef.current.t0 = performance.now();
-      mode.current = "land";
-      y.current = landRef.current.from;
-    }
-    node.style.transform = `translate3d(0,${y.current}px,0)`;
+    if (!node || col.mode !== "arm" || !col.land) return;
+    col.land.t0 = performance.now();
+    col.mode = "land";
+    col.y = col.land.from;
+    node.style.transform = `translate3d(0,${col.y}px,0)`;
   });
 
   return (
-    <div
-      ref={stripRef}
-      className="strip strip-travel"
-    >
+    <div ref={stripRef} className="strip strip-travel" style={{ ["--reel-n" as string]: String(n) }}>
       {cells.map((cell, i) => (
         <CellView
           key={`t-${i}-${cell.uid}`}
@@ -316,6 +250,128 @@ export function SlotGrid({
     setLanded(Array(COLS).fill(false));
   }
   const frozen = cache.current && cache.current.token === token ? cache.current : null;
+  const windowRef = useRef<HTMLDivElement>(null);
+  const colsRef = useRef<(DriverCol | null)[]>(Array(COLS).fill(null));
+  const binds = useRef(
+    Array.from({ length: COLS }, (_, i) => (col: DriverCol | null) => {
+      colsRef.current[i] = col;
+    }),
+  );
+
+  useLayoutEffect(() => {
+    if (!token || reduced) return;
+    let raf = 0;
+    let last = performance.now();
+    let h = 0;
+    let scroll = 0;
+    let primed = false;
+
+    const place = (col: DriverCol, y: number) => {
+      col.y = y;
+      col.el!.style.transform = `translate3d(0,${y}px,0)`;
+    };
+
+    const sharedY = (col: DriverCol) => {
+      const span = col.n * h;
+      const limit = -span;
+      let y = -3 * span + scroll;
+      const shift = y - limit;
+      if (shift > 0) y -= Math.ceil(shift / span) * span;
+      return y;
+    };
+
+    const tick = (now: number) => {
+      const dt = Math.min(32, now - last);
+      last = now;
+      const cols = colsRef.current;
+      if (!primed) {
+        const sample = cols.find((c) => c?.el)?.el?.firstElementChild as HTMLElement | undefined;
+        const raw = sample?.getBoundingClientRect().height ?? 0;
+        if (raw <= 0) {
+          raf = requestAnimationFrame(tick);
+          return;
+        }
+        const dpr = window.devicePixelRatio || 1;
+        h = Math.round(raw * dpr) / dpr;
+        windowRef.current?.style.setProperty("--cell-h", `${h}px`);
+        for (const col of cols) {
+          if (!col?.el) continue;
+          place(col, -3 * col.n * h);
+        }
+        primed = true;
+        last = now;
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+
+      let ms = 84;
+      for (const col of cols) {
+        if (col?.mode === "spin") {
+          ms = col.ms;
+          break;
+        }
+      }
+      scroll += (h / Math.max(16, ms)) * dt;
+
+      let alive = false;
+      for (const col of cols) {
+        if (!col?.el || col.mode === "done") continue;
+        alive = true;
+        if (col.mode === "arm") continue;
+        if (col.mode === "spin") {
+          const y = sharedY(col);
+          if (col.stop && col.finals) {
+            const top = -y / h;
+            const base = Math.floor(top);
+            const frac = top - base;
+            const lead = 2;
+            const leadCells: Cell[] = [];
+            for (let i = lead; i >= 1; i--) leadCells.push(symbolAt(col.filler, col.old, base - i));
+            const visible: Cell[] = [];
+            for (let i = 0; i < ROWS + 1; i++) visible.push(symbolAt(col.filler, col.old, base + i));
+            const v = h / Math.max(16, col.ms);
+            const brakePx = 1.5 * h;
+            const from = -((ROWS + lead) * h + frac * h);
+            col.land = {
+              t0: now,
+              from,
+              linearPx: Math.max(0, -from - brakePx),
+              v,
+              easeMs: Math.max(1, Math.round((2 * brakePx) / v)),
+            };
+            col.y = y;
+            col.mode = "arm";
+            col.setCells([...col.finals, ...leadCells, ...visible]);
+            continue;
+          }
+          place(col, y);
+        } else if (col.mode === "land" && col.land) {
+          const plan = col.land;
+          const elapsed = now - plan.t0;
+          const linearMs = plan.v > 0 ? plan.linearPx / plan.v : 0;
+          let ny: number;
+          if (elapsed <= linearMs) ny = plan.from + plan.v * elapsed;
+          else {
+            const u = Math.min(1, (elapsed - linearMs) / plan.easeMs);
+            const eased = 1 - (1 - u) * (1 - u);
+            const easeFrom = plan.from + plan.linearPx;
+            ny = easeFrom + (0 - easeFrom) * eased;
+          }
+          place(col, ny);
+          if (elapsed >= linearMs + plan.easeMs) {
+            place(col, 0);
+            col.mode = "done";
+            col.onDone();
+          }
+        }
+      }
+      if (alive) raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [token, reduced]);
+
   return (
     <div
       className="reel-frame"
@@ -330,6 +386,7 @@ export function SlotGrid({
       <div className="frame-chip" aria-hidden="true" />
       <div className="frame-chip is-back" aria-hidden="true" />
       <div
+        ref={windowRef}
         className={`reel-window ${spinning ? "is-spinning" : ""} ${landing ? "is-landing" : ""} ${anticipate ? "is-anticipate" : ""} ${activatingMult ? "is-zeus-strike" : ""} ${fast ? "is-fast" : ""} ${spinPace === "up" ? "is-spin-up" : ""} ${spinPace === "full" ? "is-spin-full" : ""}`}
       >
         {Array.from({ length: COLS }, (_, c) => {
@@ -362,7 +419,7 @@ export function SlotGrid({
                   finalCol={landing || !pending ? finalCol : null}
                   stop={!pending && (landing || !cascading)}
                   msPerCell={msPerCell}
-                  delayMs={c * 36}
+                  bind={binds.current[c]}
                   onDone={() =>
                     setLanded((prev) => {
                       if (prev[c]) return prev;
