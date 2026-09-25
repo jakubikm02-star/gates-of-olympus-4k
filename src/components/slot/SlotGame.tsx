@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent } from "react";
+import { useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import { Volume2, VolumeX, Info, RefreshCw, Menu } from "lucide-react";
 import { START_BALANCE, BETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
@@ -18,6 +18,60 @@ import { SpendSheet } from "./SpendSheet";
 import { DuelSheet, DuelBar, DuelLink } from "./DuelSheet";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
+
+function boltPath(x0: number, y0: number, x1: number, y1: number): string {
+  const n = 8;
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const len = Math.hypot(dx, dy) || 1;
+  const px = -dy / len;
+  const py = dx / len;
+  let d = `M ${x0.toFixed(1)} ${y0.toFixed(1)}`;
+  for (let i = 1; i <= n; i++) {
+    const t = i / n;
+    const amp = i === n ? 0 : (i % 2 === 0 ? 18 : -18) * (0.45 + 0.55 * (1 - t));
+    const x = x0 + dx * t + px * amp;
+    const y = y0 + dy * t + py * amp;
+    d += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }
+  return d;
+}
+
+function HandBolt({ strike }: { strike: { r: number; c: number } | null }) {
+  const [shot, setShot] = useState<{ d: string; w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!strike) {
+      setShot(null);
+      return;
+    }
+    const stage = document.querySelector(".stage");
+    const pose = document.querySelector(".park-pose.on");
+    const cell = document.querySelector(`.reel-window .cell[data-rc="${strike.r}-${strike.c}"]`);
+    if (!stage || !pose || !cell) return;
+    const sr = stage.getBoundingClientRect();
+    const pr = pose.getBoundingClientRect();
+    const cr = cell.getBoundingClientRect();
+    const scale = Math.min(pr.width / 900, pr.height / 936);
+    const drawnW = 900 * scale;
+    const drawnH = 936 * scale;
+    const ox = (pr.width - drawnW) / 2;
+    const oy = pr.height - drawnH;
+    const hx = pr.left + ox + (1 - 0.849) * drawnW;
+    const hy = pr.top + oy + 0.322 * drawnH;
+    setShot({
+      w: sr.width,
+      h: sr.height,
+      d: boltPath(hx - sr.left, hy - sr.top, cr.left + cr.width / 2 - sr.left, cr.top + cr.height / 2 - sr.top),
+    });
+  }, [strike]);
+  if (!shot) return null;
+  return (
+    <svg className="god-bolt" viewBox={`0 0 ${shot.w} ${shot.h}`} preserveAspectRatio="none" aria-hidden="true">
+      <path className="is-glow" d={shot.d} pathLength={1} />
+      <path className="is-core" d={shot.d} pathLength={1} />
+    </svg>
+  );
+}
 
 const BANNER_COPY: Record<string, string> = {
   max: "MAX WIN 5000×",
@@ -124,6 +178,7 @@ export function SlotGame() {
       <div className="stage-bg" />
       <div className="stage-glow" />
       <div className="park-lines" aria-hidden="true" />
+      {g.strike ? <HandBolt key={`${g.strike.r}-${g.strike.c}`} strike={g.strike} /> : null}
 
       {!g.started && (
         <div className="boot">
@@ -303,7 +358,6 @@ export function SlotGame() {
               anticipate={g.anticipate}
               activatingMult={g.activatingMult}
               struckUids={g.struckUids}
-              strike={g.strike}
               expiredUids={g.expiredUids}
               clusterPay={g.clusterPay}
               reduced={false}
@@ -382,7 +436,6 @@ export function SlotGame() {
               className={`park-pose ${god === "win" ? "on" : ""}`}
             />
             <i className="paas-aura" />
-            {god === "bolt" && <i className="paas-zap" />}
             </div>
             <div className="ls-spin">
               <HoldSpin g={g} spinning={spinning} className={`spin-btn ls-hold ${g.busy ? "is-busy" : ""} ${!g.canSpin && g.duel ? "is-locked" : ""} ${g.turbo ? "is-turbo" : ""}`} label={g.turbo ? "Turbo točenie" : "Točiť · drž pre turbo"} />

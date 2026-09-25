@@ -7,11 +7,6 @@ export interface ClusterPay {
   amount: string;
 }
 
-export interface Strike {
-  r: number;
-  c: number;
-}
-
 interface Props {
   grid: Cell[][];
   holdGrid: Cell[][] | null;
@@ -23,7 +18,6 @@ interface Props {
   anticipate: boolean;
   activatingMult: boolean;
   struckUids: number[];
-  strike: Strike | null;
   expiredUids: number[];
   clusterPay: ClusterPay | null;
   reduced: boolean;
@@ -32,17 +26,6 @@ interface Props {
   spinPace?: "up" | "full";
   spinStrips?: Cell[][] | null;
   ticketLock?: boolean;
-}
-
-function jag(x0: number, y0: number, x1: number, y1: number): string {
-  const n = 6;
-  let d = `M ${x0} ${y0}`;
-  for (let i = 1; i <= n; i++) {
-    const t = i / n;
-    const j = i < n ? (i % 2 === 0 ? 5 : -5) : 0;
-    d += ` L ${x0 + (x1 - x0) * t + j} ${y0 + (y1 - y0) * t}`;
-  }
-  return d;
 }
 
 function CellView({
@@ -102,6 +85,7 @@ function CellView({
         tumbleFall && !reduced ? "is-drop" : "",
       ].join(" ")}
       style={style}
+      data-rc={`${r}-${c}`}
     >
       {!cell.gone && (
         <img src={symbolSrc(cell)} alt="" draggable={false} className="cell-img" />
@@ -134,7 +118,6 @@ export function SlotGrid({
   anticipate,
   activatingMult,
   struckUids,
-  strike,
   expiredUids,
   clusterPay,
   reduced,
@@ -145,9 +128,6 @@ export function SlotGrid({
   ticketLock,
 }: Props) {
   const cascading = spinning || landing;
-  const bolt = strike
-    ? jag((strike.c + 0.5) * 100, -8, (strike.c + 0.5) * 100, (strike.r + 0.5) * 100)
-    : "";
   return (
     <div
       className="reel-frame"
@@ -236,12 +216,6 @@ export function SlotGrid({
             </div>
           );
         })}
-        {strike && (
-          <svg className="reel-bolt" viewBox="0 0 600 500" preserveAspectRatio="none" aria-hidden="true">
-            <path d={bolt} fill="none" stroke="#7ae7ff" strokeWidth="7" opacity="0.32" />
-            <path d={bolt} fill="none" stroke="#fff4b0" strokeWidth="2.2" />
-          </svg>
-        )}
         {clusterPay && (
           <div className="cluster-pay" style={{ left: `${clusterPay.x}%`, top: `${clusterPay.y}%` }}>
             {clusterPay.amount}
