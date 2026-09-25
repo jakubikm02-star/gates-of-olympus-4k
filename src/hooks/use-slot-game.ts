@@ -1525,6 +1525,7 @@ export function useSlotGame() {
           bought: boughtFs,
           liveSpin,
           shown: shownCount,
+          cash,
         });
       }
 

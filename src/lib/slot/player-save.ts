@@ -135,7 +135,7 @@ function stampMs(v: unknown): number {
 
 const TIERS: TierId[] = ["ulica", "okres", "kraj", "stat"];
 const FLOORS: JobFloor[] = ["lacna", "stred", "draha"];
-const KINDS: JobCard["kind"][] = ["wins", "deads", "tumbles", "live", "ticket", "pdf", "signal", "symbol", "buy", "hydra", "chain", "collect"];
+const KINDS: JobCard["kind"][] = ["wins", "deads", "tumbles", "live", "ticket", "pdf", "signal", "symbol", "buy", "hydra", "chain", "collect", "cash"];
 const SCOPES: JobCard["scope"][] = ["base", "live", "any"];
 
 function jobSave(raw: unknown): JobCard | null {
@@ -144,7 +144,10 @@ function jobSave(raw: unknown): JobCard | null {
   const floor = FLOORS.includes(r.floor as JobFloor) ? (r.floor as JobFloor) : null;
   const kind = KINDS.includes(r.kind as JobCard["kind"]) ? (r.kind as JobCard["kind"]) : null;
   if (!floor || !kind) return null;
-  const need = Math.min(40, Math.max(1, Math.floor(num(r.need, 1))));
+  const cash = kind === "cash";
+  const need = cash
+    ? Math.min(500_000, Math.max(0.1, Math.round(num(r.need, 1) * 100) / 100))
+    : Math.min(40, Math.max(1, Math.floor(num(r.need, 1))));
   return {
     id: typeof r.id === "string" ? r.id.slice(0, 64) : "job",
     floor,
@@ -155,7 +158,9 @@ function jobSave(raw: unknown): JobCard | null {
     stake: num(r.stake, 1000, 1, 200000),
     payout: num(r.payout, 1800, 1, 400000),
     need,
-    have: Math.min(need, Math.max(0, Math.floor(num(r.have, 0)))),
+    have: cash
+      ? Math.min(need, Math.max(0, Math.round(num(r.have, 0) * 100) / 100))
+      : Math.min(need, Math.max(0, Math.floor(num(r.have, 0)))),
     limit: Math.min(400, Math.max(need, Math.floor(num(r.limit, need * 8)))),
     spun: Math.min(400, Math.max(0, Math.floor(num(r.spun, 0)))),
     kind,

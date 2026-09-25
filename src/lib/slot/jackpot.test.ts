@@ -18,7 +18,7 @@ import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneDivision, fsSpinsOf
 import { pityGain, rankPeekIds, type PickTile } from "./pick-bonus.ts";
 import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta, canDuelSpin, duelView, forfeitDuel } from "./duel.ts";
 import { PAY_SYMBOLS, payName, ORB_TABLE, ORB_VALUES } from "./symbols.ts";
-import { canSpend, dealJobs, freshDaily, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobMeter, jobParknetBroke, jobStatus, missCollectPlan, stampDaily, symbolNeed, tickJob, spinWord, winCollectPlan, JOB_BANK, JOB_TEMPLATE_IDS, type JobCard } from "./spend.ts";
+import { canSpend, dealJobs, freshDaily, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobMeter, jobParknetBroke, jobShownGoal, jobStatus, missCollectPlan, stampDaily, symbolNeed, tickJob, spinWord, winCollectPlan, JOB_BANK, JOB_TEMPLATE_IDS, type JobCard } from "./spend.ts";
 
 describe("park jackpots", () => {
   it("takes 2.3% visible + 0.3% reserve", () => {
@@ -359,6 +359,7 @@ describe("míňať", () => {
       assert.equal(j.limit % 5, 0);
       assert.ok(j.limit >= 15 && j.limit <= 120);
       if (j.kind === "collect") assert.ok(j.need > j.limit);
+      else if (j.kind === "cash") assert.match(j.goal ?? "", /^Nazbieraj .+ € vo výhrach do \d+/);
       else assert.ok(j.need >= 1 && j.need <= j.limit);
       assert.equal(jobLeft(j), j.limit);
       const clock = jobClock(j);
@@ -1046,6 +1047,31 @@ describe("tiket meter", () => {
       live: true,
     });
     assert.equal(jobStatus(tv), "fail");
+  });
+
+  it("ODPIS adds win euros and ignores PARKNET spins", () => {
+    const job = blank({
+      template: "odpis",
+      kind: "cash",
+      title: "ODPIS NÁKLADOV",
+      need: 10,
+      have: 0,
+      limit: 5,
+      spun: 0,
+      goal: "Nazbieraj 10.00 € vo výhrach do 5 točení",
+    });
+    const a = tickJob(job, { ...miss, win: true, dead: false, cash: 4.5 });
+    assert.equal(a.have, 4.5);
+    assert.equal(a.spun, 1);
+    assert.equal(jobStatus(a), "run");
+    const live = tickJob(a, { ...miss, win: true, dead: false, cash: 20, liveSpin: true });
+    assert.equal(live.have, 4.5);
+    assert.equal(live.spun, 1);
+    const b = tickJob(live, { ...miss, win: true, dead: false, cash: 6 });
+    assert.equal(b.have, 10);
+    assert.equal(jobStatus(b), "ok");
+    assert.match(jobShownGoal(job), /Nazbieraj .+ vo výhrach/);
+    assert.match(jobMeter(a), /4\.50/);
   });
 
   it("fails a symbol ticket as soon as the remaining spins are short", () => {

@@ -1,4 +1,5 @@
 import { PAY_SYMBOLS, payName, type PayId } from "./symbols.ts";
+import { formatMoney } from "./format.ts";
 import type { TierId } from "./jackpot";
 
 /** Jobs unlock at this credit, any bet. */
@@ -21,7 +22,7 @@ export interface JobCard {
   have: number;
   limit: number;
   spun: number;
-  kind: "wins" | "deads" | "tumbles" | "live" | "ticket" | "pdf" | "signal" | "symbol" | "buy" | "hydra" | "chain" | "collect";
+  kind: "wins" | "deads" | "tumbles" | "live" | "ticket" | "pdf" | "signal" | "symbol" | "buy" | "hydra" | "chain" | "collect" | "cash";
   scope?: "base" | "live" | "any";
   /** Bet locked for the life of the job. */
   lockBet: number;
@@ -92,6 +93,15 @@ const TEMPLATES: {
   },
   { id: "noc", titles: ["POHOTOVOSŤ", "SLUŽBA POHOTOVOSŤ", "VÝJAZD PO KÚPE"], kind: "buy", scope: "live", need: [6, 12], until: [15, 25], line: "výher v kúpenom PARKNET" },
   { id: "hydra", titles: ["HYDRA", "DVA ZNAKY", "DVOJITÝ VÝJAZD"], kind: "hydra", scope: "base", need: [1, 3], until: [50, 80], line: "výher dvoch znakov" },
+  {
+    id: "odpis",
+    titles: ["ODPIS NÁKLADOV", "INKASO", "UZÁVIERKA KASY", "VÝBER HOTOVOSTI", "KASA DO ŠUPLÍKA"],
+    kind: "cash",
+    scope: "base",
+    need: [1, 1],
+    until: [20, 20],
+    line: "€ vo výhrach",
+  },
 ];
 
 export const JOB_TEMPLATE_IDS: readonly string[] = TEMPLATES.map((t) => t.id);
@@ -157,6 +167,7 @@ export function jobShownGoal(job: JobCard): string {
   }
   if (job.kind === "collect" && job.payId) return `${job.need}× nevýherných ${payName(job.payId)}`;
   if (job.kind === "symbol" && job.payId) return `${job.need}× výhier ${payName(job.payId)}`;
+  if (job.kind === "cash") return job.goal || `Nazbieraj ${formatMoney(job.need)} € vo výhrach`;
   return job.goal || job.detail;
 }
 
@@ -165,6 +176,7 @@ export function jobMeter(job: JobCard): string {
     return `${payName(job.payId)} ${job.have}/${job.need} · ${payName(job.payIdB)} ${job.haveB ?? 0}/${job.needB ?? 0}`;
   }
   if (job.kind === "collect") return `${job.have}/${job.need} ks`;
+  if (job.kind === "cash") return `${formatMoney(job.have)} / ${formatMoney(job.need)} €`;
   return `${job.have}/${job.need}`;
 }
 
@@ -385,6 +397,17 @@ function makeJob(
     needB = split.needB;
     haveB = 0;
   }
+  if (t.kind === "cash") {
+    const window: Record<JobFloor, [number, number]> = {
+      lacna: [15, 25],
+      stred: [25, 40],
+      draha: [40, 55],
+    };
+    // Share of stake the wins must cover. Lacná is under the usual return, drahá wants more than the bets put in.
+    const rate: Record<JobFloor, number> = { lacna: 0.4, stred: 0.65, draha: 0.95 };
+    limit = snapFive(rollBand(window[floor], rng, hard));
+    needNow = Math.max(roundStake(b * 3), roundStake(b * limit * rate[floor]));
+  }
   const line =
     t.kind === "hydra" && payId && payIdB && needB
       ? `${payName(payId)} ${needNow}× + ${payName(payIdB)} ${needB}×`
@@ -394,13 +417,18 @@ function makeJob(
           ? `výhier ${payName(payId)}`
           : t.line;
   const tag = t.scope === "live" ? " · LIVE" : t.scope === "any" ? " · BASE+LIVE" : "";
-  const goal = t.kind === "hydra" ? line : `${needNow}× ${line}`;
+  const goal =
+    t.kind === "cash"
+      ? `Nazbieraj ${formatMoney(needNow)} € vo výhrach do ${limit} ${spinWord(limit)}`
+      : t.kind === "hydra"
+        ? line
+        : `${needNow}× ${line}`;
   return {
     id: `${t.id}-${floor}-${mystery ? "rnd" : "pick"}-${Math.floor(rng() * 1e6)}`,
     floor,
     template: t.id,
     title,
-    detail: `${goal} · ${limit} ${spinWord(limit)}${tag}`,
+    detail: t.kind === "cash" ? goal : `${goal} · ${limit} ${spinWord(limit)}${tag}`,
     goal,
     stake,
     payout,
@@ -476,6 +504,8 @@ export interface JobEvent {
   shown?: number;
   /** Cans on the resolved grid. PLECHOVKY caps a spin at 6. */
   orbCount?: number;
+  /** Paid euros this spin. ODPIS adds them up. */
+  cash?: number;
   /** Natural or bought PARKNET just closed. */
   featureOver?: boolean;
 }
@@ -523,12 +553,14 @@ export function tickJob(job: JobCard, ev: JobEvent): JobCard {
     add = won ? 0 : Math.max(0, Math.floor(ev.shown ?? 0));
   }
   if (job.kind === "buy" && ev.win) add = 1;
+  if (job.kind === "cash") add = Math.max(0, +(ev.cash ?? 0).toFixed(2));
   let haveB = job.haveB ?? 0;
   if (job.kind === "hydra") {
     if (job.payId && ev.pays?.includes(job.payId)) add = 1;
     if (job.payIdB && ev.pays?.includes(job.payIdB)) haveB = Math.min(job.needB ?? 0, haveB + 1);
   }
-  const nextHave = Math.min(job.need, have + add);
+  const summed = job.kind === "cash" ? +((have + add).toFixed(2)) : have + add;
+  const nextHave = Math.min(job.need, summed);
   const done = job.kind === "hydra" ? nextHave >= job.need && haveB >= (job.needB ?? 1) : nextHave >= job.need;
   const spun =
     ev.buyOver && job.kind === "buy" && !done
@@ -545,7 +577,7 @@ export function tickJob(job: JobCard, ev: JobEvent): JobCard {
 /** Max progress one future spin can still add. Null = no ceiling, fail only when the clock hits zero. */
 export function jobCap(job: JobCard): number | null {
   const id = job.template;
-  if (id === "retaz" || id === "balik" || id === "siet" || id === "pot" || id === "signal" || id === "noc") return null;
+  if (id === "retaz" || id === "balik" || id === "siet" || id === "pot" || id === "signal" || id === "noc" || id === "odpis") return null;
   if (id === "plechovky") return 6;
   if (id === "pada") return 20;
   if (job.kind === "collect") return 18;
@@ -622,7 +654,7 @@ export function jobLcd(job: JobCard, verdict: "run" | "ok" | "fail"): { header: 
     {
       pin: 3,
       label: "HOTOVÉ",
-      value: job.kind === "hydra" ? `${job.have}+${job.haveB ?? 0}` : String(job.have),
+      value: job.kind === "hydra" ? `${job.have}+${job.haveB ?? 0}` : job.kind === "cash" ? `${formatMoney(job.have)} €` : String(job.have),
     },
     {
       pin: 4,
@@ -630,7 +662,9 @@ export function jobLcd(job: JobCard, verdict: "run" | "ok" | "fail"): { header: 
       value:
         job.kind === "hydra"
           ? `${miss}+${Math.max(0, (job.needB ?? 0) - (job.haveB ?? 0))}`
-          : String(miss),
+          : job.kind === "cash"
+            ? `${formatMoney(miss)} €`
+            : String(miss),
     },
     { pin: 5, label: "MAX", value: cap == null ? "----" : String(left * cap) },
     {
