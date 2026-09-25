@@ -3549,14 +3549,20 @@
     right: 0;
     top: 8px;
     bottom: 0;
-    width: min(220px, 18vw);
+    width: min(420px, 30vw);
     z-index: 4;
     pointer-events: none;
+    overflow: hidden;
   }
   .zeus,
   .ramp {
-    max-width: 220px;
-    max-height: 90%;
+    max-width: none;
+    max-height: 100%;
+  }
+  .park-god {
+    align-self: flex-end;
+    width: 100%;
+    height: min(100%, 920px);
   }
   .board-wrap {
     position: relative;
@@ -3620,7 +3626,7 @@
     display: flex;
     align-items: stretch;
     justify-content: center;
-    padding: 52px max(16px, min(236px, 18vw)) 8px max(16px, min(184px, 15vw));
+    padding: 52px max(20px, min(440px, 32vw)) 8px max(16px, min(184px, 15vw));
     box-sizing: border-box;
     container-type: size;
   }
