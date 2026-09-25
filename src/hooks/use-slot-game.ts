@@ -1103,7 +1103,7 @@ export function useSlotGame() {
       let tMark = STOPS[0];
       for (let c = 1; c < 6; c++) {
         const inBonus = isFree || inFsRef.current;
-        if (landedScatters >= 1) {
+        if (landedScatters >= 2) {
           setAnticipate(true);
           setReelFast(true);
           if (!inBonus) {
@@ -1111,11 +1111,11 @@ export function useSlotGame() {
             sfx.startAnticipate();
           }
         }
-        const tease = landedScatters >= 3 ? 900 : landedScatters >= 2 ? 720 : landedScatters >= 1 ? 480 : 0;
+        const tease = landedScatters >= 3 ? 900 : landedScatters >= 2 ? 720 : 0;
         await wait(dur(STOPS[c] - tMark) + tease, abort.current);
         tMark = STOPS[c];
         setStoppedCols(c + 1);
-        sfx.setSpinEnergy(landedScatters >= 1 && !(isFree || inFsRef.current) ? 0.08 : 1 - (c + 1) / 6);
+        sfx.setSpinEnergy(landedScatters >= 2 && !(isFree || inFsRef.current) ? 0.08 : 1 - (c + 1) / 6);
         sfx.playLand(c);
         const colN = next.reduce((n, row) => n + (row[c].kind === "scatter" ? 1 : 0), 0);
         if (colN > 0) {
