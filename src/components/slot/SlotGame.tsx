@@ -127,7 +127,7 @@ export function SlotGame() {
 
       {!g.started && (
         <div className="boot">
-          <img src="/art/paas-idle.png" alt="" className="boot-ramp" />
+          <img src="/art/paas-idle.png?v=3" alt="" className="boot-ramp" />
           <div className="boot-card">
             <div className="logo-plate">
               <span className="logo-kicker">PORTS of</span>
@@ -357,27 +357,27 @@ export function SlotGame() {
             </span>
             <div className={`park-god is-${god}`} aria-hidden="true">
             <img
-              src="/art/paas-idle.png"
+              src="/art/paas-idle.png?v=3"
               alt=""
               className={`park-pose ${god === "idle" ? "on" : ""}`}
             />
             <img
-              src="/art/paas-run.png"
+              src="/art/paas-run.png?v=3"
               alt=""
               className={`park-pose is-flip ${god === "run" ? "on" : ""}`}
             />
             <img
-              src="/art/paas-anti.png"
+              src="/art/paas-anti.png?v=3"
               alt=""
               className={`park-pose ${god === "anti" ? "on" : ""}`}
             />
             <img
-              src="/art/paas-bolt.png"
+              src="/art/paas-bolt.png?v=3"
               alt=""
               className={`park-pose is-flip ${god === "bolt" ? "on" : ""}`}
             />
             <img
-              src="/art/paas-win.png"
+              src="/art/paas-win.png?v=3"
               alt=""
               className={`park-pose ${god === "win" ? "on" : ""}`}
             />
