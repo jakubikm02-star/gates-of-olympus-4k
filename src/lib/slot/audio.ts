@@ -46,7 +46,7 @@ const FILES: Record<string, string> = {
   harp: "/sfx/harp.mp3",
   kontrola: "/sfx/kontrola.mp3?v=ignition1",
   fsStart: "/sfx/fs-start.mp3?v=build1",
-  anticipate: "/sfx/anticipate.mp3?v=bass1",
+  anticipate: "/sfx/bonus-loop.mp3?v=4ka1",
   can: "/sfx/can-open.mp3?v=open2",
 };
 
@@ -383,7 +383,7 @@ export function startAnticipate(): void {
   const bed = playBuf("anticipate", { gain: 0.01, loop: true, rate: 1 });
   if (bed) {
     bed.gain.gain.setValueAtTime(0.01, t);
-    bed.gain.gain.linearRampToValueAtTime(0.88, t + 0.2);
+    bed.gain.gain.linearRampToValueAtTime(0.78, t + 0.18);
     anticipateNodes = {
       stop: () => {
         bed.gain.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.18);

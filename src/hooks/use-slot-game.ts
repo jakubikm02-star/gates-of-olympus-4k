@@ -1102,16 +1102,17 @@ export function useSlotGame() {
       let pityAdd = 0;
       let tMark = STOPS[0];
       for (let c = 1; c < 6; c++) {
-        if (landedScatters >= 2) {
+        if (landedScatters >= 1) {
           setAnticipate(true);
           setReelFast(true);
+          sfx.setSpinEnergy(0.08);
           sfx.startAnticipate();
         }
-        const tease = landedScatters >= 3 ? 900 : landedScatters >= 2 ? 720 : 0;
+        const tease = landedScatters >= 3 ? 900 : landedScatters >= 2 ? 720 : landedScatters >= 1 ? 480 : 0;
         await wait(dur(STOPS[c] - tMark) + tease, abort.current);
         tMark = STOPS[c];
         setStoppedCols(c + 1);
-        sfx.setSpinEnergy(landedScatters >= 2 ? 1 : 1 - (c + 1) / 6);
+        sfx.setSpinEnergy(landedScatters >= 1 ? 0.08 : 1 - (c + 1) / 6);
         sfx.playLand(c);
         const colN = next.reduce((n, row) => n + (row[c].kind === "scatter" ? 1 : 0), 0);
         if (colN > 0) {
@@ -1523,7 +1524,7 @@ export function useSlotGame() {
       setPhase("idle");
         setTopLine(
         isFree || inFsRef.current
-          ? "3× 4tv OPÄŤ SPUSTÍ FEATURE"
+          ? "3× 4ka TV OPÄŤ SPUSTÍ FEATURE"
           : "SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE",
       );
       setMessage(cash > 0 ? "" : pendingPick ? "KONTROLA" : isFree ? "" : DEAD[Math.floor(Math.random() * DEAD.length)]);

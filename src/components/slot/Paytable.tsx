@@ -125,7 +125,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
           </li>
           <li>
             4 a viac scatterov kdekoľvek na obrazovke — aj počas tumble — spustí 15 free spins.
-            Scatter ostane na poli, kým bonus nezačne. 4tv trigger bije lístok: ceremónia čaká.
+            Scatter ostane na poli, kým bonus nezačne. 4ka TV trigger bije lístok: ceremónia čaká.
           </li>
           <li>Výherné symboly zmiznú, nové spadnú zhora (tumble). Plechovky, scatter aj lístok tumble prežijú.</li>
           <li>Násobiče nepadajú z valca ako RJ45. Rampa ich pustí ako energy plechovky. 15 hodnôt, sčítajú sa (50+100=150, nie 5 000). Aktivujú sa až na konci reťaze, a len ak bola výhra. 2/3/5 sú ~70 % plechoviek; 500× je vzácnejšia ako PDF 8+.</li>
@@ -135,7 +135,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             Lístok vo feature smie padnúť, ceremónia ide až po SIEŤ SPADLA. Banner je{" "}
             <code>1-FTTB · 1 742,20</code> — žiadny WinBox, žiadny terminál.
           </li>
-          <li>Ante 1.20× zdvojnásobí 4tv, nie šancu lístka. Buy 100× = LIVE so SIGNÁL 0×. Pity je IDLE meter, nikdy jackpot.</li>
+          <li>Ante 1.20× zdvojnásobí 4ka TV, nie šancu lístka. Buy 100× = LIVE so SIGNÁL 0×. Pity je IDLE meter, nikdy jackpot.</li>
           <li>
             KONTROLA má vlastný PITY meter na každú stávku (100). Iba mŕtvy spin (+2) a 3 / 4 scattere
             (+30). Po spustení bar padne na 0. Kúpiť sa nedá.

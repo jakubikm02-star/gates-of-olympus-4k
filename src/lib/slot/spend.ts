@@ -65,7 +65,7 @@ const TEMPLATES: {
   { id: "signal", titles: ["TACHYKARDIA", "TEP 180", "PULZ PLECHOVIEK"], kind: "signal", scope: "live", need: [10, 24], until: [15, 25], line: "násobičov súčtom v LIVE" },
   { id: "retaz", titles: ["REŤAZ", "TRI V RADE", "BEZ PRESTÁVKY"], kind: "wins", scope: "base", need: [3, 3], until: [40, 55], line: "výhier v rade" },
   { id: "plechovky", titles: ["PLECHOVKY", "RAMPA HUČÍ", "PLECH NA PLECH"], kind: "tumbles", scope: "live", need: [3, 8], until: [12, 22], line: "spinov s násobičom v LIVE" },
-  { id: "tv", titles: ["4TV", "ŠTVORKA NA STENE", "KONTROLA 4KY"], kind: "live", scope: "base", need: [1, 1], until: [30, 50], line: "4tv trigger" },
+  { id: "tv", titles: ["4ka TV", "ŠTVORKA NA STENE", "KONTROLA 4KY"], kind: "live", scope: "base", need: [1, 1], until: [30, 50], line: "spustiť 4ka TV" },
   { id: "pot", titles: ["POT", "SIVÝ LÍSTOK", "ULICA PADÁ"], kind: "ticket", scope: "base", need: [1, 1], until: [30, 50], line: "lístok 1-FTTB" },
   { id: "sucho", titles: ["SUCHO", "TICHÁ ZÓNA", "RAMPA STOJÍ"], kind: "deads", scope: "base", need: [8, 18], until: [20, 35], line: "mŕtvych spinov" },
   { id: "vynos", titles: ["VÝNOS", "PDF 8+", "PAPIER PLATÍ"], kind: "pdf", scope: "base", need: [1, 2], until: [30, 50], line: "PDF 8+" },

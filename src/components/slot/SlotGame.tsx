@@ -219,7 +219,7 @@ export function SlotGame() {
             >
               <em>ANTE BET</em>
               <strong>{g.perk.anteMul.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}×</strong>
-              {g.ante ? <span className="ante-pool">4tv ×2</span> : null}
+              {g.ante ? <span className="ante-pool">4ka TV ×2</span> : null}
               <span className={`ante-switch ${g.ante ? "on" : ""}`}>{g.ante ? "ON" : "OFF"}</span>
             </button>
             <ol className="win-log" aria-label="História výhier">

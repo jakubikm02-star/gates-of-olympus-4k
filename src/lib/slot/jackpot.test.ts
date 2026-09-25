@@ -286,7 +286,7 @@ describe("lístok", () => {
     assert.equal(rollTicket(() => 0.5, "stat"), "stat");
   });
 
-  it("4tv trigger stashes the ticket, LIVE defers claim", () => {
+  it("4ka TV trigger stashes the ticket, LIVE defers claim", () => {
     assert.equal(ticketResolve(true, false, "ulica"), "stash");
     assert.equal(ticketResolve(false, true, "kraj"), "stash");
     assert.equal(ticketResolve(false, false, "okres"), "claim");
@@ -1016,7 +1016,7 @@ describe("tiket meter", () => {
     assert.equal(jobStatus(early), "fail");
   });
 
-  it("kills SUCHO the moment a win or 4tv lands", () => {
+  it("kills SUCHO the moment a win or 4ka TV lands", () => {
     const won = tickJob(blank({ template: "sucho", kind: "deads", need: 8, have: 6, limit: 20, spun: 1 }), {
       ...miss,
       win: true,

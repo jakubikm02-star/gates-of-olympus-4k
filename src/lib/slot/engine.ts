@@ -20,7 +20,7 @@ function nextUid(): number {
   return uidSeq;
 }
 
-/** Column stick copies a pay symbol down. Never clumps 4tv. */
+/** Column stick copies a pay symbol down. Never clumps 4ka TV. */
 const COL_STICKY = 0.17;
 
 function pickWeighted<T extends { w: number }>(items: readonly T[], rng: () => number): T {
