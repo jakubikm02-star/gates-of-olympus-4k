@@ -193,6 +193,7 @@ export function useSlotGame() {
   const [ticketLock, setTicketLock] = useState(false);
   const pendingLiveTicketRef = useRef<TierId | null>(null);
   const [job, setJob] = useState<JobCard | null>(null);
+  const [ticketSeal, setTicketSeal] = useState<{ job: JobCard; verdict: "ok" | "fail" } | null>(null);
   const jobRef = useRef<JobCard | null>(null);
   const [jobOffer, setJobOffer] = useState<JobCard[] | null>(null);
   const [daily, setDaily] = useState<DailyBoard | null>(null);
@@ -356,11 +357,10 @@ export function useSlotGame() {
       loadedRaw?.seal && !(s.inFs && s.fsLeft > 0)
         ? { ...loadedRaw, seal: false, spun: loadedRaw.limit }
         : loadedRaw;
-    setJob(loaded && loaded.spun >= loaded.limit && loaded.have < loaded.need ? null : loaded);
-    jobRef.current = loaded && loaded.spun >= loaded.limit && loaded.have < loaded.need ? null : loaded;
-    if (loaded && loaded !== loadedRaw && loaded.spun >= loaded.limit) {
-      setLcdFlash({ job: loaded, verdict: "fail" });
-    }
+    const dead = Boolean(loaded && loaded.spun >= loaded.limit && loaded.have < loaded.need);
+    setJob(dead ? null : loaded);
+    jobRef.current = dead ? null : loaded;
+    if (dead && loaded) setTicketSeal({ job: loaded, verdict: "fail" });
     pendingLiveTicketRef.current = s.pendingLiveTicket;
     if (s.dailyCards.length === 3 && s.dailyDay === deskToday()) {
       const board = { day: s.dailyDay, cards: s.dailyCards, marks: s.dailyMarks };
@@ -571,7 +571,8 @@ export function useSlotGame() {
 
   useEffect(() => {
     if (rankFlash) {
-      const t = window.setTimeout(() => setRankFlash(null), 1200);
+      const ms = rankFlash.event === "up" || rankFlash.event === "down" ? 1800 : 1200;
+      const t = window.setTimeout(() => setRankFlash(null), ms);
       return () => window.clearTimeout(t);
     }
     const next = rankQ.current.shift();
@@ -860,6 +861,7 @@ export function useSlotGame() {
       if (parts.total) pushRank(parts.total, parts);
       setSpinTape((t) => [{ label: "TIKET", amount: `+${formatMoney(next.payout)} · +${parts.total} RP` }, ...t].slice(0, 8));
       setLcdFlash({ job: next, verdict: "ok" });
+      setTicketSeal({ job: next, verdict: "ok" });
       stampDailyJob(next, "ok");
       sfx.playCoin();
     } else if (st === "fail") {
@@ -870,6 +872,7 @@ export function useSlotGame() {
       setAutoOn(false);
       setAutoLeft(0);
       setLcdFlash({ job: next, verdict: "fail" });
+      setTicketSeal({ job: next, verdict: "fail" });
       stampDailyJob(next, "fail");
       sfx.playThunder();
     } else {
@@ -887,6 +890,7 @@ export function useSlotGame() {
     setAutoOn(false);
     setAutoLeft(0);
     setLcdFlash({ job: burned, verdict: "fail" });
+    setTicketSeal({ job: burned, verdict: "fail" });
     stampDailyJob(burned, "fail");
     setTopLine("NEÚSPEŠNÝ TIKET · MÁLO KREDITU NA PARKNET");
     sfx.playThunder();
@@ -2017,6 +2021,7 @@ export function useSlotGame() {
     setBalance((b) => +(b - taken.stake).toFixed(2));
     jobRef.current = taken;
     setJob(taken);
+    setTicketSeal(null);
     setSpendOpen(Boolean(taken.mystery));
     setTopLine(`${jobShownGoal(taken)} · stávka ${formatMoney(taken.lockBet)} zamknutá`);
     if (taken.mystery) {
@@ -2265,6 +2270,7 @@ export function useSlotGame() {
     openSpend,
     takeJob,
     job,
+    ticketSeal,
     jobOffer,
     daily,
     jobToast,

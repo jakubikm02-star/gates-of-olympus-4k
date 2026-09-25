@@ -75,7 +75,7 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 50% 0%, rgb(62 198 224 / 0.12), transparent 45%),
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--fa, #3ec6e0) 22%, transparent), transparent 45%),
     radial-gradient(ellipse at 82% 70%, rgb(240 196 25 / 0.08), transparent 40%),
     radial-gradient(ellipse at 50% 100%, rgb(0 0 0 / 0.55), transparent 50%);
   z-index: -1;
@@ -759,16 +759,17 @@
   display: flex;
   flex-direction: column;
   background:
-    linear-gradient(180deg, #4a545e 0%, #242c34 38%, #10161c 70%, #2a323a 100%);
+    linear-gradient(180deg, var(--fm0, #4a545e) 0%, var(--fm1, #242c34) 38%, var(--fm2, #10161c) 70%, var(--fm1, #2a323a) 100%);
   box-shadow:
-    0 1px 0 #8a949e,
+    0 1px 0 color-mix(in srgb, var(--fm0, #8a949e) 70%, #fff),
     0 0 0 2px #050608,
     0 18px 36px rgb(0 0 0 / 0.55),
-    inset 0 2px 0 #7a848e,
+    inset 0 2px 0 color-mix(in srgb, var(--fm0, #7a848e) 80%, #fff),
     inset 0 -3px 0 #050608;
   border-radius: 10px;
   overflow: hidden;
   transform: none;
+  transition: background 1.2s ease, box-shadow 1.2s ease;
 }
 
 .reel-frame::before {
@@ -776,13 +777,132 @@
   position: absolute;
   inset: calc(var(--bz, 12px) - 5px);
   border-radius: 4px;
-  border: 2px solid var(--color-gold);
+  border: 2px solid var(--fa, var(--color-gold));
   box-shadow:
     0 0 0 1px #050608,
     inset 0 0 0 1px #050608,
     0 0 10px rgb(240 196 25 / 0.22);
   pointer-events: none;
   z-index: 6;
+  transition: border-color 1.2s ease, opacity 0.35s ease;
+}
+
+.stage.in-fs .reel-frame::before,
+.stage.in-fs .frame-run {
+  opacity: 0.3;
+}
+
+.frame-run {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+  opacity: 0;
+  background: conic-gradient(from 0deg, transparent 0 80%, var(--fa, #fff) 92%, transparent 100%);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 5px));
+}
+
+.stage.rk-kredit { --fm0: #a7adb4; --fm1: #4c545c; --fm2: #171c21; --fa: rgb(236 240 244 / 0.45); }
+.stage.rk-sloboda { --fm0: #c5c9ce; --fm1: #626972; --fm2: #23282e; --fa: rgb(230 196 120 / 0.8); }
+.stage.rk-smart { --fm0: #d0aa62; --fm1: #745628; --fm2: #2b1f10; --fa: #e8b25a; }
+.stage.rk-telka { --fm0: #3c444c; --fm1: #1b2127; --fm2: #0c1014; --fa: #3ec6e0; }
+.stage.rk-optika { --fm0: #c9a15a; --fm1: #6b4d22; --fm2: #24180c; --fa: #5ee0e0; }
+.stage.rk-duo { --fm0: #aeb6c0; --fm1: #46515e; --fm2: #151b22; --fa: #8eb6ff; }
+.stage.rk-fiveg { --fm0: #2c3138; --fm1: #14181d; --fm2: #08090c; --fa: #d08cff; }
+.stage.rk-nekonecno { --fm0: #f2f5f8; --fm1: #98a3ae; --fm2: #2c333b; --fa: #ffe3a8; }
+
+.stage.rk-smart .frame-run,
+.stage.rk-telka .frame-run,
+.stage.rk-optika .frame-run {
+  opacity: 0.85;
+  animation: frame-spin 12s linear infinite;
+}
+
+.stage.rk-sloboda .frame-run,
+.stage.rk-duo .frame-run {
+  animation: frame-spark 8s ease-in-out infinite;
+}
+
+.stage.rk-fiveg .reel-frame {
+  animation: frame-pulse 2.5s ease-in-out infinite;
+}
+
+.stage.rk-nekonecno .reel-frame {
+  box-shadow:
+    0 0 0 2px #050608,
+    0 0 16px rgb(255 227 168 / 0.35),
+    inset 0 1px 0 #fff;
+}
+
+.stage.rk-nekonecno .frame-run {
+  opacity: 0.4;
+}
+
+.reel-frame:has(.is-spinning) .frame-run,
+.reel-frame:has(.is-landing) .frame-run,
+.stage.is-resolving .frame-run,
+.stage.in-fs .frame-run,
+.stage.in-fs .reel-frame {
+  animation-play-state: paused;
+}
+
+.frame-toast {
+  position: absolute;
+  z-index: 9;
+  top: 10px;
+  right: 12px;
+  max-width: 70%;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgb(8 10 14 / 0.84);
+  color: #fff8e8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  animation: frame-toast 1.8s ease both;
+}
+
+.board-job.is-ok {
+  border-color: rgb(130 220 160 / 0.9);
+}
+
+.board-job.is-fail {
+  border-color: rgb(255 120 120 / 0.9);
+}
+
+.job-chip.is-sealed strong,
+.job-chip.is-sealed .job-facts {
+  opacity: 0.38;
+}
+
+.board-job.is-ok .job-kicker {
+  color: #b6ffd0;
+}
+
+.board-job.is-fail .job-kicker {
+  color: #ffb4b4;
+}
+
+@keyframes frame-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes frame-spark {
+  0%, 88%, 100% { opacity: 0; }
+  92% { opacity: 0.95; }
+}
+
+@keyframes frame-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px #050608, 0 0 8px color-mix(in srgb, var(--fa) 20%, transparent); }
+  50% { box-shadow: 0 0 0 2px #050608, 0 0 18px color-mix(in srgb, var(--fa) 55%, transparent); }
+}
+
+@keyframes frame-toast {
+  0% { opacity: 0; }
+  18% { opacity: 1; }
+  72% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 .reel-window {
@@ -3847,6 +3967,13 @@
   font-size: 0.68rem;
   letter-spacing: 0.2em;
   color: var(--color-bolt);
+}
+
+.rank-chip em {
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
 }
 
 .rank-chip {

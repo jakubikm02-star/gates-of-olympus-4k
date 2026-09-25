@@ -14,7 +14,6 @@ import { RankBadge } from "./RankBadge";
 import { RankPanel } from "./RankPanel";
 import { RankToast } from "./RankToast";
 import { SpendSheet } from "./SpendSheet";
-import { TicketLcd } from "./TicketLcd";
 import { DuelSheet, DuelBar, DuelLink } from "./DuelSheet";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
@@ -90,7 +89,6 @@ export function SlotGame() {
   const g = useSlotGame();
   const shell = useShell();
   const [deskOpen, setDeskOpen] = useState(false);
-  const [lcdOn, setLcdOn] = useState(false);
   const spinning = g.phase === "spinning" || g.phase === "landing";
   const resolving =
     spinning ||
@@ -114,10 +112,12 @@ export function SlotGame() {
         : g.displayWin > 0 || g.payHint
           ? null
           : "GOOD LUCK";
+  const liveJob = g.job;
+  const seal = liveJob ? null : g.ticketSeal;
 
   return (
     <div
-      className={`stage shell-${shell} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""} ${g.lcdFlash || (lcdOn && g.job) ? "has-lcd" : ""}`}
+      className={`stage shell-${shell} rk-${g.rank.id} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""}`}
     >
       <div className="stage-bg" />
       <div className="stage-glow" />
@@ -150,16 +150,7 @@ export function SlotGame() {
 
       <div className="table">
         <div className="table-head">
-          <RankBadge
-            stand={g.rank}
-            delta={g.rankDelta}
-            streak={g.winStreak}
-            parts={g.rankParts}
-            perkTitle={g.perk.title}
-            flash={g.rankFlash}
-            tick={g.rankTick}
-            onOpen={() => g.setRankOpen(true)}
-          />
+          <RankBadge stand={g.rank} perkTitle={g.perk.title} plain onOpen={() => g.setRankOpen(true)} />
           <div className="head-center">
             <div className="logo-plate compact">
               <span className="logo-kicker">{g.inFs ? "PARKNET" : "PORTS of"}</span>
@@ -329,25 +320,21 @@ export function SlotGame() {
                 {f.mult}X
               </span>
             ))}
+            <RankToast flash={resolving || g.inFs ? null : g.rankFlash} />
             </div>
-            <div className={`board-job ${g.job ? "has-job" : ""}`}>
-              {g.job && (
-                <button
-                  type="button"
-                  className={`job-chip ${(g.job.limit - g.job.spun) <= 5 ? "is-late" : ""}`}
-                  onClick={() => setLcdOn((v) => !v)}
-                  aria-expanded={lcdOn}
-                >
-                  <span className="job-kicker">TIKET</span>
-                  <strong>{jobShownGoal(g.job)}</strong>
+            <div className={`board-job ${liveJob || seal ? "has-job" : ""} ${seal ? `is-seal is-${seal.verdict}` : ""}`}>
+              {(liveJob || seal) && (
+                <div className={`job-chip ${liveJob && liveJob.limit - liveJob.spun <= 5 ? "is-late" : ""} ${seal ? "is-sealed" : ""}`}>
+                  <span className="job-kicker">{seal ? (seal.verdict === "ok" ? "ÚSPEŠNÝ" : "NEÚSPEŠNÝ") : "TIKET"}</span>
+                  <strong>{jobShownGoal((liveJob ?? seal!.job))}</strong>
                   <span className="job-facts">
-                    <b>{jobMeter(g.job)}</b>
-                    <em>{jobClock(g.job, g.inFs)}</em>
+                    <b>{jobMeter(liveJob ?? seal!.job)}</b>
+                    <em>{jobClock(liveJob ?? seal!.job, g.inFs)}</em>
                     <i>
-                      {formatMoney(g.job.stake)} → {formatMoney(g.job.payout)}
+                      {formatMoney((liveJob ?? seal!.job).stake)} → {formatMoney((liveJob ?? seal!.job).payout)}
                     </i>
                   </span>
-                </button>
+                </div>
               )}
             </div>
             </div>
@@ -380,9 +367,6 @@ export function SlotGame() {
         </div>
 
         <footer className="bottom-hud">
-          {(g.lcdFlash || (lcdOn && g.job)) && (
-            <TicketLcd job={(g.lcdFlash?.job ?? g.job)!} verdict={g.lcdFlash?.verdict ?? "run"} />
-          )}
           <div className="hud-left">
             <button
               type="button"
@@ -767,7 +751,6 @@ export function SlotGame() {
         weekDue={g.weekDue}
         weekTarget={g.weekTarget}
       />
-      <RankToast flash={g.rankFlash} onDone={g.clearRankFlash} />
     </div>
   );
 }

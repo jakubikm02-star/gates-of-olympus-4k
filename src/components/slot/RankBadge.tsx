@@ -56,10 +56,11 @@ interface Props {
   perkTitle?: string;
   flash?: RankFlash | null;
   tick?: number;
+  plain?: boolean;
   onOpen: () => void;
 }
 
-export function RankBadge({ stand, delta = 0, streak = 0, parts = null, perkTitle, flash = null, tick = 0, onOpen }: Props) {
+export function RankBadge({ stand, delta = 0, streak = 0, parts = null, perkTitle, flash = null, tick = 0, plain = false, onOpen }: Props) {
   const n = RANKS.length;
   const needle = ladderNeedle(stand);
   const angle = -90 + needle * 180;
@@ -80,6 +81,21 @@ export function RankBadge({ stand, delta = 0, streak = 0, parts = null, perkTitl
           : null;
   const tone = event === "up" || event === "gain" || gain ? "gain" : event === "down" || event === "loss" || event === "week" || event === "bust" || loss ? "loss" : event === "shield" ? "gain" : "";
 
+  if (plain) {
+    return (
+      <button
+        type="button"
+        className={`rank-chip rk-${stand.id}`}
+        onClick={onOpen}
+        aria-label={`Rank ${label}`}
+        title={hint}
+        style={{ ["--rk" as string]: stand.color, ["--rk-ink" as string]: stand.ink }}
+      >
+        <RankMark id={stand.id} size={15} />
+        <em>{label}</em>
+      </button>
+    );
+  }
   return (
     <button
       type="button"
