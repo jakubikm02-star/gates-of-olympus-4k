@@ -6295,7 +6295,7 @@ html:-webkit-full-screen {
 
 .stage.shell-mw .table-head,
 .stage.shell-pwa .table-head {
-  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-columns: max-content minmax(0, 1fr);
   gap: 6px;
   align-items: center;
 }
@@ -6316,13 +6316,22 @@ html:-webkit-full-screen {
   padding: 3px 8px 4px;
 }
 
-.stage.shell-mw .rank-chip.rank-gauge,
-.stage.shell-pwa .rank-chip.rank-gauge {
-  width: 48px;
-  height: 48px;
-  min-height: 48px;
-  max-height: 48px;
-  padding: 0;
+.stage.shell-mw .rank-chip,
+.stage.shell-pwa .rank-chip {
+  width: max-content;
+  max-width: none;
+  overflow: visible;
+  flex-shrink: 0;
+  padding: 4px 10px 4px 6px;
+}
+
+.stage.shell-mw .rank-chip em,
+.stage.shell-pwa .rank-chip em {
+  overflow: visible;
+  text-overflow: clip;
+  letter-spacing: 0.04em;
+  font-size: 0.68rem;
+  white-space: nowrap;
 }
 
 .stage.shell-mw .rank-dial,
