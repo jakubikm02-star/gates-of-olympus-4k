@@ -50,7 +50,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
   {
     id: "router",
     name: "Wi-Fi router",
-    src: "/symbols/router.png?v=2",
+    src: "/symbols/router.png?v=3",
     pays: [0.4, 0.9, 4],
     weight: 15.5,
     quip: "Heslo je na spodku.",
