@@ -1291,9 +1291,23 @@
   user-select: none;
   pointer-events: none;
   color: transparent;
-  filter:
-    drop-shadow(0 0 3px color-mix(in srgb, var(--fa, #9fe7ff) 90%, #fff))
-    drop-shadow(0 0 9px color-mix(in srgb, var(--fa, #3ec6e0) 75%, transparent));
+  filter: url("#sym-glow");
+}
+
+#sym-glow feFlood {
+  flood-color: var(--fa, #8fdfff);
+  flood-opacity: 0.9;
+}
+
+#sym-glow-win feFlood {
+  flood-color: #ffe14a;
+  flood-opacity: 0.95;
+}
+
+.sym-glow-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
 }
 
 .cell.is-mult .cell-img {
@@ -1310,7 +1324,7 @@
 
 .cell.is-win .cell-img {
   animation: winpulse 0.45s ease-in-out infinite;
-  filter: drop-shadow(0 0 12px #ffe14a) brightness(1.12);
+  filter: url("#sym-glow-win") brightness(1.12);
 }
 
 .win-fx {
@@ -1708,11 +1722,7 @@
 .cell.is-scatter .cell-img {
   width: 90%;
   height: 90%;
-  filter:
-    drop-shadow(0 0 8px #5cf0ff)
-    drop-shadow(0 0 16px #ffb020)
-    drop-shadow(0 6px 8px rgb(0 0 0 / 0.55))
-    brightness(1.12);
+  filter: url("#sym-glow-win") brightness(1.12);
   animation: scatter-idle 1.2s ease-in-out infinite;
 }
 
@@ -1730,10 +1740,7 @@
 @keyframes scatter-idle {
   50% {
     transform: scale(1.05);
-    filter:
-      drop-shadow(0 0 12px #7af6ff)
-      drop-shadow(0 0 20px #ffc14a)
-      brightness(1.2);
+    filter: url("#sym-glow-win") brightness(1.2);
   }
 }
 
@@ -1748,14 +1755,14 @@
 .cell.is-park .cell-img {
   width: 88%;
   height: 88%;
-  filter: drop-shadow(0 0 10px #e2b01a) drop-shadow(0 0 14px #7ae7ff);
+  filter: url("#sym-glow-win");
   animation: scatter-idle 1.8s ease-in-out infinite;
 }
 
-.cell.is-ticket-ulica .cell-img { filter: drop-shadow(0 0 10px #c5ccd4); }
-.cell.is-ticket-okres .cell-img { filter: drop-shadow(0 0 10px #6ea8ff); }
-.cell.is-ticket-kraj .cell-img { filter: drop-shadow(0 0 10px #c86bff); }
-.cell.is-ticket-stat .cell-img { filter: drop-shadow(0 0 10px #e2b01a) drop-shadow(0 0 14px #7ae7ff); }
+.cell.is-ticket-ulica .cell-img,
+.cell.is-ticket-okres .cell-img,
+.cell.is-ticket-kraj .cell-img,
+.cell.is-ticket-stat .cell-img { filter: url("#sym-glow"); }
 
 .cell.is-park.is-lock {
   animation: ticket-pulse 400ms ease-in-out 1;
@@ -1858,13 +1865,13 @@
 
 .cell.is-tease .cell-img {
   animation: scatter-tease 1.2s ease-in-out infinite;
-  filter: drop-shadow(0 0 14px #ffd24a) brightness(1.12);
+  filter: url("#sym-glow-win") brightness(1.12);
 }
 
 @keyframes scatter-tease {
   50% {
     transform: scale(1.03);
-    filter: drop-shadow(0 0 18px #ffe14a) brightness(1.2);
+    filter: url("#sym-glow-win") brightness(1.2);
   }
 }
 
@@ -1874,10 +1881,10 @@
 
 @keyframes scatter-slam {
   0% {
-    filter: brightness(1.55) drop-shadow(0 0 16px #ffe14a);
+    filter: url("#sym-glow-win") brightness(1.55);
   }
   100% {
-    filter: brightness(1.12) drop-shadow(0 0 8px #ffb020);
+    filter: url("#sym-glow-win") brightness(1.12);
   }
 }
 

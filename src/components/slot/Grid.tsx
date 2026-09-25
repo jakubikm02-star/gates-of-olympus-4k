@@ -154,7 +154,36 @@ export function SlotGrid({
       aria-label="Herné pole 6×5"
       onClick={onTap}
     >
-      <div className="frame-skin" aria-hidden="true" />
+      <svg className="sym-glow-defs" aria-hidden="true" width="0" height="0">
+        <filter id="sym-glow" x="-45%" y="-45%" width="190%" height="190%" colorInterpolationFilters="sRGB">
+          <feComponentTransfer in="SourceAlpha" result="bin">
+            <feFuncA type="discrete" tableValues="0 1" />
+          </feComponentTransfer>
+          <feMorphology in="bin" operator="dilate" radius="2" result="solid" />
+          <feGaussianBlur in="solid" stdDeviation="2.4" result="blur" />
+          <feComposite in="blur" in2="solid" operator="out" result="outer" />
+          <feFlood result="flood" />
+          <feComposite in="flood" in2="outer" operator="in" result="glow" />
+          <feMerge>
+            <feMergeNode in="glow" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter id="sym-glow-win" x="-45%" y="-45%" width="190%" height="190%" colorInterpolationFilters="sRGB">
+          <feComponentTransfer in="SourceAlpha" result="bin">
+            <feFuncA type="discrete" tableValues="0 1" />
+          </feComponentTransfer>
+          <feMorphology in="bin" operator="dilate" radius="2" result="solid" />
+          <feGaussianBlur in="solid" stdDeviation="2.8" result="blur" />
+          <feComposite in="blur" in2="solid" operator="out" result="outer" />
+          <feFlood result="flood" />
+          <feComposite in="flood" in2="outer" operator="in" result="glow" />
+          <feMerge>
+            <feMergeNode in="glow" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </svg>
       <i className="frame-bolt nw" aria-hidden="true" />
       <i className="frame-bolt ne" aria-hidden="true" />
       <i className="frame-bolt sw" aria-hidden="true" />
