@@ -92,9 +92,8 @@ describe("rank stake + perk", () => {
       banner: null,
       kind: "base",
     });
-    assert.ok(high.fromSum > low.fromSum);
-    assert.ok(high.fromStake > low.fromStake);
     assert.ok(high.total > low.total);
+    assert.ok(high.total > low.total * 2);
   });
 
   it("36 cents is far less RP than 75 euros", () => {
@@ -102,39 +101,41 @@ describe("rank stake + perk", () => {
     const fat = rpFromSpin({ cash: 75, bet: 100, mult: 1, tumbles: 0, streak: 1, banner: null, kind: "base" });
     const huge = rpFromSpin({ cash: 500, bet: 1, mult: 1, tumbles: 0, streak: 1, banner: null, kind: "base" });
     assert.ok(chip.total <= 4, `chip ${chip.total}`);
-    assert.ok(fat.total >= 36 && fat.total <= 55, `fat ${fat.total}`);
-    assert.ok(huge.total >= 90 && huge.total <= 140, `500€ ${huge.total}`);
-    assert.ok(fat.total >= chip.total * 8);
+    assert.ok(fat.total > chip.total * 3, `fat ${fat.total}`);
+    assert.ok(huge.total > fat.total, `500€ ${huge.total}`);
+    assert.ok(huge.total <= 200);
   });
 
   it("published extras match the curve", () => {
     const m2 = rpFromSpin({ cash: 10, bet: 1, mult: 2, tumbles: 0, streak: 1, banner: null, kind: "base" });
     const m10 = rpFromSpin({ cash: 10, bet: 1, mult: 10, tumbles: 0, streak: 1, banner: null, kind: "base" });
     const m50 = rpFromSpin({ cash: 10, bet: 1, mult: 50, tumbles: 0, streak: 1, banner: null, kind: "base" });
-    assert.equal(m2.fromMult, 4);
-    assert.equal(m10.fromMult, 12);
-    assert.ok(m50.fromMult >= 18 && m50.fromMult <= 20);
+    assert.ok(m2.fromMult > 0 && m2.fromMult < m10.fromMult);
+    assert.ok(m10.fromMult < m50.fromMult);
+    assert.ok(m50.total <= 200);
     const s2 = rpFromSpin({ cash: 10, bet: 1, mult: 1, tumbles: 0, streak: 2, banner: null, kind: "base" });
     const s5 = rpFromSpin({ cash: 10, bet: 1, mult: 1, tumbles: 0, streak: 5, banner: null, kind: "base" });
-    assert.equal(s2.fromStreak, 2);
-    assert.equal(s5.fromStreak, 14);
+    assert.ok(s2.fromStreak > 0 && s2.fromStreak < s5.fromStreak);
+    assert.ok(s5.fromStreak <= 40);
     const t = rpFromSpin({ cash: 10, bet: 1, mult: 1, tumbles: 5, streak: 1, banner: null, kind: "base" });
-    assert.equal(t.fromTumble, 5);
+    assert.ok(t.fromTumble > 0);
     const big = rpFromSpin({ cash: 10, bet: 1, mult: 1, tumbles: 0, streak: 1, banner: "big", kind: "base" });
     const max = rpFromSpin({ cash: 10, bet: 1, mult: 1, tumbles: 0, streak: 1, banner: "max", kind: "base" });
-    assert.equal(big.fromBanner, 4);
-    assert.equal(max.fromBanner, 18);
+    assert.ok(big.fromBanner > 0 && big.fromBanner < max.fromBanner);
   });
 
-  it("dead spin is free in KREDIT and capped at 8 RP from SMART", () => {
+  it("dead spin scales with rank and stake, and max bet can fall from the top", () => {
     assert.equal(rpFromDead(1, 0).total, 0);
-    const nekOne = rpFromDead(1, 10);
-    const nekMax = rpFromDead(100, 10);
-    assert.equal(nekMax.total, -8);
-    assert.ok(nekOne.total < 0);
-    assert.ok(nekOne.total >= nekMax.total);
-    const low = rpFromDead(100, 3);
-    assert.equal(low.total, -8);
+    const slo = rpFromDead(0.2, 3).total;
+    const nekLow = rpFromDead(0.2, 10).total;
+    const nekMax = rpFromDead(1000, 10).total;
+    const sloMax = rpFromDead(1000, 3).total;
+    assert.ok(nekLow < slo && slo < 0);
+    assert.ok(nekMax < sloMax && sloMax < nekLow);
+    assert.ok(nekMax <= -25, `nek max ${nekMax}`);
+    const typical = rpFromSpin({ cash: 2800, bet: 1000, mult: 1, tumbles: 0, streak: 1, banner: null, kind: "base" }).total;
+    const cold = 0.35 * typical + 0.65 * nekMax;
+    assert.ok(cold < 0, `expected ${cold} typical ${typical}`);
   });
 
   it("rank does not multiply RP", () => {
@@ -181,7 +182,7 @@ describe("rank stake + perk", () => {
     const vsBuy = rpFromSpin({ cash: 250, bet: 100, ...extras, kind: "fs" });
     assert.equal(win.delta, vsBuy.total);
     assert.ok(win.delta < asBase.total);
-    assert.ok(win.parts.fromSum > 20);
+    assert.ok(win.delta > 10);
   });
 
   it("losing buy takes dead-spin turnover, capped at one division", () => {

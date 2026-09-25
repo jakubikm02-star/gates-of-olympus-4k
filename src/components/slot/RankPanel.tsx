@@ -45,8 +45,8 @@ export function RankPanel({ open, onClose, stand, peak, shield, streak = 0, week
           </button>
         </header>
         <p className="modal-lead">
-          RP rastú zo sumy v eurách, násobiča, série, tumble a banneru. Strop jednej výhry je 200 RP.
-          Liga nedáva extra RP, nelacní buy a nepridáva lístky. Mŕtvy spin berie najviac 8 RP, KREDIT 0.
+          Suma výhry násobí RP. Malá stávka z vyššej ligy nevyšplhá. Big win áno, strop jednej výhry je 200 RP.
+          Mŕtvy spin berie viac vo vyššom ranku a na vyššej stávke. KREDIT má miss 0. Na max stávke sa z 3800 RP dá padnúť.
           Raz za týždeň klesneš o 100 RP. Dlhšia pauza zoberie najviac 400 RP.
         </p>
         {weekDue > 0 && weekTarget && stand.rankIndex > 0 && (

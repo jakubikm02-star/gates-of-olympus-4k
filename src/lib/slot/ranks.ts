@@ -377,7 +377,6 @@ export function perkOf(rankId: string | undefined): RankPerk {
 
 export const REBATE_WINDOW = 100;
 export const REBATE_CAP_BETS = 20;
-export const DEAD_RP_CAP = 8;
 
 /** Cashback inside a 100-spin window. Never pays more than 20 bets in that window. */
 export function nextRebate(opts: {
@@ -495,14 +494,14 @@ export function reloadPunish(opts: {
 }
 
 export const RANK_REWARDS = [
-  { id: "sum", title: "Suma výhry", detail: "RP z reálnych eur pri stávke 1 €. 0,36 € = 2 RP, 75 € = 42 RP, 500 € = 106 RP. Strop jednej výhry je 200 RP." },
-  { id: "stake", title: "Výška stávky", detail: "Pri rovnakom násobku vyššia stávka pridá RP, lebo výhra v eurách je väčšia. Mŕtvy spin berie najviac 8 RP na každom ranku okrem KREDIT. KREDIT má miss 0." },
-  { id: "mult", title: "Násobič", detail: "Energy plechovky navyše k sume. ×2 = +4, ×10 = +12, ×50 a viac = +20." },
-  { id: "streak", title: "Séria výhier", detail: "2. výhra +2, 3. +5, 4. +9, 5.+ max +14. Mŕtvy spin zhodí na 0 — od SLOBODY jeden hold." },
+  { id: "sum", title: "Suma výhry", detail: "Suma v eurách násobí všetko RP z výhry. Malý hit na 0,20 € je 1 RP. 20× na 1 € je desiatky. Big win ide k stropu 200, nie cez celé ligy." },
+  { id: "stake", title: "Výška stávky", detail: "Rovnaký násobok na vyššej stávke dá viac RP, lebo suma je väčšia. Samotné točenie max stávky bez big win v NEKONEČNE RP berie, nepridáva." },
+  { id: "mult", title: "Násobič", detail: "Plechovky sa násobia sumou výhry. Samy o sebe sú malé, big win ich zväčší." },
+  { id: "streak", title: "Séria výhier", detail: "Séria, tumble a banner sa násobia sumou. Mŕtvy spin zhodí sériu na 0 — od SLOBODY jeden hold." },
   { id: "tumble", title: "Tumble reťaz", detail: "Dva a viac pádov v jednom spine: +2 až +8 RP." },
   { id: "banner", title: "BIG / MEGA / EPIC / MAX", detail: "Popup: +4 / +8 / +12 / +18." },
   { id: "bonus", title: "Bonusy", detail: "FS total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Buy je vždy 100×. LIVE je 15, od DUO 16, v NEKONEČNO 17. Kúpa sa ráta voči cene, prehra berie entry ako mŕtve spiny (max 1 divízia)." },
-  { id: "rank", title: "Aktívna liga", detail: "Ante 1,22× od SMART, cashback so stropom od OPTIKA, +1 a +2 točenia v LIVE. Od SMART kontrola ukáže cenu bezpečného státia, meter sa nezrýchli. Liga nenásobí RP a nelacní buy." },
+  { id: "rank", title: "Aktívna liga", detail: "Vyšší rank berie viac RP za mŕtvy spin. Ante 1,22× od SMART, cashback so stropom od OPTIKA, +1 a +2 točenia v LIVE. Liga nenásobí výhru a nelacní buy." },
   { id: "reload", title: "Bankrot", detail: "Dobitie +5000 berie RP len v 5G a NEKONEČNO. Malá stávka berie menej, strop je pol divízie (50). Pod 5G je trest 0. 80 platených spinov bez dobitia sériu nuluje." },
   { id: "week", title: "Týždenný drop", detail: "Raz za 7 dní klesáš o jednu divíziu, nie o celú skupinu. Dlhšia pauza zoberie najviac jednu skupinu. Štít týždeň nechytá." },
 ] as const;
@@ -529,6 +528,8 @@ export function rpFromJob(payout: number, stake: number): RankBreakdown {
   });
 }
 
+const MAX_STAKE = 1000;
+
 export function rpFromDead(bet: number, entry: number): RankBreakdown {
   const empty: RankBreakdown = {
     total: 0,
@@ -544,8 +545,8 @@ export function rpFromDead(bet: number, entry: number): RankBreakdown {
   };
   if (entry <= 0) return empty;
   const stake = Math.max(0, bet);
-  const raw = -Math.max(1, Math.round(entry * (0.9 + 0.72 * Math.log2(1 + stake))));
-  const delta = Math.max(raw, -DEAD_RP_CAP);
+  const t = Math.min(1, Math.log2(1 + stake) / Math.log2(1 + MAX_STAKE));
+  const delta = -Math.max(1, Math.round(entry * (0.45 + 2.2 * t)));
   return { ...empty, total: delta, fromStake: delta };
 }
 
@@ -566,27 +567,32 @@ export function rpFromSpin(s: RankSpin): RankBreakdown {
 
   const cash = Math.max(0, s.cash);
   const wx = cash / s.bet;
-  const fromSum = Math.round(2.35 * Math.pow(cash, 0.58) + 2 * Math.log2(1 + wx));
+  const multiple = Math.min(1, Math.log2(1 + wx) / Math.log2(21));
+  const boost = 1 + Math.log2(1 + cash) * (0.2 + 1.4 * multiple);
+  const pack = (n: number) => (n > 0 ? Math.round(n * boost) : 0);
   const m = Math.max(1, s.mult);
-  const fromMult = m > 1 ? Math.min(20, Math.round(0.5 + 3.4 * Math.log2(m))) : 0;
+  const rawMult = m > 1 ? Math.min(6, Math.round(Math.log2(m))) : 0;
   const k = Math.max(0, s.streak - 1);
-  const fromStreak = k > 0 ? Math.min(14, Math.round((k * (k + 3)) / 2)) : 0;
-  const fromTumble = s.tumbles >= 2 ? Math.min(8, s.tumbles) : 0;
-  const fromBanner =
-    s.banner === "max" ? 18 : s.banner === "epic" ? 12 : s.banner === "mega" ? 8 : s.banner === "big" ? 4 : 0;
-  let fromBonus = 0;
-  if (s.kind === "fs") fromBonus += 6;
-  if (s.kind === "pick") fromBonus += 4;
-  if (s.ante && s.kind === "base") fromBonus += 1;
-  if ((s.scatters ?? 0) >= 3 && s.kind === "base") fromBonus += 2;
+  const rawStreak = k > 0 ? Math.min(6, Math.round(k * 0.8)) : 0;
+  const rawTumble = s.tumbles >= 2 ? Math.min(4, s.tumbles - 1) : 0;
+  const rawBanner =
+    s.banner === "max" ? 8 : s.banner === "epic" ? 6 : s.banner === "mega" ? 4 : s.banner === "big" ? 2 : 0;
+  let rawBonus = 0;
+  if (s.kind === "fs") rawBonus += 3;
+  if (s.kind === "pick") rawBonus += 2;
+  if (s.ante && s.kind === "base") rawBonus += 1;
+  if ((s.scatters ?? 0) >= 3 && s.kind === "base") rawBonus += 1;
   const retriggers = s.retriggers ?? 0;
-  if (retriggers > 0) fromBonus += Math.min(10, retriggers * 5);
+  if (retriggers > 0) rawBonus += Math.min(4, retriggers * 2);
   const picks = s.picks ?? 0;
-  if (s.kind === "pick" && picks > 0) fromBonus += Math.min(5, picks);
-  const fromStake = Math.round(
-    Math.log2(1 + s.bet) * Math.min(2.6, 0.35 + 0.16 * Math.log2(1 + cash)),
-  );
-  const core = fromSum + fromMult + fromStreak + fromTumble + fromBanner + fromBonus + fromStake;
+  if (s.kind === "pick" && picks > 0) rawBonus += Math.min(3, picks);
+  const fromSum = Math.max(1, pack(1));
+  const fromMult = pack(rawMult);
+  const fromStreak = pack(rawStreak);
+  const fromTumble = pack(rawTumble);
+  const fromBanner = pack(rawBanner);
+  const fromBonus = pack(rawBonus);
+  const core = fromSum + fromMult + fromStreak + fromTumble + fromBanner + fromBonus;
 
   return {
     total: Math.max(1, Math.min(WIN_RP_CAP, core)),
@@ -596,7 +602,7 @@ export function rpFromSpin(s: RankSpin): RankBreakdown {
     fromTumble,
     fromBanner,
     fromBonus,
-    fromStake,
+    fromStake: 0,
     fromBuy: 0,
     fromReload: 0,
   };
