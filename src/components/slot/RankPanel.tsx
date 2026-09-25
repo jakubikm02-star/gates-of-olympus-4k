@@ -159,6 +159,7 @@ export function RankPanel({ open, onClose, stand, peak, shield, streak = 0, week
             );
           })}
         </ol>
+        <p className="rank-credits">Kenney.nl · game-icons.net · ambientCG · Wenrexa</p>
       </div>
     </div>
   );

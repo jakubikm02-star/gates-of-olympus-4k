@@ -154,6 +154,11 @@ export function SlotGrid({
       aria-label="Herné pole 6×5"
       onClick={onTap}
     >
+      <div className="frame-skin" aria-hidden="true" />
+      <i className="frame-bolt nw" aria-hidden="true" />
+      <i className="frame-bolt ne" aria-hidden="true" />
+      <i className="frame-bolt sw" aria-hidden="true" />
+      <i className="frame-bolt se" aria-hidden="true" />
       <div className="frame-chip" aria-hidden="true" />
       <div className="frame-chip is-back" aria-hidden="true" />
       <div

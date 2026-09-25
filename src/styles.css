@@ -777,7 +777,7 @@
   position: absolute;
   inset: calc(var(--bz, 12px) - 5px);
   border-radius: 4px;
-  border: 2px solid var(--fa, var(--color-gold));
+  border: 2px solid rgb(0 0 0 / 0.55);
   box-shadow:
     0 0 0 1px #050608,
     inset 0 0 0 1px #050608,
@@ -787,8 +787,54 @@
   transition: border-color 1.2s ease, opacity 0.35s ease;
 }
 
-.stage.in-fs .reel-frame::before {
+.frame-skin {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  border-style: solid;
+  border-width: 16px;
+  border-image-source: url("/frames/bezel-kredit.png");
+  border-image-slice: 32;
+  border-image-width: 16px;
+  border-image-repeat: stretch;
+}
+
+.stage.rk-sloboda .frame-skin { border-image-source: url("/frames/bezel-sloboda.png"); }
+.stage.rk-smart .frame-skin { border-image-source: url("/frames/bezel-smart.png"); }
+.stage.rk-telka .frame-skin { border-image-source: url("/frames/bezel-telka.png"); }
+.stage.rk-optika .frame-skin { border-image-source: url("/frames/bezel-optika.png"); }
+.stage.rk-duo .frame-skin { border-image-source: url("/frames/bezel-duo.png"); }
+.stage.rk-fiveg .frame-skin { border-image-source: url("/frames/bezel-fiveg.png"); }
+.stage.rk-nekonecno .frame-skin { border-image-source: url("/frames/bezel-nekonecno.png"); }
+
+.stage.in-fs .frame-skin,
+.stage.in-fs .frame-bolt {
   opacity: 0.3;
+}
+
+.frame-bolt {
+  position: absolute;
+  z-index: 8;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  background: var(--fa, #d7dde3);
+  -webkit-mask: var(--ico) center / contain no-repeat;
+  mask: var(--ico) center / contain no-repeat;
+}
+
+.frame-bolt.nw { top: 1px; left: 1px; --ico: url("/frames/cpu.svg"); }
+.frame-bolt.ne { top: 1px; right: 1px; --ico: url("/frames/satellite.svg"); }
+.frame-bolt.sw { bottom: 1px; left: 1px; --ico: url("/frames/radar.svg"); }
+.frame-bolt.se { bottom: 1px; right: 1px; --ico: url("/frames/cpu.svg"); transform: rotate(180deg); }
+
+.rank-credits {
+  margin: 14px 0 4px;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(180 190 200 / 0.7);
 }
 
 .frame-chip {
@@ -832,24 +878,23 @@
 .stage.rk-duo .frame-chip:not(.is-back),
 .stage.rk-fiveg .frame-chip:not(.is-back),
 .stage.rk-nekonecno .frame-chip:not(.is-back) {
-  width: 24px;
-  height: 3px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, transparent, var(--chip));
+  width: 28px;
+  height: 8px;
+  border-radius: 0;
+  background: var(--chip);
+  -webkit-mask: url("/frames/trail.png") center / 100% 100% no-repeat;
+  mask: url("/frames/trail.png") center / 100% 100% no-repeat;
   offset-rotate: auto;
   offset-anchor: right center;
 }
 
-.stage.rk-fiveg .frame-chip:not(.is-back),
-.stage.rk-nekonecno .frame-chip:not(.is-back) {
-  height: 2px;
-}
-
 .stage.rk-nekonecno .frame-chip.is-back {
   display: block;
-  width: 18px;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, var(--chip-back));
+  width: 22px;
+  height: 8px;
+  background: var(--chip-back);
+  -webkit-mask: url("/frames/trail.png") center / 100% 100% no-repeat;
+  mask: url("/frames/trail.png") center / 100% 100% no-repeat;
   offset-rotate: auto;
   offset-anchor: right center;
   opacity: 0.4;
@@ -894,6 +939,11 @@
 .stage.rk-nekonecno { --fm0: #f2f5f8; --fm1: #98a3ae; --fm2: #2c333b; --fa: #ffe3a8; }
 
 .stage.rk-nekonecno .reel-frame {
+  background-image:
+    linear-gradient(180deg, rgb(255 255 255 / 0.28), rgb(0 0 0 / 0.35)),
+    url("/frames/metal.jpg");
+  background-size: auto, 180px;
+  background-blend-mode: soft-light, multiply;
   box-shadow:
     0 0 0 2px #050608,
     0 0 16px rgb(255 227 168 / 0.28),
@@ -947,6 +997,7 @@
 
 .reel-window {
   position: relative;
+  z-index: 4;
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   column-gap: 5px;
