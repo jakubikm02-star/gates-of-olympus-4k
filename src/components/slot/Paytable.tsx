@@ -113,14 +113,14 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
                 <span>FIALOVÝ 3-FTTB</span>
                 <span>ZLATÝ 4-FTTB</span>
               </div>
-              <div className="pay-quip">Neplatí 8+. Neskáče do SIGNÁL. Max 1 na spin.</div>
+              <div className="pay-quip">Neplatí 8+. Neskáče do Mbps. Max 1 na spin.</div>
             </div>
           </div>
         </div>
         <ul className="rules">
           <li>
             Štyri poty od najnižšieho: 1-FTTB 500 / 1 800, 2-FTTB 4 000 / 14 000, 3-FTTB 28 000 / 90 000, 4-FTTB 120 000 / 220 000.
-            Padnú len cez LÍSTOK po resolve tumble — nikdy mystery mid-tumble, nikdy 8+, nikdy SIGNÁL.
+            Padnú len cez LÍSTOK po resolve tumble — nikdy mystery mid-tumble, nikdy 8+, nikdy Mbps.
             Must-hit: keď meter prekročí skrytý prah, tá farba je do 15 spinov, 16. spin ju donúti. 4-FTTB 70 / 15 / 15.
           </li>
           <li>
@@ -129,7 +129,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
           </li>
           <li>Výherné symboly zmiznú, nové spadnú zhora (tumble). Plechovky, scatter aj lístok tumble prežijú.</li>
           <li>Násobiče nepadajú z valca ako RJ45. Rampa ich pustí ako energy plechovky. 15 hodnôt, sčítajú sa (50+100=150, nie 5 000). Aktivujú sa až na konci reťaze, a len ak bola výhra. 2/3/5 sú ~70 % plechoviek; 500× je vzácnejšia ako PDF 8+.</li>
-          <li>Base: súčet plechoviek × celá tumble sekvencia, potom reset. Vo FS tečú do SIGNÁL a ostávajú; bez výhry prepadnú ako tapeta.</li>
+          <li>Base: súčet plechoviek × celá tumble sekvencia, potom reset. Vo FS tečú do Mbps a ostávajú; bez výhry prepadnú ako tapeta.</li>
           <li>4 scattere = 15 voľných točení. V bonuse 3+ scattere = +5. Výplata scatteru ostáva 4 / 5 / 6.</li>
           <li>
             Lístok vo feature smie padnúť, ceremónia ide až po SIEŤ SPADLA. Banner je{" "}

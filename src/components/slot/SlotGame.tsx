@@ -245,7 +245,7 @@ export function SlotGame() {
               {g.inFs ? (
                 <div className="fs-hero" aria-live="polite">
                   <div className={`wing-mult ${g.flies.length ? "is-feed" : ""}`}>
-                    <span>SIGNÁL</span>
+                    <span>Mbps</span>
                     <b>{g.globalMult || 0}×</b>
                   </div>
                   <div className="fs-left">
@@ -346,7 +346,7 @@ export function SlotGame() {
             <span className={`led-sign ${g.inFs || g.seqMult > 1 || g.flies.length ? "is-multi" : ""}`}>
               {g.inFs || g.seqMult > 1 || g.flies.length ? (
                 <>
-                  SIGNÁL <b>{Math.max(0, g.globalMult || (g.inFs ? 0 : g.seqMult))}×</b>
+                  Mbps <b>{Math.max(0, g.globalMult || (g.inFs ? 0 : g.seqMult))}×</b>
                 </>
               ) : (
                 <>

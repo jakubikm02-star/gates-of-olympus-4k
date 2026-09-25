@@ -1402,7 +1402,7 @@ export function useSlotGame() {
       } else if ((isFree || inFsRef.current) && sequenceX > 0) {
         applied = Math.max(1, globalMultRef.current);
         setSeqMult(applied);
-        if (applied > 1) setTopLine(`SIGNÁL ×${applied}`);
+        if (applied > 1) setTopLine(`Mbps ×${applied}`);
       } else {
         setSeqMult(1);
       }
