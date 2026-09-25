@@ -153,7 +153,7 @@ export function RankPanel({ open, onClose, stand, peak, shield, streak = 0, week
                     })}
                   </span>
                 ) : (
-                  <span className="rank-pips lone">{r.id === "nekonecno" ? "PREDATOR" : "MASTER"}</span>
+                  <span className="rank-pips lone">{r.id === "nekonecno" ? "VRCHOL" : "MASTER"}</span>
                 )}
               </li>
             );

@@ -124,9 +124,18 @@ export function rankStart(rankIndex: number): number {
 }
 
 export const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-export const WEEKLY_CATCHUP_MAX = 3;
+export const WEEKLY_CATCHUP_MAX = 4;
 
-/** Land on IV (start) of the previous named group. 4KA TV II → SMART IV. */
+/** One division back. 4KA TV II → 4KA TV III, not the previous group. */
+export function dropOneDivision(rp: number): number {
+  const s = standing(rp);
+  if (s.rp <= 0) return 0;
+  const idx = BANDS.findIndex((b) => b.rankIndex === s.rankIndex && b.division === s.division);
+  if (idx <= 0) return 0;
+  return BANDS[idx - 1]?.floor ?? 0;
+}
+
+/** @deprecated Weekly decay no longer drops a whole group. */
 export function dropOneGroup(rp: number): number {
   const s = standing(rp);
   if (s.rankIndex <= 0) return 0;
@@ -152,11 +161,13 @@ export function applyWeeklyDecay(
   if (weeks <= 0) {
     return { rp, lastDecayAt, drops: 0, before, after: before };
   }
+  const floorRank = before.rankIndex - 1;
   let next = rp;
   let drops = 0;
   for (let i = 0; i < weeks; i++) {
-    const dropped = dropOneGroup(next);
+    const dropped = dropOneDivision(next);
     if (dropped >= next) break;
+    if (standing(dropped).rankIndex < floorRank) break;
     next = dropped;
     drops += 1;
   }
@@ -254,13 +265,13 @@ export const RANK_PERKS: RankPerk[] = [
   },
   {
     id: "smart",
-    title: "Ante 1.20×",
-    detail: "Ante stojí 1.20× namiesto 1.25×. Držíš viac kreditu na točenie.",
+    title: "Ante 1,22×",
+    detail: "Ante stojí 1,22× namiesto 1,25×. Jedna prehra v sérii sa drží.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
     dripX: 0,
-    anteMul: 1.2,
+    anteMul: 1.22,
     fsExtra: 0,
     buyOff: 0,
     deadRebate: 0,
@@ -269,13 +280,13 @@ export const RANK_PERKS: RankPerk[] = [
   },
   {
     id: "telka",
-    title: "2 lístky",
-    detail: "Dva lístky do jackpot poolu. Ante 1.20×.",
+    title: "Hold + ante",
+    detail: "Ante 1,22× a jedna prehra nestrhne sériu. Žiadne lístky navyše.",
     pityBonus: 0,
-    jackTicket: 2,
+    jackTicket: 1,
     streakHold: true,
     dripX: 0,
-    anteMul: 1.2,
+    anteMul: 1.22,
     fsExtra: 0,
     buyOff: 0,
     deadRebate: 0,
@@ -284,68 +295,94 @@ export const RANK_PERKS: RankPerk[] = [
   },
   {
     id: "optika",
-    title: "5 % späť",
-    detail: "Mŕtvy spin vráti 5 % stávky. 2 lístky do poolu. Ante 1.20×.",
+    title: "3 % späť",
+    detail: "Mŕtvy spin vráti 3 % stávky. Strop 20 stávok / 100 spinov.",
     pityBonus: 0,
-    jackTicket: 2,
+    jackTicket: 1,
     streakHold: true,
     dripX: 0,
-    anteMul: 1.2,
+    anteMul: 1.22,
     fsExtra: 0,
     buyOff: 0,
-    deadRebate: 0.05,
+    deadRebate: 0.03,
     stickyOrbs: false,
     orbBonus: 0,
   },
   {
     id: "duo",
-    title: "+1 FS",
-    detail: "Bonus má 16 voľných točení. 5 % späť, 2 lístky, postup +0.5× stávka.",
+    title: "LIVE 16",
+    detail: "Bonus má 16 točení. Buy ostáva 100×. Postup +0,5× stávku. Cashback 3 % so stropom.",
     pityBonus: 0,
-    jackTicket: 2,
+    jackTicket: 1,
     streakHold: true,
     dripX: 0.5,
-    anteMul: 1.2,
+    anteMul: 1.22,
     fsExtra: 1,
     buyOff: 0,
-    deadRebate: 0.05,
+    deadRebate: 0.03,
     stickyOrbs: false,
     orbBonus: 0,
   },
   {
     id: "fiveg",
-    title: "Kúpa 95×",
-    detail: "Buy FS za 95× a 17 točení. 3 lístky, 5 % späť.",
+    title: "LIVE 16",
+    detail: "Bonus ostáva 16 točení, buy 100×. Postup +1× stávku. Cashback 3 % so stropom.",
     pityBonus: 0,
-    jackTicket: 3,
+    jackTicket: 1,
     streakHold: true,
     dripX: 1,
-    anteMul: 1.2,
-    fsExtra: 2,
-    buyOff: 5,
-    deadRebate: 0.05,
+    anteMul: 1.22,
+    fsExtra: 1,
+    buyOff: 0,
+    deadRebate: 0.03,
     stickyOrbs: false,
     orbBonus: 0,
   },
   {
     id: "nekonecno",
-    title: "PREDATOR",
-    detail: "Buy 90×, 18 FS, mŕtvy FS pripočíta plechovky do násobiča, 10 % späť, extra rampa, 4 lístky.",
+    title: "LIVE 17",
+    detail: "17 točení, buy 100×. Mŕtvy spin 5 % späť, strop 20 stávok / 100 spinov. Druhá plechovka len v 20 %, keď už jedna padla. Postup +2× stávku.",
     pityBonus: 0,
-    jackTicket: 4,
+    jackTicket: 1,
     streakHold: true,
     dripX: 2,
-    anteMul: 1.2,
-    fsExtra: 3,
-    buyOff: 10,
-    deadRebate: 0.1,
-    stickyOrbs: true,
+    anteMul: 1.22,
+    fsExtra: 2,
+    buyOff: 0,
+    deadRebate: 0.05,
+    stickyOrbs: false,
     orbBonus: 1,
   },
 ];
 
 export function perkOf(rankId: string | undefined): RankPerk {
   return RANK_PERKS.find((p) => p.id === rankId) ?? RANK_PERKS[0];
+}
+
+export const REBATE_WINDOW = 100;
+export const REBATE_CAP_BETS = 20;
+export const DEAD_RP_CAP = 8;
+
+/** Cashback inside a 100-spin window. Never pays more than 20 bets in that window. */
+export function nextRebate(opts: {
+  rate: number;
+  bet: number;
+  paid: number;
+  spins: number;
+  dead: boolean;
+}): { pay: number; paid: number; spins: number } {
+  let spins = opts.spins + 1;
+  let paid = opts.paid;
+  if (spins > REBATE_WINDOW) {
+    spins = 1;
+    paid = 0;
+  }
+  if (!opts.dead || opts.rate <= 0 || opts.bet <= 0) return { pay: 0, paid, spins };
+  const cap = REBATE_CAP_BETS * opts.bet;
+  const want = +(opts.bet * opts.rate).toFixed(2);
+  const room = Math.max(0, +(cap - paid).toFixed(2));
+  const pay = +Math.min(want, room).toFixed(2);
+  return { pay, paid: +(paid + pay).toFixed(2), spins };
 }
 
 export function buyXOf(rankId?: string): number {
@@ -416,6 +453,20 @@ export function reloadPunish(opts: {
   streak: number;
   maxBet: number;
 }): { delta: number; parts: RankBreakdown } {
+  const empty: RankBreakdown = {
+    total: 0,
+    fromSum: 0,
+    fromMult: 0,
+    fromStreak: 0,
+    fromTumble: 0,
+    fromBanner: 0,
+    fromBonus: 0,
+    fromStake: 0,
+    fromBuy: 0,
+    fromReload: 0,
+  };
+  const id = standing(opts.rp).id;
+  if (id !== "fiveg" && id !== "nekonecno") return { delta: 0, parts: empty };
   const bet = Math.max(0.01, opts.bet);
   const maxBet = Math.max(bet, opts.maxBet);
   const t = Math.min(1, Math.log2(1 + bet) / Math.log2(1 + maxBet));
@@ -436,33 +487,24 @@ export function reloadPunish(opts: {
   const rankW = 1 + standing(opts.rp).rankIndex * 0.12;
   const streakW = 1 + Math.min(5, Math.max(0, opts.streak - 1)) * 0.55;
   const raw = Math.round((minFee + (maxFee - minFee) * t) * rankW * streakW);
-  const delta = raw > 0 ? -raw : 0;
-  const empty: RankBreakdown = {
-    total: delta,
-    fromSum: 0,
-    fromMult: 0,
-    fromStreak: 0,
-    fromTumble: 0,
-    fromBanner: 0,
-    fromBonus: 0,
-    fromStake: 0,
-    fromBuy: 0,
-    fromReload: delta,
+  const delta = raw > 0 ? -Math.min(DIV_RP / 2, raw) : 0;
+  return {
+    delta,
+    parts: { ...empty, total: delta, fromReload: delta },
   };
-  return { delta, parts: empty };
 }
 
 export const RANK_REWARDS = [
   { id: "sum", title: "Suma výhry", detail: "RP z reálnych eur, nie z násobku. 0.36 € ≈ 2 RP, 75 € ≈ 36 RP, 500 € ≈ 110 RP." },
-  { id: "stake", title: "Výška stávky", detail: "Vyššia stávka pri výhre pridá RP, pri mŕtvom spine berie. KREDIT má mŕtvy spin 0. NEKONEČNO na 100 € ≈ −57 RP za miss." },
+  { id: "stake", title: "Výška stávky", detail: "Vyššia stávka pri výhre pridá RP. Mŕtvy spin od SMART berie najviac 8 RP, bez ohľadu na stávku. KREDIT má miss 0." },
   { id: "mult", title: "Násobič", detail: "Energy plechovky. ×2 ≈ +4, ×10 ≈ +12, ×50 ≈ +19." },
   { id: "streak", title: "Séria výhier", detail: "2. výhra +2, 3. +5, 4. +9, 5.+ max +14. Mŕtvy spin zhodí na 0 — od SLOBODY jeden hold." },
   { id: "tumble", title: "Tumble reťaz", detail: "Dva a viac pádov v jednom spine: +2 až +8 RP." },
   { id: "banner", title: "BIG / MEGA / EPIC / MAX", detail: "Popup: +4 / +8 / +12 / +18." },
-  { id: "bonus", title: "Bonusy", detail: "FS total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Prírodzené FS idú z 1× stávky. Kúpa FS = 100 točení: výhra sa ráta voči cene kúpy, prehra berie entry ako mŕtve spiny (max 1 divízia)." },
-  { id: "rank", title: "Aktívna liga", detail: "Herné perky: lacnejšie ante, cashback, extra FS, zľava na buy, lístky, sticky plechovky. Liga nenásobí RP a nenabíja KONTROLA rýchlejšie." },
-  { id: "reload", title: "Bankrot", detail: "Dobitie +5000 pri prázdnom kredite berie RP. Max bet dump je drahší ako farm — 100 € ≈ −800 RP, opakované dobitie násobí trest. 80 platených spinov bez dobitia sériu nuluje." },
-  { id: "week", title: "Týždenný drop", detail: "Raz za 7 dní klesáš o jednu skupinu na IV predchádzajúcej ligy. 4KA TV II → SMART IV. AFK max 3 skupiny naraz. Štít nechráni." },
+  { id: "bonus", title: "Bonusy", detail: "FS total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Buy je vždy 100×. LIVE je 15, od DUO 16, v NEKONEČNO 17. Kúpa sa ráta voči cene, prehra berie entry ako mŕtve spiny (max 1 divízia)." },
+  { id: "rank", title: "Aktívna liga", detail: "Ante 1,22× od SMART, cashback so stropom od OPTIKA, +1 a +2 točenia v LIVE. Liga nenásobí RP, nelacní buy a nedáva lístky navyše." },
+  { id: "reload", title: "Bankrot", detail: "Dobitie +5000 berie RP len v 5G a NEKONEČNO, najviac pol divízie. Pod tým 0. 80 platených spinov bez dobitia sériu nuluje." },
+  { id: "week", title: "Týždenný drop", detail: "Raz za 7 dní klesáš o jednu divíziu, nie o celú skupinu. Dlhšia pauza zoberie najviac jednu skupinu. Štít týždeň nechytá." },
 ] as const;
 
 export const RANK_RULES = RANK_REWARDS.map((r) => `${r.title} — ${r.detail}`);
@@ -502,7 +544,8 @@ export function rpFromDead(bet: number, entry: number): RankBreakdown {
   };
   if (entry <= 0) return empty;
   const stake = Math.max(0, bet);
-  const delta = -Math.max(1, Math.round(entry * (0.9 + 0.72 * Math.log2(1 + stake))));
+  const raw = -Math.max(1, Math.round(entry * (0.9 + 0.72 * Math.log2(1 + stake))));
+  const delta = entry >= 4 ? Math.max(raw, -DEAD_RP_CAP) : raw;
   return { ...empty, total: delta, fromStake: delta };
 }
 

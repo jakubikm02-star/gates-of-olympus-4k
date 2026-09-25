@@ -14,7 +14,7 @@ import {
   TIERS,
   TICKET_ODDS,
 } from "./jackpot.ts";
-import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
+import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneDivision, fsSpinsOf, nextRebate, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain } from "./pick-bonus.ts";
 import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta, canDuelSpin, duelView, forfeitDuel } from "./duel.ts";
 import { PAY_SYMBOLS, payName, ORB_TABLE, ORB_VALUES } from "./symbols.ts";
@@ -126,13 +126,15 @@ describe("rank stake + perk", () => {
     assert.equal(max.fromBanner, 18);
   });
 
-  it("dead spin is free in KREDIT and expensive at 100€ NEKONEČNO", () => {
+  it("dead spin is free in KREDIT and capped at 8 RP from SMART", () => {
     assert.equal(rpFromDead(1, 0).total, 0);
     const nekOne = rpFromDead(1, 10);
     const nekMax = rpFromDead(100, 10);
-    assert.ok(nekMax.total <= -50, `max dead ${nekMax.total}`);
-    assert.ok(nekOne.total > nekMax.total);
+    assert.equal(nekMax.total, -8);
     assert.ok(nekOne.total < 0);
+    assert.ok(nekOne.total >= nekMax.total);
+    const low = rpFromDead(100, 3);
+    assert.ok(low.total < -8);
   });
 
   it("rank does not multiply RP", () => {
@@ -148,15 +150,22 @@ describe("rank stake + perk", () => {
     const kredit = rpFromSpin({ ...base, rankId: "kredit" });
     const top = rpFromSpin({ ...base, rankId: "nekonecno" });
     assert.equal(top.total, kredit.total);
-    assert.equal(perkOf("nekonecno").jackTicket, 4);
+    assert.equal(perkOf("nekonecno").jackTicket, 1);
     assert.equal(perkOf("sloboda").streakHold, true);
-    assert.equal(perkOf("smart").anteMul, 1.2);
-    assert.equal(perkOf("optika").deadRebate, 0.05);
-    assert.equal(perkOf("nekonecno").stickyOrbs, true);
-    assert.equal(buyXOf("fiveg"), 95);
-    assert.equal(buyXOf("nekonecno"), 90);
+    assert.equal(perkOf("smart").anteMul, 1.22);
+    assert.equal(perkOf("optika").deadRebate, 0.03);
+    assert.equal(perkOf("nekonecno").deadRebate, 0.05);
+    assert.equal(perkOf("nekonecno").stickyOrbs, false);
+    assert.equal(buyXOf("fiveg"), 100);
+    assert.equal(buyXOf("nekonecno"), 100);
     assert.equal(fsSpinsOf("duo"), 16);
-    assert.equal(fsSpinsOf("nekonecno"), 18);
+    assert.equal(fsSpinsOf("fiveg"), 16);
+    assert.equal(fsSpinsOf("nekonecno"), 17);
+    const capped = nextRebate({ rate: 0.05, bet: 1, paid: 19.98, spins: 10, dead: true });
+    assert.equal(capped.pay, 0.02);
+    const reset = nextRebate({ rate: 0.05, bet: 1, paid: 20, spins: 100, dead: true });
+    assert.equal(reset.spins, 1);
+    assert.equal(reset.pay, 0.05);
   });
 
   it("buy FS ranks against the 100× turnover, not the 1€ bet", () => {
@@ -198,42 +207,35 @@ describe("rank stake + perk", () => {
     assert.ok(half.delta < 0);
   });
 
-  it("reload at max bet costs more RP than one 5000 dump can farm", () => {
-    const max = reloadPunish({ bet: 100, rp: 0, streak: 1, maxBet: 100 });
-    const min = reloadPunish({ bet: 0.2, rp: 0, streak: 1, maxBet: 100 });
-    const mid = reloadPunish({ bet: 1, rp: 0, streak: 1, maxBet: 100 });
-    const farm =
-      50 *
-      0.3467 *
-      (9 * Math.log2(1 + 0.9769 / 0.3467) + 2.8 * Math.log2(101));
-    assert.ok(-max.delta > farm, `${-max.delta} should exceed farm ${farm}`);
-    assert.ok(-min.delta < 120);
-    assert.ok(-max.delta > -mid.delta);
-    assert.ok(-mid.delta > -min.delta);
-    const second = reloadPunish({ bet: 100, rp: 0, streak: 2, maxBet: 100 });
-    assert.ok(-second.delta > -max.delta);
-    const high = reloadPunish({ bet: 100, rp: 2700, streak: 1, maxBet: 100 });
-    assert.ok(-high.delta > -max.delta);
+  it("reload costs RP only in 5G and NEKONEČNO, at most half a division", () => {
+    const low = reloadPunish({ bet: 100, rp: 0, streak: 1, maxBet: 100 });
+    assert.equal(low.delta, 0);
+    const optika = reloadPunish({ bet: 100, rp: 1600, streak: 3, maxBet: 100 });
+    assert.equal(optika.delta, 0);
+    const top = reloadPunish({ bet: 100, rp: 2700, streak: 2, maxBet: 100 });
+    assert.ok(top.delta < 0);
+    assert.ok(top.delta >= -50);
   });
 
-  it("weekly drop sends 4KA TV II to SMART IV", () => {
+  it("weekly drop moves one division, and AFK stops after one group", () => {
     const tv2 = standing(1400);
     assert.equal(tv2.id, "telka");
     assert.equal(tv2.roman, "II");
-    const next = standing(dropOneGroup(1400));
-    assert.equal(next.id, "smart");
-    assert.equal(next.roman, "IV");
-    const kredit = dropOneGroup(50);
-    assert.equal(kredit, 0);
+    const next = standing(dropOneDivision(1400));
+    assert.equal(next.id, "telka");
+    assert.equal(next.roman, "III");
+    assert.equal(dropOneDivision(0), 0);
     const now = 1_000_000_000_000;
     const fresh = applyWeeklyDecay(1400, 0, now);
     assert.equal(fresh.drops, 0);
     assert.equal(fresh.rp, 1400);
     const week = applyWeeklyDecay(1400, now - WEEK_MS - 1000, now);
     assert.equal(week.drops, 1);
-    assert.equal(week.after.id, "smart");
+    assert.equal(week.after.id, "telka");
+    assert.equal(week.after.roman, "III");
     const afk = applyWeeklyDecay(1400, now - WEEK_MS * 10, now);
-    assert.equal(afk.drops, 3);
+    assert.equal(afk.drops, 4);
+    assert.equal(afk.after.id, "smart");
   });
 });
 
@@ -247,7 +249,7 @@ describe("kontrola pity", () => {
     assert.equal(perkOf("nekonecno").pityBonus, 0);
     assert.equal(perkOf("fiveg").pityBonus, 0);
     assert.equal(perkOf("telka").pityBonus, 0);
-    assert.equal(perkOf("telka").jackTicket, 2);
+    assert.equal(perkOf("telka").jackTicket, 1);
   });
 });
 

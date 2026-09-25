@@ -154,7 +154,8 @@ export function SlotGrid({
       aria-label="Herné pole 6×5"
       onClick={onTap}
     >
-      <div className="frame-run" aria-hidden="true" />
+      <div className="frame-chip" aria-hidden="true" />
+      <div className="frame-chip is-back" aria-hidden="true" />
       <div
         className={`reel-window ${spinning ? "is-spinning" : ""} ${landing ? "is-landing" : ""} ${anticipate ? "is-anticipate" : ""} ${activatingMult ? "is-zeus-strike" : ""} ${fast ? "is-fast" : ""} ${spinPace === "up" ? "is-spin-up" : ""} ${spinPace === "full" ? "is-spin-full" : ""}`}
       >

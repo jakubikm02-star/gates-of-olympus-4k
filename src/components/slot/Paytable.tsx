@@ -135,7 +135,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             Lístok vo feature smie padnúť, ceremónia ide až po SIEŤ SPADLA. Banner je{" "}
             <code>1-FTTB · 1 742,20</code> — žiadny WinBox, žiadny terminál.
           </li>
-          <li>Ante 1.20× zdvojnásobí 4ka TV, nie šancu lístka. Buy 100× = LIVE so SIGNÁL 0×. Pity je IDLE meter, nikdy jackpot.</li>
+          <li>Ante zdvojnásobí 4ka TV, nie šancu lístka. Od SMART stojí 1,22× namiesto 1,25×. Buy je vždy 100×. Pity je IDLE meter, nikdy jackpot.</li>
           <li>
             KONTROLA má vlastný PITY meter na každú stávku (100). Iba mŕtvy spin (+2) a 3 / 4 scattere
             (+30). Po spustení bar padne na 0. Kúpiť sa nedá.
@@ -147,19 +147,19 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             točíte naraz, live skóre. Víťaz berie výhry oboch.
           </li>
           <li>
-            Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bankrot +5000 berie RP podľa stávky.
+            Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bankrot +5000 berie RP len v 5G a NEKONEČNO, najviac pol divízie.
             80 platených spinov bez dobitia sériu trestov vynuluje.
           </li>
           <li>
             Ranked liga 4ky: KREDIT → SLOBODA → SMART → 4KA TV → OPTIKA → DUO → 5G NA DOMA → NEKONEČNO.
-            Raz za týždeň klesáš o jednu skupinu. RP za reálne vyhrané eurá a za stávku.
+            Raz za týždeň klesáš o jednu divíziu. Dlhšia pauza najviac o jednu skupinu.
           </li>
           <li>
             Win popup ako na Olympuse: BIG WIN od 20× stávky, MEGA WIN od 35×, SUPER MEGA WIN od 50×.
             MAX WIN 5000× ukončí feature.
           </li>
           <li>
-            Kúpa voľných točení = 100× základná stávka (95× od 5G, 90× v NEKONEČNE). Ante sa na kúpu nevzťahuje.
+            Kúpa voľných točení = 100× základná stávka na každom ranku. Ante sa na kúpu nevzťahuje.
             Do ranku sa kúpa ráta ako 100 točení. Max 5000× je strop celej feature — potom FEATURE TERMINATED.
           </li>
           <li>

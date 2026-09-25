@@ -787,19 +787,101 @@
   transition: border-color 1.2s ease, opacity 0.35s ease;
 }
 
-.stage.in-fs .reel-frame::before,
-.stage.in-fs .frame-run {
+.stage.in-fs .reel-frame::before {
   opacity: 0.3;
 }
 
-.frame-run {
+.frame-chip {
   position: absolute;
-  inset: 0;
-  z-index: 7;
+  z-index: 8;
+  top: 0;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--chip, #9bb0c4);
+  offset-path: inset(7px round 8px);
+  offset-distance: 0%;
+  offset-rotate: 0deg;
   pointer-events: none;
+  display: none;
+  mix-blend-mode: plus-lighter;
+}
+
+.stage.rk-telka .frame-chip:not(.is-back),
+.stage.rk-optika .frame-chip:not(.is-back),
+.stage.rk-duo .frame-chip:not(.is-back),
+.stage.rk-fiveg .frame-chip:not(.is-back),
+.stage.rk-nekonecno .frame-chip:not(.is-back) {
+  display: block;
+  opacity: 0.42;
+  animation: chip-lap var(--chip-lap, 12s) linear infinite;
+}
+
+.stage.rk-telka { --chip: #9bb0c4; --chip-lap: 20s; }
+.stage.rk-optika { --chip: #e2b15a; --chip-lap: 14s; }
+.stage.rk-duo { --chip: #e6c15a; --chip-lap: 12s; }
+.stage.rk-fiveg { --chip: #3ec6e0; --chip-lap: 10s; }
+.stage.rk-nekonecno { --chip: #3ec6e0; --chip-back: #ffe3a8; --chip-lap: 10s; }
+
+.stage.rk-telka .frame-chip:not(.is-back) {
+  opacity: 0.22;
+  animation-name: chip-third;
+}
+
+.stage.rk-duo .frame-chip:not(.is-back),
+.stage.rk-fiveg .frame-chip:not(.is-back),
+.stage.rk-nekonecno .frame-chip:not(.is-back) {
+  width: 24px;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--chip));
+  offset-rotate: auto;
+  offset-anchor: right center;
+}
+
+.stage.rk-fiveg .frame-chip:not(.is-back),
+.stage.rk-nekonecno .frame-chip:not(.is-back) {
+  height: 2px;
+}
+
+.stage.rk-nekonecno .frame-chip.is-back {
+  display: block;
+  width: 18px;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--chip-back));
+  offset-rotate: auto;
+  offset-anchor: right center;
+  opacity: 0.4;
+  animation: chip-lap 14s linear infinite reverse;
+}
+
+.reel-frame:has(.is-spinning) .frame-chip,
+.reel-frame:has(.is-landing) .frame-chip,
+.stage.is-resolving .frame-chip {
+  animation-duration: 16s;
+  opacity: 0.2;
+}
+
+.stage.in-fs .frame-chip,
+.stage.is-ticket .frame-chip {
   opacity: 0;
-  background: conic-gradient(from 0deg, transparent 0 80%, var(--fa, #fff) 92%, transparent 100%);
-  mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 5px));
+  transition: opacity 0.2s linear;
+}
+
+.stage.is-rank-up .frame-chip {
+  animation-duration: 0.55s;
+  opacity: 0.8;
+}
+
+@keyframes chip-lap {
+  to { offset-distance: 100%; }
+}
+
+@keyframes chip-third {
+  0% { offset-distance: 0%; opacity: 0.22; }
+  33% { offset-distance: 33%; opacity: 0; }
+  100% { offset-distance: 33%; opacity: 0; }
 }
 
 .stage.rk-kredit { --fm0: #a7adb4; --fm1: #4c545c; --fm2: #171c21; --fa: rgb(236 240 244 / 0.45); }
@@ -811,39 +893,11 @@
 .stage.rk-fiveg { --fm0: #2c3138; --fm1: #14181d; --fm2: #08090c; --fa: #d08cff; }
 .stage.rk-nekonecno { --fm0: #f2f5f8; --fm1: #98a3ae; --fm2: #2c333b; --fa: #ffe3a8; }
 
-.stage.rk-smart .frame-run,
-.stage.rk-telka .frame-run,
-.stage.rk-optika .frame-run {
-  opacity: 0.85;
-  animation: frame-spin 12s linear infinite;
-}
-
-.stage.rk-sloboda .frame-run,
-.stage.rk-duo .frame-run {
-  animation: frame-spark 8s ease-in-out infinite;
-}
-
-.stage.rk-fiveg .reel-frame {
-  animation: frame-pulse 2.5s ease-in-out infinite;
-}
-
 .stage.rk-nekonecno .reel-frame {
   box-shadow:
     0 0 0 2px #050608,
-    0 0 16px rgb(255 227 168 / 0.35),
+    0 0 16px rgb(255 227 168 / 0.28),
     inset 0 1px 0 #fff;
-}
-
-.stage.rk-nekonecno .frame-run {
-  opacity: 0.4;
-}
-
-.reel-frame:has(.is-spinning) .frame-run,
-.reel-frame:has(.is-landing) .frame-run,
-.stage.is-resolving .frame-run,
-.stage.in-fs .frame-run,
-.stage.in-fs .reel-frame {
-  animation-play-state: paused;
 }
 
 .frame-toast {
@@ -882,20 +936,6 @@
 
 .board-job.is-fail .job-kicker {
   color: #ffb4b4;
-}
-
-@keyframes frame-spin {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes frame-spark {
-  0%, 88%, 100% { opacity: 0; }
-  92% { opacity: 0.95; }
-}
-
-@keyframes frame-pulse {
-  0%, 100% { box-shadow: 0 0 0 2px #050608, 0 0 8px color-mix(in srgb, var(--fa) 20%, transparent); }
-  50% { box-shadow: 0 0 0 2px #050608, 0 0 18px color-mix(in srgb, var(--fa) 55%, transparent); }
 }
 
 @keyframes frame-toast {

@@ -35,7 +35,7 @@ import {
   zeusDropCount,
 } from "@/lib/slot/engine";
 import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, spendPity, type PickTile, type PityMap } from "@/lib/slot/pick-bonus";
-import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneGroup, fsSpinsOf, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
+import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision, fsSpinsOf, nextRebate, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
@@ -195,6 +195,7 @@ export function useSlotGame() {
   const [job, setJob] = useState<JobCard | null>(null);
   const [ticketSeal, setTicketSeal] = useState<{ job: JobCard; verdict: "ok" | "fail" } | null>(null);
   const jobRef = useRef<JobCard | null>(null);
+  const rebateRef = useRef({ paid: 0, spins: 0 });
   const [jobOffer, setJobOffer] = useState<JobCard[] | null>(null);
   const [daily, setDaily] = useState<DailyBoard | null>(null);
   const dailyRef = useRef<DailyBoard | null>(null);
@@ -1146,7 +1147,9 @@ export function useSlotGame() {
         for (const row of next) for (const cell of row) if (cell.kind === "pay" && cell.payId === wantId) shownCount += 1;
       }
       const landDrop = zeusDropCount(rng, isFree || inFsRef.current, false);
-      const landN = landDrop > 0 ? landDrop + perk.orbBonus : 0;
+      const inDuel = Boolean(duelRef.current && duelRef.current.phase !== "done");
+      const bonusCan = !inDuel && perk.orbBonus > 0 && rng() < 0.2 ? perk.orbBonus : 0;
+      const landN = landDrop > 0 ? landDrop + bonusCan : 0;
       if (landN > 0) {
         setPhase("mult");
         setThrowBolt(true);
@@ -1283,7 +1286,9 @@ export function useSlotGame() {
         await wait(dur(50), abort.current);
         board = tumble(board, tumbleMask, rng, fillAnte, fsNow);
         const more = zeusDropCount(rng, isFree || inFsRef.current, true);
-        const moreN = more > 0 ? more + perk.orbBonus : 0;
+        const inDuel = Boolean(duelRef.current && duelRef.current.phase !== "done");
+        const bonusCan = !inDuel && perk.orbBonus > 0 && rng() < 0.2 ? perk.orbBonus : 0;
+        const moreN = more > 0 ? more + bonusCan : 0;
         if (moreN > 0) {
           setThrowBolt(true);
           sfx.playZap();
@@ -1456,15 +1461,39 @@ export function useSlotGame() {
             rankId: standing(rankRef.current.rp).id,
           });
           pushRank(parts.total, parts);
+          if (!escrow) {
+            const step = nextRebate({
+              rate: 0,
+              bet: currentBet,
+              paid: rebateRef.current.paid,
+              spins: rebateRef.current.spins,
+              dead: false,
+            });
+            rebateRef.current = { paid: step.paid, spins: step.spins };
+          }
         } else {
           noteResult(false);
           const dead = rpFromDead(currentBet, standing(rankRef.current.rp).entry);
           if (dead.total) pushRank(dead.total, dead);
           if (perk.deadRebate > 0 && !escrow) {
-            const back = +(currentBet * perk.deadRebate).toFixed(2);
-            if (back > 0) {
-              setBalance((b) => +(b + back).toFixed(2));
-            }
+            const step = nextRebate({
+              rate: perk.deadRebate,
+              bet: currentBet,
+              paid: rebateRef.current.paid,
+              spins: rebateRef.current.spins,
+              dead: true,
+            });
+            rebateRef.current = { paid: step.paid, spins: step.spins };
+            if (step.pay > 0) setBalance((b) => +(b + step.pay).toFixed(2));
+          } else if (!escrow && !isFree) {
+            const step = nextRebate({
+              rate: 0,
+              bet: currentBet,
+              paid: rebateRef.current.paid,
+              spins: rebateRef.current.spins,
+              dead: false,
+            });
+            rebateRef.current = { paid: step.paid, spins: step.spins };
           }
         }
       }
@@ -1826,7 +1855,8 @@ export function useSlotGame() {
       const rankIdNow = standing(rankRef.current.rp).id;
       const buyXNow = buyXOf(rankIdNow);
       const buyCost = +(betNow * buyXNow).toFixed(2);
-      const fsCount = fsSpinsOf(rankIdNow);
+      const mathRank = duelRef.current && duelRef.current.phase !== "done" ? "kredit" : rankIdNow;
+      const fsCount = fsSpinsOf(mathRank);
       const applyBoughtRank = makeApplyBought(betNow, buyCost, buyXNow, rankIdNow);
 
       if (autoRef.current && autoHaltRef.current && !duelRef.current) {
@@ -2195,7 +2225,7 @@ export function useSlotGame() {
     perk,
     buyX,
     weekDue,
-    weekTarget: standing(dropOneGroup(rp)),
+    weekTarget: standing(dropOneDivision(rp)),
     pots,
     desk,
     mine,
