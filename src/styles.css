@@ -759,13 +759,14 @@
   display: flex;
   flex-direction: column;
   background:
-    linear-gradient(180deg, var(--fm0, #4a545e) 0%, var(--fm1, #242c34) 38%, var(--fm2, #10161c) 70%, var(--fm1, #2a323a) 100%);
+    linear-gradient(180deg, rgb(255 255 255 / 0.28), transparent 14% 86%, rgb(0 0 0 / 0.55)),
+    url("/frames/cabinet.jpg");
+  background-size: auto, 240px;
   box-shadow:
-    0 1px 0 color-mix(in srgb, var(--fm0, #8a949e) 70%, #fff),
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    inset 0 0 0 1px rgb(0 0 0 / 0.7),
     0 0 0 2px #050608,
-    0 18px 36px rgb(0 0 0 / 0.55),
-    inset 0 2px 0 color-mix(in srgb, var(--fm0, #7a848e) 80%, #fff),
-    inset 0 -3px 0 #050608;
+    0 16px 30px rgb(0 0 0 / 0.55);
   border-radius: 10px;
   overflow: hidden;
   transform: none;
@@ -788,25 +789,20 @@
 }
 
 .frame-skin {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  pointer-events: none;
-  border-style: solid;
-  border-width: 16px;
-  border-image-source: url("/frames/bezel-kredit.png");
-  border-image-slice: 32;
-  border-image-width: 16px;
-  border-image-repeat: stretch;
+  display: none;
 }
 
-.stage.rk-sloboda .frame-skin { border-image-source: url("/frames/bezel-sloboda.png"); }
-.stage.rk-smart .frame-skin { border-image-source: url("/frames/bezel-smart.png"); }
-.stage.rk-telka .frame-skin { border-image-source: url("/frames/bezel-telka.png"); }
-.stage.rk-optika .frame-skin { border-image-source: url("/frames/bezel-optika.png"); }
-.stage.rk-duo .frame-skin { border-image-source: url("/frames/bezel-duo.png"); }
-.stage.rk-fiveg .frame-skin { border-image-source: url("/frames/bezel-fiveg.png"); }
-.stage.rk-nekonecno .frame-skin { border-image-source: url("/frames/bezel-nekonecno.png"); }
+.reel-frame::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 2;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--fa, #9fdfff) 70%, transparent),
+    inset 0 0 18px color-mix(in srgb, var(--fa, #5ee0e0) 28%, transparent);
+}
 
 .stage.in-fs .frame-skin,
 .stage.in-fs .frame-bolt {
@@ -940,14 +936,14 @@
 
 .stage.rk-nekonecno .reel-frame {
   background-image:
-    linear-gradient(180deg, rgb(255 255 255 / 0.28), rgb(0 0 0 / 0.35)),
-    url("/frames/metal.jpg");
+    linear-gradient(180deg, rgb(255 255 255 / 0.4), rgb(0 0 0 / 0.28)),
+    url("/frames/cabinet.jpg");
   background-size: auto, 180px;
   background-blend-mode: soft-light, multiply;
   box-shadow:
+    inset 0 1px 0 #fff,
     0 0 0 2px #050608,
-    0 0 16px rgb(255 227 168 / 0.28),
-    inset 0 1px 0 #fff;
+    0 0 16px rgb(255 227 168 / 0.28);
 }
 
 .frame-toast {
@@ -1285,7 +1281,38 @@
   overflow: hidden;
 }
 
+.cell::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 14%;
+  right: 14%;
+  bottom: 8%;
+  height: 24%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    color-mix(in srgb, var(--fa, #8fdfff) 78%, #fff) 0%,
+    color-mix(in srgb, var(--fa, #3ec6e0) 32%, transparent) 42%,
+    transparent 72%
+  );
+}
+
+.cell.is-hole::before,
+.cell.is-dim::before {
+  opacity: 0.2;
+}
+
+.cell.is-win::before {
+  height: 32%;
+  opacity: 1;
+  background: radial-gradient(ellipse at 50% 50%, rgb(255 236 170 / 0.95), rgb(255 176 40 / 0.28) 48%, transparent 74%);
+}
+
 .cell-img {
+  position: relative;
+  z-index: 1;
   width: 88%;
   height: 88%;
   object-fit: contain;
@@ -6234,7 +6261,7 @@ html:-webkit-full-screen {
 
 .stage.shell-mw .board-stage-inner,
 .stage.shell-pwa .board-stage-inner {
-  --bz: 4px;
+  --bz: 10px;
   flex: 1 1 auto;
   align-self: stretch;
   width: 100%;
