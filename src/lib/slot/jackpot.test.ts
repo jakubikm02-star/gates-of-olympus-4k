@@ -133,10 +133,12 @@ describe("rank stake + perk", () => {
     const sloMax = rpFromDead(1000, 3).total;
     assert.ok(nekLow < slo && slo < 0);
     assert.ok(nekMax < sloMax && sloMax < nekLow);
-    assert.ok(nekMax <= -25, `nek max ${nekMax}`);
+    assert.ok(nekMax <= -8 && nekMax >= -16, `nek max ${nekMax}`);
     const typical = rpFromSpin({ cash: 2800, bet: 1000, mult: 1, tumbles: 0, streak: 1, banner: null, kind: "base" }).total;
     const cold = 0.35 * typical + 0.65 * nekMax;
     assert.ok(cold < 0, `expected ${cold} typical ${typical}`);
+    const grind = rpFromSpin({ cash: 3000, bet: 1000, mult: 1, tumbles: 0, streak: 1, banner: null, kind: "base" }).total;
+    assert.ok(0.28 * grind + 0.72 * nekMax < 0, "max bet without a big win still bleeds at the top");
   });
 
   it("rank does not multiply RP", () => {

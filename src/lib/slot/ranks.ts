@@ -6,7 +6,7 @@ export const WIN_RP_CAP = 200;
 const ANTE_BASE = 1.25;
 const BUY_BASE = 100;
 const FS_BASE = 15;
-const BASE_HIT = 0.3467;
+const BASE_HIT = 0.284;
 
 export interface RankDef {
   id: string;
@@ -495,7 +495,7 @@ export function reloadPunish(opts: {
 
 export const RANK_REWARDS = [
   { id: "sum", title: "Suma výhry", detail: "Suma v eurách násobí všetko RP z výhry. Malý hit na 0,20 € je 1 RP. 20× na 1 € je desiatky. Big win ide k stropu 200, nie cez celé ligy." },
-  { id: "stake", title: "Výška stávky", detail: "Rovnaký násobok na vyššej stávke dá viac RP, lebo suma je väčšia. Samotné točenie max stávky bez big win v NEKONEČNE RP berie, nepridáva." },
+  { id: "stake", title: "Výška stávky", detail: "Rovnaký násobok na vyššej stávke dá viac RP, lebo suma je väčšia. Bežná hra na max stávke v NEKONEČNE bez big win RP berie. Jedna prehra nie je celá divízia." },
   { id: "mult", title: "Násobič", detail: "Plechovky sa násobia sumou výhry. Samy o sebe sú malé, big win ich zväčší." },
   { id: "streak", title: "Séria výhier", detail: "Séria, tumble a banner sa násobia sumou. Mŕtvy spin zhodí sériu na 0 — od SLOBODY jeden hold." },
   { id: "tumble", title: "Tumble reťaz", detail: "Dva a viac pádov v jednom spine: +2 až +8 RP." },
@@ -546,7 +546,13 @@ export function rpFromDead(bet: number, entry: number): RankBreakdown {
   if (entry <= 0) return empty;
   const stake = Math.max(0, bet);
   const t = Math.min(1, Math.log2(1 + stake) / Math.log2(1 + MAX_STAKE));
-  const delta = -Math.max(1, Math.round(entry * (0.45 + 2.2 * t)));
+  // Hit is ~28%, so about 2.5 dead spins sit between wins.
+  // Base tax tracks a normal win at this stake. Each two entry points
+  // above SLOBODA add one more, so the ladder bites without a single
+  // dead spin costing a division.
+  const base = Math.max(1, Math.round(1.4 + 5.2 * t));
+  const step = Math.floor(Math.max(0, entry - 3) / 2);
+  const delta = -(base + step);
   return { ...empty, total: delta, fromStake: delta };
 }
 
