@@ -181,7 +181,7 @@ export function SlotGame() {
       {g.strike ? <HandBolt key={`${g.strike.r}-${g.strike.c}`} strike={g.strike} /> : null}
 
       {!g.started && (
-        <div className="boot">
+        <div className={`boot ${g.bootReady ? "is-ready" : ""}`}>
           <img src="/art/paas-idle.png?v=3" alt="" className="boot-ramp" />
           <div className="boot-card">
             <div className="logo-plate">
@@ -189,17 +189,20 @@ export function SlotGame() {
               <span className="logo-main">PARKIZMUS</span>
               <span className="logo-sub">ZÓNA · LÍSTOK · RAMPA · POKUTA</span>
             </div>
-            <p className="boot-max">WIN UP TO 5000× BET</p>
-            <p className="boot-copy">
-              6×5 pole v nočnej garáži. Rampa púšťa násobiče, platené parkovné, pokuta za mŕtvy spin.
-              Kredit, pity a liga sa ukladajú v tomto prehliadači.
+            <p className="boot-max">
+              WIN UP TO <b>5000×</b>
             </p>
+            <p className="boot-copy">6×5 v nočnej garáži. Násobiče, parkovné a liga ostanú v tomto prehliadači.</p>
             <div className="boot-rank">
               <span className="boot-rank-kicker">LIGA 4KY</span>
               <RankBadge stand={g.rank} streak={g.winStreak} parts={g.rankParts} perkTitle={g.perk.title} onOpen={() => g.setRankOpen(true)} />
             </div>
+            <p className="boot-pct">{g.bootReady ? "PRIPRAVENÉ" : `NAČÍTAVAM ${g.bootPct}%`}</p>
+            <div className="boot-load" aria-hidden="true">
+              <i style={{ width: `${g.bootReady ? 100 : g.bootPct}%` }} />
+            </div>
             <button type="button" className="cta" disabled={!g.bootReady || g.booting} onClick={() => void g.start()}>
-              {!g.bootReady ? `NAČÍTAVAM ${g.bootPct}%` : g.booting ? "ZVUK…" : "HRAŤ"}
+              {g.booting ? "ZVUK…" : "HRAŤ"}
             </button>
           </div>
         </div>

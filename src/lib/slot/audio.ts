@@ -48,7 +48,130 @@ const FILES: Record<string, string> = {
   fsStart: "/sfx/fs-start.mp3?v=build1",
   anticipate: "/sfx/bonus-loop.mp3?v=4ka1",
   can: "/sfx/can-open.mp3?v=open2",
+  bed: "/sfx/fs-bed.mp3?v=moon2",
 };
+
+const CUSTOM_MAX = 6 * 1024 * 1024;
+const custom = new Set<string>();
+const previewUrl: Record<string, string> = {};
+const stored: Record<string, { bytes: ArrayBuffer; type: string }> = {};
+const listeners = new Set<() => void>();
+let io: Promise<void> = Promise.resolve();
+
+function queue(task: () => Promise<void>): Promise<void> {
+  const run = io.then(task, task);
+  io = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+function emitSfx(): void {
+  for (const fn of listeners) fn();
+}
+
+export function subscribeSfx(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+export function cueSrc(key: string): string {
+  return previewUrl[key] || FILES[key] || "";
+}
+
+export function isCustomCue(key: string): boolean {
+  return custom.has(key);
+}
+
+function rememberPreview(key: string, bytes: ArrayBuffer, type: string): void {
+  if (previewUrl[key]) URL.revokeObjectURL(previewUrl[key]);
+  previewUrl[key] = URL.createObjectURL(new Blob([bytes.slice(0)], { type: type || "audio/mpeg" }));
+}
+
+function openSfxDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("parkizmus-sfx", 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains("cues")) req.result.createObjectStore("cues");
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function readStored(): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  const db = await openSfxDb();
+  const rows = await new Promise<{ key: string; bytes: ArrayBuffer; type: string }[]>((resolve, reject) => {
+    const tx = db.transaction("cues", "readonly");
+    const req = tx.objectStore("cues").getAll();
+    const keys = tx.objectStore("cues").getAllKeys();
+    tx.oncomplete = () => {
+      const out: { key: string; bytes: ArrayBuffer; type: string }[] = [];
+      const ids = keys.result;
+      const vals = req.result as { bytes: ArrayBuffer; type: string }[];
+      for (let i = 0; i < ids.length; i++) {
+        const row = vals[i];
+        if (!row?.bytes) continue;
+        out.push({ key: String(ids[i]), bytes: row.bytes, type: row.type || "audio/mpeg" });
+      }
+      resolve(out);
+    };
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+  for (const row of rows) {
+    if (!FILES[row.key]) continue;
+    stored[row.key] = { bytes: row.bytes, type: row.type };
+    custom.add(row.key);
+    rememberPreview(row.key, row.bytes, row.type);
+  }
+}
+
+async function writeStored(key: string, bytes: ArrayBuffer, type: string): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  const db = await openSfxDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction("cues", "readwrite");
+    tx.objectStore("cues").put({ bytes, type }, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
+async function clearStored(): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  const db = await openSfxDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction("cues", "readwrite");
+    tx.objectStore("cues").clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
+let hydrated = false;
+
+function hydrateCustoms(): Promise<void> {
+  if (hydrated) return Promise.resolve();
+  return queue(async () => {
+    if (hydrated) return;
+    await readStored();
+    hydrated = true;
+    emitSfx();
+  });
+}
+
+async function decodeCustom(key: string): Promise<void> {
+  const row = stored[key];
+  if (!ctx || !row) return;
+  bufs[key] = await ctx.decodeAudioData(row.bytes.slice(0));
+}
+
+if (typeof indexedDB !== "undefined") void hydrateCustoms();
 
 export function isMuted(): boolean {
   return muted;
@@ -77,6 +200,7 @@ export function unlockAudio(): void {
     whiteBuf = makeNoise(ctx, 1.4, "white");
     brownBuf = makeNoise(ctx, 1.6, "brown");
     void loadBank();
+    void hydrateCustoms().then(() => applyCustoms());
   }
   if (ctx.state === "suspended") void ctx.resume();
 }
@@ -85,6 +209,7 @@ const pending: Partial<Record<string, Promise<void>>> = {};
 let bankAll: Promise<void> | null = null;
 
 function loadOne(key: string): Promise<void> {
+  if (custom.has(key)) return Promise.resolve();
   if (bufs[key]) return Promise.resolve();
   const existing = pending[key];
   if (existing) return existing;
@@ -94,7 +219,7 @@ function loadOne(key: string): Promise<void> {
     try {
       const res = await fetch(url);
       const raw = await res.arrayBuffer();
-      if (!ctx) return;
+      if (!ctx || custom.has(key)) return;
       bufs[key] = await ctx.decodeAudioData(raw.slice(0));
     } catch {
       /* keep synth fallback */
@@ -104,16 +229,78 @@ function loadOne(key: string): Promise<void> {
   return p;
 }
 
+async function applyCustoms(): Promise<void> {
+  if (!ctx) return;
+  await Promise.all([...custom].map((key) => decodeCustom(key).catch(() => undefined)));
+}
+
 function loadBank(): Promise<void> {
   if (!ctx) return Promise.resolve();
-  if (!bankAll) bankAll = Promise.all(Object.keys(FILES).map((key) => loadOne(key))).then(() => undefined);
+  if (!bankAll) {
+    bankAll = hydrateCustoms()
+      .then(() => Promise.all(Object.keys(FILES).map((key) => loadOne(key))))
+      .then(() => applyCustoms())
+      .then(() => undefined);
+  }
   return bankAll;
+}
+
+export async function replaceCue(key: string, file: File): Promise<string | null> {
+  if (!FILES[key]) return "Tento zvuk sa nedá vymeniť.";
+  if (file.size > CUSTOM_MAX) return "Súbor je väčší ako 6 MB.";
+  const named = /\.(mp3|wav|ogg|m4a|aac|webm|flac)$/i.test(file.name);
+  if (file.type && !file.type.startsWith("audio/") && !named) return "To nie je zvuk.";
+  unlockAudio();
+  const bytes = await file.arrayBuffer();
+  const type = file.type || "audio/mpeg";
+  await hydrateCustoms();
+  let decoded = false;
+  await queue(async () => {
+    stored[key] = { bytes, type };
+    custom.add(key);
+    if (ctx) {
+      try {
+        await decodeCustom(key);
+        decoded = true;
+      } catch {
+        custom.delete(key);
+        delete stored[key];
+      }
+    } else decoded = true;
+    if (!decoded) return;
+    rememberPreview(key, bytes, type);
+    await writeStored(key, bytes, type);
+  });
+  if (!custom.has(key)) return "Súbor sa nedá prehrať.";
+  emitSfx();
+  return null;
+}
+
+export async function resetCues(): Promise<void> {
+  await hydrateCustoms();
+  const keys = [...custom];
+  await queue(async () => {
+    custom.clear();
+    for (const key of keys) {
+      if (previewUrl[key]) URL.revokeObjectURL(previewUrl[key]);
+      delete previewUrl[key];
+      delete stored[key];
+      delete bufs[key];
+      delete pending[key];
+    }
+    await clearStored();
+  });
+  bankAll = null;
+  await loadBank();
+  emitSfx();
 }
 
 /** Resolves once the reel-loop sample is decoded. Other cues keep loading behind it. */
 export function whenSpinReady(): Promise<void> {
   unlockAudio();
-  return loadOne("spin");
+  return hydrateCustoms()
+    .then(() => (custom.has("spin") ? decodeCustom("spin") : loadOne("spin")))
+    .then(() => undefined);
 }
 
 function makeNoise(ac: AudioContext, seconds: number, kind: "white" | "brown"): AudioBuffer {
@@ -434,7 +621,7 @@ export function playFsStart(): void {
 export function startLiveBed(): void {
   unlockAudio();
   stopLiveBed();
-  const el = new Audio("/sfx/fs-bed.mp3?v=moon2");
+  const el = new Audio(cueSrc("bed"));
   el.loop = true;
   el.preload = "auto";
   el.setAttribute("playsinline", "true");

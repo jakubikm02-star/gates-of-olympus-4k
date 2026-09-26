@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MATH_NOTE, PAY_SYMBOLS, SCATTER, TICKETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
-import { unlockAudio } from "@/lib/slot/audio";
+import { cueSrc, isCustomCue, replaceCue, resetCues, subscribeSfx, unlockAudio } from "@/lib/slot/audio";
 import type { DeskDay } from "@/lib/slot/desk-api";
 
 interface Props {
@@ -12,69 +12,96 @@ interface Props {
   mine?: DeskDay;
 }
 
-const SOUND_CUES: { name: string; src: string; loop?: boolean; when: string }[] = [
-  { name: "Klik", src: "/sfx/click.mp3", when: "Tlačidlá, stávka, ante, menu." },
-  { name: "Točenie", src: "/sfx/spin.mp3?v=trailer1", loop: true, when: "Slučka od štartu točenia, kým valce bežia. Pri 2+ scatteroch stíchne." },
-  { name: "Dopad 1", src: "/sfx/land.mp3?v=keys1", when: "Náhodne jeden z troch, keď stĺpec zastane." },
-  { name: "Dopad 2", src: "/sfx/land2.mp3?v=keys1", when: "Náhodne jeden z troch, keď stĺpec zastane." },
-  { name: "Dopad 3", src: "/sfx/land3.mp3?v=keys1", when: "Náhodne jeden z troch, keď stĺpec zastane." },
-  { name: "Scatter", src: "/sfx/scatter.mp3", when: "1. a 2. scatter pri dopade alebo v páde." },
-  { name: "Harfa", src: "/sfx/harp.mp3", when: "3. scatter. Spolu s ním ide aj Zber." },
-  { name: "Hrom", src: "/sfx/thunder.mp3?v=park1", when: "4. scatter, hod plechoviek, +5 FS, ohlásenie free spinov a neúspešný tiket." },
-  { name: "Napätie", src: "/sfx/bonus-loop.mp3?v=4ka1", loop: true, when: "Base, keď sú 2+ scattere a valce ešte idú." },
-  { name: "Minca", src: "/sfx/coin.mp3", when: "Výhra v sekvencii pod 5×. Aj splnený tiket." },
-  { name: "Výhra", src: "/sfx/win.mp3?v=phaser1", when: "Výhra v sekvencii od 5× do 20×." },
-  { name: "Výhra plná", src: "/sfx/win-full.mp3?v=tumble2", when: "Výhra v sekvencii od 20×." },
-  { name: "Prasknutie", src: "/sfx/pop.mp3?v=pneumatic1", when: "Výherné symboly zmiznú pred pádom." },
-  { name: "Pád", src: "/sfx/tumble.mp3?v=mech1", when: "Nové symboly padnú. Ďalší pád je o niečo vyšší." },
-  { name: "Plechovka", src: "/sfx/can-open.mp3?v=open2", when: "Dopad plechovky a jej započítanie do výhry." },
-  { name: "Rampa", src: "/sfx/zap.mp3?v=park1", when: "Plechovka po páde. Spolu s ňou ide aj Elektrika." },
-  { name: "Elektrika", src: "/sfx/electric.mp3?v=park1", when: "Spolu s Rampou pri plechovke po páde." },
-  { name: "Zber", src: "/sfx/collect.mp3", when: "Výhra lístka (pot) a tretí scatter." },
-  { name: "Výplata", src: "/sfx/payout.mp3", when: "Výhra sa pripíše na kredit v base, mimo duelu." },
-  { name: "Štart feature", src: "/sfx/fs-start.mp3?v=build1", when: "Začiatok PARKNET / 4ka TV." },
-  { name: "Podklad feature", src: "/sfx/fs-bed.mp3?v=moon2", loop: true, when: "Počas celej feature. V hre naskočí na náhodnom mieste skladby." },
-  { name: "Kontrola", src: "/sfx/kontrola.mp3?v=ignition1", when: "Štart KONTROLA." },
-  { name: "Big win A", src: "/sfx/table-a.mp3?v=glitch1", when: "Náhodne A alebo B: BIG od 20×, MEGA od 35×, SUPER MEGA od 50×, aj koniec feature s výhrou. MAX 5000× hrá to isté." },
-  { name: "Big win B", src: "/sfx/table-b.mp3?v=fail1", when: "Náhodne A alebo B pri veľkej výhre a na konci feature." },
+const SOUND_CUES: { id: string; name: string; loop?: boolean; when: string }[] = [
+  { id: "click", name: "Klik", when: "Tlačidlá, stávka, ante, menu." },
+  { id: "spin", name: "Točenie", loop: true, when: "Slučka od štartu točenia, kým valce bežia. Pri 2+ scatteroch stíchne." },
+  { id: "land", name: "Dopad 1", when: "Náhodne jeden z troch, keď stĺpec zastane." },
+  { id: "land2", name: "Dopad 2", when: "Náhodne jeden z troch, keď stĺpec zastane." },
+  { id: "land3", name: "Dopad 3", when: "Náhodne jeden z troch, keď stĺpec zastane." },
+  { id: "scatter", name: "Scatter", when: "1. a 2. scatter pri dopade alebo v páde." },
+  { id: "harp", name: "Harfa", when: "3. scatter. Spolu s ním ide aj Zber." },
+  { id: "thunder", name: "Hrom", when: "4. scatter, hod plechoviek, +5 FS, ohlásenie free spinov a neúspešný tiket." },
+  { id: "anticipate", name: "Napätie", loop: true, when: "Base, keď sú 2+ scattere a valce ešte idú." },
+  { id: "coin", name: "Minca", when: "Výhra v sekvencii pod 5×. Aj splnený tiket." },
+  { id: "win", name: "Výhra", when: "Výhra v sekvencii od 5× do 20×." },
+  { id: "winFull", name: "Výhra plná", when: "Výhra v sekvencii od 20×." },
+  { id: "pop", name: "Prasknutie", when: "Výherné symboly zmiznú pred pádom." },
+  { id: "tumble", name: "Pád", when: "Nové symboly padnú. Ďalší pád je o niečo vyšší." },
+  { id: "can", name: "Plechovka", when: "Dopad plechovky a jej započítanie do výhry." },
+  { id: "zap", name: "Rampa", when: "Plechovka po páde. Spolu s ňou ide aj Elektrika." },
+  { id: "electric", name: "Elektrika", when: "Spolu s Rampou pri plechovke po páde." },
+  { id: "collect", name: "Zber", when: "Výhra lístka (pot) a tretí scatter." },
+  { id: "payout", name: "Výplata", when: "Výhra sa pripíše na kredit v base, mimo duelu." },
+  { id: "fsStart", name: "Štart feature", when: "Začiatok PARKNET / 4ka TV." },
+  { id: "bed", name: "Podklad feature", loop: true, when: "Počas celej feature. V hre naskočí na náhodnom mieste skladby." },
+  { id: "kontrola", name: "Kontrola", when: "Štart KONTROLA." },
+  { id: "tableA", name: "Big win A", when: "Náhodne A alebo B: BIG od 20×, MEGA od 35×, SUPER MEGA od 50×, aj koniec feature s výhrou. MAX 5000× hrá to isté." },
+  { id: "tableB", name: "Big win B", when: "Náhodne A alebo B pri veľkej výhre a na konci feature." },
 ];
 
 function SoundSheet() {
   const audio = useRef<HTMLAudioElement | null>(null);
+  const [, bump] = useState(0);
+  const [err, setErr] = useState("");
+  useEffect(() => subscribeSfx(() => bump((n) => n + 1)), []);
   useEffect(() => {
     return () => {
       audio.current?.pause();
     };
   }, []);
-  const play = (src: string, loop = false) => {
+  const play = (id: string, loop = false) => {
     unlockAudio();
     if (!audio.current) audio.current = new Audio();
     const el = audio.current;
     el.pause();
     el.loop = loop;
-    el.src = src;
+    el.src = cueSrc(id);
     el.volume = 0.85;
     void el.play();
   };
   const stop = () => {
     audio.current?.pause();
   };
+  const pick = async (id: string, file: File | undefined) => {
+    if (!file) return;
+    stop();
+    const msg = await replaceCue(id, file);
+    setErr(msg ?? "");
+  };
   return (
     <details className="sound-sheet">
       <summary>ZVUKY · prehrať a kedy hrajú</summary>
-      <p className="sound-note">Tlačidlo (i) dole vľavo. Slučky zastav tlačidlom Stop. Stlmenie hry tento náhľad nestíši.</p>
+      <p className="sound-note">
+        Ku každému zvuku vieš nahrať vlastný súbor. Hra ho potom používa namiesto pôvodného. Jedno tlačidlo dole vráti všetky naraz.
+      </p>
+      {err ? <p className="sound-err">{err}</p> : null}
       {SOUND_CUES.map((cue) => (
-        <div className="sound-row" key={cue.src}>
-          <button type="button" onClick={() => play(cue.src, cue.loop)}>
+        <div className="sound-row" key={cue.id}>
+          <button type="button" onClick={() => play(cue.id, cue.loop)}>
             {cue.loop ? "Slučka" : "Hraj"}
           </button>
+          <label className="sound-file">
+            {isCustomCue(cue.id) ? "Zmeniť" : "Súbor"}
+            <input
+              type="file"
+              accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.webm"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                void pick(cue.id, file);
+              }}
+            />
+          </label>
           <div>
-            <b>{cue.name}</b>
+            <b>
+              {cue.name}
+              {isCustomCue(cue.id) ? <i className="sound-own">vlastný</i> : null}
+            </b>
             <span>{cue.when}</span>
           </div>
         </div>
       ))}
-      <div className="sound-row">
+      <div className="sound-row is-wide">
         <button type="button" onClick={stop}>
           Stop
         </button>
@@ -83,6 +110,17 @@ function SoundSheet() {
           <span>Zastaví náhľad. Hru nechá bežať.</span>
         </div>
       </div>
+      <button
+        type="button"
+        className="sound-reset"
+        onClick={() => {
+          stop();
+          setErr("");
+          void resetCues();
+        }}
+      >
+        Pôvodné zvuky
+      </button>
     </details>
   );
 }
