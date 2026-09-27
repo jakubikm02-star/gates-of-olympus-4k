@@ -51,7 +51,10 @@ const FILES: Record<string, string> = {
   bed: "/sfx/fs-bed.mp3?v=moon2",
 };
 
-const CUSTOM_MAX = 6 * 1024 * 1024;
+const CUSTOM_MAX = 12 * 1024 * 1024;
+const SUPA_URL = "https://xgpnmxkquxzbhgktjipa.supabase.co";
+const SUPA_ANON =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhncG5teGtxdXh6Ymhna3RqaXBhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzMzI1MDgsImV4cCI6MjEwMTkwODUwOH0.KrNERJS8gxc1663oN73CaZ2ZqXZOQTX-AnoMwCmWQUo";
 const custom = new Set<string>();
 const previewUrl: Record<string, string> = {};
 const stored: Record<string, { bytes: ArrayBuffer; type: string }> = {};
@@ -89,68 +92,57 @@ function rememberPreview(key: string, bytes: ArrayBuffer, type: string): void {
   previewUrl[key] = URL.createObjectURL(new Blob([bytes.slice(0)], { type: type || "audio/mpeg" }));
 }
 
-function openSfxDb(): Promise<IDBDatabase> {
+async function sfxRpc(name: string, body: Record<string, unknown>): Promise<Response> {
+  return fetch(`${SUPA_URL}/rest/v1/rpc/${name}`, {
+    method: "POST",
+    headers: {
+      apikey: SUPA_ANON,
+      Authorization: `Bearer ${SUPA_ANON}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function b64ToBytes(b64: string): ArrayBuffer {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out.buffer;
+}
+
+function fileToB64(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open("parkizmus-sfx", 1);
-    req.onupgradeneeded = () => {
-      if (!req.result.objectStoreNames.contains("cues")) req.result.createObjectStore("cues");
+    const reader = new FileReader();
+    reader.onload = () => {
+      const data = String(reader.result || "");
+      resolve(data.slice(data.indexOf(",") + 1));
     };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
   });
 }
 
-async function readStored(): Promise<void> {
-  if (typeof indexedDB === "undefined") return;
-  const db = await openSfxDb();
-  const rows = await new Promise<{ key: string; bytes: ArrayBuffer; type: string }[]>((resolve, reject) => {
-    const tx = db.transaction("cues", "readonly");
-    const req = tx.objectStore("cues").getAll();
-    const keys = tx.objectStore("cues").getAllKeys();
-    tx.oncomplete = () => {
-      const out: { key: string; bytes: ArrayBuffer; type: string }[] = [];
-      const ids = keys.result;
-      const vals = req.result as { bytes: ArrayBuffer; type: string }[];
-      for (let i = 0; i < ids.length; i++) {
-        const row = vals[i];
-        if (!row?.bytes) continue;
-        out.push({ key: String(ids[i]), bytes: row.bytes, type: row.type || "audio/mpeg" });
-      }
-      resolve(out);
-    };
-    tx.onerror = () => reject(tx.error);
-  });
-  db.close();
-  for (const row of rows) {
-    if (!FILES[row.key]) continue;
-    stored[row.key] = { bytes: row.bytes, type: row.type };
-    custom.add(row.key);
-    rememberPreview(row.key, row.bytes, row.type);
-  }
-}
-
-async function writeStored(key: string, bytes: ArrayBuffer, type: string): Promise<void> {
-  if (typeof indexedDB === "undefined") return;
-  const db = await openSfxDb();
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction("cues", "readwrite");
-    tx.objectStore("cues").put({ bytes, type }, key);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-  db.close();
-}
-
-async function clearStored(): Promise<void> {
-  if (typeof indexedDB === "undefined") return;
-  const db = await openSfxDb();
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction("cues", "readwrite");
-    tx.objectStore("cues").clear();
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-  db.close();
+async function pullRemote(): Promise<void> {
+  const list = await sfxRpc("sfx_keys", {});
+  if (!list.ok) return;
+  const rows = (await list.json()) as { key?: string; mime?: string }[];
+  if (!Array.isArray(rows)) return;
+  await Promise.all(
+    rows.map(async (row) => {
+      const key = row.key || "";
+      if (!FILES[key]) return;
+      const audio = await sfxRpc("sfx_audio", { p_key: key });
+      if (!audio.ok) return;
+      const b64 = (await audio.json()) as unknown;
+      if (typeof b64 !== "string" || b64.length < 8) return;
+      const type = row.mime || "audio/mpeg";
+      const bytes = b64ToBytes(b64);
+      stored[key] = { bytes, type };
+      custom.add(key);
+      rememberPreview(key, bytes, type);
+    }),
+  );
 }
 
 let hydrated = false;
@@ -159,7 +151,11 @@ function hydrateCustoms(): Promise<void> {
   if (hydrated) return Promise.resolve();
   return queue(async () => {
     if (hydrated) return;
-    await readStored();
+    try {
+      await pullRemote();
+    } catch {
+      /* originals stay */
+    }
     hydrated = true;
     emitSfx();
   });
@@ -171,7 +167,7 @@ async function decodeCustom(key: string): Promise<void> {
   bufs[key] = await ctx.decodeAudioData(row.bytes.slice(0));
 }
 
-if (typeof indexedDB !== "undefined") void hydrateCustoms();
+if (typeof window !== "undefined") void hydrateCustoms();
 
 export function isMuted(): boolean {
   return muted;
@@ -245,54 +241,63 @@ function loadBank(): Promise<void> {
   return bankAll;
 }
 
-export async function replaceCue(key: string, file: File): Promise<string | null> {
+export async function replaceCue(key: string, file: File, password: string): Promise<string | null> {
   if (!FILES[key]) return "Tento zvuk sa nedá vymeniť.";
-  if (file.size > CUSTOM_MAX) return "Súbor je väčší ako 6 MB.";
+  if (!password.trim()) return "Zadaj heslo.";
+  if (file.size > CUSTOM_MAX) return "Súbor je väčší ako 12 MB.";
   const named = /\.(mp3|wav|ogg|m4a|aac|webm|flac)$/i.test(file.name);
   if (file.type && !file.type.startsWith("audio/") && !named) return "To nie je zvuk.";
   unlockAudio();
   const bytes = await file.arrayBuffer();
   const type = file.type || "audio/mpeg";
+  let probe: AudioBuffer | null = null;
+  if (ctx) {
+    try {
+      probe = await ctx.decodeAudioData(bytes.slice(0));
+    } catch {
+      return "Súbor sa nedá prehrať.";
+    }
+  }
+  const b64 = await fileToB64(new Blob([bytes], { type }));
+  const res = await sfxRpc("sfx_put", { p_pass: password, p_key: key, p_mime: type, p_b64: b64 });
+  if (!res.ok) {
+    const text = await res.text();
+    if (text.includes("denied")) return "Zlé heslo.";
+    if (text.includes("size")) return "Súbor je väčší ako 12 MB.";
+    return "Zvuk sa nepodarilo uložiť.";
+  }
   await hydrateCustoms();
-  let decoded = false;
-  await queue(async () => {
-    stored[key] = { bytes, type };
-    custom.add(key);
-    if (ctx) {
-      try {
-        await decodeCustom(key);
-        decoded = true;
-      } catch {
-        custom.delete(key);
-        delete stored[key];
-      }
-    } else decoded = true;
-    if (!decoded) return;
-    rememberPreview(key, bytes, type);
-    await writeStored(key, bytes, type);
-  });
-  if (!custom.has(key)) return "Súbor sa nedá prehrať.";
+  stored[key] = { bytes, type };
+  custom.add(key);
+  if (probe) bufs[key] = probe;
+  else await decodeCustom(key);
+  rememberPreview(key, bytes, type);
   emitSfx();
   return null;
 }
 
-export async function resetCues(): Promise<void> {
+export async function resetCues(password: string): Promise<string | null> {
+  if (!password.trim()) return "Zadaj heslo.";
+  const res = await sfxRpc("sfx_reset", { p_pass: password });
+  if (!res.ok) {
+    const text = await res.text();
+    if (text.includes("denied")) return "Zlé heslo.";
+    return "Pôvodné zvuky sa nepodarilo vrátiť.";
+  }
   await hydrateCustoms();
   const keys = [...custom];
-  await queue(async () => {
-    custom.clear();
-    for (const key of keys) {
-      if (previewUrl[key]) URL.revokeObjectURL(previewUrl[key]);
-      delete previewUrl[key];
-      delete stored[key];
-      delete bufs[key];
-      delete pending[key];
-    }
-    await clearStored();
-  });
+  custom.clear();
+  for (const key of keys) {
+    if (previewUrl[key]) URL.revokeObjectURL(previewUrl[key]);
+    delete previewUrl[key];
+    delete stored[key];
+    delete bufs[key];
+    delete pending[key];
+  }
   bankAll = null;
   await loadBank();
   emitSfx();
+  return null;
 }
 
 /** Resolves once the reel-loop sample is decoded. Other cues keep loading behind it. */

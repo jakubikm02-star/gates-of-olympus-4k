@@ -41,6 +41,7 @@ const SOUND_CUES: { id: string; name: string; loop?: boolean; when: string }[] =
 
 function SoundSheet() {
   const audio = useRef<HTMLAudioElement | null>(null);
+  const pass = useRef<HTMLInputElement | null>(null);
   const [, bump] = useState(0);
   const [err, setErr] = useState("");
   useEffect(() => subscribeSfx(() => bump((n) => n + 1)), []);
@@ -65,15 +66,16 @@ function SoundSheet() {
   const pick = async (id: string, file: File | undefined) => {
     if (!file) return;
     stop();
-    const msg = await replaceCue(id, file);
-    setErr(msg ?? "");
+    const msg = await replaceCue(id, file, pass.current?.value ?? "");
+    setErr(msg ?? "Uložené. Počujú to všetci hráči.");
   };
   return (
     <details className="sound-sheet">
       <summary>ZVUKY · prehrať a kedy hrajú</summary>
       <p className="sound-note">
-        Ku každému zvuku vieš nahrať vlastný súbor. Hra ho potom používa namiesto pôvodného. Jedno tlačidlo dole vráti všetky naraz.
+        Heslo zmení zvuk v jadre hry. Platí pre všetkých hráčov, nie len pre tento prehliadač.
       </p>
+      <input ref={pass} className="sound-pass" type="password" placeholder="Heslo admina" autoComplete="off" />
       {err ? <p className="sound-err">{err}</p> : null}
       {SOUND_CUES.map((cue) => (
         <div className="sound-row" key={cue.id}>
@@ -95,7 +97,7 @@ function SoundSheet() {
           <div>
             <b>
               {cue.name}
-              {isCustomCue(cue.id) ? <i className="sound-own">vlastný</i> : null}
+              {isCustomCue(cue.id) ? <i className="sound-own">jadro</i> : null}
             </b>
             <span>{cue.when}</span>
           </div>
@@ -115,8 +117,7 @@ function SoundSheet() {
         className="sound-reset"
         onClick={() => {
           stop();
-          setErr("");
-          void resetCues();
+          void resetCues(pass.current?.value ?? "").then((msg) => setErr(msg ?? "Pôvodné zvuky sú späť pre všetkých."));
         }}
       >
         Pôvodné zvuky

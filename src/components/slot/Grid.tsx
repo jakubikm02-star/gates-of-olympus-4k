@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { COLS, ROWS, symbolSrc, type Cell } from "@/lib/slot/symbols";
+import { COLS, ROWS, symbolSrc, TICKETS, type Cell } from "@/lib/slot/symbols";
 
 export interface ClusterPay {
   x: number;
@@ -93,7 +93,9 @@ function CellView({
         <img src={symbolSrc(cell)} alt="" draggable={false} className="cell-img" />
       )}
       {!cell.gone && cell.kind === "scatter" && <span className="scatter-label">SCATTER</span>}
-      {!cell.gone && cell.kind === "park" && <span className="scatter-label">LÍSTOK</span>}
+      {!cell.gone && cell.kind === "park" && (
+        <span className="scatter-label">{TICKETS[cell.ticket ?? "stat"].name}</span>
+      )}
       {!cell.gone && cell.kind === "mult" && <span className="mult-tag">{cell.mult}X</span>}
       {!cell.gone && win && <span className="win-fx" aria-hidden="true" />}
       {hot && <span className="orb-strike" aria-hidden="true" />}

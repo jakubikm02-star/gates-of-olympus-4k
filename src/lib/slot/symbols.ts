@@ -133,10 +133,10 @@ export const PARK = {
 };
 
 export const TICKETS: Record<TicketId, { name: string; src: string; ink: string }> = {
-  ulica: { name: "1-FTTB", src: "/symbols/listok-ulica.svg", ink: "#c5ccd4" },
-  okres: { name: "2-FTTB", src: "/symbols/listok-okres.svg", ink: "#6ea8ff" },
-  kraj: { name: "3-FTTB", src: "/symbols/listok-kraj.svg", ink: "#c86bff" },
-  stat: { name: "4-FTTB", src: "/symbols/listok-stat.svg", ink: "#e2b01a" },
+  ulica: { name: "1-FTTB", src: "/symbols/listok-ulica.svg?v=fttb", ink: "#c5ccd4" },
+  okres: { name: "2-FTTB", src: "/symbols/listok-okres.svg?v=fttb", ink: "#6ea8ff" },
+  kraj: { name: "3-FTTB", src: "/symbols/listok-kraj.svg?v=fttb", ink: "#c86bff" },
+  stat: { name: "4-FTTB", src: "/symbols/listok-stat.svg?v=fttb", ink: "#e2b01a" },
 };
 
 export const ALL_ART: readonly string[] = [
