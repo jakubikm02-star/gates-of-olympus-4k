@@ -486,6 +486,18 @@ function otrsLine(job: JobCard): string {
   return `${job.need}× ${job.goal?.replace(/^\d+× /, "") ?? ""}`.replace(/\s+·.*/, "");
 }
 
+function comboSpinLimit(a: JobCard, b: JobCard): number {
+  const rareCap: Record<string, number> = { siet: 100, vynos: 90, pot: 55, signal: 40 };
+  const leg = (job: JobCard) => {
+    const cap = rareCap[job.template];
+    return cap ? Math.min(job.limit, cap) : job.limit;
+  };
+  const longer = Math.max(leg(a), leg(b));
+  const shorter = Math.min(leg(a), leg(b));
+  const same = (a.scope ?? "base") === (b.scope ?? "base");
+  return snapFive(longer + Math.round(shorter * (same ? 0.55 : 0.8)));
+}
+
 function makeOtrs(rng: () => number, credit: number, bet: number): JobCard {
   const floors: JobFloor[] = ["lacna", "stred", "draha"];
   const floor = floors[Math.floor(rng() * floors.length)] ?? "stred";
@@ -502,7 +514,7 @@ function makeOtrs(rng: () => number, credit: number, bet: number): JobCard {
     first = second;
     second = swap;
   }
-  const limit = snapFive(Math.max(first.limit, second.limit));
+  const limit = comboSpinLimit(first, second);
   const goal = `${otrsLine(first)} + ${otrsLine(second)}`;
   const stake = Math.max(first.stake, second.stake);
   const payout = Math.max(roundStake(stake * 1.7), Math.max(first.payout, second.payout));

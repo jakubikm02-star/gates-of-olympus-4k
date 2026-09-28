@@ -172,7 +172,13 @@ function jobSave(raw: unknown): JobCard | null {
     have: cash
       ? Math.min(need, Math.max(0, Math.round(num(r.have, 0) * 100) / 100))
       : Math.min(need, Math.max(0, Math.floor(num(r.have, 0)))),
-    limit: Math.min(400, Math.max(need, Math.floor(num(r.limit, need * 8)))),
+    limit: (() => {
+      const spunNow = Math.min(400, Math.max(0, Math.floor(num(r.spun, 0))));
+      let spins = Math.min(800, Math.max(5, Math.floor(num(r.limit, 40))));
+      if (!cash && kind !== "collect") spins = Math.max(spins, Math.min(need, 200));
+      if (kindB && (cash || kindB === "cash") && spins > 160) spins = Math.max(110, spunNow);
+      return Math.max(spins, spunNow);
+    })(),
     spun: Math.min(400, Math.max(0, Math.floor(num(r.spun, 0)))),
     kind,
     kindB,
