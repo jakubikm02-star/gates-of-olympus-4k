@@ -548,7 +548,11 @@ export function dealJobs(rng: () => number, credit: number, bet: number): JobCar
     if (displaced) rest.unshift(displaced);
   }
   const three = floors.map((floor, i) => makeJob(threeT[i % threeT.length], floor, credit, bet, rng));
-  const bonus = makeOtrs(rng, credit, bet);
+  const bonusFloor = floors[Math.floor(rng() * floors.length)] ?? "stred";
+  const bonus =
+    rng() < 0.25
+      ? makeOtrs(rng, credit, bet)
+      : makeJob(pickOne(TEMPLATES, rng), bonusFloor, credit, bet, rng, 1.15, true);
   return [...three, bonus];
 }
 

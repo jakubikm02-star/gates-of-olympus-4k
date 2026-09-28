@@ -442,7 +442,7 @@ describe("míňať", () => {
     if (miss) assert.match(miss.goal ?? "", /nevýherných /);
   });
 
-  it("OTRS rolls every sensible pair, not one leftover task", () => {
+  it("OTRS is one task from the full list, and a quarter are two-goal combos", () => {
     let s = 7;
     const rng = () => {
       s = (s * 1664525 + 1013904223) >>> 0;
@@ -450,22 +450,28 @@ describe("míňať", () => {
     };
     const skip = new Set(["sucho", "hydra", "retaz"]);
     const pool = JOB_TEMPLATE_IDS.filter((id) => !skip.has(id));
-    const seen = new Set<string>();
-    const ids = new Set<string>();
-    for (let i = 0; i < 2500; i++) {
+    const singles = new Set<string>();
+    const pairs = new Set<string>();
+    let combos = 0;
+    const n = 4000;
+    for (let i = 0; i < n; i++) {
       const otrs = dealJobs(rng, 5000, 2).find((j) => j.mystery);
       assert.ok(otrs);
-      assert.ok(otrs.kindB && otrs.templateB);
-      assert.notEqual(otrs.template, otrs.templateB);
-      assert.equal(skip.has(otrs.template), false);
-      assert.equal(skip.has(otrs.templateB), false);
-      assert.match(otrs.goal ?? "", / \+ /);
-      seen.add([otrs.template, otrs.templateB].sort().join("+"));
-      ids.add(otrs.template);
-      ids.add(otrs.templateB);
+      if (otrs.kindB && otrs.templateB) {
+        combos += 1;
+        assert.notEqual(otrs.template, otrs.templateB);
+        assert.equal(skip.has(otrs.template), false);
+        assert.equal(skip.has(otrs.templateB), false);
+        assert.match(otrs.goal ?? "", / \+ /);
+        pairs.add([otrs.template, otrs.templateB].sort().join("+"));
+      } else {
+        assert.equal(otrs.kindB, undefined);
+        singles.add(otrs.template);
+      }
     }
-    assert.deepEqual([...ids].sort(), [...pool].sort());
-    assert.equal(seen.size, (pool.length * (pool.length - 1)) / 2);
+    assert.ok(combos / n > 0.2 && combos / n < 0.3);
+    assert.deepEqual([...singles].sort(), [...JOB_TEMPLATE_IDS].sort());
+    assert.equal(pairs.size, (pool.length * (pool.length - 1)) / 2);
   });
 
   it("Slovak spin words and SPLNENÁ", () => {
