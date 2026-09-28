@@ -17,7 +17,7 @@ import {
 import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneDivision, fsSpinsOf, nextRebate, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, WEEK_MS } from "./ranks.ts";
 import { pityGain, rankPeekIds, type PickTile } from "./pick-bonus.ts";
 import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta, canDuelSpin, duelView, forfeitDuel } from "./duel.ts";
-import { PAY_SYMBOLS, payName, ORB_TABLE, ORB_VALUES } from "./symbols.ts";
+import { PAY_SYMBOLS, payName, ORB_TABLE, ORB_VALUES, fsTriggerSpins } from "./symbols.ts";
 import { canSpend, dealJobs, freshDaily, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobMeter, jobParknetBroke, jobShownGoal, jobStatus, missCollectPlan, stampDaily, symbolNeed, tickJob, spinWord, winCollectPlan, JOB_BANK, JOB_TEMPLATE_IDS, type JobCard } from "./spend.ts";
 import { bumpLocalDesk, bumpTicketDesk, emptyDesk, ticketProfit } from "./desk-api.ts";
 
@@ -165,6 +165,10 @@ describe("rank stake + perk", () => {
     assert.equal(fsSpinsOf("duo"), 16);
     assert.equal(fsSpinsOf("fiveg"), 16);
     assert.equal(fsSpinsOf("nekonecno"), 17);
+    assert.equal(fsTriggerSpins(4), 15);
+    assert.equal(fsTriggerSpins(5), 19);
+    assert.equal(fsTriggerSpins(6), 23);
+    assert.equal(fsTriggerSpins(6, 16), 24);
     const capped = nextRebate({ rate: 0.05, bet: 1, paid: 19.98, spins: 10, dead: true });
     assert.equal(capped.pay, 0.02);
     const reset = nextRebate({ rate: 0.05, bet: 1, paid: 20, spins: 100, dead: true });

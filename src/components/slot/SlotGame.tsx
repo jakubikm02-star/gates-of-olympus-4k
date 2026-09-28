@@ -686,9 +686,13 @@ export function SlotGame() {
                     : "/system script run win.rsc"}
               </p>
               {g.banner !== "fsTotal" && <p className="wb-line dim">  status: running…</p>}
-              <p className="wb-kicker">{BANNER_COPY[g.banner] ?? "WIN"}</p>
+              <p className="wb-kicker">
+                {g.banner === "fs"
+                  ? `GRATULUJEME · ${g.bannerAmount || 15} VOLNÝCH TOČENÍ`
+                  : (BANNER_COPY[g.banner] ?? "WIN")}
+              </p>
               {g.banner === "fs" ? (
-                <p className="wb-amt">free-spins: 15</p>
+                <p className="wb-amt">free-spins: {g.bannerAmount || 15}</p>
               ) : g.banner === "fsTotal" ? (
                 <table className="wb-table">
                   <tbody>

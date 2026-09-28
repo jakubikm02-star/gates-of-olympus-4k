@@ -113,8 +113,8 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
               <div className="pay-name">{SCATTER.name} · scatter</div>
               <div className="pay-vals">
                 <span>4 = {(SCATTER.pays[0] * bet).toFixed(2)} + 15 FS</span>
-                <span>5 = {(SCATTER.pays[1] * bet).toFixed(2)}</span>
-                <span>6 = {(SCATTER.pays[2] * bet).toFixed(2)}</span>
+                <span>5 = {(SCATTER.pays[1] * bet).toFixed(2)} + 19 FS</span>
+                <span>6 = {(SCATTER.pays[2] * bet).toFixed(2)} + 23 FS</span>
               </div>
               <div className="pay-quip">Štyri obrazovky a rampa ide hore.</div>
             </div>
@@ -140,13 +140,13 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             Must-hit: keď meter prekročí skrytý prah, tá farba je do 15 spinov, 16. spin ju donúti. 4-FTTB 70 / 15 / 15.
           </li>
           <li>
-            4 a viac scatterov kdekoľvek na obrazovke — aj počas tumble — spustí 15 free spins.
+            4 a viac scatterov kdekoľvek na obrazovke — aj počas tumble — spustí free spiny. 4 sú 15 točení, každý ďalší scatter pridá 4.
             Scatter ostane na poli, kým bonus nezačne. 4ka TV trigger bije lístok: ceremónia čaká.
           </li>
           <li>Výherné symboly zmiznú, nové spadnú zhora (tumble). Plechovky, scatter aj lístok tumble prežijú.</li>
           <li>Násobiče nepadajú z valca ako RJ45. Rampa ich pustí ako energy plechovky. 15 hodnôt, sčítajú sa (50+100=150, nie 5 000). Aktivujú sa až na konci reťaze, a len ak bola výhra. 2–5 sú asi 72 % plechoviek, priemer ~7×.</li>
           <li>Base: súčet plechoviek × celá tumble sekvencia, potom reset. Vo FS sa plechovka pripočíta do Mbps len na výhernom spine a najprv sa sčíta (50+5=55), potom sa sekvencia zapíše ako 55× tumble. Výhra bez novej plechovky je samotný tumble — uložený Mbps sa na ňu nepúšťa. Bez výhry ostanú na mieste a nič sa nestane.</li>
-          <li>4 scattere = 15 voľných točení. V bonuse 3+ scattere = +5. Výplata scatteru je 3× / 5× / 100×.</li>
+          <li>4 scattere = 15 voľných točení. Každý ďalší scatter na otvorení pridá 4, takže 6 scatterov začína na 23. V bonuse 3+ scattere = +5. Výplata scatteru je 3× / 5× / 100×.</li>
           <li>
             Lístok vo feature smie padnúť, ceremónia ide až po SIEŤ SPADLA. Banner je{" "}
             <code>1-FTTB · 1 742,20</code> — žiadny WinBox, žiadny terminál.

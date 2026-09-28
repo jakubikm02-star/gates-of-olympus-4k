@@ -195,6 +195,14 @@ export const FS_SPINS = 15;
 export const FS_RETRIGGER = 5;
 export const FS_TRIGGER_SCATTERS = 4;
 export const FS_RETRIGGER_SCATTERS = 3;
+/** Each scatter past the 4 that open the feature. */
+export const FS_EXTRA_PER_SCATTER = 4;
+
+/** 4 scatters = base (15, or the rank base). Each further scatter adds 4. */
+export function fsTriggerSpins(scatters: number, base = FS_SPINS): number {
+  const extra = Math.max(0, Math.floor(scatters) - FS_TRIGGER_SCATTERS);
+  return base + extra * FS_EXTRA_PER_SCATTER;
+}
 export const BUY_COST_X = 100;
 export const ANTE_COST = 1.25;
 export const START_BALANCE = 5000;

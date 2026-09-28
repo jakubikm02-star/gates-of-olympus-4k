@@ -5,6 +5,7 @@ import {
   FS_RETRIGGER,
   FS_RETRIGGER_SCATTERS,
   FS_TRIGGER_SCATTERS,
+  fsTriggerSpins,
   MAX_WIN_X,
   WIN_POP_X,
   PAY_SYMBOLS,
@@ -234,6 +235,7 @@ export function useSlotGame() {
   const autoHaltRef = useRef(true);
   const busyRef = useRef(false);
   const extraFsRef = useRef(0);
+  const triggerScatterRef = useRef(FS_TRIGGER_SCATTERS);
   const flyKey = useRef(1);
   const lastPaidXRef = useRef(0);
   const roundCashRef = useRef(0);
@@ -1341,6 +1343,7 @@ export function useSlotGame() {
       }
 
       if (!fsNow && scatterPeak >= FS_TRIGGER_SCATTERS) pendingFs = true;
+      if (pendingFs) triggerScatterRef.current = scatterPeak;
       if (fsNow && scatterPeak >= FS_RETRIGGER_SCATTERS && !retriggered) {
         retriggered = true;
         extraFsRef.current = FS_RETRIGGER;
@@ -1866,7 +1869,7 @@ export function useSlotGame() {
       const buyXNow = buyXOf(rankIdNow);
       const buyCost = +(betNow * buyXNow).toFixed(2);
       const mathRank = duelRef.current && duelRef.current.phase !== "done" ? "kredit" : rankIdNow;
-      const fsCount = fsSpinsOf(mathRank);
+      const fsCount = fsTriggerSpins(triggerScatterRef.current, fsSpinsOf(mathRank));
       const applyBoughtRank = makeApplyBought(betNow, buyCost, buyXNow, rankIdNow);
 
       if (autoRef.current && autoHaltRef.current && !duelRef.current) {
@@ -1924,8 +1927,8 @@ export function useSlotGame() {
         sfx.startLiveBed();
         bannerOpen.current = true;
         setBanner("fs");
-        setBannerAmount(0);
-        setTopLine("GRATULUJEME · 15 VOLNÝCH TOČENÍ");
+        setBannerAmount(fsCount);
+        setTopLine(`GRATULUJEME · ${fsCount} VOLNÝCH TOČENÍ`);
         await waitForBanner();
         await wait(200);
 
