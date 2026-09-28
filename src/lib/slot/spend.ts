@@ -63,8 +63,8 @@ const TEMPLATES: {
   payIds?: PayId[];
 }[] = [
   { id: "zber", titles: ["ZBER", "OBCHÔDZKA", "DENNÁ DÁVKA"], kind: "wins", scope: "base", need: [14, 22], until: [65, 65], line: "výherných spinov dokopy" },
-  { id: "balik", titles: ["MULTI TUMBLE", "REŤAZ PÁDOV", "DVA A VIAC"], kind: "chain", scope: "base", need: [4, 7], until: [60, 100], line: "spinov s 2+ pádmi dokopy" },
-  { id: "pada", titles: ["SÚČET TUMBLE", "PADÁ TO", "PÁDY DOLE"], kind: "tumbles", scope: "base", need: [20, 30], until: [70, 70], line: "pádov dokopy" },
+  { id: "balik", titles: ["CLUSTER POP", "REŤAZ POP", "DVA A VIAC"], kind: "chain", scope: "base", need: [4, 7], until: [60, 100], line: "spinov s 2+ pop dokopy" },
+  { id: "pada", titles: ["SÚČET POP", "POP", "POP DOLE"], kind: "tumbles", scope: "base", need: [20, 30], until: [70, 70], line: "pop dokopy" },
   { id: "siet", titles: ["SIEŤ", "PARKNET", "4ka TV", "ŠTYRI TELEVÍZORY"], kind: "live", scope: "base", need: [1, 1], until: [50, 720], line: "spustiť PARKNET / 4ka TV" },
   { id: "signal", titles: ["TACHYKARDIA", "TEP 180", "PULZ PLECHOVIEK"], kind: "signal", scope: "live", need: [10, 51], until: [30, 30], line: "z násobičov dokopy v LIVE" },
   { id: "retaz", titles: ["REŤAZ", "TRI V RADE", "BEZ PRESTÁVKY"], kind: "wins", scope: "base", need: [3, 3], until: [15, 110], line: "výhier po sebe, mŕtvy vynuluje" },
@@ -72,7 +72,7 @@ const TEMPLATES: {
   { id: "pot", titles: ["POT", "SIVÝ LÍSTOK", "ULICA PADÁ"], kind: "ticket", scope: "base", need: [1, 1], until: [30, 50], line: "sivý lístok 1-FTTB" },
   { id: "sucho", titles: ["SUCHO", "TICHÁ ZÓNA", "RAMPA STOJÍ"], kind: "deads", scope: "base", need: [1, 3], until: [10, 15], line: "mŕtvych spinov po sebe, výhra končí" },
   { id: "vynos", titles: ["VÝNOS", "PDF 8+", "PAPIER PLATÍ"], kind: "pdf", scope: "base", need: [1, 1], until: [50, 180], line: "PDF aspoň 8 na jednom spine" },
-  { id: "duo", titles: ["DUO", "DVA CLUSTRE", "DVOJIČKA"], kind: "wins", scope: "base", need: [4, 7], until: [55, 90], line: "spinov s 2 klastrami dokopy" },
+  { id: "duo", titles: ["DUO", "DVA CLUSTER", "DVOJIČKA"], kind: "wins", scope: "base", need: [4, 7], until: [55, 90], line: "spinov s 2 cluster dokopy" },
   {
     id: "vyherne",
     titles: ["VÝHERNÝ ZBER", "LEN ČO PLATÍ", "ZBER VÝHIER"],
