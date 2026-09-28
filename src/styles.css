@@ -2352,6 +2352,105 @@
   font-weight: 800;
 }
 
+.nick-ask .nick-actions {
+  display: flex;
+  gap: 8px;
+  margin: 8px 12px 0;
+}
+
+.nick-line {
+  display: flex;
+  gap: 8px;
+  margin: 0 12px 8px;
+}
+
+.nick-line input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #c9a24a;
+  background: #120c08;
+  color: #fff6d8;
+}
+
+.nick-line button,
+.nick-ask .sound-one {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #c9a24a;
+  background: #3a2a12;
+  color: #ffe9a8;
+  font-weight: 800;
+}
+
+.board-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 12px 8px;
+}
+
+.board-tabs button {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgb(201 162 74 / 0.4);
+  background: transparent;
+  color: #c4b896;
+  font-weight: 800;
+}
+
+.board-tabs button.on {
+  background: #3a2a12;
+  color: #ffe9a8;
+}
+
+.board-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 50vh;
+  overflow: auto;
+  margin: 0 8px 8px;
+}
+
+.board-row {
+  display: grid;
+  grid-template-columns: 1.4rem minmax(0, 1.1fr) repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgb(20 10 8 / 0.45);
+}
+
+.board-row.is-me {
+  outline: 1px solid #c9a24a;
+}
+
+.board-row b {
+  color: #ffe9a8;
+}
+
+.board-row span,
+.board-row em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: normal;
+  font-size: 0.78rem;
+  color: #fff6d8;
+}
+
+.board-row small {
+  display: block;
+  color: #c4b896;
+  font-size: 0.62rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .sound-sheet.is-open {
   display: block;
 }

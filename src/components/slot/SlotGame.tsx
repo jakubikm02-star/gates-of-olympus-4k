@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
-import { Volume2, VolumeX, Info, RefreshCw, Menu, Settings as SettingsIcon } from "lucide-react";
+import { Volume2, VolumeX, Info, RefreshCw, Menu, Settings as SettingsIcon, Trophy } from "lucide-react";
 import { START_BALANCE, BETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
@@ -17,6 +17,7 @@ import { RankToast } from "./RankToast";
 import { SpendSheet } from "./SpendSheet";
 import { DuelSheet, DuelBar, DuelLink } from "./DuelSheet";
 import { Settings } from "./Settings";
+import { Leaderboard, NickAsk } from "./Leaderboard";
 import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
@@ -147,6 +148,7 @@ export function SlotGame() {
   const shell = useShell();
   const [deskOpen, setDeskOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [boardOpen, setBoardOpen] = useState(false);
   const [, names] = useState(0);
   useEffect(() => subscribeTicketNames(() => names((n) => n + 1)), []);
   const spinning = g.phase === "spinning" || g.phase === "landing";
@@ -471,6 +473,14 @@ export function SlotGame() {
               aria-label="Nastavenia"
             >
               <SettingsIcon size={15} />
+            </button>
+            <button
+              type="button"
+              className="icon-btn is-gear"
+              onClick={() => setBoardOpen(true)}
+              aria-label="Rebríček"
+            >
+              <Trophy size={15} />
             </button>
             <button
               type="button"
@@ -812,6 +822,8 @@ export function SlotGame() {
 
       <Paytable open={g.paytableOpen} onClose={() => g.setPaytableOpen(false)} bet={g.bet} desk={g.desk} mine={g.mine} />
       <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <Leaderboard open={boardOpen} nick={g.nick} onClose={() => setBoardOpen(false)} onSave={g.setNickName} />
+      {g.nickAsk ? <NickAsk onSave={g.setNickName} onSkip={g.dismissNick} /> : null}
       <SpendSheet
         open={g.spendOpen}
         onClose={() => g.setSpendOpen(false)}

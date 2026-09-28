@@ -42,6 +42,7 @@ import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from 
 import { emptyBoard, isEligibleBet, ticketResolve, type BoardSnap, type JackpotHit, type TierId } from "@/lib/slot/jackpot";
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
 import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDesk, ticketProfit, type DeskDay } from "@/lib/slot/desk-api";
+import { putBoard, readBestHow, readNick, saveNick, skipNick, nickSkipped, winHow, writeBestHow } from "@/lib/slot/board-api";
 import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, duelPot, duelCreditDelta, forfeitDuel, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
 import { duelForfeit, duelLeave, duelTick } from "@/lib/slot/duel-api";
 import {
@@ -277,6 +278,9 @@ export function useSlotGame() {
   const [desk, setDesk] = useState<DeskDay>(emptyDesk);
   const [mine, setMine] = useState<DeskDay>(emptyDesk);
   const mineRef = useRef<DeskDay>(emptyDesk());
+  const bestHowRef = useRef("");
+  const [nick, setNick] = useState("");
+  const [nickAsk, setNickAsk] = useState(false);
 
   turboRef.current = turbo;
   quickRef.current = quick;
@@ -386,6 +390,8 @@ export function useSlotGame() {
       ticketLost,
     };
     mineRef.current = mineDay;
+    bestHowRef.current = readBestHow(mineDay.day);
+    setNick(readNick());
     setMine(mineDay);
     saveSnapRef.current = {
       ...s,
@@ -407,13 +413,23 @@ export function useSlotGame() {
     writeLocal(next);
   }, []);
 
-  const bumpToday = useCallback((stake: number, win: number) => {
+  const bumpToday = useCallback((stake: number, win: number, how = "") => {
+    const day = deskToday();
+    const prevBest = mineRef.current.day === day ? mineRef.current.best : 0;
+    if (mineRef.current.day !== day) bestHowRef.current = "";
+    if (win > prevBest && how) {
+      bestHowRef.current = how;
+      writeBestHow(day, how);
+    }
     const nextMine = bumpLocalDesk(mineRef.current, stake, win);
     mineRef.current = nextMine;
     setMine(nextMine);
     void bumpDesk(stake, win)
       .then(setDesk)
       .catch(() => {});
+    if (readNick() && playerIdRef.current) {
+      void putBoard(playerIdRef.current, nextMine.wagered, nextMine.paid, nextMine.best, bestHowRef.current).catch(() => {});
+    }
   }, []);
 
   const noteTicket = useCallback((won: number, lost: number) => {
@@ -650,6 +666,7 @@ export function useSlotGame() {
     ]);
     sfx.startAmbience();
     setStarted(true);
+    if (!readNick() && !nickSkipped()) setNickAsk(true);
     setPhase(inFsRef.current && fsSessionRef.current.left > 0 ? "fs" : "idle");
     setBooting(false);
     bootingRef.current = false;
@@ -1547,7 +1564,11 @@ export function useSlotGame() {
       }
 
       if (!isFree && cost > 0) {
-        bumpToday(cost, opts?.buy ? 0 : cash);
+        const how =
+          cash > 0 && !opts?.buy
+            ? winHow({ mode: "BASE", pops: tumbleN, mult: applied, x, banner: kind })
+            : "";
+        bumpToday(cost, opts?.buy ? 0 : cash, how);
       }
 
       setPots(boardRef.current.pots);
@@ -1728,7 +1749,21 @@ export function useSlotGame() {
         sfx.stopLiveBed();
         const escrow = Boolean(duelRef.current && duelRef.current.phase !== "done");
         if (fsCash > 0 && !escrow) setBalance((b) => +(b + fsCash).toFixed(2));
-        if (featureTotal > 0) bumpToday(0, featureTotal);
+        if (featureTotal > 0) {
+          const fx = betNow > 0 ? featureTotal / betNow : 0;
+          bumpToday(
+            0,
+            featureTotal,
+            winHow({
+              mode: sess.bought ? "KÚPA" : "PARKNET",
+              spins: sess.played,
+              mult: sess.peak,
+              scatters: triggerScatterRef.current,
+              x: fx,
+              banner: hitCap ? "max" : bannerFromX(fx),
+            }),
+          );
+        }
         roundCashRef.current = featureTotal;
         const bought = sess.bought;
         const peak = sess.peak;
@@ -2242,6 +2277,27 @@ export function useSlotGame() {
     pots,
     desk,
     mine,
+    nick,
+    nickAsk,
+    setNickName: async (name: string) => {
+      const id = playerIdRef.current || crypto.randomUUID();
+      playerIdRef.current = id;
+      const err = await saveNick(id, name);
+      if (!err) {
+        setNick(readNick());
+        setNickAsk(false);
+        persistNow();
+        const mineNow = mineRef.current;
+        if (mineNow.wagered > 0 || mineNow.paid > 0 || mineNow.best > 0) {
+          void putBoard(id, mineNow.wagered, mineNow.paid, mineNow.best, bestHowRef.current).catch(() => {});
+        }
+      }
+      return err;
+    },
+    dismissNick: () => {
+      skipNick();
+      setNickAsk(false);
+    },
     jpHit,
     ticketLock,
     poolEligible: isEligibleBet(bet),
