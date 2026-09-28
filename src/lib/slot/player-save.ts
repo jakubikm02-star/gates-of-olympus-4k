@@ -151,14 +151,21 @@ function jobSave(raw: unknown): JobCard | null {
   const cash = kind === "cash";
   const need = cash
     ? Math.min(500_000, Math.max(0.1, Math.round(num(r.need, 1) * 100) / 100))
-    : Math.min(40, Math.max(1, Math.floor(num(r.need, 1))));
+    : Math.min(500, Math.max(1, Math.floor(num(r.need, 1))));
+  const kindB = KINDS.includes(r.kindB as JobCard["kind"]) ? (r.kindB as JobCard["kind"]) : undefined;
+  const needB =
+    r.needB == null
+      ? undefined
+      : kindB === "cash"
+        ? Math.min(500_000, Math.max(0.1, Math.round(num(r.needB, 1) * 100) / 100))
+        : Math.min(500, Math.max(1, Math.floor(num(r.needB, 1))));
   return {
     id: typeof r.id === "string" ? r.id.slice(0, 64) : "job",
     floor,
     template: typeof r.template === "string" ? r.template.slice(0, 24) : kind,
     title: typeof r.title === "string" ? r.title.slice(0, 32) : "TIKET",
-    detail: typeof r.detail === "string" ? r.detail.slice(0, 160) : "",
-    goal: typeof r.goal === "string" ? r.goal.slice(0, 140) : undefined,
+    detail: typeof r.detail === "string" ? r.detail.slice(0, 240) : "",
+    goal: typeof r.goal === "string" ? r.goal.slice(0, 220) : undefined,
     stake: num(r.stake, 1000, 1, 200000),
     payout: num(r.payout, 1800, 1, 400000),
     need,
@@ -168,7 +175,10 @@ function jobSave(raw: unknown): JobCard | null {
     limit: Math.min(400, Math.max(need, Math.floor(num(r.limit, need * 8)))),
     spun: Math.min(400, Math.max(0, Math.floor(num(r.spun, 0)))),
     kind,
+    kindB,
     scope: SCOPES.includes(r.scope as JobCard["scope"]) ? (r.scope as JobCard["scope"]) : kind === "buy" ? "live" : "base",
+    scopeB: SCOPES.includes(r.scopeB as JobCard["scope"]) ? (r.scopeB as JobCard["scope"]) : undefined,
+    templateB: typeof r.templateB === "string" ? r.templateB.slice(0, 24) : undefined,
     lockBet: num(r.lockBet, 0, 0, 1000),
     mystery: Boolean(r.mystery),
     payId: (["rj45", "router", "hap", "roof", "arris", "case", "meter", "pdf", "dacia"] as PayId[]).includes(
@@ -181,8 +191,13 @@ function jobSave(raw: unknown): JobCard | null {
     )
       ? (r.payIdB as PayId)
       : undefined,
-    needB: r.needB != null ? Math.min(40, Math.max(0, Math.floor(num(r.needB, 0)))) : undefined,
-    haveB: r.haveB != null ? Math.min(40, Math.max(0, Math.floor(num(r.haveB, 0)))) : undefined,
+    needB,
+    haveB:
+      needB == null
+        ? undefined
+        : kindB === "cash"
+          ? Math.min(needB, Math.max(0, Math.round(num(r.haveB, 0) * 100) / 100))
+          : Math.min(needB, Math.max(0, Math.floor(num(r.haveB, 0)))),
     seal: r.seal === true ? true : undefined,
   };
 }

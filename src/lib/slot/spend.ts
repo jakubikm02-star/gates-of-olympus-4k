@@ -31,6 +31,10 @@ export interface JobCard {
   payIdB?: PayId;
   needB?: number;
   haveB?: number;
+  /** OTRS second goal. Both have to finish. */
+  kindB?: JobCard["kind"];
+  templateB?: string;
+  scopeB?: "base" | "live" | "any";
   /** Clock is dead but the LIVE feature has not closed yet. */
   seal?: boolean;
 }
@@ -163,13 +167,18 @@ export function jobLeft(job: JobCard): number {
 }
 
 export function jobDone(job: JobCard): boolean {
-  if (job.kind === "hydra") return job.have >= job.need && (job.haveB ?? 0) >= (job.needB ?? 1);
+  const second = job.kind === "hydra" || Boolean(job.kindB);
+  if (second) return job.have >= job.need && (job.haveB ?? 0) >= (job.needB ?? 1);
   return job.have >= job.need;
 }
 
 export function jobClock(job: JobCard, inLive = false): string {
   if (jobDone(job)) return "SPLNENÁ";
-  if (job.scope === "live" && job.spun === 0 && !inLive) return "ČAKÁ NA PARKNET";
+  const bothLive =
+    Boolean(job.kindB) &&
+    (job.scope === "live" || job.kind === "buy") &&
+    (job.scopeB === "live" || job.kindB === "buy");
+  if ((job.scope === "live" || bothLive) && job.spun === 0 && !inLive) return "ČAKÁ NA PARKNET";
   const left = jobLeft(job);
   if (left <= 0) return "NEÚSPEŠNÝ TIKET";
   if (left === 1) return "posledné točenie";
@@ -189,6 +198,12 @@ export function jobShownGoal(job: JobCard): string {
 export function jobMeter(job: JobCard): string {
   if (job.kind === "hydra" && job.payId && job.payIdB) {
     return `${payName(job.payId)} ${job.have}/${job.need} · ${payName(job.payIdB)} ${job.haveB ?? 0}/${job.needB ?? 0}`;
+  }
+  if (job.kindB) {
+    const b =
+      job.kindB === "cash" ? `${formatMoney(job.haveB ?? 0)}/${formatMoney(job.needB ?? 0)} €` : `${job.haveB ?? 0}/${job.needB ?? 0}`;
+    const a = job.kind === "cash" ? `${formatMoney(job.have)}/${formatMoney(job.need)} €` : `${job.have}/${job.need}`;
+    return `${a} + ${b}`;
   }
   if (job.kind === "collect") return `${job.have}/${job.need} ks`;
   if (job.kind === "cash") return `${formatMoney(job.have)} / ${formatMoney(job.need)} €`;
@@ -462,6 +477,62 @@ function makeJob(
   };
 }
 
+const OTRS_SKIP = new Set(["sucho", "hydra", "retaz"]);
+
+function otrsLine(job: JobCard): string {
+  if (job.kind === "cash") return `nazbierať ${formatMoney(job.need)} € vo výhrach`;
+  if (job.kind === "symbol" && job.payId) return `${job.need}× výhier ${payName(job.payId)}`;
+  if (job.kind === "collect" && job.payId) return `${job.need}× nevýherných ${payName(job.payId)}`;
+  return `${job.need}× ${job.goal?.replace(/^\d+× /, "") ?? ""}`.replace(/\s+·.*/, "");
+}
+
+function makeOtrs(rng: () => number, credit: number, bet: number): JobCard {
+  const floors: JobFloor[] = ["lacna", "stred", "draha"];
+  const floor = floors[Math.floor(rng() * floors.length)] ?? "stred";
+  const pool = TEMPLATES.filter((t) => !OTRS_SKIP.has(t.id));
+  const firstT = pickOne(pool, rng);
+  const secondT = pickOne(
+    pool.filter((t) => t.id !== firstT.id),
+    rng,
+  );
+  let first = makeJob(firstT, floor, credit, bet, rng, 1.35, true);
+  let second = makeJob(secondT, floor, credit, bet, rng, 1.35, true);
+  if (second.kind === "cash" && first.kind !== "cash") {
+    const swap = first;
+    first = second;
+    second = swap;
+  }
+  const limit = snapFive(Math.max(first.limit, second.limit));
+  const goal = `${otrsLine(first)} + ${otrsLine(second)}`;
+  const stake = Math.max(first.stake, second.stake);
+  const payout = Math.max(roundStake(stake * 1.7), Math.max(first.payout, second.payout));
+  return {
+    ...first,
+    id: `otrs-${floor}-${Math.floor(rng() * 1e6)}`,
+    template: first.template,
+    templateB: second.template,
+    title: pickOne(["OTRS", "KOMBINÁCIA", "DVE ÚLOHY", "ZMES"], rng),
+    detail: `${goal} · ${limit} ${spinWord(limit)}`,
+    goal,
+    stake,
+    payout,
+    need: first.need,
+    have: 0,
+    limit,
+    spun: 0,
+    kind: first.kind,
+    kindB: second.kind,
+    scope: first.scope,
+    scopeB: second.scope ?? "base",
+    lockBet: first.lockBet,
+    mystery: true,
+    payId: first.payId,
+    payIdB: second.payId,
+    needB: second.need,
+    haveB: 0,
+  };
+}
+
 export function dealJobs(rng: () => number, credit: number, bet: number): JobCard[] {
   const floors: JobFloor[] = ["lacna", "stred", "draha"];
   const bag = shuffle(TEMPLATES, rng);
@@ -477,11 +548,7 @@ export function dealJobs(rng: () => number, credit: number, bet: number): JobCar
     if (displaced) rest.unshift(displaced);
   }
   const three = floors.map((floor, i) => makeJob(threeT[i % threeT.length], floor, credit, bet, rng));
-  const used = new Set(three.map((j) => j.template));
-  const bonusBag = rest.filter((t) => !used.has(t.id));
-  const bonusT = bonusBag[0] ?? pickOne(TEMPLATES, rng);
-  const bonusFloor = floors[Math.floor(rng() * floors.length)] ?? "stred";
-  const bonus = makeJob(bonusT, bonusFloor, credit, bet, rng, 1.15, true);
+  const bonus = makeOtrs(rng, credit, bet);
   return [...three, bonus];
 }
 
@@ -542,6 +609,94 @@ function jobOnThisSpin(job: JobCard, ev: JobEvent): boolean {
   return true;
 }
 
+function countOne(job: JobCard, ev: JobEvent): { have: number; haveB: number } {
+  let add = 0;
+  let have = job.have;
+  if (job.kind === "wins") {
+    if (job.template === "duo") add = ev.clusters >= 2 ? 1 : 0;
+    else if (job.template === "retaz") {
+      if (ev.dead) have = 0;
+      else if (ev.win) add = 1;
+    } else if (ev.win) add = 1;
+  }
+  if (job.kind === "deads" && ev.dead) add = 1;
+  if (job.kind === "tumbles") {
+    if (job.template === "plechovky") add = Math.min(6, Math.max(0, Math.floor(ev.orbCount ?? (ev.orbs ? 1 : 0))));
+    else add = Math.max(0, ev.tumbles);
+  }
+  if (job.kind === "chain") add = ev.tumbles >= 2 ? 1 : 0;
+  if (job.kind === "live" && ev.live) add = 1;
+  if (job.kind === "ticket" && ev.ticket === "ulica") add = 1;
+  if (job.kind === "pdf" && ev.pdf) add = 1;
+  if (job.kind === "signal") add = Math.max(0, Math.floor(ev.orbSum ?? 0));
+  if (job.kind === "symbol" && job.payId && ev.pays?.includes(job.payId)) add = 1;
+  if (job.kind === "collect") {
+    const won = Boolean(job.payId && ev.pays?.includes(job.payId));
+    add = won ? 0 : Math.max(0, Math.floor(ev.shown ?? 0));
+  }
+  if (job.kind === "buy" && ev.win) add = 1;
+  if (job.kind === "cash") add = Math.max(0, +(ev.cash ?? 0).toFixed(2));
+  let haveB = job.haveB ?? 0;
+  if (job.kind === "hydra") {
+    if (job.payId && ev.pays?.includes(job.payId)) add = 1;
+    if (job.payIdB && ev.pays?.includes(job.payIdB)) haveB = Math.min(job.needB ?? 0, haveB + 1);
+  }
+  const summed = job.kind === "cash" ? +((have + add).toFixed(2)) : have + add;
+  return { have: Math.min(job.need, summed), haveB };
+}
+
+function legHops(template: string, kind: JobCard["kind"], need: number, have: number, left: number): boolean {
+  const cap = jobCap({ template, kind } as JobCard);
+  if (cap == null) return false;
+  return need - have > left * cap;
+}
+
+function tickCombo(job: JobCard, ev: JobEvent): JobCard {
+  const aOn = jobOnThisSpin(job, ev);
+  const bOn = jobOnThisSpin(
+    { ...job, kind: job.kindB ?? job.kind, template: job.templateB ?? job.template, scope: job.scopeB ?? job.scope },
+    ev,
+  );
+  let have = job.have;
+  let haveB = job.haveB ?? 0;
+  if (aOn) have = countOne(job, ev).have;
+  if (bOn) {
+    const counted = countOne(
+      {
+        ...job,
+        kind: job.kindB ?? job.kind,
+        template: job.templateB ?? "",
+        scope: job.scopeB,
+        need: job.needB ?? 1,
+        have: haveB,
+        payId: job.payIdB,
+        payIdB: undefined,
+        kindB: undefined,
+        needB: undefined,
+        haveB: undefined,
+      },
+      ev,
+    );
+    haveB = counted.have;
+  }
+  const spun = job.spun + (ev.spun === false ? 0 : 1);
+  const next: JobCard = { ...job, have, haveB, spun };
+  if (jobDone(next) || !comboHops(next)) return next;
+  if ((next.template === "signal" || next.templateB === "signal") && (ev.liveSpin || ev.bought) && !ev.featureOver) {
+    return { ...next, spun: next.limit, seal: true };
+  }
+  return { ...next, seal: false, spun: next.limit };
+}
+
+function comboHops(job: JobCard): boolean {
+  const left = Math.max(0, job.limit - job.spun);
+  if (left <= 0) return true;
+  return (
+    legHops(job.template, job.kind, job.need, job.have, left) ||
+    legHops(job.templateB ?? "", job.kindB ?? job.kind, job.needB ?? 1, job.haveB ?? 0, left)
+  );
+}
+
 export function tickJob(job: JobCard, ev: JobEvent): JobCard {
   if (job.seal) {
     if (!ev.featureOver) return job;
@@ -550,6 +705,7 @@ export function tickJob(job: JobCard, ev: JobEvent): JobCard {
   if (job.template === "retaz" && job.need > 3) {
     job = { ...job, need: 3, limit: Math.max(job.limit, 50) };
   }
+  if (job.kindB && job.templateB) return tickCombo(job, ev);
   if (!jobOnThisSpin(job, ev)) return job;
   let add = 0;
   let have = job.have;
@@ -633,6 +789,9 @@ export function jobStatus(job: JobCard): "run" | "ok" | "fail" {
 
 /** Goal can only land inside PARKNET, or the goal is to start it. */
 export function jobNeedsParknet(job: JobCard): boolean {
+  const needs = (kind: JobCard["kind"], scope: JobCard["scope"]) =>
+    kind === "buy" || kind === "live" || scope === "live";
+  if (job.kindB) return needs(job.kind, job.scope) || needs(job.kindB, job.scopeB);
   if (job.kind === "buy" || job.kind === "live") return true;
   return job.scope === "live";
 }
