@@ -1,5 +1,3 @@
-import { ticketLabel } from "./ticket-names";
-
 export const COLS = 6;
 export const ROWS = 5;
 
@@ -236,7 +234,7 @@ export function symbolSrc(cell: Cell): string {
 
 export function symbolName(cell: Cell): string {
   if (cell.kind === "scatter") return SCATTER.name;
-  if (cell.kind === "park") return `LÍSTOK ${ticketLabel(cell.ticket ?? "stat")}`;
+  if (cell.kind === "park") return `LÍSTOK ${TICKETS[cell.ticket ?? "stat"].name}`;
   if (cell.kind === "mult") return `x${cell.mult ?? 2}`;
   return PAY_SYMBOLS.find((p) => p.id === cell.payId)?.name ?? "";
 }
