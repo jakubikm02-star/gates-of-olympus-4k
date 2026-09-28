@@ -1,3 +1,5 @@
+import { ticketLabel } from "./ticket-names";
+
 export const COLS = 6;
 export const ROWS = 5;
 
@@ -133,10 +135,10 @@ export const PARK = {
 };
 
 export const TICKETS: Record<TicketId, { name: string; src: string; ink: string }> = {
-  ulica: { name: "1-FTTB", src: "/symbols/listok-ulica.svg?v=fttb", ink: "#c5ccd4" },
-  okres: { name: "2-FTTB", src: "/symbols/listok-okres.svg?v=fttb", ink: "#6ea8ff" },
-  kraj: { name: "3-FTTB", src: "/symbols/listok-kraj.svg?v=fttb", ink: "#c86bff" },
-  stat: { name: "4-FTTB", src: "/symbols/listok-stat.svg?v=fttb", ink: "#e2b01a" },
+  ulica: { name: "1-FTTB", src: "/symbols/listok-ulica.svg?v=fttb2", ink: "#c5ccd4" },
+  okres: { name: "2-FTTB", src: "/symbols/listok-okres.svg?v=fttb2", ink: "#6ea8ff" },
+  kraj: { name: "3-FTTB", src: "/symbols/listok-kraj.svg?v=fttb2", ink: "#c86bff" },
+  stat: { name: "4-FTTB", src: "/symbols/listok-stat.svg?v=fttb2", ink: "#e2b01a" },
 };
 
 export const ALL_ART: readonly string[] = [
@@ -234,7 +236,7 @@ export function symbolSrc(cell: Cell): string {
 
 export function symbolName(cell: Cell): string {
   if (cell.kind === "scatter") return SCATTER.name;
-  if (cell.kind === "park") return `LÍSTOK ${TICKETS[cell.ticket ?? "stat"].name}`;
+  if (cell.kind === "park") return `LÍSTOK ${ticketLabel(cell.ticket ?? "stat")}`;
   if (cell.kind === "mult") return `x${cell.mult ?? 2}`;
   return PAY_SYMBOLS.find((p) => p.id === cell.payId)?.name ?? "";
 }

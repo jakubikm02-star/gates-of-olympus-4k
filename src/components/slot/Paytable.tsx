@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { MATH_NOTE, PAY_SYMBOLS, SCATTER, TICKETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
-import { cueSrc, isCustomCue, replaceCue, resetCue, resetCues, subscribeSfx, unlockAudio } from "@/lib/slot/audio";
+import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
 import type { DeskDay } from "@/lib/slot/desk-api";
 
 interface Props {
@@ -12,131 +12,9 @@ interface Props {
   mine?: DeskDay;
 }
 
-const SOUND_CUES: { id: string; name: string; loop?: boolean; when: string }[] = [
-  { id: "click", name: "Klik", when: "Tlačidlá, stávka, ante, menu." },
-  { id: "spin", name: "Točenie", loop: true, when: "Slučka od štartu točenia, kým valce bežia. Pri 2+ scatteroch stíchne." },
-  { id: "land", name: "Dopad 1", when: "Náhodne jeden z troch, keď stĺpec zastane." },
-  { id: "land2", name: "Dopad 2", when: "Náhodne jeden z troch, keď stĺpec zastane." },
-  { id: "land3", name: "Dopad 3", when: "Náhodne jeden z troch, keď stĺpec zastane." },
-  { id: "scatter", name: "Scatter", when: "1. a 2. scatter pri dopade alebo v páde." },
-  { id: "harp", name: "Harfa", when: "3. scatter. Spolu s ním ide aj Zber." },
-  { id: "thunder", name: "Hrom", when: "4. scatter, hod plechoviek, +5 FS, ohlásenie free spinov a neúspešný tiket." },
-  { id: "anticipate", name: "Napätie", loop: true, when: "Base, keď sú 2+ scattere a valce ešte idú." },
-  { id: "coin", name: "Minca", when: "Výhra v sekvencii pod 5×. Aj splnený tiket." },
-  { id: "win", name: "Výhra", when: "Výhra v sekvencii od 5× do 20×." },
-  { id: "winFull", name: "Výhra plná", when: "Výhra v sekvencii od 20×." },
-  { id: "pop", name: "Prasknutie", when: "Výherné symboly zmiznú pred pádom." },
-  { id: "tumble", name: "Pád", when: "Nové symboly padnú. Ďalší pád je o niečo vyšší." },
-  { id: "can", name: "Plechovka", when: "Dopad plechovky a jej započítanie do výhry." },
-  { id: "zap", name: "Rampa", when: "Plechovka po páde. Spolu s ňou ide aj Elektrika." },
-  { id: "electric", name: "Elektrika", when: "Spolu s Rampou pri plechovke po páde." },
-  { id: "collect", name: "Zber", when: "Výhra lístka (pot) a tretí scatter." },
-  { id: "payout", name: "Výplata", when: "Výhra sa pripíše na kredit v base, mimo duelu." },
-  { id: "fsStart", name: "Štart feature", when: "Začiatok PARKNET / 4ka TV." },
-  { id: "bed", name: "Podklad feature", loop: true, when: "Počas celej feature. V hre naskočí na náhodnom mieste skladby." },
-  { id: "kontrola", name: "Kontrola", when: "Štart KONTROLA." },
-  { id: "tableA", name: "Big win A", when: "Náhodne A alebo B: BIG od 20×, MEGA od 35×, SUPER MEGA od 50×, aj koniec feature s výhrou. MAX 5000× hrá to isté." },
-  { id: "tableB", name: "Big win B", when: "Náhodne A alebo B pri veľkej výhre a na konci feature." },
-];
-
-function SoundSheet() {
-  const audio = useRef<HTMLAudioElement | null>(null);
-  const pass = useRef<HTMLInputElement | null>(null);
-  const [, bump] = useState(0);
-  const [err, setErr] = useState("");
-  useEffect(() => subscribeSfx(() => bump((n) => n + 1)), []);
-  useEffect(() => {
-    return () => {
-      audio.current?.pause();
-    };
-  }, []);
-  const play = (id: string, loop = false) => {
-    unlockAudio();
-    if (!audio.current) audio.current = new Audio();
-    const el = audio.current;
-    el.pause();
-    el.loop = loop;
-    el.src = cueSrc(id);
-    el.volume = 0.85;
-    void el.play();
-  };
-  const stop = () => {
-    audio.current?.pause();
-  };
-  const pick = async (id: string, file: File | undefined) => {
-    if (!file) return;
-    stop();
-    const msg = await replaceCue(id, file, pass.current?.value ?? "");
-    setErr(msg ?? "Uložené. Počujú to všetci hráči.");
-  };
-  const drop = async (id: string) => {
-    stop();
-    const msg = await resetCue(id, pass.current?.value ?? "");
-    setErr(msg ?? "Tento zvuk je späť pôvodný pre všetkých.");
-  };
-  return (
-    <details className="sound-sheet">
-      <summary>ZVUKY · prehrať a kedy hrajú</summary>
-      <p className="sound-note">
-        Heslo zmení zvuk v jadre hry. Platí pre všetkých hráčov. Reset pri jednom zvuku vráti len ten.
-      </p>
-      <input ref={pass} className="sound-pass" type="password" placeholder="Heslo admina" autoComplete="off" />
-      {err ? <p className="sound-err">{err}</p> : null}
-      {SOUND_CUES.map((cue) => (
-        <div className="sound-row" key={cue.id}>
-          <button type="button" onClick={() => play(cue.id, cue.loop)}>
-            {cue.loop ? "Slučka" : "Hraj"}
-          </button>
-          <label className="sound-file">
-            {isCustomCue(cue.id) ? "Zmeniť" : "Súbor"}
-            <input
-              type="file"
-              accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.webm"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                void pick(cue.id, file);
-              }}
-            />
-          </label>
-          <div>
-            <b>
-              {cue.name}
-              {isCustomCue(cue.id) ? <i className="sound-own">jadro</i> : null}
-              {isCustomCue(cue.id) ? (
-                <button type="button" className="sound-one" onClick={() => void drop(cue.id)}>
-                  Reset
-                </button>
-              ) : null}
-            </b>
-            <span>{cue.when}</span>
-          </div>
-        </div>
-      ))}
-      <div className="sound-row is-wide">
-        <button type="button" onClick={stop}>
-          Stop
-        </button>
-        <div>
-          <b>Stop</b>
-          <span>Zastaví náhľad. Hru nechá bežať.</span>
-        </div>
-      </div>
-      <button
-        type="button"
-        className="sound-reset"
-        onClick={() => {
-          stop();
-          void resetCues(pass.current?.value ?? "").then((msg) => setErr(msg ?? "Pôvodné zvuky sú späť pre všetkých."));
-        }}
-      >
-        Pôvodné zvuky
-      </button>
-    </details>
-  );
-}
-
 export function Paytable({ open, onClose, bet, desk, mine }: Props) {
+  const [, names] = useState(0);
+  useEffect(() => subscribeTicketNames(() => names((n) => n + 1)), []);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -164,7 +42,6 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
         <p className="modal-lead">
           8+ kdekoľvek na 6×5. Stávka {bet.toFixed(2)}. Demo — žiadne vklady.
         </p>
-        <SoundSheet />
         {desk && mine ? (
           <div className="atm-desk in-info" aria-label="Dnešný counter automatu">
             <header>
@@ -247,10 +124,10 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             <div>
               <div className="pay-name">LÍSTOK · jediný kľúč k potu</div>
               <div className="pay-vals">
-                <span>SIVÝ 1-FTTB</span>
-                <span>MODRÝ 2-FTTB</span>
-                <span>FIALOVÝ 3-FTTB</span>
-                <span>ZLATÝ 4-FTTB</span>
+                <span>SIVÝ {ticketLabel("ulica")}</span>
+                <span>MODRÝ {ticketLabel("okres")}</span>
+                <span>FIALOVÝ {ticketLabel("kraj")}</span>
+                <span>ZLATÝ {ticketLabel("stat")}</span>
               </div>
               <div className="pay-quip">Neplatí 8+. Neskáče do Mbps. Max 1 na spin.</div>
             </div>

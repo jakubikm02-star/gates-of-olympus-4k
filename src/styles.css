@@ -2253,6 +2253,78 @@
   place-items: center;
 }
 
+.icon-btn.is-gear {
+  width: 32px;
+  height: 32px;
+}
+
+.cell.is-park .scatter-label {
+  top: 46%;
+  bottom: auto;
+  transform: translateY(-50%);
+  letter-spacing: 0.02em;
+  font-size: clamp(0.48rem, 1.9vw, 0.78rem);
+}
+
+.cell.is-ticket-ulica .scatter-label { color: #e8eaee; }
+.cell.is-ticket-okres .scatter-label { color: #d6e6ff; }
+.cell.is-ticket-kraj .scatter-label { color: #f3d9ff; }
+.cell.is-ticket-stat .scatter-label { color: #ffe56a; }
+
+.settings-gate {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ticket-names {
+  margin-top: 16px;
+}
+
+.ticket-name-row {
+  display: grid;
+  grid-template-columns: 36px 4.2rem minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin: 0 12px 8px;
+}
+
+.ticket-name-row img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.ticket-name-row span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.ticket-name-row input {
+  min-width: 0;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1px solid #c9a24a;
+  background: #120c08;
+  color: #fff6d8;
+  font-size: 0.84rem;
+}
+
+.ticket-name-row button {
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid #c9a24a;
+  background: #3a2a12;
+  color: #ffe9a8;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.sound-sheet.is-open {
+  display: block;
+}
+
 .credit-stack {
   color: #fff;
   font-size: 0.78rem;

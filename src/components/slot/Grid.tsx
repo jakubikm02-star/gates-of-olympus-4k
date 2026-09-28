@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { COLS, ROWS, symbolSrc, TICKETS, type Cell } from "@/lib/slot/symbols";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { COLS, ROWS, symbolSrc, type Cell } from "@/lib/slot/symbols";
+import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
 
 export interface ClusterPay {
   x: number;
@@ -94,7 +95,7 @@ function CellView({
       )}
       {!cell.gone && cell.kind === "scatter" && <span className="scatter-label">SCATTER</span>}
       {!cell.gone && cell.kind === "park" && (
-        <span className="scatter-label">{TICKETS[cell.ticket ?? "stat"].name}</span>
+        <span className="scatter-label">{ticketLabel(cell.ticket ?? "stat")}</span>
       )}
       {!cell.gone && cell.kind === "mult" && <span className="mult-tag">{cell.mult}X</span>}
       {!cell.gone && win && <span className="win-fx" aria-hidden="true" />}
@@ -239,6 +240,8 @@ export function SlotGrid({
   spinStrips,
   ticketLock,
 }: Props) {
+  const [, names] = useState(0);
+  useEffect(() => subscribeTicketNames(() => names((n) => n + 1)), []);
   const cascading = spinning || landing;
   const [landed, setLanded] = useState<boolean[]>(() => Array(COLS).fill(true));
   const [token, setToken] = useState(0);

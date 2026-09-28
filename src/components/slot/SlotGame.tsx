@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef, useState, type PointerEvent } from "react";
-import { Volume2, VolumeX, Info, RefreshCw, Menu } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
+import { Volume2, VolumeX, Info, RefreshCw, Menu, Settings as SettingsIcon } from "lucide-react";
 import { START_BALANCE, BETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
@@ -16,6 +16,8 @@ import { RankPanel } from "./RankPanel";
 import { RankToast } from "./RankToast";
 import { SpendSheet } from "./SpendSheet";
 import { DuelSheet, DuelBar, DuelLink } from "./DuelSheet";
+import { Settings } from "./Settings";
+import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
 
@@ -144,6 +146,9 @@ export function SlotGame() {
   const g = useSlotGame();
   const shell = useShell();
   const [deskOpen, setDeskOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [, names] = useState(0);
+  useEffect(() => subscribeTicketNames(() => names((n) => n + 1)), []);
   const spinning = g.phase === "spinning" || g.phase === "landing";
   const god = g.throwBolt ? "bolt" : g.anticipate ? "anti" : spinning ? "run" : g.inFs || g.winTier || g.displayWin > 0 ? "win" : "idle";
   const resolving =
@@ -233,7 +238,7 @@ export function SlotGame() {
                     key={id}
                     className={`jp-row ${id} ${isTierHot(def, t.pool) ? "is-hot" : ""} ${g.jpHit?.id === id ? "is-win" : ""}`}
                   >
-                    <span>{def.name}</span>
+                    <span>{ticketLabel(id)}</span>
                     <b>
                       <CountUp value={t.pool} meter />
                     </b>
@@ -242,7 +247,7 @@ export function SlotGame() {
               })}
               {g.jpHit ? (
                 <em>
-                  {g.jpHit.name} · {formatMoney(g.jpHit.payout)}
+                  {ticketLabel(g.jpHit.id)} · {formatMoney(g.jpHit.payout)}
                 </em>
               ) : g.poolEligible ? null : (
                 <em>100+</em>
@@ -458,6 +463,14 @@ export function SlotGame() {
               aria-label="Tabuľka"
             >
               <Info size={16} />
+            </button>
+            <button
+              type="button"
+              className="icon-btn is-gear"
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Nastavenia"
+            >
+              <SettingsIcon size={15} />
             </button>
             <button
               type="button"
@@ -794,6 +807,7 @@ export function SlotGame() {
       )}
 
       <Paytable open={g.paytableOpen} onClose={() => g.setPaytableOpen(false)} bet={g.bet} desk={g.desk} mine={g.mine} />
+      <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <SpendSheet
         open={g.spendOpen}
         onClose={() => g.setSpendOpen(false)}
@@ -835,7 +849,7 @@ export function SlotGame() {
       {g.jpHit && (
         <div className="ticket-banner" aria-live="assertive">
           <strong>
-            {g.jpHit.name} · {formatMoney(g.jpHit.payout)}
+            {ticketLabel(g.jpHit.id)} · {formatMoney(g.jpHit.payout)}
           </strong>
         </div>
       )}
