@@ -5977,12 +5977,9 @@ html:-webkit-full-screen {
 }
 
 .job-chip {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas:
-    "kicker goal"
-    "facts facts";
-  gap: 2px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   width: 100%;
   margin: 0;
   padding: 0;
@@ -5996,36 +5993,59 @@ html:-webkit-full-screen {
   cursor: pointer;
 }
 
+.job-chip .job-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
 .job-chip .job-kicker {
-  grid-area: kicker;
-  align-self: center;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   color: #ffe56a;
+  padding-top: 0.2rem;
 }
 
 .job-chip strong {
-  grid-area: goal;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
-  font-size: 1.12rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.25;
   letter-spacing: 0.01em;
   color: #fff;
   text-transform: none;
 }
 
+.job-chip strong span,
+.job-chip .job-facts b span {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .job-chip .job-facts {
-  grid-area: facts;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 14px;
+  gap: 3px 12px;
+  align-items: baseline;
   min-width: 0;
-  font-size: 0.98rem;
-  line-height: 1.2;
-  letter-spacing: 0.03em;
+  font-size: 0.86rem;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
   color: #f6e7a8;
+}
+
+.job-chip .job-facts b {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 
 .job-chip .job-facts b,
@@ -7267,16 +7287,17 @@ html:-webkit-full-screen {
 
 .stage.shell-mw .job-chip,
 .stage.shell-pwa .job-chip {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  font-size: 0.95rem;
-  line-height: 1.2;
+  font-size: 0.86rem;
+  line-height: 1.25;
   letter-spacing: 0.02em;
 }
 
 .stage.shell-mw .job-chip strong,
 .stage.shell-pwa .job-chip strong {
-  font-size: 1.05rem;
+  font-size: 0.9rem;
 }
 
 .stage.shell-mw .job-chip .job-facts,

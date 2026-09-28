@@ -403,10 +403,27 @@ export function SlotGame() {
             <div className={`board-job ${liveJob || seal ? "has-job" : ""} ${seal ? `is-seal is-${seal.verdict}` : ""}`}>
               {(liveJob || seal) && (
                 <div className={`job-chip ${liveJob && liveJob.limit - liveJob.spun <= 5 ? "is-late" : ""} ${seal ? "is-sealed" : ""}`}>
-                  <span className="job-kicker">{seal ? (seal.verdict === "ok" ? "ÚSPEŠNÝ" : "NEÚSPEŠNÝ") : "TIKET"}</span>
-                  <strong>{jobShownGoal((liveJob ?? seal!.job))}</strong>
+                  <div className="job-head">
+                    <span className="job-kicker">{seal ? (seal.verdict === "ok" ? "ÚSPEŠNÝ" : "NEÚSPEŠNÝ") : "TIKET"}</span>
+                    <strong>
+                      {jobShownGoal(liveJob ?? seal!.job)
+                        .replaceAll("pádov dokopy", "pop dokopy")
+                        .replaceAll("pádmi dokopy", "pop dokopy")
+                        .replaceAll("klastrami", "cluster")
+                        .split(" + ")
+                        .map((line) => (
+                          <span key={line}>{line}</span>
+                        ))}
+                    </strong>
+                  </div>
                   <span className="job-facts">
-                    <b>{jobMeter(liveJob ?? seal!.job)}</b>
+                    <b>
+                      {jobMeter(liveJob ?? seal!.job)
+                        .split(" + ")
+                        .map((line) => (
+                          <span key={line}>{line}</span>
+                        ))}
+                    </b>
                     <em>{jobClock(liveJob ?? seal!.job, g.inFs)}</em>
                     <i>
                       {formatMoney((liveJob ?? seal!.job).stake)} → {formatMoney((liveJob ?? seal!.job).payout)}
