@@ -26,6 +26,8 @@ https://mixkit.co/license/#sfxFree
                https://mixkit.co/free-sound-effects/car/
   zap.mp3      Mixkit 2709 — Hydraulic bus door (barrier / rampa)
                https://mixkit.co/free-sound-effects/bus/
+  ticket-ok.mp3  Freesound 80192 — M1 Garand rifle (successful contract)
+               https://freesound.org/people/freesound_community/sounds/80192/
   Slot / thunder / harp packs as originally licensed
 
 Kenney Casino Audio — CC0 (public domain)
@@ -38,5 +40,5 @@ https://bigsoundbank.com
   land2.mp3    Automatic gate opening (sound 1125), trimmed
   https://bigsoundbank.com/sound-1126-portail-automatique-fermeture.html
 
-Freesound — CC0 (public domain)
-  (none currently)
+Freesound
+  ticket-ok.mp3  sound 80192, M1 Garand, successful contract only

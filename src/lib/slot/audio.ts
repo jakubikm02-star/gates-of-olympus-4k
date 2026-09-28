@@ -32,6 +32,7 @@ const FILES: Record<string, string> = {
   winFull: "/sfx/win-full.mp3?v=tumble2",
   payout: "/sfx/payout.mp3",
   coin: "/sfx/coin.mp3",
+  ticketOk: "/sfx/ticket-ok.mp3?v=garand1",
   scatter: "/sfx/scatter.mp3",
   collect: "/sfx/collect.mp3",
   tumble: "/sfx/tumble.mp3?v=mech1",
@@ -556,6 +557,10 @@ export function playCoin(): void {
   if (!playBuf("coin", { gain: 0.65, rate: 0.96 + Math.random() * 0.08 })) {
     tone("sine", 1480, 0.12, 0.05, 1360);
   }
+}
+
+export function playTicketOk(): void {
+  if (!playBuf("ticketOk", { gain: 0.9 })) playCoin();
 }
 
 export function playPayout(): void {

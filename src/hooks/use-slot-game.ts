@@ -894,7 +894,7 @@ export function useSlotGame() {
       setLcdFlash({ job: next, verdict: "ok" });
       setTicketSeal({ job: next, verdict: "ok" });
       stampDailyJob(next, "ok");
-      sfx.playCoin();
+      sfx.playTicketOk();
     } else if (st === "fail") {
       jobRef.current = null;
       setJob(null);
