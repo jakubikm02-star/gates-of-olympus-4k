@@ -19,7 +19,7 @@ import { pityGain, rankPeekIds, type PickTile } from "./pick-bonus.ts";
 import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta, canDuelSpin, duelView, forfeitDuel } from "./duel.ts";
 import { PAY_SYMBOLS, payName, ORB_TABLE, ORB_VALUES } from "./symbols.ts";
 import { canSpend, dealJobs, freshDaily, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobMeter, jobParknetBroke, jobShownGoal, jobStatus, missCollectPlan, stampDaily, symbolNeed, tickJob, spinWord, winCollectPlan, JOB_BANK, JOB_TEMPLATE_IDS, type JobCard } from "./spend.ts";
-import { bumpLocalDesk, bumpTicketDesk, emptyDesk } from "./desk-api.ts";
+import { bumpLocalDesk, bumpTicketDesk, emptyDesk, ticketProfit } from "./desk-api.ts";
 
 describe("park jackpots", () => {
   it("takes 2.3% visible + 0.3% reserve", () => {
@@ -1244,15 +1244,21 @@ describe("desk tickets", () => {
     assert.equal(spun.paid, 5);
     assert.equal(spun.ticketWon, 0);
     assert.equal(spun.ticketLost, 0);
-    const won = bumpTicketDesk(spun, 12.5, 0);
-    const lost = bumpTicketDesk(won, 0, 4);
+    const profit = ticketProfit(300, 100);
+    assert.equal(profit.won, 200);
+    assert.equal(profit.lost, 0);
+    const fail = ticketProfit(0, 100);
+    assert.equal(fail.won, 0);
+    assert.equal(fail.lost, 100);
+    const won = bumpTicketDesk(spun, profit.won, profit.lost);
+    const lost = bumpTicketDesk(won, fail.won, fail.lost);
     assert.equal(lost.wagered, 2);
     assert.equal(lost.paid, 5);
-    assert.equal(lost.ticketWon, 12.5);
-    assert.equal(lost.ticketLost, 4);
+    assert.equal(lost.ticketWon, 200);
+    assert.equal(lost.ticketLost, 100);
     const again = bumpLocalDesk(lost, 1, 0);
     assert.equal(again.wagered, 3);
-    assert.equal(again.ticketWon, 12.5);
-    assert.equal(again.ticketLost, 4);
+    assert.equal(again.ticketWon, 200);
+    assert.equal(again.ticketLost, 100);
   });
 });

@@ -194,7 +194,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
               <div>
                 <dt>VYHRANÉ</dt>
                 <dd>{formatMoney(mine.ticketWon)}</dd>
-                <dd className="atm-me">vyplatená výhra</dd>
+                <dd className="atm-me">zisk · výhra − vklad</dd>
               </div>
               <div>
                 <dt>PREHRANÉ</dt>

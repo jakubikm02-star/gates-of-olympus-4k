@@ -776,7 +776,7 @@ export function SlotGame() {
                 <dd>
                   <CountUp value={g.mine.ticketWon} meter />
                 </dd>
-                <dd className="atm-me">vyplatená výhra</dd>
+                <dd className="atm-me">zisk · výhra − vklad</dd>
               </div>
               <div>
                 <dt>PREHRANÉ</dt>

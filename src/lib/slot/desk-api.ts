@@ -70,7 +70,13 @@ export function bumpLocalDesk(prev: DeskDay, stake: number, win: number): DeskDa
   };
 }
 
-/** Ticket money stays off the machine turnover. Won = payout, lost = failed stake. */
+/** Ticket money stays off the machine turnover. Won is profit (payout − stake), lost is a failed stake. */
+export function ticketProfit(payout: number, stake: number): { won: number; lost: number } {
+  const net = +((payout || 0) - (stake || 0)).toFixed(2);
+  if (net >= 0) return { won: net, lost: 0 };
+  return { won: 0, lost: +(-net).toFixed(2) };
+}
+
 export function bumpTicketDesk(prev: DeskDay, won: number, lost: number): DeskDay {
   const day = deskToday();
   const base = prev.day === day ? prev : emptyDesk(day);
