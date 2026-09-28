@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MATH_NOTE, PAY_SYMBOLS, SCATTER, TICKETS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
-import { cueSrc, isCustomCue, replaceCue, resetCues, subscribeSfx, unlockAudio } from "@/lib/slot/audio";
+import { cueSrc, isCustomCue, replaceCue, resetCue, resetCues, subscribeSfx, unlockAudio } from "@/lib/slot/audio";
 import type { DeskDay } from "@/lib/slot/desk-api";
 
 interface Props {
@@ -69,11 +69,16 @@ function SoundSheet() {
     const msg = await replaceCue(id, file, pass.current?.value ?? "");
     setErr(msg ?? "Uložené. Počujú to všetci hráči.");
   };
+  const drop = async (id: string) => {
+    stop();
+    const msg = await resetCue(id, pass.current?.value ?? "");
+    setErr(msg ?? "Tento zvuk je späť pôvodný pre všetkých.");
+  };
   return (
     <details className="sound-sheet">
       <summary>ZVUKY · prehrať a kedy hrajú</summary>
       <p className="sound-note">
-        Heslo zmení zvuk v jadre hry. Platí pre všetkých hráčov, nie len pre tento prehliadač.
+        Heslo zmení zvuk v jadre hry. Platí pre všetkých hráčov. Reset pri jednom zvuku vráti len ten.
       </p>
       <input ref={pass} className="sound-pass" type="password" placeholder="Heslo admina" autoComplete="off" />
       {err ? <p className="sound-err">{err}</p> : null}
@@ -98,6 +103,11 @@ function SoundSheet() {
             <b>
               {cue.name}
               {isCustomCue(cue.id) ? <i className="sound-own">jadro</i> : null}
+              {isCustomCue(cue.id) ? (
+                <button type="button" className="sound-one" onClick={() => void drop(cue.id)}>
+                  Reset
+                </button>
+              ) : null}
             </b>
             <span>{cue.when}</span>
           </div>

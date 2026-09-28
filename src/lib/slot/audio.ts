@@ -276,6 +276,28 @@ export async function replaceCue(key: string, file: File, password: string): Pro
   return null;
 }
 
+export async function resetCue(key: string, password: string): Promise<string | null> {
+  if (!FILES[key]) return "Tento zvuk sa nedá vrátiť.";
+  if (!password.trim()) return "Zadaj heslo.";
+  unlockAudio();
+  const res = await sfxRpc("sfx_drop", { p_pass: password, p_key: key });
+  if (!res.ok) {
+    const text = await res.text();
+    if (text.includes("denied")) return "Zlé heslo.";
+    return "Zvuk sa nepodarilo vrátiť.";
+  }
+  await hydrateCustoms();
+  custom.delete(key);
+  if (previewUrl[key]) URL.revokeObjectURL(previewUrl[key]);
+  delete previewUrl[key];
+  delete stored[key];
+  delete bufs[key];
+  delete pending[key];
+  await loadOne(key);
+  emitSfx();
+  return null;
+}
+
 export async function resetCues(password: string): Promise<string | null> {
   if (!password.trim()) return "Zadaj heslo.";
   const res = await sfxRpc("sfx_reset", { p_pass: password });

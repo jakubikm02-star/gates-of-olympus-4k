@@ -2819,10 +2819,21 @@
 
 .sound-row b {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   align-items: baseline;
   color: #fff;
   font-size: 0.86rem;
+}
+
+.sound-row button.sound-one {
+  display: inline-grid;
+  min-height: 0;
+  width: auto;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
 }
 
 .sound-own {
