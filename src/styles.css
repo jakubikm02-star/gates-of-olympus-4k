@@ -2311,7 +2311,38 @@
   font-size: 0.84rem;
 }
 
-.ticket-name-row button {
+.contract-names {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 12px 12px;
+  padding: 8px;
+  border: 1px solid rgb(201 162 74 / 0.35);
+  border-radius: 10px;
+}
+
+.contract-names b {
+  color: #ffe9a8;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+}
+
+.contract-names input {
+  min-width: 0;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1px solid #c9a24a;
+  background: #120c08;
+  color: #fff6d8;
+  font-size: 0.84rem;
+}
+
+.contract-names div {
+  display: flex;
+  gap: 8px;
+}
+
+.contract-names button {
   padding: 7px 10px;
   border-radius: 8px;
   border: 1px solid #c9a24a;

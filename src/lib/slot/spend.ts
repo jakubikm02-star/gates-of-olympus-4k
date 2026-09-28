@@ -106,6 +106,23 @@ const TEMPLATES: {
 
 export const JOB_TEMPLATE_IDS: readonly string[] = TEMPLATES.map((t) => t.id);
 
+const titleOver = new Map<string, string[]>();
+
+export function contractCatalog(): { id: string; line: string; titles: string[]; defaults: string[] }[] {
+  return TEMPLATES.map((t) => ({
+    id: t.id,
+    line: t.line,
+    defaults: [...t.titles],
+    titles: titleOver.get(t.id) ?? [...t.titles],
+  }));
+}
+
+export function setContractTitles(id: string, titles: string[] | null): void {
+  if (!JOB_TEMPLATE_IDS.includes(id)) return;
+  if (!titles || !titles.length) titleOver.delete(id);
+  else titleOver.set(id, titles.map((s) => s.trim()).filter(Boolean).slice(0, 6));
+}
+
 function rngRange(rng: () => number, a: number, b: number): number {
   return a + rng() * (b - a);
 }
@@ -367,7 +384,7 @@ function makeJob(
   const slack = t.kind === "buy" || t.scope === "live" ? 3 : 8;
   let limit = snapFive(Math.max(need + slack, rawUntil));
   if (limit < need) limit = snapFive(need + 5);
-  const title = pickOne(t.titles, rng);
+  const title = pickOne(titleOver.get(t.id) ?? t.titles, rng);
   let payId = t.payIds?.length ? pickOne(t.payIds, rng) : undefined;
   let payIdB: PayId | undefined;
   let needB: number | undefined;

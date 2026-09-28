@@ -1,13 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { cueSrc, isCustomCue, replaceCue, resetCue, resetCues, subscribeSfx, unlockAudio } from "@/lib/slot/audio";
-import { TICKETS, type TicketId } from "@/lib/slot/symbols";
-import {
-  adminOk,
-  renameTicket,
-  subscribeTicketNames,
-  ticketLabel,
-  TICKET_KEYS,
-} from "@/lib/slot/ticket-names";
+import { contractCatalog } from "@/lib/slot/spend";
+import { saveContractTitles, subscribeContracts } from "@/lib/slot/job-titles";
+import { adminOk } from "@/lib/slot/ticket-names";
 
 const SOUND_CUES: { id: string; name: string; loop?: boolean; when: string }[] = [
   { id: "click", name: "Klik", when: "Tlačidlá, stávka, ante, menu." },
@@ -36,12 +31,61 @@ const SOUND_CUES: { id: string; name: string; loop?: boolean; when: string }[] =
   { id: "tableB", name: "Big win B", when: "Náhodne A alebo B pri veľkej výhre a na konci feature." },
 ];
 
-const TONES: Record<TicketId, string> = {
-  ulica: "Sivý",
-  okres: "Modrý",
-  kraj: "Fialový",
-  stat: "Zlatý",
-};
+function ContractNames({ password }: { password: string }) {
+  const [rows, setRows] = useState(contractCatalog);
+  const [err, setErr] = useState("");
+  useEffect(() => subscribeContracts(() => setRows(contractCatalog())), []);
+  const setTitle = (id: string, index: number, value: string) => {
+    setRows((list) =>
+      list.map((row) =>
+        row.id === id ? { ...row, titles: row.titles.map((name, i) => (i === index ? value : name)) } : row,
+      ),
+    );
+  };
+  const save = async (id: string, titles: string[]) => {
+    const msg = await saveContractTitles(id, titles, password);
+    setErr(msg ?? "Názvy kontraktu platia pre všetkých. Nové úlohy ich už losujú.");
+    if (!msg) setRows(contractCatalog());
+  };
+  const reset = async (id: string) => {
+    const msg = await saveContractTitles(id, null, password);
+    setErr(msg ?? "Pôvodné názvy tohto kontraktu sú späť.");
+    if (!msg) setRows(contractCatalog());
+  };
+  return (
+    <div className="ticket-names">
+      <p className="sound-note">Kontrakty. Každý má niekoľko názvov a hra z nich pri novej úlohe jeden vyberie.</p>
+      {err ? <p className="sound-err">{err}</p> : null}
+      {rows.map((row) => (
+        <form
+          key={row.id}
+          className="contract-names"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void save(row.id, row.titles);
+          }}
+        >
+          <b>{row.line}</b>
+          {row.titles.map((name, i) => (
+            <input
+              key={`${row.id}-${i}`}
+              value={name}
+              maxLength={28}
+              onChange={(e) => setTitle(row.id, i, e.target.value)}
+              aria-label={`${row.line} ${i + 1}`}
+            />
+          ))}
+          <div>
+            <button type="submit">Uložiť</button>
+            <button type="button" onClick={() => void reset(row.id)}>
+              Pôvodné
+            </button>
+          </div>
+        </form>
+      ))}
+    </div>
+  );
+}
 
 function SoundSheet({ password }: { password: string }) {
   const audio = useRef<HTMLAudioElement | null>(null);
@@ -135,52 +179,6 @@ function SoundSheet({ password }: { password: string }) {
   );
 }
 
-function TicketNames({ password }: { password: string }) {
-  const [draft, setDraft] = useState<Record<TicketId, string>>(() => {
-    const map = {} as Record<TicketId, string>;
-    for (const id of TICKET_KEYS) map[id] = ticketLabel(id);
-    return map;
-  });
-  const [err, setErr] = useState("");
-  useEffect(() => subscribeTicketNames(() => {
-    setDraft(() => {
-      const map = {} as Record<TicketId, string>;
-      for (const id of TICKET_KEYS) map[id] = ticketLabel(id);
-      return map;
-    });
-  }), []);
-  const save = async (id: TicketId) => {
-    const msg = await renameTicket(id, draft[id] ?? "", password);
-    setErr(msg ?? `${TONES[id]} tiket sa volá ${ticketLabel(id)}. Vidia to všetci.`);
-  };
-  return (
-    <div className="ticket-names">
-      <p className="sound-note">Názvy tiketov na valcoch a v potoch. Najviac 16 znakov.</p>
-      {err ? <p className="sound-err">{err}</p> : null}
-      {TICKET_KEYS.map((id) => (
-        <form
-          key={id}
-          className="ticket-name-row"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void save(id);
-          }}
-        >
-          <img src={TICKETS[id].src} alt="" />
-          <span style={{ color: TICKETS[id].ink }}>{TONES[id]}</span>
-          <input
-            value={draft[id] ?? ""}
-            maxLength={16}
-            onChange={(e) => setDraft((d) => ({ ...d, [id]: e.target.value }))}
-            aria-label={`Názov ${TONES[id]}`}
-          />
-          <button type="submit">Uložiť</button>
-        </form>
-      ))}
-    </div>
-  );
-}
-
 export function Settings({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [pass, setPass] = useState("");
   const [gate, setGate] = useState("");
@@ -219,7 +217,7 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
         {gate && gate !== "bad" && gate !== "down" ? (
           <>
             <SoundSheet password={gate} />
-            <TicketNames password={gate} />
+            <ContractNames password={gate} />
           </>
         ) : (
           <form
