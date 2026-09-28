@@ -2451,6 +2451,39 @@
   text-overflow: ellipsis;
 }
 
+.release-lock {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: rgb(6 4 3 / 0.92);
+  text-align: center;
+  padding: 24px;
+}
+
+.release-lock b {
+  display: block;
+  color: #ffe9a8;
+  font-size: 1.4rem;
+  letter-spacing: 0.08em;
+}
+
+.release-lock span {
+  display: block;
+  margin: 8px 0 16px;
+  color: #fff6d8;
+}
+
+.release-lock button {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid #c9a24a;
+  background: #3a2a12;
+  color: #ffe9a8;
+  font-weight: 800;
+}
+
 .sound-sheet.is-open {
   display: block;
 }

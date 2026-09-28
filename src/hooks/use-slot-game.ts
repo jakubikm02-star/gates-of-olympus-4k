@@ -43,6 +43,7 @@ import { emptyBoard, isEligibleBet, ticketResolve, type BoardSnap, type JackpotH
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
 import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDesk, ticketProfit, type DeskDay } from "@/lib/slot/desk-api";
 import { putBoard, readBestHow, readNick, saveNick, skipNick, nickSkipped, winHow, writeBestHow } from "@/lib/slot/board-api";
+import { BUILD_ID, dropStaleCaches, hardReload, releaseMatches } from "@/lib/slot/release";
 import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, duelPot, duelCreditDelta, forfeitDuel, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
 import { duelForfeit, duelLeave, duelTick } from "@/lib/slot/duel-api";
 import {
@@ -279,6 +280,8 @@ export function useSlotGame() {
   const [mine, setMine] = useState<DeskDay>(emptyDesk);
   const mineRef = useRef<DeskDay>(emptyDesk());
   const bestHowRef = useRef("");
+  const staleRef = useRef(false);
+  const [stale, setStale] = useState(false);
   const [nick, setNick] = useState("");
   const [nickAsk, setNickAsk] = useState(false);
 
@@ -556,6 +559,34 @@ export function useSlotGame() {
     saveSnapRef.current = payload;
     writeLocal(payload);
   }, [hydrated, balance, betIndex, muted, turbo, quick, ante, autoHalt, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pots, reloadStreak, weekDue, fsLeft, inFs, globalMult, job, daily]);
+
+  useEffect(() => {
+    let stop = false;
+    const check = async () => {
+      if (stop || staleRef.current || BUILD_ID === "local") return;
+      try {
+        const ok = await releaseMatches();
+        if (ok || stop || staleRef.current) return;
+        staleRef.current = true;
+        setStale(true);
+        await dropStaleCaches();
+        hardReload();
+      } catch {
+        /* a dropped network does not kill the current build */
+      }
+    };
+    void check();
+    const id = window.setInterval(() => void check(), 20000);
+    const onShow = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    document.addEventListener("visibilitychange", onShow);
+    return () => {
+      stop = true;
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onShow);
+    };
+  }, []);
 
   useEffect(() => {
     const onHide = () => persistNow();
@@ -2034,7 +2065,7 @@ export function useSlotGame() {
   }, []);
 
   const spin = useCallback(async () => {
-    if (!started) return;
+    if (!started || staleRef.current) return;
     if (busyRef.current) return;
     if (inFsRef.current) {
       void playRound({ resumeFs: true });
@@ -2277,6 +2308,7 @@ export function useSlotGame() {
     pots,
     desk,
     mine,
+    stale,
     nick,
     nickAsk,
     setNickName: async (name: string) => {
@@ -2350,6 +2382,7 @@ export function useSlotGame() {
     bestWin,
     canSpin:
       started &&
+      !stale &&
       !busy &&
       !inFs &&
       !buyAsk &&
@@ -2357,6 +2390,7 @@ export function useSlotGame() {
       (!duel || (duel.phase === "play" && canDuelSpin(duel))),
     canBuy:
       started &&
+      !stale &&
       !busy &&
       !inFs &&
       !buyAsk &&

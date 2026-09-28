@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiDuelRouteImport } from './routes/api/duel'
+import { Route as ApiReleaseRouteImport } from './routes/api/release'
 import { Route as ApiRtcRouteImport } from './routes/api/rtc'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const ApiDuelRoute = ApiDuelRouteImport.update({
   path: '/api/duel',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiReleaseRoute = ApiReleaseRouteImport.update({
+  id: '/api/release',
+  path: '/api/release',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRtcRoute = ApiRtcRouteImport.update({
   id: '/api/rtc',
   path: '/api/rtc',
@@ -32,30 +38,34 @@ const ApiRtcRoute = ApiRtcRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/duel': typeof ApiDuelRoute
+  '/api/release': typeof ApiReleaseRoute
   '/api/rtc': typeof ApiRtcRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/duel': typeof ApiDuelRoute
+  '/api/release': typeof ApiReleaseRoute
   '/api/rtc': typeof ApiRtcRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/duel': typeof ApiDuelRoute
+  '/api/release': typeof ApiReleaseRoute
   '/api/rtc': typeof ApiRtcRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/duel' | '/api/rtc'
+  fullPaths: '/' | '/api/duel' | '/api/release' | '/api/rtc'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/duel' | '/api/rtc'
-  id: '__root__' | '/' | '/api/duel' | '/api/rtc'
+  to: '/' | '/api/duel' | '/api/release' | '/api/rtc'
+  id: '__root__' | '/' | '/api/duel' | '/api/release' | '/api/rtc'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiDuelRoute: typeof ApiDuelRoute
+  ApiReleaseRoute: typeof ApiReleaseRoute
   ApiRtcRoute: typeof ApiRtcRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDuelRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/release': {
+      id: '/api/release'
+      path: '/api/release'
+      fullPath: '/api/release'
+      preLoaderRoute: typeof ApiReleaseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/rtc': {
       id: '/api/rtc'
       path: '/api/rtc'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiDuelRoute: ApiDuelRoute,
+  ApiReleaseRoute: ApiReleaseRoute,
   ApiRtcRoute: ApiRtcRoute,
 }
 export const routeTree = rootRouteImport

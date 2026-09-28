@@ -182,7 +182,17 @@ export function SlotGame() {
     <div
       className={`stage shell-${shell} rk-${g.rank.id} ${g.rankFlash?.event === "up" ? "is-rank-up" : ""} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""}`}
     >
-      <div className="stage-bg" />
+      {g.stale ? (
+        <div className="release-lock" role="alertdialog" aria-label="Nová verzia">
+          <div>
+            <b>NOVÁ VERZIA</b>
+            <span>Táto hra už neplatí. Načítavam posledný deploy.</span>
+            <button type="button" onClick={() => window.location.reload()}>
+              OBNOVIŤ
+            </button>
+          </div>
+        </div>
+      ) : null}
       <div className="stage-glow" />
       <div className="park-lines" aria-hidden="true" />
       {g.strike ? <HandBolt key={`${g.strike.r}-${g.strike.c}`} strike={g.strike} /> : null}
