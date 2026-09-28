@@ -485,6 +485,7 @@ export function SlotGame() {
 
         <footer className="bottom-hud">
           <div className="hud-left">
+            <div className="hud-icons">
             <button
               type="button"
               className="icon-btn"
@@ -517,6 +518,7 @@ export function SlotGame() {
             >
               {g.muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
             </button>
+            </div>
             <div className="credit-stack">
               <p>
                 KREDIT <b><CountUp value={g.balance} meter /></b>

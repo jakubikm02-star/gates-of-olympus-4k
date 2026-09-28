@@ -2238,6 +2238,13 @@
   gap: 8px;
 }
 
+.hud-icons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 .hud-right {
   justify-content: flex-end;
 }
@@ -7311,12 +7318,47 @@ html:-webkit-full-screen {
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
     "win win"
+    "icons icons"
     "cred spin";
   align-items: center;
   padding: 0 2px;
-  gap: 0 6px;
+  gap: 4px 8px;
   margin-top: 4px;
   background: none;
+}
+
+.stage.shell-mw .hud-left,
+.stage.shell-pwa .hud-left {
+  display: contents;
+}
+
+.stage.shell-mw .hud-icons,
+.stage.shell-pwa .hud-icons {
+  grid-area: icons;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.stage.shell-mw .credit-stack,
+.stage.shell-pwa .credit-stack {
+  grid-area: cred;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  overflow: hidden;
+}
+
+.stage.shell-mw .hud-right,
+.stage.shell-pwa .hud-right {
+  grid-area: spin;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  z-index: 1;
 }
 
 .stage.shell-mw .win-stack,
@@ -7357,30 +7399,11 @@ html:-webkit-full-screen {
   height: 14px;
 }
 
-.stage.shell-mw .hud-left,
-.stage.shell-pwa .hud-left {
-  grid-area: cred;
-  min-width: 0;
-}
-
-.stage.shell-mw .hud-right,
-.stage.shell-pwa .hud-right {
-  grid-area: spin;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 6px;
-}
-
-.stage.shell-mw .credit-stack,
-.stage.shell-pwa .credit-stack {
-  padding: 4px 8px;
-  font-size: 0.68rem;
-}
-
 .stage.shell-mw .spin-btn,
 .stage.shell-pwa .spin-btn {
-  width: 58px;
-  height: 58px;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
   border-width: 4px;
   box-shadow:
     0 4px 0 #5a4808,
