@@ -180,7 +180,7 @@ export function SlotGame() {
 
   return (
     <div
-      className={`stage shell-${shell} rk-${g.rank.id} ${g.rankFlash?.event === "up" ? "is-rank-up" : ""} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""}`}
+      className={`stage shell-${shell} rk-${g.rank.id} ${g.rankFlash?.event === "up" ? "is-rank-up" : ""} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.pursuit > 0 ? "in-pursuit" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""}`}
     >
       {g.stale ? (
         <div className="release-lock" role="alertdialog" aria-label="Nová verzia">
@@ -332,24 +332,32 @@ export function SlotGame() {
                   </div>
                 </div>
               ) : (
-                <div className={`pity-bar ${g.pityDelta ? "is-feed" : ""} ${g.pity >= g.pityGoal ? "is-hot" : ""} ${g.pity <= 0 ? "is-quiet" : ""}`}>
-                  <span className="pity-kicker">KONTROLA</span>
-                  <span className="pity-stake">{formatMoney(g.bet)}</span>
-                  <span className="pity-name">PITY</span>
-                  <div
-                    className="pity-track"
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={g.pityGoal}
-                    aria-valuenow={Math.min(g.pityGoal, g.pity)}
-                    aria-label={`Pity meter kontroly pre stávku ${formatMoney(g.bet)}`}
-                  >
-                    <i style={{ ["--pity" as string]: `${Math.min(100, (g.pity / g.pityGoal) * 100)}%` }} />
+                <div className="meter-split">
+                  <div className={`pity-bar ${g.pityDelta ? "is-feed" : ""} ${g.pity >= g.pityGoal ? "is-hot" : ""} ${g.pity <= 0 ? "is-quiet" : ""}`}>
+                    <span className="pity-kicker">KONTROLA</span>
+                    <div
+                      className="pity-track"
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={g.pityGoal}
+                      aria-valuenow={Math.min(g.pityGoal, g.pity)}
+                      aria-label="Kontrola"
+                    >
+                      <i style={{ ["--pity" as string]: `${Math.min(100, (g.pity / g.pityGoal) * 100)}%` }} />
+                    </div>
+                    <b>
+                      {Math.min(g.pityGoal, g.pity)}/{g.pityGoal}
+                    </b>
                   </div>
-                  <b>
-                    {Math.min(g.pityGoal, g.pity)}/{g.pityGoal}
-                  </b>
-                  {g.pityDelta > 0 && <em className="pity-plus">+{g.pityDelta}</em>}
+                  <div className={`heat-bar ${g.pursuit > 0 ? "is-chase" : ""} ${g.heat >= 20 ? "is-hot" : ""}`}>
+                    <span className="heat-kicker">{g.pursuit > 0 ? "ZÁSAH" : "HLÁSENIE"}</span>
+                    <div className="heat-segs" aria-hidden="true">
+                      {Array.from({ length: 20 }, (_, i) => (
+                        <i key={i} className={i < (g.pursuit > 0 ? Math.min(20, g.pursuit * 2) : g.heat) ? "on" : ""} />
+                      ))}
+                    </div>
+                    <b>{g.pursuit > 0 ? g.pursuit : `${g.heat}/20`}</b>
+                  </div>
                 </div>
               )}
             </div>

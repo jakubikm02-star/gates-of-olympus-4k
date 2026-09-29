@@ -717,13 +717,96 @@
   transition: width 0.35s ease-out;
 }
 
+.meter-split {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 4px;
+  height: 100%;
+  min-width: 0;
+}
+
+.meter-split .pity-bar,
+.heat-bar {
+  min-width: 0;
+  gap: 4px;
+  padding: 0 6px;
+}
+
+.heat-bar {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  background: linear-gradient(180deg, #1c2830, #0c1014);
+  border: 2px solid #e24a12;
+  border-radius: 10px;
+  color: #ffb088;
+}
+
+.heat-kicker {
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+
+.heat-segs {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(20, 1fr);
+  gap: 1px;
+  height: 8px;
+}
+
+.heat-segs i {
+  background: #14181c;
+  border-radius: 1px;
+}
+
+.heat-segs i.on {
+  background: #3ec6e0;
+}
+
+.heat-bar.is-hot .heat-segs i.on {
+  background: #e24a12;
+}
+
+.heat-bar.is-chase .heat-segs i.on {
+  background: #ff5a12;
+}
+
+.heat-bar b,
 .pity-bar b {
   font-family: var(--font-display);
-  font-size: 0.95rem;
-  font-variant-numeric: tabular-nums;
-  color: #fff6c8;
-  min-width: 3.6rem;
+  font-size: 0.72rem;
+  min-width: 2.2rem;
   text-align: right;
+  color: #fff6c8;
+}
+
+.stage.in-pursuit .stage-bg {
+  filter: saturate(0.75) brightness(0.62) contrast(1.05);
+}
+
+.stage.in-pursuit::before,
+.stage.in-pursuit::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 18%;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.stage.in-pursuit::before {
+  left: 0;
+  background: linear-gradient(90deg, rgb(180 24 32 / 0.28), transparent);
+}
+
+.stage.in-pursuit::after {
+  right: 0;
+  background: linear-gradient(270deg, rgb(24 72 180 / 0.28), transparent);
 }
 
 .pity-plus {
@@ -7188,9 +7271,9 @@ html:-webkit-full-screen {
 
 .stage.shell-mw .board-meter,
 .stage.shell-pwa .board-meter {
-  height: 18px;
-  min-height: 18px;
-  max-height: 18px;
+  height: 30px;
+  min-height: 30px;
+  max-height: 30px;
   margin: 4px 0 2px;
 }
 
@@ -7589,8 +7672,102 @@ html:-webkit-full-screen {
   width: min(920px, 96vw);
   max-height: min(92vh, 900px);
   overflow: auto;
-  background: #2a2e33;
+  background: #1a1c1f;
   color: #f4f1e6;
+}
+
+.pump {
+  position: relative;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 12px 28px 12px 10px;
+  overflow: hidden;
+  border-radius: 8px 42px 42px 8px;
+  background: #6a7178;
+  box-shadow: inset 0 0 0 1px #2c3136, 0 8px 16px rgb(0 0 0 / 0.28);
+}
+
+.pump::after {
+  content: "";
+  position: absolute;
+  top: -10%;
+  right: -18px;
+  width: 36px;
+  height: 130%;
+  border-radius: 40px;
+  background: linear-gradient(90deg, #f7f4ee 0 8px, #f5c400 8px 26px, transparent 26px);
+  transform: rotate(8deg);
+  pointer-events: none;
+}
+
+.pump.is-me {
+  box-shadow: inset 0 0 0 2px #f5c400, 0 8px 16px rgb(0 0 0 / 0.28);
+}
+
+.pump-disk {
+  width: 46px;
+  height: 46px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #ffe14a, #f5c400 58%, #c89600);
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 5px;
+  box-shadow: 0 2px 0 #8a6a10;
+}
+
+.pump-code b {
+  display: inline-block;
+  min-width: 2.4rem;
+  padding: 2px 4px;
+  text-align: center;
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+  color: #f4f1e6;
+  font-size: 0.72rem;
+  background: #2c3136;
+  border-radius: 2px;
+}
+
+.pump-code small {
+  display: block;
+  margin-top: 2px;
+  color: #f4f1e6;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+}
+
+.pump-led {
+  justify-self: end;
+  min-width: 6.4rem;
+  padding: 1px 8px 2px;
+  text-align: right;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.2rem;
+  letter-spacing: 0.06em;
+  color: #ff7a22;
+  background: #121416;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px #000, inset 0 0 8px rgb(255 90 18 / 0.25);
+  text-shadow: 0 0 8px rgb(255 122 34 / 0.85);
+}
+
+.pump-name {
+  font-family: "Segoe Script", "Comic Sans MS", cursive;
+  font-size: 1.25rem;
+  color: #f7f4ee;
+  text-shadow: 0 1px 0 rgb(0 0 0 / 0.35);
+}
+
+.pump-foot em {
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #f5c400;
 }
 
 .pump-switch {
@@ -7631,39 +7808,10 @@ html:-webkit-full-screen {
   }
 }
 
-.pump {
-  display: grid;
-  grid-template-columns: 54px minmax(0, 1fr);
-  gap: 8px;
-  align-items: start;
-  padding: 10px 10px 12px 8px;
-  border-radius: 18px 46px 46px 18px;
-  background:
-    linear-gradient(90deg, #3a3f45 0 8px, #f0c419 8px 14px, #f7f4ee 14px 20px, #4a5056 20px);
-  box-shadow: inset 0 0 0 1px #1b1e22, 0 8px 16px rgb(0 0 0 / 0.28);
-}
-
-.pump.is-me {
-  box-shadow: inset 0 0 0 2px #f0c419, 0 8px 16px rgb(0 0 0 / 0.28);
-}
-
-.pump-disk {
-  width: 46px;
-  height: 46px;
-  margin-top: 8px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 40% 35%, #ffe56a, #c9a227 55%, #6a5410);
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 4px;
-  box-shadow: inset 0 0 0 3px #1b1e22;
-}
-
 .pump-disk i {
   display: block;
-  width: 22px;
-  height: 3px;
+  width: 18px;
+  height: 4px;
   border-radius: 99px;
   background: #1b1e22;
 }
@@ -7681,53 +7829,11 @@ html:-webkit-full-screen {
   align-items: center;
 }
 
-.pump-code b {
-  display: block;
-  font-family: var(--font-display);
-  letter-spacing: 0.08em;
-  color: #111;
-  font-size: 0.78rem;
-}
-
-.pump-code small {
-  color: #3a3f45;
-  font-size: 0.68rem;
-  letter-spacing: 0.04em;
-}
-
-.pump-led {
-  justify-self: end;
-  min-width: 7.2rem;
-  padding: 2px 8px;
-  text-align: right;
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-variant-numeric: tabular-nums;
-  font-size: 1.15rem;
-  letter-spacing: 0.04em;
-  color: #ff5a12;
-  background: #07080a;
-  border-radius: 4px;
-  box-shadow: inset 0 0 0 1px #000, inset 0 2px 6px rgb(0 0 0 / 0.65);
-}
-
 .pump-foot {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   margin-top: 2px;
-}
-
-.pump-name {
-  font-family: "Segoe Script", "Comic Sans MS", cursive;
-  font-size: 1.35rem;
-  color: #1a1204;
-}
-
-.pump-foot em {
-  font-style: normal;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  color: #6a5410;
 }
 
 .pump-how {

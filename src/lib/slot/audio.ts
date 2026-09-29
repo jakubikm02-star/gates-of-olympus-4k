@@ -719,6 +719,11 @@ export function stopLiveBed(): void {
   duckMusic(1);
 }
 
+export function playSiren(): void {
+  duckMusic(0.55);
+  playBuf("siren", { gain: 0.62 });
+}
+
 export function playPickStart(): void {
   stopSpin();
   duckMusic(0.4);

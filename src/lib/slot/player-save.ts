@@ -47,6 +47,11 @@ export interface PlayerSave {
   deskBest: number;
   deskTicketWon: number;
   deskTicketLost: number;
+  heat: number;
+  klienti: number;
+  pursuitLeft: number;
+  pursuitTows: number;
+  pursuitHacks: number;
 }
 
 export function emptyPlayerSave(): PlayerSave {
@@ -91,6 +96,11 @@ export function emptyPlayerSave(): PlayerSave {
     deskBest: 0,
     deskTicketWon: 0,
     deskTicketLost: 0,
+    heat: 0,
+    klienti: 0,
+    pursuitLeft: 0,
+    pursuitTows: 0,
+    pursuitHacks: 0,
   };
 }
 
@@ -274,6 +284,11 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.deskBest = num(r.deskBest, 0, 0, 1_000_000_000);
   s.deskTicketWon = num(r.deskTicketWon, 0, 0, 1_000_000_000);
   s.deskTicketLost = num(r.deskTicketLost, 0, 0, 1_000_000_000);
+  s.heat = Math.min(20, Math.max(0, Math.floor(num(r.heat, 0))));
+  s.klienti = Math.min(1_000_000_000, Math.max(0, Math.floor(num(r.klienti, 0))));
+  s.pursuitLeft = Math.min(40, Math.max(0, Math.floor(num(r.pursuitLeft, 0))));
+  s.pursuitTows = Math.min(40, Math.max(0, Math.floor(num(r.pursuitTows, 0))));
+  s.pursuitHacks = Math.min(40, Math.max(0, Math.floor(num(r.pursuitHacks, 0))));
   if (!s.inFs || s.fsLeft <= 0) {
     s.inFs = false;
     s.fsLeft = 0;
