@@ -64,11 +64,11 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgb(8 10 12 / 0.45) 0%, rgb(8 10 12 / 0.58) 70%, rgb(6 8 10 / 0.78) 100%),
+    linear-gradient(180deg, rgb(8 10 12 / 0.16) 0%, rgb(8 10 12 / 0.22) 62%, rgb(6 8 10 / 0.48) 100%),
     url("/art/parking-bg.jpg") center / cover no-repeat;
-  transform: scale(1.04);
+  transform: scale(1.02);
   z-index: -2;
-  filter: saturate(0.92) contrast(1.08) brightness(0.72);
+  filter: saturate(1.05) contrast(1.04) brightness(0.96);
 }
 
 .stage-glow {
@@ -4285,8 +4285,8 @@
     display: none;
   }
   .stage-bg {
-    background-position: 22% center;
-    filter: saturate(0.7) brightness(0.48) contrast(1.08);
+    background-position: center;
+    filter: saturate(1.02) brightness(0.9) contrast(1.04);
   }
   .arena {
     grid-template-columns: 1fr;
@@ -7582,6 +7582,204 @@ html:-webkit-full-screen {
   .modal-back:has(.atm-modal) {
     align-items: center;
     padding: 12px;
+  }
+}
+
+.pump-sheet {
+  width: min(920px, 96vw);
+  max-height: min(92vh, 900px);
+  overflow: auto;
+  background: #2a2e33;
+  color: #f4f1e6;
+}
+
+.pump-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  margin: 8px 12px 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid #111;
+  background: #1a1c1f;
+}
+
+.pump-switch button {
+  border: 0;
+  background: transparent;
+  color: #d7d2c8;
+  padding: 8px 0;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.pump-switch button.on {
+  background: #f0c419;
+  color: #1a1204;
+}
+
+.pump-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding: 0 12px 16px;
+}
+
+@media (min-width: 760px) {
+  .pump-list {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.pump {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 10px 10px 12px 8px;
+  border-radius: 18px 46px 46px 18px;
+  background:
+    linear-gradient(90deg, #3a3f45 0 8px, #f0c419 8px 14px, #f7f4ee 14px 20px, #4a5056 20px);
+  box-shadow: inset 0 0 0 1px #1b1e22, 0 8px 16px rgb(0 0 0 / 0.28);
+}
+
+.pump.is-me {
+  box-shadow: inset 0 0 0 2px #f0c419, 0 8px 16px rgb(0 0 0 / 0.28);
+}
+
+.pump-disk {
+  width: 46px;
+  height: 46px;
+  margin-top: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #ffe56a, #c9a227 55%, #6a5410);
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
+  box-shadow: inset 0 0 0 3px #1b1e22;
+}
+
+.pump-disk i {
+  display: block;
+  width: 22px;
+  height: 3px;
+  border-radius: 99px;
+  background: #1b1e22;
+}
+
+.pump-face {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.pump-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+}
+
+.pump-code b {
+  display: block;
+  font-family: var(--font-display);
+  letter-spacing: 0.08em;
+  color: #111;
+  font-size: 0.78rem;
+}
+
+.pump-code small {
+  color: #3a3f45;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.pump-led {
+  justify-self: end;
+  min-width: 7.2rem;
+  padding: 2px 8px;
+  text-align: right;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+  color: #ff5a12;
+  background: #07080a;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px #000, inset 0 2px 6px rgb(0 0 0 / 0.65);
+}
+
+.pump-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 2px;
+}
+
+.pump-name {
+  font-family: "Segoe Script", "Comic Sans MS", cursive;
+  font-size: 1.35rem;
+  color: #1a1204;
+}
+
+.pump-foot em {
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #6a5410;
+}
+
+.pump-how {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+}
+
+.pump-how span {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #1b1e22;
+  color: #ffe9a8;
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+}
+
+.nick-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  margin: 0 12px;
+}
+
+.nick-line label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+}
+
+.nick-line input {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .pump-sheet {
+    width: min(100vw - 12px, 96vw);
+    max-height: 88vh;
+  }
+  .pump-led {
+    min-width: 0;
+    font-size: 1rem;
+  }
+  .pump-name {
+    font-size: 1.15rem;
+  }
+  .nick-line {
+    grid-template-columns: 1fr;
   }
 }
 

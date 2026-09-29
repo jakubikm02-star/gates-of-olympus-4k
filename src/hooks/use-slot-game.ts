@@ -11,6 +11,7 @@ import {
   PAY_SYMBOLS,
   SCATTER,
   START_BALANCE,
+  TICKETS,
   payName,
   scatterPay,
   type Cell,
@@ -42,7 +43,7 @@ import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from 
 import { emptyBoard, isEligibleBet, ticketResolve, type BoardSnap, type JackpotHit, type TierId } from "@/lib/slot/jackpot";
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
 import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDesk, ticketProfit, type DeskDay } from "@/lib/slot/desk-api";
-import { putBoard, readBestHow, readNick, saveNick, skipNick, nickSkipped, winHow, writeBestHow } from "@/lib/slot/board-api";
+import { putBoard, readBestMark, readNick, saveNick, skipNick, winHow, writeBestHow } from "@/lib/slot/board-api";
 import { BUILD_ID, dropStaleCaches, hardReload, releaseMatches } from "@/lib/slot/release";
 import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, duelPot, duelCreditDelta, forfeitDuel, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
 import { duelForfeit, duelLeave, duelTick } from "@/lib/slot/duel-api";
@@ -280,9 +281,11 @@ export function useSlotGame() {
   const [mine, setMine] = useState<DeskDay>(emptyDesk);
   const mineRef = useRef<DeskDay>(emptyDesk());
   const bestHowRef = useRef("");
+  const bestStakeRef = useRef(0);
   const staleRef = useRef(false);
   const [stale, setStale] = useState(false);
   const [nick, setNick] = useState("");
+  const [deviceId, setDeviceId] = useState("");
   const [nickAsk, setNickAsk] = useState(false);
 
   turboRef.current = turbo;
@@ -337,6 +340,7 @@ export function useSlotGame() {
     streakRef.current = s.winStreak;
     setWinStreak(s.winStreak);
     playerIdRef.current = s.playerId || playerIdRef.current || crypto.randomUUID();
+    setDeviceId(playerIdRef.current);
     setPots(emptyBoard().pots);
     reloadStreakRef.current = s.reloadStreak ?? 0;
     spinsSinceReloadRef.current = s.spinsSinceReload ?? 0;
@@ -393,7 +397,9 @@ export function useSlotGame() {
       ticketLost,
     };
     mineRef.current = mineDay;
-    bestHowRef.current = readBestHow(mineDay.day);
+    const mark = readBestMark(mineDay.day);
+    bestHowRef.current = mark.how;
+    bestStakeRef.current = mark.stake;
     setNick(readNick());
     setMine(mineDay);
     saveSnapRef.current = {
@@ -416,22 +422,33 @@ export function useSlotGame() {
     writeLocal(next);
   }, []);
 
-  const bumpToday = useCallback((stake: number, win: number, how = "") => {
+  const bumpToday = useCallback((wager: number, win: number, how = "", maxStake = 0) => {
     const day = deskToday();
     const prevBest = mineRef.current.day === day ? mineRef.current.best : 0;
-    if (mineRef.current.day !== day) bestHowRef.current = "";
+    if (mineRef.current.day !== day) {
+      bestHowRef.current = "";
+      bestStakeRef.current = 0;
+    }
     if (win > prevBest && how) {
       bestHowRef.current = how;
-      writeBestHow(day, how);
+      bestStakeRef.current = maxStake;
+      writeBestHow(day, how, maxStake);
     }
-    const nextMine = bumpLocalDesk(mineRef.current, stake, win);
+    const nextMine = bumpLocalDesk(mineRef.current, wager, win);
     mineRef.current = nextMine;
     setMine(nextMine);
-    void bumpDesk(stake, win)
+    void bumpDesk(wager, win)
       .then(setDesk)
       .catch(() => {});
     if (readNick() && playerIdRef.current) {
-      void putBoard(playerIdRef.current, nextMine.wagered, nextMine.paid, nextMine.best, bestHowRef.current).catch(() => {});
+      void putBoard(
+        playerIdRef.current,
+        nextMine.wagered,
+        nextMine.paid,
+        nextMine.best,
+        bestHowRef.current,
+        bestStakeRef.current,
+      ).catch(() => {});
     }
   }, []);
 
@@ -697,7 +714,6 @@ export function useSlotGame() {
     ]);
     sfx.startAmbience();
     setStarted(true);
-    if (!readNick() && !nickSkipped()) setNickAsk(true);
     setPhase(inFsRef.current && fsSessionRef.current.left > 0 ? "fs" : "idle");
     setBooting(false);
     bootingRef.current = false;
@@ -870,7 +886,7 @@ export function useSlotGame() {
   }, []);
 
   const payPoolHit = useCallback(
-    async (board: BoardSnap) => {
+    async (board: BoardSnap, how = "") => {
       const credit = board.credit > 0 ? board.credit : 0;
       const jackpots = board.hits;
       const main = jackpots[0] ?? { id: "ulica" as TierId, name: "1-FTTB", payout: credit, table: 0 };
@@ -882,6 +898,7 @@ export function useSlotGame() {
       setSpinWin((w) => +(w + payout).toFixed(2));
       setBalance((b) => +(b + payout).toFixed(2));
       setBestWin((w) => Math.max(w, payout));
+      bumpToday(0, payout, how, BETS[betIndexRef.current] ?? 0);
       setSpinTape((t) => [{ label: shown.name, amount: formatMoney(payout) }, ...t].slice(0, 8));
       if (autoRef.current && !duelRef.current) {
         autoRef.current = false;
@@ -896,7 +913,7 @@ export function useSlotGame() {
       setJpHit(null);
       setPots(board.pots);
     },
-    [],
+    [bumpToday],
   );
 
   const runTicket = useCallback(
@@ -908,7 +925,7 @@ export function useSlotGame() {
       try {
         const claimed = await withRetry(() => postParkClaim(tier, playerIdRef.current));
         applyBoard(claimed);
-        await payPoolHit(claimed);
+        await payPoolHit(claimed, `LÍSTOK ${TICKETS[tier].name}`);
       } catch {
         /* keep lock off */
       }
@@ -1489,7 +1506,7 @@ export function useSlotGame() {
       lastPaidXRef.current = currentBet > 0 ? cash / currentBet : 0;
       if (!isFree) roundCashRef.current = cash;
       if (cash > 0) {
-        setSpinTape((t) => [{ label: `${lastPaidXRef.current.toFixed(1)}×`, amount: formatMoney(cash) }, ...t].slice(0, 8));
+        setSpinTape((t) => [{ label: `${Math.round(lastPaidXRef.current * 100) / 100}×`, amount: formatMoney(cash) }, ...t].slice(0, 8));
       } else {
         setSpinTape((t) => [{ label: "0×", amount: DEAD[Math.floor(Math.random() * DEAD.length)] }, ...t].slice(0, 8));
       }
@@ -1597,9 +1614,13 @@ export function useSlotGame() {
       if (!isFree && cost > 0) {
         const how =
           cash > 0 && !opts?.buy
-            ? winHow({ mode: "BASE", pops: tumbleN, mult: applied, x, banner: kind })
+            ? winHow({
+                mode: "BASE",
+                pops: tumbleN,
+                pays: [...payHits].slice(0, 2).map((id) => payName(id)),
+              })
             : "";
-        bumpToday(cost, opts?.buy ? 0 : cash, how);
+        bumpToday(cost, opts?.buy ? 0 : cash, how, bet);
       }
 
       setPots(boardRef.current.pots);
@@ -1671,6 +1692,11 @@ export function useSlotGame() {
       setTopLine(take);
       setJobToast(`BANK ${formatMoney(pot)}`);
       setSpinTape((t) => [{ label: "DUEL BANK", amount: formatMoney(pot) }, ...t].slice(0, 8));
+      if (w === d.you && pot > 0) {
+        const mine = Math.round(d.seats[d.you].score);
+        const other = Math.round(d.seats[d.you === 0 ? 1 : 0].score);
+        bumpToday(0, pot, winHow({ mode: "DUEL", duel: `${mine} vs ${other}` }), BETS[betIndexRef.current] ?? 0);
+      }
     }
     const link = duelLinkRef.current;
     if (d.kind === "online" && link) {
@@ -1680,7 +1706,7 @@ export function useSlotGame() {
         net: false,
       }).catch(() => {});
     }
-  }, []);
+  }, [bumpToday]);
 
   const playRound = useCallback(
     async (opts?: { buy?: boolean; resumeFs?: boolean }) => {
@@ -1781,18 +1807,15 @@ export function useSlotGame() {
         const escrow = Boolean(duelRef.current && duelRef.current.phase !== "done");
         if (fsCash > 0 && !escrow) setBalance((b) => +(b + fsCash).toFixed(2));
         if (featureTotal > 0) {
-          const fx = betNow > 0 ? featureTotal / betNow : 0;
           bumpToday(
             0,
             featureTotal,
             winHow({
-              mode: sess.bought ? "KÚPA" : "PARKNET",
+              mode: "PARKNET",
               spins: sess.played,
               mult: sess.peak,
-              scatters: triggerScatterRef.current,
-              x: fx,
-              banner: hitCap ? "max" : bannerFromX(fx),
             }),
+            betNow,
           );
         }
         roundCashRef.current = featureTotal;
@@ -2310,10 +2333,12 @@ export function useSlotGame() {
     mine,
     stale,
     nick,
+    deviceId,
     nickAsk,
     setNickName: async (name: string) => {
       const id = playerIdRef.current || crypto.randomUUID();
       playerIdRef.current = id;
+      setDeviceId(id);
       const err = await saveNick(id, name);
       if (!err) {
         setNick(readNick());
@@ -2321,7 +2346,14 @@ export function useSlotGame() {
         persistNow();
         const mineNow = mineRef.current;
         if (mineNow.wagered > 0 || mineNow.paid > 0 || mineNow.best > 0) {
-          void putBoard(id, mineNow.wagered, mineNow.paid, mineNow.best, bestHowRef.current).catch(() => {});
+          void putBoard(
+            id,
+            mineNow.wagered,
+            mineNow.paid,
+            mineNow.best,
+            bestHowRef.current,
+            bestStakeRef.current,
+          ).catch(() => {});
         }
       }
       return err;

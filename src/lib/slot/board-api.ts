@@ -5,39 +5,42 @@ const SUPA_ANON =
 const NICK_KEY = "park-nick";
 const SKIP_KEY = "park-nick-skip";
 const HOW_KEY = "park-best-how";
+const MARK_KEY = "park-best-mark";
 
 export interface BoardRow {
+  id: string;
   nick: string;
   wagered: number;
   paid: number;
   best: number;
   how: string;
+  stake: number;
 }
 
-const BANNER: Record<string, string> = {
-  big: "BIG",
-  mega: "MEGA",
-  epic: "SUPER MEGA",
-  max: "MAX",
-};
-
 export function winHow(opts: {
-  mode: "BASE" | "PARKNET" | "KÚPA";
+  mode: "BASE" | "PARKNET" | "LÍSTOK" | "DUEL";
   pops?: number;
+  pays?: string[];
+  signal?: number;
+  pdf?: number;
   mult?: number;
-  x?: number;
-  scatters?: number;
   spins?: number;
-  banner?: string | null;
+  ticket?: string;
+  duel?: string;
 }): string {
-  const bits: string[] = [opts.mode];
-  if ((opts.scatters ?? 0) >= 4) bits.push(`${opts.scatters} scatter`);
-  if ((opts.spins ?? 0) > 0) bits.push(`${opts.spins} FS`);
-  if ((opts.pops ?? 0) > 0) bits.push(`${opts.pops} pop`);
-  if ((opts.mult ?? 0) > 1) bits.push(`${opts.mult}×`);
-  if (opts.banner && BANNER[opts.banner]) bits.push(BANNER[opts.banner]);
-  else if ((opts.x ?? 0) >= 1) bits.push(`${opts.x! >= 10 ? opts.x!.toFixed(0) : opts.x!.toFixed(1)}×`);
-  return bits.join(" · ").slice(0, 80);
+  if (opts.mode === "LÍSTOK") return `LÍSTOK ${opts.ticket ?? ""}`.trim().slice(0, 80);
+  if (opts.mode === "DUEL") return ["DUEL", opts.duel].filter(Boolean).join(" · ").slice(0, 80);
+  const bits: string[] = [opts.mode === "BASE" ? "BASE" : "PARKNET"];
+  if (opts.mode === "BASE") {
+    for (const name of (opts.pays ?? []).slice(0, 2)) bits.push(name);
+    if ((opts.pops ?? 0) > 0 && bits.length < 4) bits.push(`${opts.pops} pop`);
+  } else {
+    if ((opts.signal ?? 0) > 1) bits.push(`SIGNÁL ${Math.round(opts.signal!)}×`);
+    if ((opts.pdf ?? 0) > 0 && bits.length < 4) bits.push(`${opts.pdf}× PDF`);
+    if ((opts.mult ?? 0) > 1 && bits.length < 4) bits.push(`${Math.round(opts.mult!)}×`);
+    if ((opts.spins ?? 0) > 0 && bits.length < 4) bits.push(`${opts.spins} FS`);
+  }
+  return bits.slice(0, 4).join(" · ").slice(0, 80);
 }
 
 export function readNick(): string {
@@ -64,19 +67,36 @@ export function skipNick(): void {
   }
 }
 
+function parseMark(raw: string, day: string): { how: string; stake: number } | null {
+  const cut = raw.indexOf("\t");
+  if (cut < 0 || raw.slice(0, cut) !== day) return null;
+  const rest = raw.slice(cut + 1);
+  const stakeCut = rest.indexOf("\t");
+  if (stakeCut < 0) return { how: rest, stake: 0 };
+  const stake = Number(rest.slice(0, stakeCut));
+  return { how: rest.slice(stakeCut + 1), stake: Number.isFinite(stake) ? stake : 0 };
+}
+
 export function readBestHow(day: string): string {
+  return readBestMark(day).how;
+}
+
+export function readBestMark(day: string): { how: string; stake: number } {
   try {
+    const marked = parseMark(localStorage.getItem(MARK_KEY) ?? "", day);
+    if (marked) return marked;
     const raw = localStorage.getItem(HOW_KEY) ?? "";
     const cut = raw.indexOf("|");
-    if (cut < 0) return "";
-    return raw.slice(0, cut) === day ? raw.slice(cut + 1) : "";
+    if (cut < 0 || raw.slice(0, cut) !== day) return { how: "", stake: 0 };
+    return { how: raw.slice(cut + 1), stake: 0 };
   } catch {
-    return "";
+    return { how: "", stake: 0 };
   }
 }
 
-export function writeBestHow(day: string, how: string): void {
+export function writeBestHow(day: string, how: string, stake = 0): void {
   try {
+    localStorage.setItem(MARK_KEY, `${day}\t${stake}\t${how}`);
     localStorage.setItem(HOW_KEY, `${day}|${how}`);
   } catch {
     /* ignore */
@@ -104,23 +124,25 @@ function rows(raw: unknown): BoardRow[] {
       return Number.isFinite(x) ? x : 0;
     };
     return {
+      id: typeof o.id === "string" ? o.id : "",
       nick: typeof o.nick === "string" ? o.nick : "",
       wagered: n(o.wagered),
       paid: n(o.paid),
       best: n(o.best),
       how: typeof o.best_how === "string" ? o.best_how : "",
+      stake: n(o.best_stake),
     };
   });
 }
 
 export async function saveNick(id: string, nick: string): Promise<string | null> {
   const clean = nick.trim().replace(/\s+/g, " ");
-  if (clean.length < 2 || clean.length > 16) return "Prezývka má mať 2 až 16 znakov.";
+  if (clean.length < 2 || clean.length > 12) return "Meno má mať 2 až 12 znakov.";
   const res = await rpc("board_nick", { p_id: id, p_nick: clean });
   if (!res.ok) {
     const text = await res.text();
-    if (text.includes("nick")) return "Prezývka má mať 2 až 16 znakov.";
-    return "Prezývku sa nepodarilo uložiť.";
+    if (text.includes("nick")) return "Meno má mať 2 až 12 znakov.";
+    return "Meno sa nepodarilo uložiť.";
   }
   const saved = String(await res.json()).replace(/^"|"$/g, "");
   try {
@@ -138,6 +160,7 @@ export async function putBoard(
   paid: number,
   best: number,
   how: string,
+  stake = 0,
 ): Promise<void> {
   if (!id || !readNick()) return;
   const res = await rpc("board_put", {
@@ -146,6 +169,7 @@ export async function putBoard(
     p_paid: paid,
     p_best: best,
     p_how: how,
+    p_stake: stake,
   });
   if (!res.ok) throw new Error("board");
 }

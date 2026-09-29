@@ -851,7 +851,7 @@ export function SlotGame() {
 
       <Paytable open={g.paytableOpen} onClose={() => g.setPaytableOpen(false)} bet={g.bet} desk={g.desk} mine={g.mine} />
       <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <Leaderboard open={boardOpen} nick={g.nick} onClose={() => setBoardOpen(false)} onSave={g.setNickName} />
+      <Leaderboard open={boardOpen} nick={g.nick} deviceId={g.deviceId} onClose={() => setBoardOpen(false)} onSave={g.setNickName} />
       {g.nickAsk ? <NickAsk onSave={g.setNickName} onSkip={g.dismissNick} /> : null}
       <SpendSheet
         open={g.spendOpen}
