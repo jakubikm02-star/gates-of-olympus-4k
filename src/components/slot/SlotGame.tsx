@@ -728,6 +728,7 @@ export function SlotGame() {
           {g.chaseCard.amount > 0 ? <b>{formatMoney(g.chaseCard.amount)}</b> : <b>výhry prepadli</b>}
         </div>
       )}
+      {g.banner && (
         <div className="banner" onClick={g.closeBanner} role="presentation">
           <div className={`banner-card ${g.banner}`} role="dialog" aria-label="Výhra">
             <header className="wb-title">
