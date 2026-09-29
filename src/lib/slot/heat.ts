@@ -1,12 +1,10 @@
 export const HEAT_MAX = 100;
 export const PURSUIT_SPINS = 10;
 
-/** Same ceiling as KONTROLA: at most +2 per spin, so 100 takes at least 50 spins. */
-export function heatFromSpin(winX: number, bet: number): number {
-  let n = 0;
-  if (bet >= 100) n += 1;
-  if (winX >= 3) n += 1;
-  return Math.min(2, n);
+/** Only a win adds a segment. A dead spin adds nothing, whatever the stake. */
+export function heatFromSpin(winX: number, _bet: number): number {
+  if (winX > 0) return 1;
+  return 0;
 }
 
 export function rollPursuit(rng: () => number, soft: boolean): "hack" | "tow" | "ride" {
