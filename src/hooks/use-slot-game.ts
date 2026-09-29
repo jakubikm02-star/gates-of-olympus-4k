@@ -1151,7 +1151,6 @@ export function useSlotGame() {
         !isFree &&
         !opts?.buy &&
         !duelRef.current &&
-        !jobRef.current &&
         !inFsRef.current
       ) {
         const rankId = standing(rankRef.current.rp).id;
@@ -1597,6 +1596,18 @@ export function useSlotGame() {
           heatRef.current = Math.min(HEAT_MAX, heatRef.current + add);
           setHeat(heatRef.current);
         }
+        if (heatRef.current >= HEAT_MAX && !duelRef.current && !inFsRef.current) {
+          const startPerk = perkOf(standing(rankRef.current.rp).id);
+          pursuitRef.current = PURSUIT_SPINS + (startPerk.chaseHack ?? 0);
+          pursuitTowsRef.current = 0;
+          pursuitHacksRef.current = startPerk.chaseHack ?? 0;
+          heatRef.current = 0;
+          setHeat(0);
+          setPursuitLeft(pursuitRef.current);
+          setTopLine(`ZÁSAH · ${pursuitRef.current} SPINOV`);
+          setMessage("ZÁSAH");
+          sfx.playSiren();
+        }
       }
       if (cash > 0 && cash !== +(sequenceX * currentBet).toFixed(2)) {
         setSpinWin(cash);
@@ -1749,12 +1760,17 @@ export function useSlotGame() {
       setPayHint(null);
       setWinTier(0);
       setPhase("idle");
+        if (pursuitRef.current > 0 && !isFree && !inFsRef.current) {
+        setTopLine(`ZÁSAH · ${pursuitRef.current} SPINOV`);
+        setMessage(`ZÁSAH · ${pursuitRef.current}`);
+      } else {
         setTopLine(
-        isFree || inFsRef.current
-          ? "3× 4ka TV OPÄŤ SPUSTÍ FEATURE"
-          : "SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE",
-      );
-      setMessage(cash > 0 ? "" : pendingPick ? "KONTROLA" : isFree ? "" : DEAD[Math.floor(Math.random() * DEAD.length)]);
+          isFree || inFsRef.current
+            ? "3× 4ka TV OPÄŤ SPUSTÍ FEATURE"
+            : "SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE",
+        );
+        setMessage(cash > 0 ? "" : pendingPick ? "KONTROLA" : isFree ? "" : DEAD[Math.floor(Math.random() * DEAD.length)]);
+      }
       sfx.duckMusic(1);
 
       if (hitMax) return "max";

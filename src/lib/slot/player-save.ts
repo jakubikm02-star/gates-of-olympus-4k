@@ -284,7 +284,7 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.deskBest = num(r.deskBest, 0, 0, 1_000_000_000);
   s.deskTicketWon = num(r.deskTicketWon, 0, 0, 1_000_000_000);
   s.deskTicketLost = num(r.deskTicketLost, 0, 0, 1_000_000_000);
-  s.heat = Math.min(20, Math.max(0, Math.floor(num(r.heat, 0))));
+  s.heat = Math.min(100, Math.max(0, Math.floor(num(r.heat, 0))));
   s.klienti = Math.min(1_000_000_000, Math.max(0, Math.floor(num(r.klienti, 0))));
   s.pursuitLeft = Math.min(40, Math.max(0, Math.floor(num(r.pursuitLeft, 0))));
   s.pursuitTows = Math.min(40, Math.max(0, Math.floor(num(r.pursuitTows, 0))));

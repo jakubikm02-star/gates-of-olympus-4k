@@ -18,6 +18,7 @@ import { SpendSheet } from "./SpendSheet";
 import { DuelSheet, DuelBar, DuelLink } from "./DuelSheet";
 import { Settings } from "./Settings";
 import { Leaderboard, NickAsk } from "./Leaderboard";
+import { HEAT_MAX } from "@/lib/slot/heat";
 import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
@@ -349,20 +350,27 @@ export function SlotGame() {
                       {Math.min(g.pityGoal, g.pity)}/{g.pityGoal}
                     </b>
                   </div>
-                  <div className={`heat-bar ${g.pursuit > 0 ? "is-chase" : ""} ${g.heat >= 20 ? "is-hot" : ""}`}>
+                  <div className={`heat-bar ${g.pursuit > 0 ? "is-chase" : ""} ${g.heat >= HEAT_MAX ? "is-hot" : ""}`}>
                     <span className="heat-kicker">{g.pursuit > 0 ? "ZÁSAH" : "HLÁSENIE"}</span>
                     <div className="heat-segs" aria-hidden="true">
-                      {Array.from({ length: 20 }, (_, i) => (
-                        <i key={i} className={i < (g.pursuit > 0 ? Math.min(20, g.pursuit * 2) : g.heat) ? "on" : ""} />
-                      ))}
+                      <i
+                        style={{
+                          ["--heat" as string]: `${g.pursuit > 0 ? Math.min(100, (g.pursuit / 11) * 100) : Math.min(100, (g.heat / HEAT_MAX) * 100)}%`,
+                        }}
+                      />
                     </div>
-                    <b>{g.pursuit > 0 ? g.pursuit : `${g.heat}/20`}</b>
+                    <b>{g.pursuit > 0 ? g.pursuit : `${g.heat}/${HEAT_MAX}`}</b>
                   </div>
                 </div>
               )}
             </div>
-            <div className={`top-ticker ${g.spinWin > 0 ? "has-win" : g.topLine && !g.topLine.startsWith("SYMBOLY PLATIA") ? "" : "is-idle"}`}>
-              {g.spinWin > 0 ? (
+            <div className={`top-ticker ${g.pursuit > 0 || g.spinWin > 0 ? "has-win" : g.topLine && !g.topLine.startsWith("SYMBOLY PLATIA") ? "" : "is-idle"}`}>
+              {g.pursuit > 0 ? (
+                <>
+                  ZÁSAH
+                  <strong>{g.pursuit} SPINOV</strong>
+                </>
+              ) : g.spinWin > 0 ? (
                 <>
                   TUMBLE
                   <strong>
