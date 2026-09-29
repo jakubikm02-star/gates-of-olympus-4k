@@ -291,6 +291,8 @@ export function useSlotGame() {
   const [pursuitLeft, setPursuitLeft] = useState(0);
   const pursuitTowsRef = useRef(0);
   const pursuitHacksRef = useRef(0);
+  const [chaseCard, setChaseCard] = useState<null | { title: string; line: string; amount: number }>(null);
+  const chaseTimer = useRef(0);
   const staleRef = useRef(false);
   const [stale, setStale] = useState(false);
   const [nick, setNick] = useState("");
@@ -1582,11 +1584,24 @@ export function useSlotGame() {
           const perfect = pursuitTowsRef.current <= 0;
           const rp = escapeRp(pursuitTowsRef.current, pursuitHacksRef.current);
           const gained = klientGain(currentBet, perfect, pursuitHacksRef.current);
+          const bonus = +(currentBet * (perfect ? 8 : 3)).toFixed(2);
           klientiRef.current += gained;
           setKlienti(klientiRef.current);
+          if (bonus > 0) {
+            setBalance((b) => +(b + bonus).toFixed(2));
+            bumpToday(0, bonus, title, currentBet);
+          }
           pushRank(rp);
-          setTopLine(perfect ? `ZMIZOL · +${gained} KLIENTOV` : `ZÁSAH KONČÍ · +${gained} KLIENTOV`);
-          setMessage(perfect ? "ZMIZOL" : "ODŤAH HOTOVÝ");
+          const title = perfect ? "ZMIZOL" : "ODŤAH";
+          const line = perfect
+            ? `+${gained} KLIENTOV`
+            : `výhry prepadli · +${gained} KLIENTOV`;
+          setTopLine(`${title} · ${line}`);
+          setMessage(title);
+          setChaseCard({ title, line, amount: bonus });
+          window.clearTimeout(chaseTimer.current);
+          chaseTimer.current = window.setTimeout(() => setChaseCard(null), 3600);
+          sfx.playSiren();
         } else {
           setMessage(`ZÁSAH · ${pursuitRef.current}`);
         }
@@ -2433,6 +2448,7 @@ export function useSlotGame() {
     heat,
     pursuit: pursuitLeft,
     klienti,
+    chaseCard,
     rank: standing(rp),
     rankPeak,
     rankShield,

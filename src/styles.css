@@ -781,7 +781,7 @@
 }
 
 .stage.in-pursuit .stage-bg {
-  filter: saturate(0.75) brightness(0.62) contrast(1.05);
+  filter: saturate(0.55) brightness(0.42) contrast(1.08);
 }
 
 .stage.in-pursuit::before,
@@ -790,19 +790,99 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 18%;
+  width: 34%;
   pointer-events: none;
-  z-index: 3;
+  z-index: 6;
 }
 
 .stage.in-pursuit::before {
   left: 0;
-  background: linear-gradient(90deg, rgb(180 24 32 / 0.28), transparent);
+  background: linear-gradient(90deg, rgb(255 24 36 / 0.72), rgb(255 32 40 / 0.28) 42%, transparent 78%);
+  animation: siren-wash 2.6s ease-in-out infinite;
 }
 
 .stage.in-pursuit::after {
   right: 0;
-  background: linear-gradient(270deg, rgb(24 72 180 / 0.28), transparent);
+  background: linear-gradient(270deg, rgb(36 92 255 / 0.72), rgb(40 80 255 / 0.26) 42%, transparent 78%);
+  animation: siren-wash 2.6s ease-in-out infinite reverse;
+}
+
+@keyframes siren-wash {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.chase-ticket {
+  position: absolute;
+  z-index: 8;
+  top: 18%;
+  right: 0;
+  width: min(168px, 42vw);
+  padding: 14px 16px 16px;
+  background: #f4f1e6;
+  color: #1a1208;
+  border-radius: 6px 0 0 6px;
+  box-shadow: -8px 10px 24px rgb(0 0 0 / 0.45);
+  animation: chase-in 0.45s ease-out both;
+}
+
+.chase-ticket span,
+.chase-end p {
+  display: block;
+  font-family: var(--font-display);
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+}
+
+.chase-ticket strong,
+.chase-end strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.15rem;
+}
+
+.chase-ticket em {
+  display: block;
+  margin-top: 6px;
+  font-style: normal;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+}
+
+.chase-end {
+  position: absolute;
+  z-index: 40;
+  left: 50%;
+  top: 38%;
+  transform: translate(-50%, -50%);
+  width: min(320px, 86vw);
+  padding: 18px 16px;
+  text-align: center;
+  background: #101418;
+  color: #f4f1e6;
+  border: 2px solid #f0c419;
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.55);
+}
+
+.chase-end b {
+  display: block;
+  margin-top: 8px;
+  color: #f0c419;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+@keyframes chase-in {
+  from {
+    transform: translateX(110%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 .pity-plus {

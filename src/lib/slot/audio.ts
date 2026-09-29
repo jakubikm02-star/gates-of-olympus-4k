@@ -720,8 +720,9 @@ export function stopLiveBed(): void {
 }
 
 export function playSiren(): void {
-  duckMusic(0.55);
-  playBuf("siren", { gain: 0.62 });
+  stopSpin();
+  duckMusic(0.4);
+  if (!playBuf("kontrola", { gain: 0.92 })) playBuf("siren", { gain: 0.7 });
 }
 
 export function playPickStart(): void {
