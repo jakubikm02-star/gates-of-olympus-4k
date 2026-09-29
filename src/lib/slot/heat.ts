@@ -1,15 +1,12 @@
 export const HEAT_MAX = 100;
 export const PURSUIT_SPINS = 10;
 
-/** Fills on a fat win or a high stake. Not split by bet, and a dead cheap spin adds nothing. */
+/** Same ceiling as KONTROLA: at most +2 per spin, so 100 takes at least 50 spins. */
 export function heatFromSpin(winX: number, bet: number): number {
   let n = 0;
-  if (bet >= 100) n += 5;
-  if (bet >= 500) n += 5;
-  if (winX >= 30) n += 20;
-  else if (winX >= 10) n += 10;
-  else if (winX >= 3) n += 5;
-  return Math.min(20, n);
+  if (bet >= 100) n += 1;
+  if (winX >= 3) n += 1;
+  return Math.min(2, n);
 }
 
 export function rollPursuit(rng: () => number, soft: boolean): "hack" | "tow" | "ride" {
