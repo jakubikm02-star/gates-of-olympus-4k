@@ -44,7 +44,7 @@ import { emptyBoard, isEligibleBet, ticketResolve, type BoardSnap, type JackpotH
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
 import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDesk, ticketProfit, type DeskDay } from "@/lib/slot/desk-api";
 import { putBoard, readBestMark, readNick, saveNick, skipNick, winHow, writeBestHow } from "@/lib/slot/board-api";
-import { HEAT_MAX, PURSUIT_SPINS, escapeRp, heatFromSpin, klientGain, rollPursuit } from "@/lib/slot/heat";
+import { HEAT_MAX, PURSUIT_SPINS, escapeRp, heatFromWin, klientGain, rollPursuit } from "@/lib/slot/heat";
 import { BUILD_ID, dropStaleCaches, hardReload, releaseMatches } from "@/lib/slot/release";
 import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, duelPot, duelCreditDelta, forfeitDuel, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
 import { duelForfeit, duelLeave, duelTick } from "@/lib/slot/duel-api";
@@ -905,6 +905,34 @@ export function useSlotGame() {
     done?.();
   }, []);
 
+  const armPursuit = useCallback(() => {
+    if (pursuitRef.current > 0 || heatRef.current < HEAT_MAX) return;
+    if (duelRef.current || inFsRef.current) return;
+    const startPerk = perkOf(standing(rankRef.current.rp).id);
+    pursuitRef.current = PURSUIT_SPINS + (startPerk.chaseHack ?? 0);
+    pursuitTowsRef.current = 0;
+    pursuitHacksRef.current = startPerk.chaseHack ?? 0;
+    heatRef.current = 0;
+    setHeat(0);
+    setPursuitLeft(pursuitRef.current);
+    setTopLine(`ZÁSAH · ${pursuitRef.current} SPINOV`);
+    setMessage("ZÁSAH");
+    sfx.playSiren();
+  }, []);
+
+  const noteHeat = useCallback(
+    (amount: number, bet: number, hold = false) => {
+      if (!(amount > 0) || !(bet > 0)) return;
+      const add = heatFromWin(amount / bet);
+      if (add <= 0) return;
+      heatRef.current = Math.min(HEAT_MAX, heatRef.current + add);
+      setHeat(heatRef.current);
+      if (hold || inFsRef.current || duelRef.current) return;
+      armPursuit();
+    },
+    [armPursuit],
+  );
+
   const waitForBanner = useCallback((hold: number | "click" = 2800) => {
     return new Promise<void>((resolve) => {
       bannerWait.current = resolve;
@@ -933,6 +961,7 @@ export function useSlotGame() {
       setBalance((b) => +(b + payout).toFixed(2));
       setBestWin((w) => Math.max(w, payout));
       bumpToday(0, payout, how, BETS[betIndexRef.current] ?? 0);
+      noteHeat(payout, BETS[betIndexRef.current] ?? 0);
       setSpinTape((t) => [{ label: shown.name, amount: formatMoney(payout) }, ...t].slice(0, 8));
       if (autoRef.current && !duelRef.current) {
         autoRef.current = false;
@@ -947,7 +976,7 @@ export function useSlotGame() {
       setJpHit(null);
       setPots(board.pots);
     },
-    [bumpToday],
+    [bumpToday, noteHeat],
   );
 
   const runTicket = useCallback(
@@ -987,6 +1016,7 @@ export function useSlotGame() {
       jobRef.current = null;
       setJob(null);
       setBalance((b) => +(b + next.payout).toFixed(2));
+      noteHeat(next.payout, next.stake || BETS[betIndexRef.current] || 0);
       const profit = ticketProfit(next.payout, next.stake);
       noteTicket(profit.won, profit.lost);
       const parts = rpFromJob(next.payout, next.stake);
@@ -1012,7 +1042,7 @@ export function useSlotGame() {
       jobRef.current = next;
       setJob(next);
     }
-  }, [pushRank, stampDailyJob, noteTicket]);
+  }, [pushRank, stampDailyJob, noteTicket, noteHeat]);
 
   const failParknetJob = useCallback((cur: JobCard) => {
     const burned = { ...cur, seal: false, spun: cur.limit };
@@ -1110,6 +1140,7 @@ export function useSlotGame() {
     const escrow = Boolean(duelRef.current && duelRef.current.phase !== "done");
     if (cash > 0) {
       if (!escrow) setBalance((b) => +(b + cash).toFixed(2));
+      noteHeat(cash, betNow);
       setDisplayWin(cash);
       setSpinWin(cash);
       setBestWin((w) => Math.max(w, cash));
@@ -1139,7 +1170,7 @@ export function useSlotGame() {
     setPhase("idle");
     setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
     setMessage(cash > 0 ? `KONTROLA ${formatMoney(cash)}` : "Odťah bez pokuty");
-  }, [waitForPick, pushRank, noteResult]);
+  }, [waitForPick, pushRank, noteResult, noteHeat]);
 
   const runSequence = useCallback(
     async (opts?: { buy?: boolean; free?: boolean }): Promise<"fs" | "ok" | "max" | "pick"> => {
@@ -1147,26 +1178,7 @@ export function useSlotGame() {
       const perk = perkOf(standing(rankRef.current.rp).id);
       const currentStake = anteRef.current ? +(currentBet * perk.anteMul).toFixed(2) : currentBet;
       const isFree = !!opts?.free;
-      if (
-        pursuitRef.current <= 0 &&
-        heatRef.current >= HEAT_MAX &&
-        !isFree &&
-        !opts?.buy &&
-        !duelRef.current &&
-        !inFsRef.current
-      ) {
-        const rankId = standing(rankRef.current.rp).id;
-        const startPerk = perkOf(rankId);
-        pursuitRef.current = PURSUIT_SPINS + (startPerk.chaseHack ?? 0);
-        pursuitTowsRef.current = 0;
-        pursuitHacksRef.current = startPerk.chaseHack ?? 0;
-        heatRef.current = 0;
-        setHeat(0);
-        setPursuitLeft(pursuitRef.current);
-        setTopLine(`ZÁSAH · ${pursuitRef.current} SPINOV`);
-        setMessage("ZÁSAH");
-        sfx.playSiren();
-      }
+      if (!isFree && !opts?.buy) armPursuit();
       let chasing = pursuitRef.current > 0 && !isFree && !opts?.buy && !duelRef.current;
       let cost = opts?.buy ? +(currentBet * buyXOf(perk.id)).toFixed(2) : isFree ? 0 : currentStake;
       if (chasing) cost = +(currentStake * 2).toFixed(2);
@@ -1594,6 +1606,7 @@ export function useSlotGame() {
           if (bonus > 0) {
             setBalance((b) => +(b + bonus).toFixed(2));
             bumpToday(0, bonus, title, currentBet);
+            noteHeat(bonus, currentBet);
           }
           pushRank(rp);
           setTopLine(`${title} · ${line}`);
@@ -1605,25 +1618,8 @@ export function useSlotGame() {
         } else {
           setMessage(`ZÁSAH · ${pursuitRef.current}`);
         }
-      } else if (!isFree && !opts?.buy && !duelRef.current && !inFsRef.current) {
-        const add = heatFromSpin(currentBet > 0 ? cash / currentBet : 0, currentBet);
-        if (add > 0) {
-          heatRef.current = Math.min(HEAT_MAX, heatRef.current + add);
-          setHeat(heatRef.current);
-        }
-        if (heatRef.current >= HEAT_MAX && !duelRef.current && !inFsRef.current) {
-          const startPerk = perkOf(standing(rankRef.current.rp).id);
-          pursuitRef.current = PURSUIT_SPINS + (startPerk.chaseHack ?? 0);
-          pursuitTowsRef.current = 0;
-          pursuitHacksRef.current = startPerk.chaseHack ?? 0;
-          heatRef.current = 0;
-          setHeat(0);
-          setPursuitLeft(pursuitRef.current);
-          setTopLine(`ZÁSAH · ${pursuitRef.current} SPINOV`);
-          setMessage("ZÁSAH");
-          sfx.playSiren();
-        }
       }
+      if (cash > 0) noteHeat(cash, currentBet, Boolean(isFree || opts?.buy || pendingFs || inFsRef.current));
       if (cash > 0 && cash !== +(sequenceX * currentBet).toFixed(2)) {
         setSpinWin(cash);
         if (!isFree) setDisplayWin(cash);
@@ -1827,6 +1823,7 @@ export function useSlotGame() {
         const mine = Math.round(d.seats[d.you].score);
         const other = Math.round(d.seats[d.you === 0 ? 1 : 0].score);
         bumpToday(0, pot, winHow({ mode: "DUEL", duel: `${mine} vs ${other}` }), BETS[betIndexRef.current] ?? 0);
+        noteHeat(pot, BETS[betIndexRef.current] ?? 0, true);
       }
     }
     const link = duelLinkRef.current;
@@ -1837,7 +1834,7 @@ export function useSlotGame() {
         net: false,
       }).catch(() => {});
     }
-  }, [bumpToday]);
+  }, [bumpToday, noteHeat]);
 
   const playRound = useCallback(
     async (opts?: { buy?: boolean; resumeFs?: boolean }) => {

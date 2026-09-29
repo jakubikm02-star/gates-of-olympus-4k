@@ -331,6 +331,13 @@ export function SlotGame() {
                       {g.fsLeft}/{g.fsTotal || 15}
                     </strong>
                   </div>
+                  <div className="fs-heat" aria-label={`Hlásenie ${g.heat}`}>
+                    <span>HLÁSENIE</span>
+                    <i style={{ ["--heat" as string]: `${Math.min(100, (g.heat / HEAT_MAX) * 100)}%` }} />
+                    <b>
+                      {g.heat}/{HEAT_MAX}
+                    </b>
+                  </div>
                 </div>
               ) : (
                 <div className="meter-split">

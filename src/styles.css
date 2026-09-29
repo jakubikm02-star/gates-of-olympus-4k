@@ -436,6 +436,44 @@
   text-shadow: 0 0 10px #ffd24a, 0 2px 0 #5a3208;
 }
 
+.fs-heat {
+  flex: 1.1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #2a140e, #0a1014);
+  border: 2px solid #e24a12;
+  color: #ffb088;
+}
+
+.fs-heat span,
+.fs-heat b {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+
+.fs-heat i {
+  flex: 1;
+  height: 8px;
+  border-radius: 2px;
+  background: #14181c;
+  position: relative;
+  overflow: hidden;
+}
+
+.fs-heat i::after {
+  content: "";
+  display: block;
+  height: 100%;
+  width: var(--heat, 0%);
+  background: repeating-linear-gradient(90deg, #ff5a12 0 2px, #1a0c08 2px 3px);
+}
+
 .board-wrap {
   position: relative;
   z-index: 3;
