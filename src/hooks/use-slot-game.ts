@@ -1585,6 +1585,10 @@ export function useSlotGame() {
           const rp = escapeRp(pursuitTowsRef.current, pursuitHacksRef.current);
           const gained = klientGain(currentBet, perfect, pursuitHacksRef.current);
           const bonus = +(currentBet * (perfect ? 8 : 3)).toFixed(2);
+          const title = perfect ? "ZMIZOL" : "ODŤAH";
+          const line = perfect
+            ? `+${gained} KLIENTOV`
+            : `výhry prepadli · +${gained} KLIENTOV`;
           klientiRef.current += gained;
           setKlienti(klientiRef.current);
           if (bonus > 0) {
@@ -1592,10 +1596,6 @@ export function useSlotGame() {
             bumpToday(0, bonus, title, currentBet);
           }
           pushRank(rp);
-          const title = perfect ? "ZMIZOL" : "ODŤAH";
-          const line = perfect
-            ? `+${gained} KLIENTOV`
-            : `výhry prepadli · +${gained} KLIENTOV`;
           setTopLine(`${title} · ${line}`);
           setMessage(title);
           setChaseCard({ title, line, amount: bonus });
