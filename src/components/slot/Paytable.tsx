@@ -162,8 +162,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             Kúpený PARKNET je POHOTOVOSŤ. Duel online točíte naraz, live skóre. Víťaz berie výhry oboch.
           </li>
           <li>
-            Kredit, pity aj rank sa ukladajú v tomto prehliadači. Bankrot +5000 berie RP len v 5G a NEKONEČNO, najviac pol divízie.
-            80 platených spinov bez dobitia sériu trestov vynuluje.
+            Kredit, pity aj rank sa ukladajú v tomto prehliadači. Pod minimálnou stávkou je EXEKÚCIA: rank spadne na KREDIT IV, kredit je znova 5 000. Sezónne maximum ostane.
           </li>
           <li>
             Ranked liga 4ky: KREDIT → SLOBODA → SMART → 4KA TV → OPTIKA → DUO → 5G NA DOMA → NEKONEČNO.

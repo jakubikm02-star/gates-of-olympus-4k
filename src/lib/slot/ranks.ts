@@ -502,7 +502,7 @@ export const RANK_REWARDS = [
   { id: "banner", title: "BIG / MEGA / EPIC / MAX", detail: "Popup: +4 / +8 / +12 / +18." },
   { id: "bonus", title: "Bonusy", detail: "FS total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Buy je vždy 100×. LIVE je 15, od DUO 16, v NEKONEČNO 17. Kúpa sa ráta voči cene, prehra berie entry ako mŕtve spiny (max 1 divízia)." },
   { id: "rank", title: "Aktívna liga", detail: "Vyšší rank berie viac RP za mŕtvy spin. Ante 1,22× od SMART, cashback so stropom od OPTIKA, +1 a +2 točenia v LIVE. Liga nenásobí výhru a nelacní buy." },
-  { id: "reload", title: "Bankrot", detail: "Dobitie +5000 berie RP len v 5G a NEKONEČNO. Malá stávka berie menej, strop je pol divízie (50). Pod 5G je trest 0. 80 platených spinov bez dobitia sériu nuluje." },
+  { id: "reload", title: "Exekúcia", detail: "Pod minimálnou stávkou dobitie vráti rank na KREDIT IV. RP, štít, séria, hlásenie a daň sa vynulujú. Sezónne maximum, klienti, štatistiky a tikety ostanú. Kredit je znova 5 000." },
   { id: "week", title: "Týždenný drop", detail: "Raz za 7 dní klesáš o jednu divíziu, nie o celú skupinu. Dlhšia pauza zoberie najviac jednu skupinu. Štít týždeň nechytá." },
 ] as const;
 

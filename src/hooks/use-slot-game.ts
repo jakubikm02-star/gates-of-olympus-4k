@@ -36,7 +36,7 @@ import {
   zeusDropCount,
 } from "@/lib/slot/engine";
 import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, spendPity, type PickTile, type PityMap } from "@/lib/slot/pick-bonus";
-import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision, fsSpinsOf, nextRebate, perkOf, reloadPunish, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
+import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision, fsSpinsOf, nextRebate, perkOf, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
@@ -186,6 +186,8 @@ export function useSlotGame() {
   const [rankDelta, setRankDelta] = useState(0);
   const [rankTick, setRankTick] = useState(0);
   const [rankFlash, setRankFlash] = useState<RankFlash | null>(null);
+  const [bustAsk, setBustAsk] = useState(false);
+  const [exekucia, setExekucia] = useState<{ from: string; peak: string; infinite: boolean } | null>(null);
   const rankQ = useRef<RankFlash[]>([]);
   const [winTier, setWinTier] = useState(0);
   const [rankOpen, setRankOpen] = useState(false);
@@ -836,44 +838,64 @@ export function useSlotGame() {
 
   useEffect(() => () => sfx.stopHeartbeat(), []);
 
-  const refill = useCallback(() => {
-    if (busyRef.current) return;
-    const maxBet = BETS[BETS.length - 1];
-    const nextStreak = reloadStreakRef.current + 1;
-    const settled = reloadPunish({
-      bet: BETS[betIndexRef.current],
-      rp: rankRef.current.rp,
-      streak: nextStreak,
-      maxBet,
-    });
-    reloadStreakRef.current = nextStreak;
-    spinsSinceReloadRef.current = 0;
-    setReloadStreak(nextStreak);
-    rankRef.current = { ...rankRef.current, shield: false };
+  const askBust = useCallback(() => {
+    if (busyRef.current || inFsRef.current || duelRef.current || chaseRef.current || chaseCardRef.current) return;
+    if (balanceRef.current >= BETS[0]) return;
+    setBustAsk(true);
+    sfx.playClick();
+  }, []);
+
+  const cancelBust = useCallback(() => {
+    setBustAsk(false);
+    sfx.playClick();
+  }, []);
+
+  const confirmBust = useCallback(() => {
+    if (busyRef.current || balanceRef.current >= BETS[0]) {
+      setBustAsk(false);
+      return;
+    }
+    setBustAsk(false);
+    const before = standing(rankRef.current.rp);
+    const peakStand = standing(Math.max(rankRef.current.peak, rankRef.current.rp));
+    const from = `${before.name}${before.roman ? ` ${before.roman}` : ""}`;
+    const peak = `${peakStand.name}${peakStand.roman ? ` ${peakStand.roman}` : ""}`;
+    rankRef.current = { rp: 0, peak: Math.max(rankRef.current.peak, rankRef.current.rp), shield: false };
+    setRp(0);
+    setRankPeak(rankRef.current.peak);
     setRankShield(false);
+    setRankDelta(before.rp ? -before.rp : 0);
+    setRankParts(null);
     streakRef.current = 0;
     holdUsedRef.current = false;
     setWinStreak(0);
-    const before = standing(rankRef.current.rp);
-    const res = applyRankDelta(rankRef.current, settled.delta);
-    rankRef.current = res.save;
-    setRp(res.save.rp);
-    setRankPeak(res.save.peak);
-    setRankShield(res.save.shield);
-    setRankDelta(res.applied || settled.delta);
-    setRankParts(settled.parts);
+    heatRef.current = 0;
+    setHeat(0);
+    modRef.current = null;
+    setChaseMod(null);
+    fsSessionRef.current = { ...fsSessionRef.current, modMul: 1 };
+    reloadStreakRef.current = 0;
+    spinsSinceReloadRef.current = 0;
+    setReloadStreak(0);
+    setBalance(START_BALANCE);
     setRankFlash({
       event: "bust",
       before,
-      after: res.after,
-      applied: res.applied || settled.delta,
-      parts: settled.parts,
+      after: standing(0),
+      applied: before.rp ? -before.rp : 0,
     });
-    setBalance((b) => +(b + START_BALANCE).toFixed(2));
-    setSpinTape((t) => [{ label: "BANKROT", amount: `${settled.delta} RP` }, ...t].slice(0, 8));
-    setTopLine(settled.delta ? `BANKROT ${settled.delta} RP` : "BANKROT");
-    setMessage(`+${START_BALANCE} kredit · liga trest`);
+    setExekucia({ from, peak, infinite: peakStand.id === "nekonecno" && peakStand.rp > 0 });
+    setSpinTape((t) => [{ label: "EXEKÚCIA", amount: "KREDIT IV" }, ...t].slice(0, 8));
+    setTopLine("EXEKÚCIA · KREDIT IV");
+    setMessage(`Kredit ${START_BALANCE}`);
+    sfx.playThunder();
   }, []);
+
+  useEffect(() => {
+    if (!exekucia) return;
+    const t = window.setTimeout(() => setExekucia(null), 3400);
+    return () => window.clearTimeout(t);
+  }, [exekucia]);
 
   const pushRank = useCallback((delta: number, parts?: RankBreakdown | null) => {
     if (!delta) return;
@@ -2706,13 +2728,14 @@ export function useSlotGame() {
     buyAsk,
     confirmBuy,
     cancelBuy,
-    refill,
-    reloadHit: reloadPunish({
-      bet,
-      rp,
-      streak: reloadStreak + 1,
-      maxBet: BETS[BETS.length - 1],
-    }).delta,
+    refill: askBust,
+    bustAsk,
+    askBust,
+    cancelBust,
+    confirmBust,
+    exekucia,
+    dismissExekucia: () => setExekucia(null),
+    broke: balance < BETS[0],
     bestWin,
     canSpin:
       started &&

@@ -189,7 +189,7 @@ export function SlotGame() {
 
   return (
     <div
-      className={`stage shell-${shell} rk-${g.rank.id} ${g.rankFlash?.event === "up" ? "is-rank-up" : ""} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.chase ? "in-chase" : ""} ${g.chase?.tension === "danger" ? "chase-danger" : ""} ${g.chase?.tension === "close" ? "chase-close" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""}`}
+      className={`stage shell-${shell} rk-${g.rank.id} ${g.rankFlash?.event === "up" ? "is-rank-up" : ""} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.chase ? "in-chase" : ""} ${g.chase?.tension === "danger" ? "chase-danger" : ""} ${g.chase?.tension === "close" ? "chase-close" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""} ${g.exekucia ? "is-exekucia" : ""}`}
     >
       {g.stale ? (
         <div className="release-lock" role="alertdialog" aria-label="Nová verzia">
@@ -726,10 +726,9 @@ export function SlotGame() {
             </button>
           )}
           {g.autoReason && !g.autoOn && !g.duel && <span className="auto-stop">{g.autoReason}</span>}
-          {g.balance < g.stake && (
-            <button type="button" className="chip-btn gold" onClick={g.refill}>
-              BANKROT +{START_BALANCE}
-              {g.reloadHit ? ` · ${g.reloadHit} RP` : ""}
+          {g.broke && !g.inFs && !g.duel && !g.duelLink && !g.chase && (
+            <button type="button" className="chip-btn gold" onClick={g.askBust} disabled={g.busy}>
+              EXEKÚCIA
             </button>
           )}
         </div>
@@ -752,6 +751,33 @@ export function SlotGame() {
         />
       )}
 
+      {g.bustAsk && (
+        <div className="buy-ask bust-ask" role="dialog" aria-label="Exekúcia">
+          <p>EXEKÚCIA</p>
+          <strong>Rank sa vráti na KREDIT IV</strong>
+          <span>RP, štít, séria, hlásenie a daň zmiznú. Klienti, štatistiky, tikety a sezónne maximum ostanú.</span>
+          <em>Kredit {formatMoney(START_BALANCE)}</em>
+          <div className="buy-ask-btns">
+            <button type="button" className="buy-x" onClick={g.cancelBust} aria-label="Zrušiť">
+              ✕
+            </button>
+            <button type="button" className="buy-ok" onClick={g.confirmBust} aria-label="Potvrdiť exekúciu">
+              ✓
+            </button>
+          </div>
+        </div>
+      )}
+      {g.exekucia && (
+        <button type="button" className="exekucia" onClick={g.dismissExekucia} aria-label="Zavrieť exekúciu">
+          <span className="exekucia-card">
+            <p>EXEKÚCIA</p>
+            <b className="ex-from">{g.exekucia.from}</b>
+            <b className="ex-to">KREDIT IV</b>
+            {g.exekucia.infinite ? <em>BOL SOM NEKONEČNO</em> : <em>sezóna {g.exekucia.peak}</em>}
+            <span>kredit {formatMoney(START_BALANCE)}</span>
+          </span>
+        </button>
+      )}
       {g.buyAsk && (
         <div className="buy-ask" role="dialog" aria-label="Kúpiť free spins">
           <p>KÚPIŤ PARKNET LIVE</p>

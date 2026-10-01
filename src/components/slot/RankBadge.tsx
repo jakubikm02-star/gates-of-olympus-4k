@@ -41,7 +41,7 @@ export function RankMark({ id, size = 16 }: { id: string; size?: number }) {
 const FLASH_TITLE: Record<NonNullable<RankFlash["event"]>, string | null> = {
   up: null,
   down: null,
-  bust: "BANKROT",
+  bust: "EXEKÚCIA",
   week: "DROP",
   shield: "ŠTÍT",
   gain: null,
