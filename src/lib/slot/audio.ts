@@ -16,6 +16,7 @@ let spinNodes: { stop: () => void; gain: GainNode } | null = null;
 let anticipateNodes: { stop: () => void } | null = null;
 let liveBed: { stop: () => void; duck: (amount: number) => void } | null = null;
 let liveEl: HTMLAudioElement | null = null;
+let loopKey: string | null = null;
 const LIVE_VOL = 0.62;
 let liveDuck = 1;
 const playing: Partial<Record<string, { stop: () => void }>> = {};
@@ -50,9 +51,12 @@ const FILES: Record<string, string> = {
   anticipate: "/sfx/bonus-loop.mp3?v=4ka1",
   can: "/sfx/can-open.mp3?v=open2",
   bed: "/sfx/fs-bed.mp3?v=moon2",
+  zasah: "/sfx/fs-bed.mp3?v=zasah1",
 };
 
 const CUSTOM_MAX = 12 * 1024 * 1024;
+const MUSIC_MAX = 50 * 1024 * 1024;
+const MUSIC_KEYS = new Set(["bed", "zasah"]);
 const SUPA_URL = "https://xgpnmxkquxzbhgktjipa.supabase.co";
 const SUPA_ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhncG5teGtxdXh6Ymhna3RqaXBhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzMzI1MDgsImV4cCI6MjEwMTkwODUwOH0.KrNERJS8gxc1663oN73CaZ2ZqXZOQTX-AnoMwCmWQUo";
@@ -78,6 +82,14 @@ function emitSfx(): void {
 export function subscribeSfx(fn: () => void): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);
+}
+
+function cueMax(key: string): number {
+  return MUSIC_KEYS.has(key) ? MUSIC_MAX : CUSTOM_MAX;
+}
+
+function cueMaxLabel(key: string): string {
+  return MUSIC_KEYS.has(key) ? "50 MB" : "12 MB";
 }
 
 export function cueSrc(key: string): string {
@@ -228,7 +240,9 @@ function loadOne(key: string): Promise<void> {
 
 async function applyCustoms(): Promise<void> {
   if (!ctx) return;
-  await Promise.all([...custom].map((key) => decodeCustom(key).catch(() => undefined)));
+  await Promise.all(
+    [...custom].filter((key) => !MUSIC_KEYS.has(key)).map((key) => decodeCustom(key).catch(() => undefined)),
+  );
 }
 
 function loadBank(): Promise<void> {
@@ -242,17 +256,42 @@ function loadBank(): Promise<void> {
   return bankAll;
 }
 
+function probeAudio(bytes: ArrayBuffer, type: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(new Blob([bytes], { type: type || "audio/mpeg" }));
+    const el = new Audio();
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      el.onloadedmetadata = null;
+      el.onerror = null;
+      el.src = "";
+      URL.revokeObjectURL(url);
+      resolve(ok);
+    };
+    el.preload = "metadata";
+    el.onloadedmetadata = () => finish(el.duration > 0.2);
+    el.onerror = () => finish(false);
+    window.setTimeout(() => finish(false), 12000);
+    el.src = url;
+  });
+}
+
 export async function replaceCue(key: string, file: File, password: string): Promise<string | null> {
   if (!FILES[key]) return "Tento zvuk sa nedá vymeniť.";
   if (!password.trim()) return "Zadaj heslo.";
-  if (file.size > CUSTOM_MAX) return "Súbor je väčší ako 12 MB.";
+  const limit = cueMaxLabel(key);
+  if (file.size > cueMax(key)) return `Súbor je väčší ako ${limit}.`;
   const named = /\.(mp3|wav|ogg|m4a|aac|webm|flac)$/i.test(file.name);
   if (file.type && !file.type.startsWith("audio/") && !named) return "To nie je zvuk.";
   unlockAudio();
   const bytes = await file.arrayBuffer();
   const type = file.type || "audio/mpeg";
   let probe: AudioBuffer | null = null;
-  if (ctx) {
+  if (MUSIC_KEYS.has(key)) {
+    if (!(await probeAudio(bytes, type))) return "Súbor sa nedá prehrať.";
+  } else if (ctx) {
     try {
       probe = await ctx.decodeAudioData(bytes.slice(0));
     } catch {
@@ -264,14 +303,14 @@ export async function replaceCue(key: string, file: File, password: string): Pro
   if (!res.ok) {
     const text = await res.text();
     if (text.includes("denied")) return "Zlé heslo.";
-    if (text.includes("size")) return "Súbor je väčší ako 12 MB.";
+    if (text.includes("size")) return `Súbor je väčší ako ${limit}.`;
     return "Zvuk sa nepodarilo uložiť.";
   }
   await hydrateCustoms();
   stored[key] = { bytes, type };
   custom.add(key);
   if (probe) bufs[key] = probe;
-  else await decodeCustom(key);
+  else if (!MUSIC_KEYS.has(key)) await decodeCustom(key);
   rememberPreview(key, bytes, type);
   emitSfx();
   return null;
@@ -652,9 +691,24 @@ export function playFsStart(): void {
 }
 
 export function startLiveBed(): void {
+  startCueLoop("bed");
+}
+
+export function startChaseBed(): void {
+  if (loopKey === "zasah" && liveEl) return;
+  startCueLoop("zasah");
+}
+
+export function stopChaseBed(): void {
+  if (loopKey !== "zasah") return;
+  stopLiveBed();
+}
+
+function startCueLoop(key: string): void {
   unlockAudio();
   stopLiveBed();
-  const el = new Audio(cueSrc("bed"));
+  loopKey = key;
+  const el = new Audio(cueSrc(key));
   el.loop = true;
   el.preload = "auto";
   el.setAttribute("playsinline", "true");
@@ -673,7 +727,7 @@ export function startLiveBed(): void {
   };
   const kick = () => {
     const dur = Number.isFinite(el.duration) && el.duration > 2 ? el.duration : 0;
-    const span = dur > 2 ? Math.max(1, Math.min(720, dur) - 0.4) : 0;
+    const span = dur > 2 ? dur - 0.4 : 0;
     const at = span > 0 ? Math.random() * span : 0;
     if (at <= 0) {
       playSafe();
@@ -714,6 +768,7 @@ export function startLiveBed(): void {
 }
 
 export function stopLiveBed(): void {
+  loopKey = null;
   liveBed?.stop();
   liveBed = null;
   liveEl = null;

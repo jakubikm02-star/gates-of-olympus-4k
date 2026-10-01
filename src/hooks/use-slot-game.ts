@@ -1013,6 +1013,7 @@ export function useSlotGame() {
     setChase(null);
     setActiveWindow(-1);
     sfx.stopHeartbeat();
+    sfx.stopChaseBed();
     let rp: number = ZASAH.RP.neutral;
     let line = "Unikol si len tak-tak";
     if (outcome === "escape") {
@@ -1317,6 +1318,7 @@ export function useSlotGame() {
         return "ok";
       }
       skipDuelTick.current = false;
+      if (chasing) sfx.startChaseBed();
       setHackWindows([]);
       setActiveWindow(-1);
       setWindowPhase("reveal");

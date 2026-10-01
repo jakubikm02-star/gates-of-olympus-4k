@@ -26,7 +26,8 @@ const SOUND_CUES: { id: string; name: string; loop?: boolean; when: string }[] =
   { id: "collect", name: "Zber", when: "Výhra lístka (pot) a tretí scatter." },
   { id: "payout", name: "Výplata", when: "Výhra sa pripíše na kredit v base, mimo duelu." },
   { id: "fsStart", name: "Štart feature", when: "Začiatok PARKNET / 4ka TV." },
-  { id: "bed", name: "Podklad feature", loop: true, when: "Počas celej feature. V hre naskočí na náhodnom mieste skladby." },
+  { id: "bed", name: "Podklad feature", loop: true, when: "Počas celej feature. Naskočí na náhodnom mieste skladby. Súbor do 50 MB." },
+  { id: "zasah", name: "Podklad zásahu", loop: true, when: "Počas ZÁSAHU. Naskočí na náhodnom mieste skladby. Súbor do 50 MB." },
   { id: "kontrola", name: "Kontrola", when: "Štart KONTROLA." },
   { id: "tableA", name: "Big win A", when: "Náhodne A alebo B: BIG od 20×, MEGA od 35×, SUPER MEGA od 50×, aj koniec feature s výhrou. MAX 5000× hrá to isté." },
   { id: "tableB", name: "Big win B", when: "Náhodne A alebo B pri veľkej výhre a na konci feature." },
@@ -124,7 +125,7 @@ function SoundSheet({ password }: { password: string }) {
   };
   return (
     <div className="sound-sheet is-open">
-      <p className="sound-note">Zmena zvuku ide do jadra. Platí pre všetkých hráčov. Reset pri jednom vráti len ten.</p>
+      <p className="sound-note">Zmena zvuku ide do jadra. Platí pre všetkých hráčov. Reset pri jednom vráti len ten. Bonus a zásah môžu mať súbor do 50 MB, ostatné do 12 MB.</p>
       {err ? <p className="sound-err">{err}</p> : null}
       {SOUND_CUES.map((cue) => (
         <div className="sound-row" key={cue.id}>
