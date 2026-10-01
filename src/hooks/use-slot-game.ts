@@ -40,7 +40,7 @@ import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision,
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
-import { emptyBoard, isEligibleBet, ticketResolve, type BoardSnap, type JackpotHit, type TierId } from "@/lib/slot/jackpot";
+import { emptyBoard, isEligibleBet, ticketResolve, TIER_BY_ID, type BoardSnap, type JackpotHit, type TierId } from "@/lib/slot/jackpot";
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
 import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDesk, ticketProfit, type DeskDay } from "@/lib/slot/desk-api";
 import { putBoard, readBestMark, readNick, saveNick, skipNick, winHow, writeBestHow } from "@/lib/slot/board-api";
@@ -192,6 +192,9 @@ export function useSlotGame() {
   const [winStreak, setWinStreak] = useState(0);
   const [rankParts, setRankParts] = useState<RankBreakdown | null>(null);
   const [pots, setPots] = useState(emptyBoard().pots);
+  const potsRef = useRef(pots);
+  potsRef.current = pots;
+  const jpShowRef = useRef(false);
   const [jpHit, setJpHit] = useState<JackpotHit | null>(null);
   const [ticketLock, setTicketLock] = useState(false);
   const pendingLiveTicketRef = useRef<TierId | null>(null);
@@ -691,7 +694,7 @@ export function useSlotGame() {
 
   const applyBoard = useCallback((s: BoardSnap) => {
     boardRef.current = s;
-    if (!busyRef.current) setPots(s.pots);
+    if (!busyRef.current && !jpShowRef.current) setPots(s.pots);
   }, []);
 
   useEffect(() => {
@@ -1037,10 +1040,21 @@ export function useSlotGame() {
     async (board: BoardSnap, how = "") => {
       const credit = board.credit > 0 ? board.credit : 0;
       const jackpots = board.hits;
-      const main = jackpots[0] ?? { id: "ulica" as TierId, name: "1-FTTB", payout: credit, table: 0 };
+      const main = jackpots[0] ?? {
+        id: "ulica" as TierId,
+        name: "1-FTTB",
+        payout: credit,
+        table: 0,
+        poolBefore: 0,
+        share: 1,
+      };
       const payout = jackpots.reduce((s, h) => s + h.payout, 0) + credit;
       if (payout <= 0) return;
-      const shown: JackpotHit = { ...main, payout: main.payout };
+      const live = potsRef.current[main.id]?.pool ?? 0;
+      const poolBefore = main.poolBefore > 0 ? main.poolBefore : live;
+      const share = main.share > 0 ? main.share : TIER_BY_ID[main.id].winnerShare;
+      const shown: JackpotHit = { ...main, payout: main.payout, poolBefore, share };
+      jpShowRef.current = true;
       setJpHit(shown);
       setDisplayWin((w) => +(w + payout).toFixed(2));
       setSpinWin((w) => +(w + payout).toFixed(2));
@@ -1056,11 +1070,17 @@ export function useSlotGame() {
         setAutoReason("AUTO STOP · JACKPOT");
       }
       setPhase("max");
-      setTopLine(`${shown.name} · ${formatMoney(payout)}`);
+      setTopLine(
+        `${shown.name} ${formatMoney(poolBefore)} · ${Math.round(share * 100)} % = ${formatMoney(shown.payout)}`,
+      );
       sfx.playMaxWin();
-      await wait(2400);
-      setJpHit(null);
-      setPots(board.pots);
+      try {
+        await wait(2400);
+      } finally {
+        setJpHit(null);
+        jpShowRef.current = false;
+        setPots(board.pots);
+      }
     },
     [bumpToday, noteHeat],
   );
@@ -1849,7 +1869,7 @@ export function useSlotGame() {
         bumpToday(cost, opts?.buy ? 0 : cash, how, bet);
       }
 
-      setPots(boardRef.current.pots);
+      if (!jpShowRef.current) setPots(boardRef.current.pots);
       setPityByBet({ ...pityByBetRef.current });
       if (pityAdd > 0) {
         setPityDelta(pityAdd);

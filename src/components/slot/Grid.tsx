@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { COLS, ROWS, symbolSrc, FS_SYMBOL, PAY_SYMBOLS, type Cell, type PayId } from "@/lib/slot/symbols";
+import { COLS, ROWS, symbolSrc, ticketArt, FS_SYMBOL, PAY_SYMBOLS, TICKETS, type Cell, type PayId } from "@/lib/slot/symbols";
 import type { HackWindow } from "@/lib/slot/zasah";
 import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
 
@@ -67,6 +67,8 @@ function CellView({
   tumbleFall: number;
   ticketLock?: boolean;
 }) {
+  const ticketId = cell.ticket ?? "stat";
+  const ticketCustom = cell.kind === "park" && ticketLabel(ticketId) !== TICKETS[ticketId].name;
   const style = {
     ["--r"]: String(r),
     ["--c"]: String(c),
@@ -96,11 +98,16 @@ function CellView({
       data-rc={`${r}-${c}`}
     >
       {!cell.gone && (
-        <img src={symbolSrc(cell)} alt="" draggable={false} className="cell-img" />
+        <img
+          src={cell.kind === "park" ? ticketArt(ticketId, ticketCustom) : symbolSrc(cell)}
+          alt=""
+          draggable={false}
+          className="cell-img"
+        />
       )}
       {!cell.gone && cell.kind === "scatter" && <span className="scatter-label">SCATTER</span>}
-      {!cell.gone && cell.kind === "park" && (
-        <span className="scatter-label">{ticketLabel(cell.ticket ?? "stat")}</span>
+      {!cell.gone && cell.kind === "park" && ticketCustom && (
+        <span className="scatter-label">{ticketLabel(ticketId)}</span>
       )}
       {!cell.gone && cell.kind === "mult" && <span className="mult-tag">{cell.mult}X</span>}
       {!cell.gone && win && <span className="win-fx" aria-hidden="true" />}

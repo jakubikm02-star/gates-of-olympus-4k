@@ -130,22 +130,47 @@ export const FS_SYMBOL = { name: "Finančná správa", src: "/symbols/fs.png" };
 export const PARK = {
   id: "park" as const,
   name: "LÍSTOK",
-  src: "/symbols/listok-stat.svg",
+  src: "/symbols/fttb-stat.png?v=fttb3",
   weight: 0,
 };
 
-export const TICKETS: Record<TicketId, { name: string; src: string; ink: string }> = {
-  ulica: { name: "1-FTTB", src: "/symbols/listok-ulica.svg?v=fttb2", ink: "#c5ccd4" },
-  okres: { name: "2-FTTB", src: "/symbols/listok-okres.svg?v=fttb2", ink: "#6ea8ff" },
-  kraj: { name: "3-FTTB", src: "/symbols/listok-kraj.svg?v=fttb2", ink: "#c86bff" },
-  stat: { name: "4-FTTB", src: "/symbols/listok-stat.svg?v=fttb2", ink: "#e2b01a" },
+export const TICKETS: Record<TicketId, { name: string; src: string; blank: string; ink: string }> = {
+  ulica: {
+    name: "1-FTTB",
+    src: "/symbols/fttb-ulica.png?v=fttb3",
+    blank: "/symbols/fttb-ulica-blank.png?v=fttb3",
+    ink: "#c5ccd4",
+  },
+  okres: {
+    name: "2-FTTB",
+    src: "/symbols/fttb-okres.png?v=fttb3",
+    blank: "/symbols/fttb-okres-blank.png?v=fttb3",
+    ink: "#6ea8ff",
+  },
+  kraj: {
+    name: "3-FTTB",
+    src: "/symbols/fttb-kraj.png?v=fttb3",
+    blank: "/symbols/fttb-kraj-blank.png?v=fttb3",
+    ink: "#c86bff",
+  },
+  stat: {
+    name: "4-FTTB",
+    src: "/symbols/fttb-stat.png?v=fttb3",
+    blank: "/symbols/fttb-stat-blank.png?v=fttb3",
+    ink: "#e2b01a",
+  },
 };
+
+export function ticketArt(id: TicketId, customName: boolean): string {
+  const t = TICKETS[id];
+  return customName ? t.blank : t.src;
+}
 
 export const ALL_ART: readonly string[] = [
   ...PAY_SYMBOLS.map((s) => s.src),
   SCATTER.src,
   FS_SYMBOL.src,
-  ...Object.values(TICKETS).map((t) => t.src),
+  ...Object.values(TICKETS).flatMap((t) => [t.src, t.blank]),
   "/symbols/can.png",
   "/art/paas-idle.png?v=3",
   "/art/paas-run.png?v=3",

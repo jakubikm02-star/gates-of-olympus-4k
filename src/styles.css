@@ -6359,6 +6359,13 @@ html:-webkit-full-screen {
 }
 
 .ticket-banner strong {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: min(92vw, 520px);
+  text-align: center;
+  line-height: 1.05;
   font-family: var(--font-display);
   font-size: clamp(1.6rem, 5vw, 2.6rem);
   letter-spacing: 0.08em;
@@ -6368,6 +6375,22 @@ html:-webkit-full-screen {
   border: 1px solid rgb(240 196 25 / 0.45);
   background: rgb(10 12 16 / 0.78);
   border-radius: 12px;
+}
+
+.ticket-banner strong b {
+  font-weight: 800;
+}
+
+.ticket-banner strong em {
+  font-style: normal;
+  font-size: 0.62em;
+  letter-spacing: 0.04em;
+}
+
+.ticket-banner strong span {
+  font-size: 0.38em;
+  letter-spacing: 0.03em;
+  color: #fff6d0;
 }
 
 .job-chip {

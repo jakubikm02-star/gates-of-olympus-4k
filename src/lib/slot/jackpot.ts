@@ -73,6 +73,10 @@ export interface JackpotHit {
   name: string;
   payout: number;
   table: number;
+  /** Pool on the meter at the moment it paid. */
+  poolBefore: number;
+  /** Winner fraction, 1 or 0.7. */
+  share: number;
 }
 
 export interface BoardSnap {

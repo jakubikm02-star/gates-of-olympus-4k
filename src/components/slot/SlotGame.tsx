@@ -261,14 +261,17 @@ export function SlotGame() {
                   >
                     <span>{ticketLabel(id)}</span>
                     <b>
-                      <CountUp value={t.pool} meter />
+                      <CountUp
+                        value={g.jpHit?.id === id && g.jpHit.poolBefore > 0 ? g.jpHit.poolBefore : t.pool}
+                        meter
+                      />
                     </b>
                   </div>
                 );
               })}
               {g.jpHit ? (
                 <em>
-                  {ticketLabel(g.jpHit.id)} · {formatMoney(g.jpHit.payout)}
+                  {ticketLabel(g.jpHit.id)} · {Math.round((g.jpHit.share || 1) * 100)} % = {formatMoney(g.jpHit.payout)}
                 </em>
               ) : g.poolEligible ? null : (
                 <em>100+</em>
@@ -1020,7 +1023,11 @@ export function SlotGame() {
       {g.jpHit && (
         <div className="ticket-banner" aria-live="assertive">
           <strong>
-            {ticketLabel(g.jpHit.id)} · {formatMoney(g.jpHit.payout)}
+            <b>{ticketLabel(g.jpHit.id)}</b>
+            {g.jpHit.poolBefore > 0 ? <em>{formatMoney(g.jpHit.poolBefore)}</em> : null}
+            <span>
+              tvoj podiel {Math.round((g.jpHit.share || 1) * 100)} % = {formatMoney(g.jpHit.payout)}
+            </span>
           </strong>
         </div>
       )}

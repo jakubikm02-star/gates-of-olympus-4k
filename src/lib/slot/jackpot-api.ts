@@ -56,11 +56,14 @@ function boardFromRpc(raw: unknown): PoolSpinResult {
       const x = h && typeof h === "object" ? (h as Record<string, unknown>) : {};
       const id = String(x.id || "") as TierId;
       if (!TIER_BY_ID[id]) return null;
+      const shareRaw = Number(x.share);
       return {
         id,
         name: TIER_BY_ID[id].name,
         payout: parseMoney(x.payout, 0),
         table: parseMoney(x.table, 0),
+        poolBefore: parseMoney(x.poolBefore ?? x.pool_before, 0),
+        share: Number.isFinite(shareRaw) && shareRaw > 0 ? shareRaw : TIER_BY_ID[id].winnerShare,
       };
     })
     .filter((h): h is JackpotHit => Boolean(h && h.payout > 0));

@@ -137,7 +137,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
           <li>
             Štyri poty od najnižšieho: 1-FTTB 500 / 1 800, 2-FTTB 4 000 / 14 000, 3-FTTB 28 000 / 90 000, 4-FTTB 120 000 / 220 000.
             Padnú len cez LÍSTOK po resolve tumble — nikdy mystery mid-tumble, nikdy 8+, nikdy Mbps.
-            Must-hit: keď meter prekročí skrytý prah, tá farba je do 15 spinov, 16. spin ju donúti. 4-FTTB 70 / 15 / 15.
+            Must-hit: keď meter prekročí skrytý prah, tá farba je do 15 spinov, 16. spin ju donúti. 4-FTTB 70 / 15 / 15. Čo sa nerozdá ďalším hráčom, ostane v pote. Nový pot sa nedopĺňa z výhry.
           </li>
           <li>
             4 a viac scatterov kdekoľvek na obrazovke — aj počas tumble — spustí free spiny. 4 sú 15 točení, každý ďalší scatter pridá 4.
