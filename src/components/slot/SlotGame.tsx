@@ -147,11 +147,19 @@ function HoldSpin({
 export function SlotGame() {
   const g = useSlotGame();
   const shell = useShell();
+  const [reducedMotion, setReducedMotion] = useState(false);
   const [deskOpen, setDeskOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
   const [, names] = useState(0);
   useEffect(() => subscribeTicketNames(() => names((n) => n + 1)), []);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const apply = () => setReducedMotion(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
   const spinning = g.phase === "spinning" || g.phase === "landing";
   const god = g.throwBolt ? "bolt" : g.anticipate ? "anti" : spinning ? "run" : g.inFs || g.winTier || g.displayWin > 0 ? "win" : "idle";
   const resolving =
@@ -284,7 +292,7 @@ export function SlotGame() {
               type="button"
               className={`parchment ante ${g.ante ? "on" : ""}`}
               onClick={() => g.setAnte(!g.ante)}
-              disabled={g.busy || Boolean(g.duel) || Boolean(g.duelLink)}
+              disabled={g.busy || Boolean(g.duel) || Boolean(g.duelLink) || Boolean(g.chase)}
             >
               <em>ANTE BET</em>
               <strong>{g.perk.anteMul.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}×</strong>
@@ -331,11 +339,15 @@ export function SlotGame() {
                       {g.fsLeft}/{g.fsTotal || 15}
                     </strong>
                   </div>
-                  <div className="fs-heat" aria-label={`Hlásenie ${g.heat}`}>
-                    <span>HLÁSENIE</span>
-                    <i style={{ ["--heat" as string]: `${Math.min(100, (g.heat / HEAT_MAX) * 100)}%` }} />
+                  <div className={`fs-heat ${g.chase ? "is-chase" : ""}`} aria-label={g.chase ? `Zásah ${Math.min(g.chase.total, g.chase.spin + 1)} z ${g.chase.total}` : `Hlásenie ${g.heat}`}>
+                    <span>{g.chase ? "ZÁSAH" : "HLÁSENIE"}</span>
+                    <i
+                      style={{
+                        ["--heat" as string]: `${g.chase ? Math.min(100, (g.chase.spin / g.chase.total) * 100) : Math.min(100, (g.heat / HEAT_MAX) * 100)}%`,
+                      }}
+                    />
                     <b>
-                      {g.heat}/{HEAT_MAX}
+                      {g.chase ? `SPIN ${Math.min(g.chase.total, g.chase.spin + 1)}/${g.chase.total}` : `${g.heat}/${HEAT_MAX}`}
                     </b>
                   </div>
                 </div>
@@ -371,11 +383,40 @@ export function SlotGame() {
                 </div>
               )}
             </div>
-            <div className={`top-ticker ${g.chase || g.spinWin > 0 ? "has-win" : g.topLine && !g.topLine.startsWith("SYMBOLY PLATIA") ? "" : "is-idle"}`}>
+            <div className={`top-ticker ${g.chase ? "is-chase" : ""} ${g.chase || g.spinWin > 0 ? "has-win" : g.topLine && !g.topLine.startsWith("SYMBOLY PLATIA") ? "" : "is-idle"}`}>
               {g.chase ? (
                 <>
-                  ZÁSAH · CIEĽ
-                  <strong>{PAY_SYMBOLS.find((s) => s.id === g.chase?.target)?.name ?? "…"}</strong>
+                  <span className="chase-desk">
+                    ZÁSAH · CIEĽ
+                    <strong>{PAY_SYMBOLS.find((s) => s.id === g.chase?.target)?.name ?? "…"}</strong>
+                  </span>
+                  <span className="chase-mini">
+                    {(() => {
+                      const chase = g.chase;
+                      if (!chase) return null;
+                      const target = PAY_SYMBOLS.find((s) => s.id === chase.target);
+                      return (
+                        <>
+                          {target ? <img src={target.src} alt="" /> : <strong>CIEĽ</strong>}
+                          <em>HACK {chase.hits}/4</em>
+                          <span className="chase-pins">
+                            {Array.from({ length: 4 }, (_, i) => (
+                              <i key={`h${i}`} className={i < chase.hits ? "is-hit" : ""} />
+                            ))}
+                          </span>
+                          <em>FS {chase.strikes}/3</em>
+                          <span className="chase-pins is-fs">
+                            {Array.from({ length: 3 }, (_, i) => (
+                              <i key={`f${i}`} className={i < chase.strikes ? "is-fs" : ""} />
+                            ))}
+                          </span>
+                          <b>
+                            SPIN {Math.min(chase.total, chase.spin + 1)}/{chase.total}
+                          </b>
+                        </>
+                      );
+                    })()}
+                  </span>
                 </>
               ) : g.spinWin > 0 ? (
                 <>
@@ -403,14 +444,14 @@ export function SlotGame() {
               struckUids={g.struckUids}
               expiredUids={g.expiredUids}
               clusterPay={g.clusterPay}
-              reduced={false}
+              reduced={reducedMotion}
               fast={g.reelFast}
               turbo={g.turbo}
               quick={g.quick}
               spinPace={g.spinPace ?? undefined}
               spinStrips={g.spinStrips}
               ticketLock={g.ticketLock}
-              hackWindows={g.chase?.windows}
+              hackWindows={g.windows}
               activeWindow={g.chase?.activeWindow}
               windowPhase={g.chase?.phase}
               chaseTarget={g.chase?.target}
@@ -586,7 +627,7 @@ export function SlotGame() {
               type="button"
               className="round-btn"
               onClick={() => g.changeBet(-1)}
-              disabled={g.busy || Boolean(g.job) || Boolean(g.duel) || Boolean(g.duelLink) || g.betIndex <= 0}
+              disabled={g.busy || Boolean(g.job) || Boolean(g.duel) || Boolean(g.duelLink) || Boolean(g.chase) || g.betIndex <= 0}
               aria-label={g.job || g.duel || g.duelLink ? "Stávka zamknutá" : "Znížiť stávku"}
             >
               −
@@ -604,7 +645,7 @@ export function SlotGame() {
               type="button"
               className="round-btn"
               onClick={() => g.changeBet(1)}
-              disabled={g.busy || Boolean(g.job) || Boolean(g.duel) || Boolean(g.duelLink) || g.betIndex >= BETS.length - 1}
+              disabled={g.busy || Boolean(g.job) || Boolean(g.duel) || Boolean(g.duelLink) || Boolean(g.chase) || g.betIndex >= BETS.length - 1}
               aria-label={g.job || g.duel || g.duelLink ? "Stávka zamknutá" : "Zvýšiť stávku"}
             >
               +
@@ -614,7 +655,7 @@ export function SlotGame() {
                 STOP {g.autoLeft}
               </button>
             ) : (
-              <details className="auto-menu">
+              <details className={`auto-menu${g.chase ? " is-locked" : ""}`}>
                 <summary>
                   <Menu size={12} /> AUTO
                 </summary>
@@ -623,7 +664,7 @@ export function SlotGame() {
                     <button
                       key={n}
                       type="button"
-                      disabled={g.busy || !g.started}
+                      disabled={g.busy || !g.started || Boolean(g.chase)}
                       onClick={() => g.startAuto(n)}
                     >
                       {n}
@@ -738,12 +779,14 @@ export function SlotGame() {
                   <strong>CIEĽ</strong>
                 )}
                 <em>{target?.name ?? "losuje sa"}</em>
-                <div className="chase-pins">
+                <div className="chase-pins" aria-label={`HACK ${chase.hits}/4`}>
+                  <em>HACK {chase.hits}/4</em>
                   {Array.from({ length: 4 }, (_, i) => (
                     <i key={`h${i}`} className={i < chase.hits ? "is-hit" : ""} />
                   ))}
                 </div>
-                <div className="chase-pins is-fs">
+                <div className="chase-pins is-fs" aria-label={`FS ${chase.strikes}/3`}>
+                  <em>FS {chase.strikes}/3</em>
                   {Array.from({ length: 3 }, (_, i) => (
                     <i key={`f${i}`} className={i < chase.strikes ? "is-fs" : ""} />
                   ))}
@@ -759,7 +802,11 @@ export function SlotGame() {
       {g.chaseMod ? (
         <div className={`mod-badge ${g.chaseMod.kind === "bezDane" ? "is-free" : "is-tax"}`}>
           {g.chaseMod.kind === "bezDane" ? "BEZ DANE" : "DAŇOVÝ ÚRAD"} · {g.chaseMod.left}
-          {g.taxFly > 0 && g.chaseMod.kind === "danUrad" ? <em className="tax-fly">−23 % · −{formatMoney(g.taxFly)}</em> : null}
+          {g.taxFly > 0 && g.chaseMod.kind === "danUrad" ? (
+            <em key={g.taxKey} className="tax-fly">
+              −23 % · −{formatMoney(g.taxFly)}
+            </em>
+          ) : null}
         </div>
       ) : null}
       {g.chaseCard ? (

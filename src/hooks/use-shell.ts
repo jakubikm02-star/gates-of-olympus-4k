@@ -11,7 +11,8 @@ function isStandalone(): boolean {
 
 function readShell(): Shell {
   if (typeof window === "undefined") return "pc";
-  if (window.innerWidth >= 821) return "pc";
+  const phoneLand = window.matchMedia("(pointer: coarse) and (max-height: 560px)").matches;
+  if (!phoneLand && window.innerWidth >= 821) return "pc";
   if (isStandalone()) return "pwa";
   return "mw";
 }
@@ -35,10 +36,12 @@ export function useShell(): Shell {
     };
     apply();
     const mqPc = window.matchMedia("(min-width: 821px)");
+    const mqLand = window.matchMedia("(pointer: coarse) and (max-height: 560px)");
     const mqPwa = window.matchMedia(
       "(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)",
     );
     mqPc.addEventListener("change", apply);
+    mqLand.addEventListener("change", apply);
     mqPwa.addEventListener("change", apply);
     window.visualViewport?.addEventListener("resize", apply);
     window.visualViewport?.addEventListener("scroll", apply);
@@ -46,6 +49,7 @@ export function useShell(): Shell {
     window.addEventListener("orientationchange", apply);
     return () => {
       mqPc.removeEventListener("change", apply);
+      mqLand.removeEventListener("change", apply);
       mqPwa.removeEventListener("change", apply);
       window.visualViewport?.removeEventListener("resize", apply);
       window.visualViewport?.removeEventListener("scroll", apply);

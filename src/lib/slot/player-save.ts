@@ -1,5 +1,6 @@
-import { BETS, START_BALANCE, PAY_SYMBOLS, type PayId } from "./symbols";
+import { BETS, START_BALANCE, type PayId } from "./symbols";
 import type { ChaseModKind } from "./zasah";
+import { readChaseFields } from "./zasah";
 import type { PityMap } from "./pick-bonus";
 import type { TierId } from "./jackpot";
 import { type JobCard, type JobFloor } from "./spend";
@@ -295,19 +296,11 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.deskTicketLost = num(r.deskTicketLost, 0, 0, 1_000_000_000);
   s.heat = Math.min(100, Math.max(0, Math.floor(num(r.heat, 0))));
   s.klienti = Math.min(1_000_000_000, Math.max(0, Math.floor(num(r.klienti, 0))));
-  const payIds = new Set(PAY_SYMBOLS.map((p) => p.id));
-  const targetOk = typeof r.chaseTarget === "string" && payIds.has(r.chaseTarget as PayId);
-  const hadChase = Object.prototype.hasOwnProperty.call(r, "chaseSpin");
-  if (hadChase) {
-    s.chaseSpin = Math.min(10, Math.max(-1, Math.floor(num(r.chaseSpin, -1, -1, 10))));
-  } else if (Math.floor(num(r.pursuitLeft, 0)) > 0) {
-    s.chaseSpin = 0;
-  } else {
-    s.chaseSpin = -1;
-  }
-  s.chaseTarget = s.chaseSpin >= 0 && targetOk ? (r.chaseTarget as PayId) : null;
-  s.chaseHits = s.chaseSpin >= 0 ? Math.min(3, Math.max(0, Math.floor(num(r.chaseHits, 0)))) : 0;
-  s.chaseStrikes = s.chaseSpin >= 0 ? Math.min(2, Math.max(0, Math.floor(num(r.chaseStrikes, 0)))) : 0;
+  const chase = readChaseFields(r);
+  s.chaseSpin = chase.chaseSpin;
+  s.chaseTarget = chase.chaseTarget;
+  s.chaseHits = chase.chaseHits;
+  s.chaseStrikes = chase.chaseStrikes;
   const mod = r.chaseMod === "bezDane" || r.chaseMod === "danUrad" ? r.chaseMod : null;
   const modLeft = Math.min(15, Math.max(0, Math.floor(num(r.chaseModLeft, 0))));
   s.chaseMod = mod && modLeft > 0 ? mod : null;

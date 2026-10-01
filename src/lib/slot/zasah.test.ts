@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { COLS, PAY_SYMBOLS, type Cell } from "./symbols.ts";
-import { modMul, rollTarget, rollWindows, tickMod, windowCount, ZASAH, type ChaseState } from "./zasah.ts";
+import { modMul, readChaseFields, rollTarget, rollWindows, tickMod, windowCount, ZASAH, type ChaseState } from "./zasah.ts";
 
 function rngOf(seed: number): () => number {
   let a = seed >>> 0;
@@ -99,5 +99,15 @@ describe("zasah windows", () => {
     assert.equal(modMul({ kind: "danUrad", left: 1 }), 0.77);
     assert.deepEqual(tickMod({ kind: "bezDane", left: 2 }), { kind: "bezDane", left: 1 });
     assert.equal(tickMod({ kind: "danUrad", left: 1 }), null);
+  });
+
+  it("migrates an old pursuit save and drops a bad target", () => {
+    const migrated = readChaseFields({ pursuitLeft: 7 });
+    assert.equal(migrated.chaseSpin, 0);
+    assert.equal(migrated.chaseTarget, null);
+    assert.equal(migrated.chaseHits, 0);
+    const bad = readChaseFields({ chaseSpin: 4, chaseTarget: "nope" });
+    assert.equal(bad.chaseSpin, 4);
+    assert.equal(bad.chaseTarget, null);
   });
 });

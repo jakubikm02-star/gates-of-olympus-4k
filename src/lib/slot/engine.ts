@@ -12,7 +12,7 @@ import {
   type Cell,
   type PayId,
   type TicketId,
-} from "./symbols";
+} from "./symbols.ts";
 
 let uidSeq = 1000;
 function nextUid(): number {

@@ -249,6 +249,7 @@ export function SlotGrid({
   windowPhase = "reveal",
   chaseTarget,
 }: Props) {
+  const [fsMiss, setFsMiss] = useState(false);
   const [, names] = useState(0);
   useEffect(() => subscribeTicketNames(() => names((n) => n + 1)), []);
   const cascading = spinning || landing;
@@ -505,23 +506,36 @@ export function SlotGrid({
             {hackWindows.map((w, i) => {
               const live = i === activeWindow;
               const state = live ? windowPhase : "reveal";
+              const showResult = state === "land" || state === "reveal";
+              const spot =
+                state === "travel"
+                  ? { x: 50, y: 8 }
+                  : state === "hover"
+                    ? {
+                        x: ((w.hover % COLS) + 0.5) * (100 / COLS),
+                        y: (Math.floor(w.hover / COLS) + 0.5) * (100 / ROWS),
+                      }
+                    : {
+                        x: ((w.cell % COLS) + 0.5) * (100 / COLS),
+                        y: (Math.floor(w.cell / COLS) + 0.5) * (100 / ROWS),
+                      };
               const target = PAY_SYMBOLS.find((p) => p.id === chaseTarget);
               return (
                 <i
                   key={`${w.cell}-${i}`}
-                  className={`hack-window is-${state} is-${w.result}${w.lock ? " is-lock" : ""}`}
+                  className={`hack-window is-${state}${showResult ? ` is-${w.result}` : ""}${showResult && w.lock ? " is-lock" : ""}`}
                   style={{
-                    ["--c" as string]: `${((w.cell % COLS) + 0.5) * (100 / COLS)}%`,
-                    ["--r" as string]: `${(Math.floor(w.cell / COLS) + 0.5) * (100 / ROWS)}%`,
-                    ["--hc" as string]: `${((w.hover % COLS) + 0.5) * (100 / COLS)}%`,
-                    ["--hr" as string]: `${(Math.floor(w.hover / COLS) + 0.5) * (100 / ROWS)}%`,
+                    transform: `translate(${spot.x}cqw, ${spot.y}cqh) translate(-50%, -50%)`,
                   }}
                 >
-                  {state === "reveal" && w.result === "fs" ? (
-                    <img src={FS_SYMBOL.src} alt="" onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} />
+                  {showResult && w.result === "fs" ? (
+                    fsMiss ? (
+                      <b>FS</b>
+                    ) : (
+                      <img src={FS_SYMBOL.src} alt="" onError={() => setFsMiss(true)} />
+                    )
                   ) : null}
-                  {state === "reveal" && w.result === "hit" && w.lock && target ? <img src={target.src} alt="" /> : null}
-                  {state === "reveal" && w.result === "fs" ? <b>FS</b> : null}
+                  {showResult && w.result === "hit" && w.lock && target ? <img src={target.src} alt="" /> : null}
                 </i>
               );
             })}

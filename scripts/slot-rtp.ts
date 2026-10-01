@@ -6,6 +6,7 @@ import { ZASAH, modMul, rollTarget, rollWindows, tickMod, windowCount, type Chas
 function playFeature(
   rng: () => number,
   trigger: PaidSpin,
+  onFs?: (paidX: number) => void,
 ): { paid: number; gm: number; retriggers: number; fsSpins: number; hitMax: boolean } {
   let paid = trigger.paidX;
   let gm = 0;
@@ -20,6 +21,7 @@ function playFeature(
     const fs = resolvePaidSpin(rng, { ante: false, free: true, globalMult: gm, capRemain: remain });
     gm = fs.globalMult;
     paid += fs.paidX;
+    onFs?.(fs.paidX);
     if (fs.retrigger) {
       left += FS_RETRIGGER;
       retriggers += 1;
@@ -179,8 +181,13 @@ function zasahRun(spins: number, seed = 5) {
     penalty += Math.max(0, boosted - basePaid);
     if (!chasing && mod) mod = tickMod(mod);
     let extra = 0;
+    const note = (x: number) => {
+      if (x > 0) heat = Math.min(100, heat + heatFromWin(x));
+    };
     if (spin.triggeredFs) {
-      const feat = playFeature(rng, spin);
+      const feat = playFeature(rng, spin, (fsX) => {
+        if (!chasing) note(fsX * mul);
+      });
       extra = Math.max(0, feat.paid - spin.paidX) * mul;
       reward += Math.max(0, extra - Math.max(0, feat.paid - spin.paidX));
       penalty += Math.max(0, Math.max(0, feat.paid - spin.paidX) - extra);
@@ -203,8 +210,8 @@ function zasahRun(spins: number, seed = 5) {
       } else {
         chase = { ...rolled.next, spin: played, target: rollTarget(rng) };
       }
-    } else if (boosted > 0) {
-      heat = Math.min(100, heat + heatFromWin(boosted));
+    } else {
+      note(basePaid);
     }
   }
   return {
@@ -224,6 +231,8 @@ const base = run(n, false, 42);
 const buy = buyEv(Math.min(6000, Math.max(800, Math.floor(n / 8))), 7);
 base.buyEv = buy.ev;
 const ante = run(Math.floor(n / 2), true, 99);
+const zasahArg = process.argv.find((a) => a.startsWith("--zasah="));
+const zasahN = zasahArg ? Number(zasahArg.slice("--zasah=".length)) : Math.max(n, 2_000_000);
+const zasah = noZasah ? null : zasahRun(Number.isFinite(zasahN) && zasahN > 0 ? zasahN : n, 5);
 const ms = Date.now() - t0;
-const zasah = noZasah ? null : zasahRun(Math.min(n, 12000), 5);
-console.log(JSON.stringify({ ms, base, ante, buy, zasah }, null, 2));
+console.log(JSON.stringify({ ms, n, zasahN: noZasah ? 0 : zasahN, base, ante, buy, zasah }, null, 2));

@@ -298,6 +298,7 @@ export function useSlotGame() {
   const [chaseCard, setChaseCard] = useState<null | { outcome: ChaseOutcome; line: string; rp: number }>(null);
   const chaseCardRef = useRef(chaseCard);
   const [taxFly, setTaxFly] = useState(0);
+  const [taxKey, setTaxKey] = useState(0);
   const staleRef = useRef(false);
   const [stale, setStale] = useState(false);
   const [nick, setNick] = useState("");
@@ -372,7 +373,7 @@ export function useSlotGame() {
       };
       chaseRef.current = restored;
       setChase(restored);
-      sfx.startHeartbeat();
+      if (restored.strikes >= 2) sfx.startHeartbeat();
     } else {
       chaseRef.current = null;
       setChase(null);
@@ -656,6 +657,7 @@ export function useSlotGame() {
       try {
         const ok = await releaseMatches();
         if (ok || stop || staleRef.current) return;
+        if (busyRef.current || chaseRef.current || chaseCardRef.current) return;
         staleRef.current = true;
         setStale(true);
         await dropStaleCaches();
@@ -815,6 +817,7 @@ export function useSlotGame() {
     setMuted((m) => {
       const n = !m;
       sfx.setMuted(n);
+      if (!n && (chaseRef.current?.strikes ?? 0) >= 2) sfx.startHeartbeat();
       return n;
     });
   }, []);
@@ -827,6 +830,8 @@ export function useSlotGame() {
     setBetIndex((i) => Math.min(BETS.length - 1, Math.max(0, i + dir)));
     sfx.playClick();
   }, []);
+
+  useEffect(() => () => sfx.stopHeartbeat(), []);
 
   const refill = useCallback(() => {
     if (busyRef.current) return;
@@ -966,7 +971,6 @@ export function useSlotGame() {
     setTopLine("ZÁSAH · 10 SPINOV");
     setMessage("ZÁSAH");
     sfx.playSiren();
-    sfx.startHeartbeat();
     return true;
   }, []);
 
@@ -982,7 +986,6 @@ export function useSlotGame() {
   const endChase = useCallback((outcome: ChaseOutcome, betNow: number) => {
     chaseRef.current = null;
     setChase(null);
-    setHackWindows([]);
     setActiveWindow(-1);
     sfx.stopHeartbeat();
     let rp: number = ZASAH.RP.neutral;
@@ -993,17 +996,18 @@ export function useSlotGame() {
       setChaseMod(next);
       rp = ZASAH.RP.escape;
       klientiRef.current += Math.max(1, Math.round(betNow * 4));
-      line = "UNIKOL SI · 15 spinov BEZ DANE ×1.23";
+      line = "15 spinov BEZ DANE ×1.23";
       sfx.playEscape();
     } else if (outcome === "unik") {
       const next = { kind: "danUrad" as const, left: ZASAH.MOD_SPINS };
       modRef.current = next;
       setChaseMod(next);
       rp = ZASAH.RP.unik;
-      line = "DAŇOVÝ ÚNIK · 15 spinov −23 % pre daňový úrad";
+      line = "15 spinov −23 % pre daňový úrad";
       sfx.playTaxLoss();
     } else {
       klientiRef.current += Math.max(1, Math.round(betNow));
+      // A running BEZ DANE / DAŇOVÝ ÚRAD modifier keeps counting. Neutral does not cancel it.
     }
     setKlienti(klientiRef.current);
     pushRank(rp);
@@ -1260,10 +1264,6 @@ export function useSlotGame() {
       const perk = perkOf(standing(rankRef.current.rp).id);
       const currentStake = anteRef.current ? +(currentBet * perk.anteMul).toFixed(2) : currentBet;
       const isFree = !!opts?.free;
-      if (chaseCardRef.current) {
-        chaseCardRef.current = null;
-        setChaseCard(null);
-      }
       const chasing =
         !isFree && !opts?.buy && !duelRef.current && (chaseRef.current != null || armChase(currentStake));
       let cost = opts?.buy ? +(currentBet * buyXOf(perk.id)).toFixed(2) : isFree ? 0 : currentStake;
@@ -1275,6 +1275,9 @@ export function useSlotGame() {
         return "ok";
       }
       skipDuelTick.current = false;
+      setHackWindows([]);
+      setActiveWindow(-1);
+      setWindowPhase("reveal");
 
       setWinMask(null);
       if (!isFree) {
@@ -1659,22 +1662,36 @@ export function useSlotGame() {
       featureXRef.current += paidX;
       const cash0 = +(paidX * currentBet).toFixed(2);
       const mul = !chasing && !isFree && !opts?.buy && !duelRef.current ? modMul(modRef.current) : 1;
-      let cash = +(cash0 * mul).toFixed(2);
+      const cash = +(cash0 * mul).toFixed(2);
       const taxCut = +(Math.max(0, cash0 - cash)).toFixed(2);
       setTaxFly(taxCut);
+      if (taxCut > 0) setTaxKey((k) => k + 1);
       if (pendingFs) fsSessionRef.current.modMul = opts?.buy ? 1 : mul;
+      let chaseEnded = false;
       if (chasing && chaseRef.current) {
         const live = chaseRef.current;
         const rolled = rollWindows(Math.random, board, live, windowCount(live.spin));
         const slow = live.hits >= 3 ? 1.6 : 1;
+        const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         const shown: HackWindow[] = [];
+        let hits = live.hits;
+        let strikes = live.strikes;
         for (let i = 0; i < rolled.windows.length; i += 1) {
           const w = rolled.windows[i];
           shown.push(w);
           setHackWindows([...shown]);
           setActiveWindow(i);
-          if (abort.current.skip) {
+          const reveal = () => {
+            if (w.result === "hit") hits += 1;
+            else if (w.result === "fs") strikes += 1;
+            const partial: ChaseState = { ...live, hits, strikes };
+            chaseRef.current = partial;
+            setChase(partial);
+            if (strikes >= 2) sfx.startHeartbeat();
+          };
+          if (reduced || abort.current.skip) {
             setWindowPhase("reveal");
+            reveal();
             continue;
           }
           setWindowPhase("travel");
@@ -1683,17 +1700,18 @@ export function useSlotGame() {
           setWindowPhase("hover");
           await wait(dur(180 * slow), abort.current);
           setWindowPhase("land");
-          await wait(dur(80 * slow), abort.current);
-          setWindowPhase("reveal");
+          reveal();
           if (w.result === "hit") sfx.playHack();
           else if (w.result === "fs") sfx.playStrike();
-          if (rolled.next.strikes >= 2) sfx.startHeartbeat();
+          await wait(dur(80 * slow), abort.current);
+          setWindowPhase("reveal");
           await wait(dur(300 * slow), abort.current);
           await wait(dur(160 * slow), abort.current);
         }
         setActiveWindow(-1);
         const played = live.spin + 1;
         if (rolled.outcome || played >= ZASAH.SPINS) {
+          chaseEnded = true;
           endChase(rolled.outcome ?? "neutral", currentBet);
         } else {
           const nextChase: ChaseState = { ...rolled.next, spin: played, target: rollTarget(Math.random) };
@@ -1707,7 +1725,7 @@ export function useSlotGame() {
         modRef.current = nextMod;
         setChaseMod(nextMod);
       }
-      if (cash > 0) noteHeat(cash, currentBet, Boolean(isFree || opts?.buy || pendingFs || inFsRef.current));
+      if (cash > 0 && !chaseEnded) noteHeat(cash, currentBet, Boolean(isFree || opts?.buy || pendingFs || inFsRef.current));
       setSpinWin(cash);
       if (!isFree) setDisplayWin(cash);
 
@@ -1857,7 +1875,7 @@ export function useSlotGame() {
       setPayHint(null);
       setWinTier(0);
       setPhase("idle");
-        if (chaseRef.current) {
+      if (chaseRef.current) {
         const c = chaseRef.current;
         setTopLine(`ZÁSAH · SPIN ${c.spin + 1}/10 · HACK ${c.hits}/4 · FS ${c.strikes}/3`);
         setMessage(`ZÁSAH · ${c.target ? payName(c.target) : "CIEĽ"}`);
@@ -1876,7 +1894,7 @@ export function useSlotGame() {
       if (pendingPick) return "pick";
       return "ok";
     },
-    [dur, waitForBanner, pushRank, noteResult, feedPool, runTicket, settleJob],
+    [dur, waitForBanner, pushRank, noteResult, feedPool, runTicket, settleJob, armChase, endChase, noteHeat, persistNow],
   );
 
   const settleDuel = useCallback((d: Duel) => {
@@ -1924,7 +1942,7 @@ export function useSlotGame() {
 
   const playRound = useCallback(
     async (opts?: { buy?: boolean; resumeFs?: boolean }) => {
-      if (busyRef.current) return;
+      if (busyRef.current || chaseCardRef.current) return;
       const gate = duelRef.current;
       if (
         gate &&
@@ -2559,6 +2577,9 @@ export function useSlotGame() {
     pityDelta,
     pityGoal: PITY_GOAL,
     heat,
+    windows: hackWindows,
+    activeWindow,
+    windowPhase,
     chase: chase && {
       ...chase,
       total: ZASAH.SPINS,
@@ -2574,6 +2595,7 @@ export function useSlotGame() {
       setChaseCard(null);
     },
     taxFly,
+    taxKey,
     rank: standing(rp),
     rankPeak,
     rankShield,
@@ -2678,6 +2700,7 @@ export function useSlotGame() {
       !busy &&
       !inFs &&
       !buyAsk &&
+      !chaseCard &&
       balance >= stake &&
       (!duel || (duel.phase === "play" && canDuelSpin(duel))),
     canBuy:

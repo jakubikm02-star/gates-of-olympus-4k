@@ -1,10 +1,10 @@
 import { COLS, PAY_SYMBOLS, type Cell, type PayId } from "./symbols.ts";
 
-/** Chase boost is 1.3, not 1.5, so the feature stays under a 98% RTP. */
+/** Chase boost is 1.15 so the feature lands near 98% RTP. */
 export const ZASAH = {
   SPINS: 10,
   COST_X: 1,
-  BOOST: 1.3,
+  BOOST: 1.15,
   HITS: 4,
   STRIKES: 3,
   LOCK_P: 0.105,
@@ -108,4 +108,30 @@ export function tickMod(m: ChaseMod | null): ChaseMod | null {
   if (!m) return null;
   if (m.left <= 1) return null;
   return { kind: m.kind, left: m.left - 1 };
+}
+
+function readNum(v: unknown, fallback: number): number {
+  const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : fallback;
+}
+
+/** Old saves stored pursuitLeft instead of chaseSpin. An invalid target is dropped. */
+export function readChaseFields(raw: Record<string, unknown>): {
+  chaseSpin: number;
+  chaseTarget: PayId | null;
+  chaseHits: number;
+  chaseStrikes: number;
+} {
+  const ids = new Set(PAY_SYMBOLS.map((p) => p.id));
+  const hadChase = Object.prototype.hasOwnProperty.call(raw, "chaseSpin");
+  let chaseSpin = -1;
+  if (hadChase) chaseSpin = Math.min(10, Math.max(-1, Math.floor(readNum(raw.chaseSpin, -1))));
+  else if (Math.floor(readNum(raw.pursuitLeft, 0)) > 0) chaseSpin = 0;
+  const targetOk = typeof raw.chaseTarget === "string" && ids.has(raw.chaseTarget as PayId);
+  return {
+    chaseSpin,
+    chaseTarget: chaseSpin >= 0 && targetOk ? (raw.chaseTarget as PayId) : null,
+    chaseHits: chaseSpin >= 0 ? Math.min(3, Math.max(0, Math.floor(readNum(raw.chaseHits, 0)))) : 0,
+    chaseStrikes: chaseSpin >= 0 ? Math.min(2, Math.max(0, Math.floor(readNum(raw.chaseStrikes, 0)))) : 0,
+  };
 }
