@@ -401,6 +401,7 @@ export function SlotGame() {
                       return (
                         <>
                           {target ? <img src={target.src} alt="" /> : <strong>CIEĽ</strong>}
+                          <em className="chase-goal">{target?.name ?? "CIEĽ"}</em>
                           <em>HACK {chase.hits}/4</em>
                           <span className="chase-pins">
                             {Array.from({ length: 4 }, (_, i) => (

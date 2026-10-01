@@ -514,35 +514,25 @@ export function SlotGrid({
               const live = i === activeWindow;
               const state = live ? windowPhase : "reveal";
               const showResult = state === "land" || state === "reveal";
-              const spot =
-                state === "travel"
-                  ? { x: 50, y: 8 }
-                  : state === "hover"
-                    ? {
-                        x: ((w.hover % COLS) + 0.5) * (100 / COLS),
-                        y: (Math.floor(w.hover / COLS) + 0.5) * (100 / ROWS),
-                      }
-                    : {
-                        x: ((w.cell % COLS) + 0.5) * (100 / COLS),
-                        y: (Math.floor(w.cell / COLS) + 0.5) * (100 / ROWS),
-                      };
+              const place = state === "hover" ? w.hover : w.cell;
+              const col = place % COLS;
+              const row = Math.floor(place / COLS);
               const target = PAY_SYMBOLS.find((p) => p.id === chaseTarget);
               return (
                 <i
                   key={`${w.cell}-${i}`}
                   className={`hack-window is-${state}${showResult ? ` is-${w.result}` : ""}${showResult && w.lock ? " is-lock" : ""}`}
-                  style={{
-                    transform: `translate(${spot.x}cqw, ${spot.y}cqh) translate(-50%, -50%)`,
-                  }}
+                  style={
+                    state === "travel"
+                      ? undefined
+                      : ({ ["--col" as string]: String(col), ["--row" as string]: String(row) } as CSSProperties)
+                  }
                 >
-                  {showResult && w.result === "fs" ? (
-                    fsMiss ? (
-                      <b>FS</b>
-                    ) : (
-                      <img src={FS_SYMBOL.src} alt="" onError={() => setFsMiss(true)} />
-                    )
+                  {showResult && w.result === "hit" && w.lock && target ? <img src={target.src} alt={target.name} /> : null}
+                  {showResult && w.result === "fs" && !fsMiss ? (
+                    <img src={FS_SYMBOL.src} alt="FS" onError={() => setFsMiss(true)} />
                   ) : null}
-                  {showResult && w.result === "hit" && w.lock && target ? <img src={target.src} alt="" /> : null}
+                  {showResult ? <b>{w.result === "hit" ? "HACK" : w.result === "fs" ? "FS" : "MIMO"}</b> : null}
                 </i>
               );
             })}
