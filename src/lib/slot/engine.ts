@@ -394,6 +394,8 @@ export interface PaidSpin {
   symbolMask: number;
   /** Pay-symbol counts on the grid before the first throw. */
   open: number[];
+  /** Final board after the last tumble. Cosmetic chase windows read this. */
+  board: Cell[][];
 }
 
 export function resolvePaidSpin(
@@ -498,6 +500,7 @@ export function resolvePaidSpin(
     orbs,
     symbolMask,
     open,
+    board,
   };
 }
 

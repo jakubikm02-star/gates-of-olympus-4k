@@ -1,4 +1,5 @@
-import { BETS, START_BALANCE, type PayId } from "./symbols";
+import { BETS, START_BALANCE, PAY_SYMBOLS, type PayId } from "./symbols";
+import type { ChaseModKind } from "./zasah";
 import type { PityMap } from "./pick-bonus";
 import type { TierId } from "./jackpot";
 import { type JobCard, type JobFloor } from "./spend";
@@ -49,9 +50,13 @@ export interface PlayerSave {
   deskTicketLost: number;
   heat: number;
   klienti: number;
-  pursuitLeft: number;
-  pursuitTows: number;
-  pursuitHacks: number;
+  chaseSpin: number;
+  chaseTarget: PayId | null;
+  chaseHits: number;
+  chaseStrikes: number;
+  chaseMod: ChaseModKind | null;
+  chaseModLeft: number;
+  fsModMul: number;
 }
 
 export function emptyPlayerSave(): PlayerSave {
@@ -98,9 +103,13 @@ export function emptyPlayerSave(): PlayerSave {
     deskTicketLost: 0,
     heat: 0,
     klienti: 0,
-    pursuitLeft: 0,
-    pursuitTows: 0,
-    pursuitHacks: 0,
+    chaseSpin: -1,
+    chaseTarget: null,
+    chaseHits: 0,
+    chaseStrikes: 0,
+    chaseMod: null,
+    chaseModLeft: 0,
+    fsModMul: 1,
   };
 }
 
@@ -286,9 +295,25 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.deskTicketLost = num(r.deskTicketLost, 0, 0, 1_000_000_000);
   s.heat = Math.min(100, Math.max(0, Math.floor(num(r.heat, 0))));
   s.klienti = Math.min(1_000_000_000, Math.max(0, Math.floor(num(r.klienti, 0))));
-  s.pursuitLeft = Math.min(40, Math.max(0, Math.floor(num(r.pursuitLeft, 0))));
-  s.pursuitTows = Math.min(40, Math.max(0, Math.floor(num(r.pursuitTows, 0))));
-  s.pursuitHacks = Math.min(40, Math.max(0, Math.floor(num(r.pursuitHacks, 0))));
+  const payIds = new Set(PAY_SYMBOLS.map((p) => p.id));
+  const targetOk = typeof r.chaseTarget === "string" && payIds.has(r.chaseTarget as PayId);
+  const hadChase = Object.prototype.hasOwnProperty.call(r, "chaseSpin");
+  if (hadChase) {
+    s.chaseSpin = Math.min(10, Math.max(-1, Math.floor(num(r.chaseSpin, -1, -1, 10))));
+  } else if (Math.floor(num(r.pursuitLeft, 0)) > 0) {
+    s.chaseSpin = 0;
+  } else {
+    s.chaseSpin = -1;
+  }
+  s.chaseTarget = s.chaseSpin >= 0 && targetOk ? (r.chaseTarget as PayId) : null;
+  s.chaseHits = s.chaseSpin >= 0 ? Math.min(3, Math.max(0, Math.floor(num(r.chaseHits, 0)))) : 0;
+  s.chaseStrikes = s.chaseSpin >= 0 ? Math.min(2, Math.max(0, Math.floor(num(r.chaseStrikes, 0)))) : 0;
+  const mod = r.chaseMod === "bezDane" || r.chaseMod === "danUrad" ? r.chaseMod : null;
+  const modLeft = Math.min(15, Math.max(0, Math.floor(num(r.chaseModLeft, 0))));
+  s.chaseMod = mod && modLeft > 0 ? mod : null;
+  s.chaseModLeft = s.chaseMod ? modLeft : 0;
+  const mul = num(r.fsModMul, 1);
+  s.fsModMul = mul === 1.23 || mul === 0.77 ? mul : 1;
   if (!s.inFs || s.fsLeft <= 0) {
     s.inFs = false;
     s.fsLeft = 0;

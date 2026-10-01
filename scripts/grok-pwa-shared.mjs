@@ -157,33 +157,24 @@ export function renderInstallPageHtml(template, { host, url } = {}) {
     .replaceAll("{{APP_URL}}", escapeHtml(stripInstallParams(url)));
 }
 
-export function renderWebManifest(hostHeader, site = {}) {
-  const name = resolveOgTitle(site, DEFAULT_APP_NAME, hostHeader);
-  const short =
-    String(site.short_name ?? site.shortName ?? "").trim() ||
-    (name === "Ports of Parkizmus" ? "Parkizmus" : name);
-  const hex = placeholderCardColor(site);
-  const color = hex ? `#${hex}` : "#0b0d10";
+export function renderWebManifest(hostHeader) {
+  const name = appNameFromHost(hostHeader);
   return JSON.stringify(
     {
       name,
-      short_name: short,
-      id: "/parkizmus",
+      short_name: name,
+      id: "/",
       start_url: "/",
       scope: "/",
       display: "standalone",
-      orientation: "any",
-      lang: "sk",
-      description: "Nočná garáž, rampa, lístok, pokuta. Demo automat.",
-      background_color: color,
-      theme_color: color,
+      background_color: "#000000",
+      theme_color: "#000000",
       icons: [
-        { src: "/favicon.ico", sizes: "48x48", type: "image/x-icon" },
-        { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-        { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-        { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
-        { src: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
-        { src: "/__grok/icon-180.png", sizes: "180x180", type: "image/png" },
+        {
+          src: "/__grok/icon-180.png",
+          sizes: "180x180",
+          type: "image/png",
+        },
       ],
     },
     null,
@@ -191,10 +182,7 @@ export function renderWebManifest(hostHeader, site = {}) {
   );
 }
 
-export function grokPwaHeadTags(appName = DEFAULT_APP_NAME, shortName = "") {
-  const short =
-    String(shortName ?? "").trim() ||
-    (appName === "Ports of Parkizmus" ? "Parkizmus" : appName);
+export function grokPwaHeadTags(appName = DEFAULT_APP_NAME) {
   return [
     // Standalone display comes from the manifest ("display": "standalone");
     // the legacy *-web-app-capable metas it replaces are deliberately absent.
@@ -202,17 +190,13 @@ export function grokPwaHeadTags(appName = DEFAULT_APP_NAME, shortName = "") {
     ["apple-touch-icon", '<link rel="apple-touch-icon" href="/__grok/icon-180.png">'],
     [
       "apple-mobile-web-app-title",
-      `<meta name="apple-mobile-web-app-title" content="${escapeHtml(short)}">`,
-    ],
-    [
-      "application-name",
-      `<meta name="application-name" content="${escapeHtml(short)}">`,
+      `<meta name="apple-mobile-web-app-title" content="${escapeHtml(appName)}">`,
     ],
     [
       "apple-mobile-web-app-status-bar-style",
       '<meta name="apple-mobile-web-app-status-bar-style" content="black">',
     ],
-    ["theme-color", '<meta name="theme-color" content="#0b0d10">'],
+    ["theme-color", '<meta name="theme-color" content="#000000">'],
   ];
 }
 
@@ -221,6 +205,11 @@ export const GROK_EXTENSIONS_SCRIPT_SRC = "https://grok.com/grok-app-builder/ext
 export function readGrokProjectId() {
   const fromProcess = typeof process !== "undefined" ? process.env?.VITE_PROJECT_ID : "";
   return String(fromProcess ?? "").trim();
+}
+
+export function readGrokExtensionsEnabled() {
+  const fromProcess = typeof process !== "undefined" ? process.env?.VITE_GROK_EXTENSIONS : "";
+  return String(fromProcess ?? "").trim() !== "0";
 }
 
 export function readXCreator() {
@@ -250,6 +239,7 @@ export function grokExtensionsHeadTags(projectId = readGrokProjectId()) {
   if (projectId) {
     tags.push(`<meta name="grok-project-id" content="${id}">`);
   }
+  if (!readGrokExtensionsEnabled()) return tags;
   tags.push(
     `<script src="${GROK_EXTENSIONS_SCRIPT_SRC}"${
       projectId ? ` data-project-id="${id}"` : ""
@@ -391,6 +381,13 @@ export function grokOgHeadTags({
   return tags;
 }
 
+function stripGrokExtensionsScript(html) {
+  return String(html).replace(
+    /<script\b[^>]*\bsrc\s*=\s*["'][^"']*\/grok-app-builder\/extensions\.js[^"']*["'][^>]*>\s*<\/script>/gi,
+    "",
+  );
+}
+
 export function stripShareMetaTags(html) {
   return String(html).replace(/<meta\b[^>]*>/gi, (tag) => {
     const attrs = [...tag.matchAll(/\b(?:property|name)\s*=\s*["']([^"']+)["']/gi)];
@@ -448,12 +445,10 @@ export function injectGrokPwaHead(html, ctx = {}) {
     host,
     documentTitle,
   );
-  const shortName =
-    String(site.short_name ?? site.shortName ?? "").trim() ||
-    (appName === "Ports of Parkizmus" ? "Parkizmus" : appName);
   let next = stripShareMetaTags(html);
+  if (!readGrokExtensionsEnabled()) next = stripGrokExtensionsScript(next);
 
-  const missing = grokPwaHeadTags(appName, shortName)
+  const missing = grokPwaHeadTags(appName)
     .filter(([key]) => {
       if (key === "manifest") return !next.includes('href="/__grok/manifest.webmanifest"');
       if (key === "apple-touch-icon") return !next.includes('href="/__grok/icon-180.png"');
@@ -466,7 +461,7 @@ export function injectGrokPwaHead(html, ctx = {}) {
     grokOgHeadTags({ host, appName, site, documentTitle, cwd }).join(""),
   );
 
-  if (!next.includes("/grok-app-builder/extensions.js")) {
+  if (readGrokExtensionsEnabled() && !next.includes("/grok-app-builder/extensions.js")) {
     missing.push(...grokExtensionsHeadTags(projectId));
   } else if (projectId && !next.includes('name="grok-project-id"')) {
     missing.push(`<meta name="grok-project-id" content="${escapeHtml(projectId)}">`);

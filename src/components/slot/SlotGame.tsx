@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import { Volume2, VolumeX, Info, RefreshCw, Menu, Settings as SettingsIcon, Trophy } from "lucide-react";
-import { START_BALANCE, BETS } from "@/lib/slot/symbols";
+import { START_BALANCE, BETS, PAY_SYMBOLS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
 import { jobClock, jobMeter, jobShownGoal } from "@/lib/slot/spend";
@@ -181,7 +181,7 @@ export function SlotGame() {
 
   return (
     <div
-      className={`stage shell-${shell} rk-${g.rank.id} ${g.rankFlash?.event === "up" ? "is-rank-up" : ""} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.pursuit > 0 ? "in-pursuit" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""}`}
+      className={`stage shell-${shell} rk-${g.rank.id} ${g.rankFlash?.event === "up" ? "is-rank-up" : ""} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.chase ? "in-chase" : ""} ${g.chase?.tension === "danger" ? "chase-danger" : ""} ${g.chase?.tension === "close" ? "chase-close" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""}`}
     >
       {g.stale ? (
         <div className="release-lock" role="alertdialog" aria-label="Nová verzia">
@@ -357,25 +357,25 @@ export function SlotGame() {
                       {Math.min(g.pityGoal, g.pity)}/{g.pityGoal}
                     </b>
                   </div>
-                  <div className={`heat-bar ${g.pursuit > 0 ? "is-chase" : ""} ${g.heat >= HEAT_MAX ? "is-hot" : ""}`}>
-                    <span className="heat-kicker">{g.pursuit > 0 ? "ZÁSAH" : "HLÁSENIE"}</span>
+                  <div className={`heat-bar ${g.chase ? "is-chase" : ""} ${g.heat >= HEAT_MAX ? "is-hot" : ""}`}>
+                    <span className="heat-kicker">{g.chase ? "ZÁSAH" : "HLÁSENIE"}</span>
                     <div className="heat-segs" aria-hidden="true">
                       <i
                         style={{
-                          ["--heat" as string]: `${g.pursuit > 0 ? Math.min(100, (g.pursuit / 11) * 100) : Math.min(100, (g.heat / HEAT_MAX) * 100)}%`,
+                          ["--heat" as string]: `${g.chase ? Math.min(100, (g.chase.spin / g.chase.total) * 100) : Math.min(100, (g.heat / HEAT_MAX) * 100)}%`,
                         }}
                       />
                     </div>
-                    <b>{g.pursuit > 0 ? g.pursuit : `${g.heat}/${HEAT_MAX}`}</b>
+                    <b>{g.chase ? `SPIN ${Math.min(g.chase.total, g.chase.spin + 1)}/${g.chase.total}` : `${g.heat}/${HEAT_MAX}`}</b>
                   </div>
                 </div>
               )}
             </div>
-            <div className={`top-ticker ${g.pursuit > 0 || g.spinWin > 0 ? "has-win" : g.topLine && !g.topLine.startsWith("SYMBOLY PLATIA") ? "" : "is-idle"}`}>
-              {g.pursuit > 0 ? (
+            <div className={`top-ticker ${g.chase || g.spinWin > 0 ? "has-win" : g.topLine && !g.topLine.startsWith("SYMBOLY PLATIA") ? "" : "is-idle"}`}>
+              {g.chase ? (
                 <>
-                  ZÁSAH
-                  <strong>{g.pursuit} SPINOV</strong>
+                  ZÁSAH · CIEĽ
+                  <strong>{PAY_SYMBOLS.find((s) => s.id === g.chase?.target)?.name ?? "…"}</strong>
                 </>
               ) : g.spinWin > 0 ? (
                 <>
@@ -410,6 +410,10 @@ export function SlotGame() {
               spinPace={g.spinPace ?? undefined}
               spinStrips={g.spinStrips}
               ticketLock={g.ticketLock}
+              hackWindows={g.chase?.windows}
+              activeWindow={g.chase?.activeWindow}
+              windowPhase={g.chase?.phase}
+              chaseTarget={g.chase?.target}
             />
             {g.flies.map((f) => (
               <span
@@ -719,22 +723,58 @@ export function SlotGame() {
         </div>
       )}
 
-      {g.pursuit > 0 && (
-        <aside className="chase-ticket" aria-live="assertive">
+      {g.chase ? (
+        <aside className={`chase-ticket ${g.chase.tension === "close" ? "is-close" : ""}`} aria-live="assertive">
           <span>ZÁSAH</span>
-          <strong>
-            {g.pursuit} SPINOV
-          </strong>
-          <em>ESCAPE {g.pursuit}/10</em>
+          {(() => {
+            const chase = g.chase;
+            if (!chase) return null;
+            const target = PAY_SYMBOLS.find((s) => s.id === chase.target);
+            return (
+              <>
+                {target ? (
+                  <img className={`chase-target ${chase.tension === "close" ? "is-close" : ""}`} src={target.src} alt={target.name} />
+                ) : (
+                  <strong>CIEĽ</strong>
+                )}
+                <em>{target?.name ?? "losuje sa"}</em>
+                <div className="chase-pins">
+                  {Array.from({ length: 4 }, (_, i) => (
+                    <i key={`h${i}`} className={i < chase.hits ? "is-hit" : ""} />
+                  ))}
+                </div>
+                <div className="chase-pins is-fs">
+                  {Array.from({ length: 3 }, (_, i) => (
+                    <i key={`f${i}`} className={i < chase.strikes ? "is-fs" : ""} />
+                  ))}
+                </div>
+                <b>
+                  SPIN {Math.min(chase.total, chase.spin + 1)}/{chase.total}
+                </b>
+              </>
+            );
+          })()}
         </aside>
-      )}
-      {g.chaseCard && (
-        <div className="chase-end" role="dialog" aria-label={g.chaseCard.title}>
-          <p>{g.chaseCard.title}</p>
-          <strong>{g.chaseCard.line}</strong>
-          {g.chaseCard.amount > 0 ? <b>{formatMoney(g.chaseCard.amount)}</b> : <b>výhry prepadli</b>}
+      ) : null}
+      {g.chaseMod ? (
+        <div className={`mod-badge ${g.chaseMod.kind === "bezDane" ? "is-free" : "is-tax"}`}>
+          {g.chaseMod.kind === "bezDane" ? "BEZ DANE" : "DAŇOVÝ ÚRAD"} · {g.chaseMod.left}
+          {g.taxFly > 0 && g.chaseMod.kind === "danUrad" ? <em className="tax-fly">−23 % · −{formatMoney(g.taxFly)}</em> : null}
         </div>
-      )}
+      ) : null}
+      {g.chaseCard ? (
+        <div className={`chase-end is-${g.chaseCard.outcome}`} role="dialog" aria-label={g.chaseCard.line}>
+          <p>{g.chaseCard.outcome === "escape" ? "UNIKOL SI" : g.chaseCard.outcome === "unik" ? "DAŇOVÝ ÚNIK" : "TAK-TAK"}</p>
+          <strong>{g.chaseCard.line}</strong>
+          <b>
+            {g.chaseCard.rp > 0 ? "+" : ""}
+            {g.chaseCard.rp} RP
+          </b>
+          <button type="button" className="chase-ok" onClick={g.dismissChaseCard}>
+            OK
+          </button>
+        </div>
+      ) : null}
       {g.banner && (
         <div className="banner" onClick={g.closeBanner} role="presentation">
           <div className={`banner-card ${g.banner}`} role="dialog" aria-label="Výhra">

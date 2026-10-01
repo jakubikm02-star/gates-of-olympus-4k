@@ -348,6 +348,7 @@ function makeNoise(ac: AudioContext, seconds: number, kind: "white" | "brown"): 
 
 export function setMuted(next: boolean): void {
   muted = next;
+  if (next) stopHeartbeat();
   if (master && ctx) master.gain.setTargetAtTime(next ? 0 : 0.92, ctx.currentTime, 0.04);
   if (liveEl) {
     liveEl.muted = next;
@@ -723,6 +724,69 @@ export function playSiren(): void {
   stopSpin();
   duckMusic(0.4);
   if (!playBuf("kontrola", { gain: 0.92 })) playBuf("siren", { gain: 0.7 });
+}
+
+export function playHackTravel(): void {
+  playBuf("zap", { gain: 0.35, rate: 1.4 });
+}
+
+export function playHack(): void {
+  playBuf("coin", { gain: 0.7, rate: 1.2 });
+}
+
+export function playStrike(): void {
+  playBuf("thunder", { gain: 0.5 });
+}
+
+export function playEscape(): void {
+  playBuf("ticketOk", { gain: 0.8 });
+  playBuf("harp", { gain: 0.45 });
+}
+
+export function playTaxLoss(): void {
+  playBuf("tableB", { gain: 0.7 });
+}
+
+let heartTimer = 0;
+let heartNodes: OscillatorNode[] = [];
+
+export function stopHeartbeat(): void {
+  window.clearInterval(heartTimer);
+  heartTimer = 0;
+  for (const node of heartNodes) {
+    try {
+      node.stop();
+    } catch {
+      /* already stopped */
+    }
+  }
+  heartNodes = [];
+}
+
+export function startHeartbeat(): void {
+  stopHeartbeat();
+  if (muted) return;
+  unlockAudio();
+  const beat = () => {
+    if (!ctx || !sfx || muted) return;
+    const now = ctx.currentTime;
+    for (const delay of [0, 0.16]) {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(55, now + delay);
+      g.gain.setValueAtTime(0.0001, now + delay);
+      g.gain.exponentialRampToValueAtTime(0.35, now + delay + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.14);
+      osc.connect(g);
+      g.connect(sfx);
+      osc.start(now + delay);
+      osc.stop(now + delay + 0.16);
+      heartNodes.push(osc);
+    }
+  };
+  beat();
+  heartTimer = window.setInterval(beat, 850);
 }
 
 export function playPickStart(): void {

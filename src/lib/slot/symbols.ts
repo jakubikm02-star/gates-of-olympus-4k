@@ -125,6 +125,8 @@ export const SCATTER = {
   weightAnte: 2.28,
 };
 
+export const FS_SYMBOL = { name: "Finančná správa", src: "/symbols/fs.png" };
+
 export const PARK = {
   id: "park" as const,
   name: "LÍSTOK",
@@ -142,6 +144,7 @@ export const TICKETS: Record<TicketId, { name: string; src: string; ink: string 
 export const ALL_ART: readonly string[] = [
   ...PAY_SYMBOLS.map((s) => s.src),
   SCATTER.src,
+  FS_SYMBOL.src,
   ...Object.values(TICKETS).map((t) => t.src),
   "/symbols/can.png",
   "/art/paas-idle.png?v=3",

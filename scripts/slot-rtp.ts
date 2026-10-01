@@ -1,5 +1,7 @@
 import { ANTE_COST, BUY_COST_X, FS_RETRIGGER, FS_SPINS, MAX_WIN_X } from "../src/lib/slot/symbols.ts";
 import { createRng, resolvePaidSpin, type PaidSpin } from "../src/lib/slot/engine.ts";
+import { heatFromWin } from "../src/lib/slot/heat.ts";
+import { ZASAH, modMul, rollTarget, rollWindows, tickMod, windowCount, type ChaseMod, type ChaseState } from "../src/lib/slot/zasah.ts";
 
 function playFeature(
   rng: () => number,
@@ -138,11 +140,90 @@ function buyEv(n: number, seed = 9) {
   };
 }
 
-const n = Number(process.argv[2] ?? 40000);
+const noZasah = process.argv.includes("--no-zasah");
+const n = Number(process.argv.find((a) => /^\d+$/.test(a)) ?? 40000);
+function zasahRun(spins: number, seed = 5) {
+  const rng = createRng(seed);
+  let stakeOut = 0;
+  let paid = 0;
+  let heat = 0;
+  let chase: ChaseState | null = null;
+  let mod: ChaseMod | null = null;
+  let chases = 0;
+  let esc = 0;
+  let unik = 0;
+  let neu = 0;
+  let chaseStake = 0;
+  let chasePaid = 0;
+  let reward = 0;
+  let penalty = 0;
+  for (let i = 0; i < spins; i += 1) {
+    let chasing = false;
+    if (!chase && heat >= 100) {
+      chase = { spin: 0, target: null, hits: 0, strikes: 0 };
+      heat = 0;
+      chases += 1;
+    }
+    if (chase) {
+      chasing = true;
+      if (!chase.target) chase = { ...chase, target: rollTarget(rng) };
+    }
+    const cost = chasing ? ZASAH.COST_X : 1;
+    stakeOut += cost;
+    if (chasing) chaseStake += cost;
+    const spin = resolvePaidSpin(rng, { ante: false, free: false, globalMult: 0 });
+    const boosted = chasing ? spin.paidX * ZASAH.BOOST : spin.paidX;
+    const mul = chasing ? 1 : modMul(mod);
+    const basePaid = boosted * mul;
+    reward += Math.max(0, basePaid - boosted);
+    penalty += Math.max(0, boosted - basePaid);
+    if (!chasing && mod) mod = tickMod(mod);
+    let extra = 0;
+    if (spin.triggeredFs) {
+      const feat = playFeature(rng, spin);
+      extra = Math.max(0, feat.paid - spin.paidX) * mul;
+      reward += Math.max(0, extra - Math.max(0, feat.paid - spin.paidX));
+      penalty += Math.max(0, Math.max(0, feat.paid - spin.paidX) - extra);
+    }
+    const got = basePaid + extra;
+    paid += got;
+    if (chasing) chasePaid += got;
+    if (chasing && chase) {
+      const rolled = rollWindows(rng, spin.board, chase, windowCount(chase.spin));
+      const played = chase.spin + 1;
+      if (rolled.outcome || played >= ZASAH.SPINS) {
+        if (rolled.outcome === "escape") {
+          esc += 1;
+          mod = { kind: "bezDane", left: ZASAH.MOD_SPINS };
+        } else if (rolled.outcome === "unik") {
+          unik += 1;
+          mod = { kind: "danUrad", left: ZASAH.MOD_SPINS };
+        } else neu += 1;
+        chase = null;
+      } else {
+        chase = { ...rolled.next, spin: played, target: rollTarget(rng) };
+      }
+    } else if (boosted > 0) {
+      heat = Math.min(100, heat + heatFromWin(boosted));
+    }
+  }
+  return {
+    chasesPer1000: +((chases / spins) * 1000).toFixed(2),
+    escPct: chases ? +((esc / chases) * 100).toFixed(1) : 0,
+    unikPct: chases ? +((unik / chases) * 100).toFixed(1) : 0,
+    neutralPct: chases ? +((neu / chases) * 100).toFixed(1) : 0,
+    chaseRtp: chaseStake ? +(chasePaid / chaseStake).toFixed(3) : 0,
+    rtpReward: +(reward / stakeOut).toFixed(4),
+    rtpPenalty: +(penalty / stakeOut).toFixed(4),
+    rtpWithZasah: +(paid / stakeOut).toFixed(4),
+  };
+}
+
 const t0 = Date.now();
 const base = run(n, false, 42);
 const buy = buyEv(Math.min(6000, Math.max(800, Math.floor(n / 8))), 7);
 base.buyEv = buy.ev;
 const ante = run(Math.floor(n / 2), true, 99);
 const ms = Date.now() - t0;
-console.log(JSON.stringify({ ms, base, ante, buy }, null, 2));
+const zasah = noZasah ? null : zasahRun(Math.min(n, 12000), 5);
+console.log(JSON.stringify({ ms, base, ante, buy, zasah }, null, 2));

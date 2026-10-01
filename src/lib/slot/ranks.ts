@@ -230,10 +230,6 @@ export interface RankPerk {
   peekCap: number;
   /** How many safe prices are shown. */
   peekCount: number;
-  /** Extra spin already banked when ZÁSAH starts. */
-  chaseHack?: number;
-  /** Fewer tow trucks during ZÁSAH. */
-  chaseSoft?: boolean;
 }
 
 export const RANK_PERKS: RankPerk[] = [
@@ -321,7 +317,6 @@ export const RANK_PERKS: RankPerk[] = [
     orbBonus: 0,
     peekCap: 0.5,
     peekCount: 1,
-    chaseHack: 1,
   },
   {
     id: "duo",
@@ -339,7 +334,6 @@ export const RANK_PERKS: RankPerk[] = [
     orbBonus: 0,
     peekCap: 0.8,
     peekCount: 1,
-    chaseHack: 1,
   },
   {
     id: "fiveg",
@@ -357,8 +351,6 @@ export const RANK_PERKS: RankPerk[] = [
     orbBonus: 0,
     peekCap: 1,
     peekCount: 1,
-    chaseHack: 1,
-    chaseSoft: true,
   },
   {
     id: "nekonecno",
@@ -376,8 +368,6 @@ export const RANK_PERKS: RankPerk[] = [
     orbBonus: 1,
     peekCap: 1,
     peekCount: 2,
-    chaseHack: 1,
-    chaseSoft: true,
   },
 ];
 

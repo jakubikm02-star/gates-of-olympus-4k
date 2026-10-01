@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { COLS, ROWS, symbolSrc, type Cell } from "@/lib/slot/symbols";
+import { COLS, ROWS, symbolSrc, FS_SYMBOL, PAY_SYMBOLS, type Cell, type PayId } from "@/lib/slot/symbols";
+import type { HackWindow } from "@/lib/slot/zasah";
 import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
 
 export interface ClusterPay {
@@ -29,6 +30,10 @@ interface Props {
   spinPace?: "up" | "full";
   spinStrips?: Cell[][] | null;
   ticketLock?: boolean;
+  hackWindows?: HackWindow[];
+  activeWindow?: number;
+  windowPhase?: "travel" | "hover" | "land" | "reveal";
+  chaseTarget?: PayId | null;
 }
 
 function CellView({
@@ -239,6 +244,10 @@ export function SlotGrid({
   spinPace,
   spinStrips,
   ticketLock,
+  hackWindows,
+  activeWindow = -1,
+  windowPhase = "reveal",
+  chaseTarget,
 }: Props) {
   const [, names] = useState(0);
   useEffect(() => subscribeTicketNames(() => names((n) => n + 1)), []);
@@ -491,6 +500,33 @@ export function SlotGrid({
             {clusterPay.amount}
           </div>
         )}
+        {hackWindows && hackWindows.length > 0 ? (
+          <div className="hack-layer">
+            {hackWindows.map((w, i) => {
+              const live = i === activeWindow;
+              const state = live ? windowPhase : "reveal";
+              const target = PAY_SYMBOLS.find((p) => p.id === chaseTarget);
+              return (
+                <i
+                  key={`${w.cell}-${i}`}
+                  className={`hack-window is-${state} is-${w.result}${w.lock ? " is-lock" : ""}`}
+                  style={{
+                    ["--c" as string]: `${((w.cell % COLS) + 0.5) * (100 / COLS)}%`,
+                    ["--r" as string]: `${(Math.floor(w.cell / COLS) + 0.5) * (100 / ROWS)}%`,
+                    ["--hc" as string]: `${((w.hover % COLS) + 0.5) * (100 / COLS)}%`,
+                    ["--hr" as string]: `${(Math.floor(w.hover / COLS) + 0.5) * (100 / ROWS)}%`,
+                  }}
+                >
+                  {state === "reveal" && w.result === "fs" ? (
+                    <img src={FS_SYMBOL.src} alt="" onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} />
+                  ) : null}
+                  {state === "reveal" && w.result === "hit" && w.lock && target ? <img src={target.src} alt="" /> : null}
+                  {state === "reveal" && w.result === "fs" ? <b>FS</b> : null}
+                </i>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
     </div>
   );
