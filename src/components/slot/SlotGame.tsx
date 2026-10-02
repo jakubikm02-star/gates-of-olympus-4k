@@ -5,6 +5,7 @@ import { fsSymName, fsSymSrc, type FsSymId } from "@/lib/slot/zasah";
 import { FsReveal } from "./FsReveal";
 import { TargetHud } from "./TargetReticle";
 import { useChaseAim } from "@/hooks/use-chase-aim";
+import { BedVisualizer } from "./BedVisualizer";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
 import { jobClock, jobMeter, jobProgress, jobShownGoal, sayCluster, type JobCard } from "@/lib/slot/spend";
@@ -425,6 +426,7 @@ export function SlotGame() {
               ) : null}
             </div>
             <div className="reel-host">
+            {g.inFs ? <BedVisualizer muted={g.muted} reduced={reducedMotion} /> : null}
             <SlotGrid
               grid={g.grid}
               holdGrid={g.holdGrid}

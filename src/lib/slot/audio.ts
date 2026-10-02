@@ -4,6 +4,8 @@
  * Synth fallbacks fire only if a buffer has not decoded yet.
  */
 
+import { VIZ } from "./bed-viz";
+
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let sfx: GainNode | null = null;
@@ -22,6 +24,11 @@ let liveDuck = 1;
 const playing: Partial<Record<string, { stop: () => void }>> = {};
 const CUT_PREV = new Set(["win", "winFull", "payout", "bigwin", "tumble", "pop", "tableA", "tableB"]);
 const bufs: Record<string, AudioBuffer> = {};
+/** 4KA TV visualizer tap: read-only analyser on the bed loop. Never feeds the speakers. */
+const VIZ_KEYS = new Set(["bed"]);
+let vizAnalyser: AnalyserNode | null = null;
+let vizSource: AudioNode | null = null;
+const tappedEls = new WeakSet<HTMLAudioElement>();
 
 const FILES: Record<string, string> = {
   spin: "/sfx/spin.mp3?v=trailer1",
@@ -248,6 +255,10 @@ export function unlockAudio(): void {
     brownBuf = makeNoise(ctx, 1.6, "brown");
     void loadBank();
     void hydrateCustoms().then(() => applyCustoms());
+    // A bed routed through the graph for the visualizer stops if the context suspends mid-bonus; bring it back.
+    ctx.addEventListener("statechange", () => {
+      if (ctx?.state === "suspended" && vizSource && !muted && document.visibilityState === "visible") void ctx.resume();
+    });
   }
   if (ctx.state === "suspended") void ctx.resume();
 }
@@ -506,11 +517,13 @@ function playBuf(
   src.connect(p);
   p.connect(g);
   g.connect(sfx);
+  const tapped = VIZ_KEYS.has(name) && tapNode(g);
   src.start(t);
   if (!opts.loop) src.stop(t + b.duration / (opts.rate ?? 1) + 0.02);
   const handle = {
     gain: g,
     stop: () => {
+      if (tapped) untapViz(g);
       g.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.04);
       window.setTimeout(() => {
         try {
@@ -806,6 +819,7 @@ function startCueLoop(key: string): void {
   vol();
   const playSafe = () => {
     void (ctx?.state === "suspended" ? ctx.resume() : Promise.resolve()).then(() => {
+      if (VIZ_KEYS.has(key) && liveEl === el) tapElement(el);
       void el.play().then(vol).catch(() => {
         window.setTimeout(() => void el.play().then(vol).catch(() => {}), 180);
       });
@@ -855,10 +869,80 @@ function startCueLoop(key: string): void {
 
 export function stopLiveBed(): void {
   loopKey = null;
+  const tap = vizSource instanceof MediaElementAudioSourceNode ? vizSource : null;
   liveBed?.stop();
+  if (tap) {
+    untapViz(tap);
+    tap.disconnect();
+  }
   liveBed = null;
   liveEl = null;
   duckMusic(1);
+}
+
+function vizNode(): AnalyserNode | null {
+  if (!ctx) return null;
+  if (!vizAnalyser) {
+    vizAnalyser = ctx.createAnalyser();
+    vizAnalyser.fftSize = VIZ.FFT_SIZE;
+    vizAnalyser.smoothingTimeConstant = VIZ.SMOOTHING;
+    vizAnalyser.minDecibels = VIZ.MIN_DB;
+    vizAnalyser.maxDecibels = VIZ.MAX_DB;
+  }
+  return vizAnalyser;
+}
+
+/** AudioBuffer path: fan the bed's gain out to the analyser too. Output is untouched (the analyser has no outputs wired). */
+function tapNode(node: AudioNode): boolean {
+  const an = vizNode();
+  if (!an) return false;
+  if (vizSource && vizSource !== node) untapViz(vizSource);
+  node.connect(an);
+  vizSource = node;
+  return true;
+}
+
+/**
+ * HTMLAudioElement path. A media element can only be read by routing it through the graph,
+ * so it goes element → destination (no master, no compressor: same level and mute as before,
+ * element volume/muted still apply) plus element → analyser. Only done while the context is
+ * running: tapping into a suspended context would silence the bed, so then the bed plays
+ * directly and the visualizer just breathes.
+ */
+function tapElement(el: HTMLAudioElement): boolean {
+  if (!ctx || ctx.state !== "running" || tappedEls.has(el)) return false;
+  const an = vizNode();
+  if (!an) return false;
+  try {
+    const node = ctx.createMediaElementSource(el);
+    tappedEls.add(el);
+    node.connect(ctx.destination);
+    if (vizSource) untapViz(vizSource);
+    node.connect(an);
+    vizSource = node;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function untapViz(node: AudioNode): void {
+  if (vizSource !== node) return;
+  try {
+    if (vizAnalyser) node.disconnect(vizAnalyser);
+  } catch {
+    /* already */
+  }
+  vizSource = null;
+}
+
+/**
+ * The bed loop's analyser while the 4KA TV bed is actually flowing through a running
+ * AudioContext, otherwise null (muted, suspended, not tapped, other loop).
+ */
+export function bedAnalyser(): AnalyserNode | null {
+  if (!ctx || ctx.state !== "running" || !vizSource || !vizAnalyser || muted) return null;
+  return vizAnalyser;
 }
 
 function ownCue(key: string): boolean {
