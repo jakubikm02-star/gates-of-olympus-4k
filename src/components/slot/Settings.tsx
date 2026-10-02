@@ -140,7 +140,7 @@ function SoundSheet({ password }: { password: string }) {
   };
   return (
     <div className="sound-sheet is-open">
-      <p className="sound-note">Zmena zvuku ide do jadra. Platí pre všetkých hráčov. Reset pri jednom vráti len ten. Podklad 4KA TV a zásahu môže mať súbor do 50 MB, ostatné do 12 MB. Slot zásahu, kým nemá vlastný súbor, hrá doterajší zvuk.</p>
+      <p className="sound-note">Zmena zvuku ide do jadra. Platí pre všetkých hráčov. Reset pri jednom vráti len ten. Každý slot berie mp3, wav, ogg aj FLAC, do 50 MB. Slot zásahu, kým nemá vlastný súbor, hrá doterajší zvuk.</p>
       {err ? <p className="sound-err">{err}</p> : null}
       {SOUND_CUES.map((cue) =>
         cue.head ? (
@@ -156,7 +156,7 @@ function SoundSheet({ password }: { password: string }) {
             {isCustomCue(cue.id) ? "Zmeniť" : "Súbor"}
             <input
               type="file"
-              accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.webm"
+              accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.webm,.flac,.opus"
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 e.target.value = "";

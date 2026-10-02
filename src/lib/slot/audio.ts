@@ -63,8 +63,7 @@ const FILES: Record<string, string> = {
   zNeutral: "",
 };
 
-const CUSTOM_MAX = 12 * 1024 * 1024;
-const MUSIC_MAX = 50 * 1024 * 1024;
+const CUE_MAX = 50 * 1024 * 1024;
 const MUSIC_KEYS = new Set(["bed", "zasah"]);
 const SUPA_URL = "https://xgpnmxkquxzbhgktjipa.supabase.co";
 const SUPA_ANON =
@@ -93,12 +92,12 @@ export function subscribeSfx(fn: () => void): () => void {
   return () => listeners.delete(fn);
 }
 
-function cueMax(key: string): number {
-  return MUSIC_KEYS.has(key) ? MUSIC_MAX : CUSTOM_MAX;
+function cueMax(_key: string): number {
+  return CUE_MAX;
 }
 
-function cueMaxLabel(key: string): string {
-  return MUSIC_KEYS.has(key) ? "50 MB" : "12 MB";
+function cueMaxLabel(_key: string): string {
+  return "50 MB";
 }
 
 export function cueSrc(key: string): string {
@@ -107,6 +106,32 @@ export function cueSrc(key: string): string {
 
 export function isCustomCue(key: string): boolean {
   return custom.has(key);
+}
+
+function sniffMime(bytes: ArrayBuffer, fallback: string): string {
+  const u = new Uint8Array(bytes, 0, Math.min(12, bytes.byteLength));
+  if (u.length >= 4 && u[0] === 0x66 && u[1] === 0x4c && u[2] === 0x61 && u[3] === 0x43) return "audio/flac";
+  if (u.length >= 4 && u[0] === 0x4f && u[1] === 0x67 && u[2] === 0x67 && u[3] === 0x53) return "audio/ogg";
+  if (u.length >= 12 && u[0] === 0x52 && u[1] === 0x49 && u[2] === 0x46 && u[3] === 0x46 && u[8] === 0x57 && u[9] === 0x41 && u[10] === 0x56 && u[11] === 0x45) return "audio/wav";
+  if (u.length >= 3 && u[0] === 0x49 && u[1] === 0x44 && u[2] === 0x33) return "audio/mpeg";
+  if (u.length >= 2 && u[0] === 0xff && (u[1] & 0xe0) === 0xe0) return "audio/mpeg";
+  if (fallback === "audio/x-flac" || fallback === "audio/flac") return "audio/flac";
+  return fallback && fallback.startsWith("audio/") ? fallback : "audio/mpeg";
+}
+
+function mimeFromFile(file: File, bytes: ArrayBuffer): string {
+  const ext = /\.([a-z0-9]+)$/i.exec(file.name)?.[1]?.toLowerCase() || "";
+  const byExt: Record<string, string> = {
+    flac: "audio/flac",
+    mp3: "audio/mpeg",
+    wav: "audio/wav",
+    ogg: "audio/ogg",
+    opus: "audio/ogg",
+    m4a: "audio/mp4",
+    aac: "audio/aac",
+    webm: "audio/webm",
+  };
+  return sniffMime(bytes, byExt[ext] || file.type);
 }
 
 function rememberPreview(key: string, bytes: ArrayBuffer, type: string): void {
@@ -158,8 +183,8 @@ async function pullRemote(): Promise<void> {
       if (!audio.ok) return;
       const b64 = (await audio.json()) as unknown;
       if (typeof b64 !== "string" || b64.length < 8) return;
-      const type = row.mime || "audio/mpeg";
       const bytes = b64ToBytes(b64);
+      const type = sniffMime(bytes, row.mime || "");
       stored[key] = { bytes, type };
       custom.add(key);
       rememberPreview(key, bytes, type);
@@ -186,7 +211,11 @@ function hydrateCustoms(): Promise<void> {
 async function decodeCustom(key: string): Promise<void> {
   const row = stored[key];
   if (!ctx || !row) return;
-  bufs[key] = await ctx.decodeAudioData(row.bytes.slice(0));
+  try {
+    bufs[key] = await ctx.decodeAudioData(row.bytes.slice(0));
+  } catch {
+    delete bufs[key];
+  }
 }
 
 if (typeof window !== "undefined") void hydrateCustoms();
@@ -292,11 +321,11 @@ export async function replaceCue(key: string, file: File, password: string): Pro
   if (!password.trim()) return "Zadaj heslo.";
   const limit = cueMaxLabel(key);
   if (file.size > cueMax(key)) return `Súbor je väčší ako ${limit}.`;
-  const named = /\.(mp3|wav|ogg|m4a|aac|webm|flac)$/i.test(file.name);
+  const named = /\.(mp3|wav|ogg|opus|m4a|aac|webm|flac)$/i.test(file.name);
   if (file.type && !file.type.startsWith("audio/") && !named) return "To nie je zvuk.";
   unlockAudio();
   const bytes = await file.arrayBuffer();
-  const type = file.type || "audio/mpeg";
+  const type = mimeFromFile(file, bytes);
   let probe: AudioBuffer | null = null;
   if (MUSIC_KEYS.has(key)) {
     if (!(await probeAudio(bytes, type))) return "Súbor sa nedá prehrať.";
@@ -304,8 +333,11 @@ export async function replaceCue(key: string, file: File, password: string): Pro
     try {
       probe = await ctx.decodeAudioData(bytes.slice(0));
     } catch {
-      return "Súbor sa nedá prehrať.";
+      probe = null;
     }
+    if (!probe && !(await probeAudio(bytes, type))) return "Súbor sa nedá prehrať.";
+  } else if (!(await probeAudio(bytes, type))) {
+    return "Súbor sa nedá prehrať.";
   }
   const b64 = await fileToB64(new Blob([bytes], { type }));
   const res = await sfxRpc("sfx_put", { p_pass: password, p_key: key, p_mime: type, p_b64: b64 });
@@ -411,12 +443,57 @@ export function duckMusic(amount: number): void {
   music.gain.setTargetAtTime(muted ? 0 : 0.14 * a, ctx.currentTime, 0.08);
 }
 
+function playBlob(
+  name: string,
+  opts: { gain?: number; rate?: number; pan?: number; loop?: boolean; when?: number },
+): { stop: () => void; gain: GainNode } | null {
+  const url = previewUrl[name];
+  if (!ctx || !sfx || !url) return null;
+  const el = new Audio(url);
+  el.loop = !!opts.loop;
+  el.preservesPitch = false;
+  el.playbackRate = opts.rate ?? 1;
+  el.preload = "auto";
+  const node = ctx.createMediaElementSource(el);
+  const g = ctx.createGain();
+  const t = opts.when ?? ctx.currentTime;
+  g.gain.setValueAtTime(opts.gain ?? 0.85, t);
+  const p = ctx.createStereoPanner();
+  p.pan.setValueAtTime(Math.max(-1, Math.min(1, opts.pan ?? 0)), t);
+  node.connect(p);
+  p.connect(g);
+  g.connect(sfx);
+  const start = () => {
+    void el.play().catch(() => {});
+  };
+  if (opts.when && ctx) {
+    const wait = Math.max(0, (opts.when - ctx.currentTime) * 1000);
+    window.setTimeout(start, wait);
+  } else start();
+  const handle = {
+    gain: g,
+    stop: () => {
+      g.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.04);
+      window.setTimeout(() => {
+        el.pause();
+        node.disconnect();
+      }, 80);
+    },
+  };
+  if (CUT_PREV.has(name)) {
+    playing[name]?.stop();
+    playing[name] = handle;
+  }
+  return handle;
+}
+
 function playBuf(
   name: string,
   opts: { gain?: number; rate?: number; pan?: number; loop?: boolean; when?: number } = {},
 ): { stop: () => void; gain: GainNode } | null {
   const b = bufs[name];
-  if (!ctx || !sfx || !b) return null;
+  if (!ctx || !sfx) return null;
+  if (!b) return custom.has(name) ? playBlob(name, opts) : null;
   const t = opts.when ?? ctx.currentTime;
   const src = ctx.createBufferSource();
   src.buffer = b;
