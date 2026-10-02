@@ -15,6 +15,7 @@ import { Paytable } from "./Paytable";
 import { PickBonus } from "./PickBonus";
 import { CountUp } from "./CountUp";
 import { RankBadge } from "./RankBadge";
+import { MachineFrame } from "./MachineFrame";
 import { RankPanel } from "./RankPanel";
 import { RankToast } from "./RankToast";
 import { SpendSheet } from "./SpendSheet";
@@ -480,6 +481,7 @@ export function SlotGame() {
               windowPhase={g.chase?.phase}
               chaseTarget={g.chase?.target}
               fsSym={g.chase?.fsSym ?? null}
+              frame={<MachineFrame id={g.rank.id} division={g.rank.division} />}
             />
             {g.flies.map((f) => (
               <span

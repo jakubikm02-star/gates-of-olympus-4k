@@ -35,3 +35,21 @@ export function rankFrameSrc(id: string, division = 0): string {
 }
 
 export const RANK_HALO_SRC = `/ranks/nekonecno-halo.svg?v=${RANK_FRAME_V}`;
+
+export const MACHINE_FRAME_V = 2;
+
+/** Reel-cabinet hero corner for a rank tier (public/machine/*.svg, scripts/gen-machine-frames.mjs). */
+export function machineFrameSrc(id: string, division = 0): string {
+  const known = id in TIER ? id : "kredit";
+  if (known === "fiveg" || known === "nekonecno") return `/machine/${known}.svg?v=${MACHINE_FRAME_V}`;
+  const d = Math.min(4, Math.max(1, division || 4));
+  return `/machine/${known}-${ROMAN[d]}.svg?v=${MACHINE_FRAME_V}`;
+}
+
+/** Repeating side tile of the cabinet; tiers II/I (and the master ranks) get the richer tile. */
+export function machineTileSrc(id: string, division = 0, axis: "h" | "v" = "h"): string {
+  const known = id in TIER ? id : "kredit";
+  const master = known === "fiveg" || known === "nekonecno";
+  const rich = !master && division > 0 && division <= 2 ? "2" : "";
+  return `/machine/${known}-${axis}${rich}.svg?v=${MACHINE_FRAME_V}`;
+}

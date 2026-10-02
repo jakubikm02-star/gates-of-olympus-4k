@@ -1,0 +1,434 @@
+/* ===== Machine frames · rank cabinet around the 6×5 reels =================
+   <MachineFrame> sits inside .reel-frame and paints the bezel ring only
+   (padding = --bz), so symbols stay uncovered and the reel box keeps its size.
+   The bezel is a sculpture of the rank's objects: a hero object per corner
+   (--mf-corner, mirrored) and a chain of linked objects on every side
+   (--mf-h / --mf-v tiles, repeated "round" so whole objects always fit).
+
+   Hooks for other layers (bonus visualizer, ZÁSAH HUD):
+   --mf-z       z-index of the cabinet layer (default 7, 5 in 4KA TV; the reel
+                window is 4). .reel-frame is not a stacking context, so this
+                competes in the board's context: any visualizer layer at
+                calc(var(--mf-z) + 1) or higher (the 4KA TV burst at 6) draws
+                on top of every cabinet layer; glows behind the cabinet (z -1)
+                are untouched.
+   --mf-fx      0…1 strength of the animated cabinet layers (default 1, 0.45
+                in 4KA TV). Set it to 0 on .reel-frame to hand the bezel over.
+   --mf-accent  the rank accent color, for a visualizer that wants to match.
+   .mf[data-rank][data-tier] for anything rank-specific.
+   Motion: transform / opacity only, masked to the bezel, paused when hidden,
+   off under prefers-reduced-motion. */
+
+.reel-frame {
+  --mf-z: 7;
+}
+
+/* A tighter radius so the corner hero pieces are not clipped. */
+.reel-frame:has(> .mf) {
+  border-radius: calc(var(--bz, 12px) * 0.32);
+}
+
+.reel-frame:has(> .mf) > .frame-bolt,
+.reel-frame:has(> .mf) > .frame-chip {
+  display: none;
+}
+
+.mf {
+  --mf-bz: var(--bz, 12px);
+  --mf-c: calc(var(--mf-bz) * 3.2);
+  --mf-ring: linear-gradient(#000 0 0);
+  position: absolute;
+  inset: 0;
+  z-index: var(--mf-z, 7);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.mf > i,
+.mf-live,
+.mf-live > i {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+/* Bezel ring: everything between the frame edge and the reel window. */
+.mf-rim,
+.mf-live {
+  inset: 0;
+  padding: var(--mf-bz);
+  border-radius: inherit;
+  -webkit-mask: var(--mf-ring) content-box, var(--mf-ring);
+  -webkit-mask-composite: xor;
+  mask: var(--mf-ring) content-box exclude, var(--mf-ring);
+}
+
+.mf-rim {
+  background: var(--mf-rim);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    inset 0 0 0 1px rgb(0 0 0 / 0.55),
+    inset 0 -2px 3px rgb(0 0 0 / 0.35);
+}
+
+.mf-live {
+  overflow: hidden;
+  opacity: var(--mf-fx, 1);
+  transition: opacity 0.4s linear;
+}
+
+/* Lip around the reel window, drawn fully inside the bezel. */
+.mf-lip {
+  inset: calc(var(--mf-bz) - 2px);
+  border: 2px solid var(--mf-lip, rgb(255 255 255 / 0.4));
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.6);
+}
+
+/* Sides: linked objects between the corners. Bottom / right mirror top / left. */
+.mf-side {
+  background-position: 0 0;
+}
+
+.mf-side.mf-top,
+.mf-side.mf-bot {
+  left: var(--mf-c);
+  right: var(--mf-c);
+  height: var(--mf-bz);
+  background-image: var(--mf-h);
+  background-size: auto 100%;
+  background-repeat: round no-repeat;
+}
+
+.mf-side.mf-l,
+.mf-side.mf-r {
+  top: var(--mf-c);
+  bottom: var(--mf-c);
+  width: var(--mf-bz);
+  background-image: var(--mf-v);
+  background-size: 100% auto;
+  background-repeat: no-repeat round;
+}
+
+.mf-side.mf-top { top: 0; }
+.mf-side.mf-bot { bottom: 0; transform: scaleY(-1); }
+.mf-side.mf-l { left: 0; }
+.mf-side.mf-r { right: 0; transform: scaleX(-1); }
+
+/* Corners: one top-left SVG, mirrored. */
+.mf-c {
+  width: var(--mf-c);
+  height: var(--mf-c);
+  background: var(--mf-corner) center / 100% 100% no-repeat;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.5));
+}
+
+.mf-c.mf-nw { top: 0; left: 0; }
+.mf-c.mf-ne { top: 0; right: 0; transform: scaleX(-1); }
+.mf-c.mf-sw { bottom: 0; left: 0; transform: scaleY(-1); }
+.mf-c.mf-se { bottom: 0; right: 0; transform: scale(-1, -1); }
+
+/* Crest: rank emblem on the top trim; never deeper than the bezel + 3px. */
+.mf-crest {
+  top: 0;
+  left: 50%;
+  width: calc(var(--mf-bz) + 3px);
+  height: calc(var(--mf-bz) + 3px);
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.7) 60%, transparent);
+}
+
+.mf-crest img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.6));
+}
+
+.mf-crest .mf-halo {
+  opacity: 0.85;
+  animation: mf-spin 24s linear infinite;
+}
+
+.mf-crest .mf-halo + img {
+  inset: 13%;
+  width: 74%;
+  height: 74%;
+}
+
+/* Tier jewels on the bottom trim. */
+.mf-tier {
+  bottom: calc(var(--mf-bz) * 0.25);
+  left: 50%;
+  height: calc(var(--mf-bz) * 0.5);
+  transform: translateX(-50%);
+  display: flex !important;
+  gap: calc(var(--mf-bz) * 0.35);
+  padding: 0 calc(var(--mf-bz) * 0.3);
+  border-radius: 99px;
+  background: rgb(0 0 0 / 0.62);
+  box-shadow: 0 0 0 1px var(--mf-lip, rgb(255 255 255 / 0.3));
+}
+
+.mf-tier b {
+  width: calc(var(--mf-bz) * 0.5);
+  height: calc(var(--mf-bz) * 0.5);
+  border-radius: 50%;
+  background: var(--mf-gem-off, #111);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.5);
+}
+
+.mf-tier b.on {
+  background: radial-gradient(circle at 35% 30%, #fff 0 18%, var(--mf-gem, #eee) 45%, color-mix(in srgb, var(--mf-gem, #eee) 40%, #000) 100%);
+  box-shadow: 0 0 calc(var(--mf-bz) * 0.4) color-mix(in srgb, var(--mf-gem, #eee) 60%, transparent);
+}
+
+.mf-tier b.is-m {
+  width: calc(var(--mf-bz) * 0.6);
+  height: calc(var(--mf-bz) * 0.6);
+  margin-top: calc(var(--mf-bz) * -0.05);
+  border-radius: 0;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+}
+
+/* ---------- animated layers (DUO+) ---------- */
+
+.mf-sweep {
+  left: 0;
+  width: 22%;
+  height: var(--mf-bz);
+  background: linear-gradient(100deg, transparent, var(--mf-sweep, rgb(255 255 255 / 0.55)) 50%, transparent);
+  transform: translateX(-110%);
+  animation: mf-sweep var(--mf-sweep-t, 8s) cubic-bezier(0.45, 0.05, 0.3, 1) infinite;
+  will-change: transform;
+}
+
+.mf-sweep.mf-top { top: 0; }
+.mf-sweep.mf-bot { bottom: 0; animation-delay: calc(var(--mf-sweep-t, 8s) * -0.5); animation-direction: reverse; }
+
+@keyframes mf-sweep {
+  0%, 30% { transform: translateX(-110%); }
+  75%, 100% { transform: translateX(470%); }
+}
+
+.mf-glow {
+  inset: 0;
+  background: var(--mf-glow);
+  opacity: 0.2;
+  animation: mf-breathe 3.4s ease-in-out infinite;
+  will-change: opacity;
+}
+
+@keyframes mf-breathe {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.5; }
+}
+
+.mf-wave {
+  width: calc(var(--mf-c) * 2.4);
+  height: calc(var(--mf-c) * 2.4);
+  border-radius: 50%;
+  border: 2px solid rgb(226 180 255 / 0.9);
+  opacity: 0;
+  animation: mf-wave 3.2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+  will-change: transform, opacity;
+}
+
+.mf-wave.mf-nw { top: calc(var(--mf-c) * -1.2); left: calc(var(--mf-c) * -1.2); }
+.mf-wave.mf-se { bottom: calc(var(--mf-c) * -1.2); right: calc(var(--mf-c) * -1.2); animation-delay: -1.6s; }
+
+@keyframes mf-wave {
+  0% { opacity: 0; transform: scale(0.2); }
+  25% { opacity: 0.9; }
+  100% { opacity: 0; transform: scale(1.6); }
+}
+
+/* NEKONEČNO embers ride up the side bezels. Each <b> is lane-tall and draws
+   its ember at the bottom, so translateY(-%) moves it the whole height. */
+.mf-lane {
+  top: 0;
+  bottom: 0;
+  width: var(--mf-bz);
+}
+
+.mf-lane.mf-l { left: 0; }
+.mf-lane.mf-r { right: 0; }
+
+.mf-lane b {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle calc(var(--mf-bz) * 0.22) at var(--x, 50%) calc(100% - var(--mf-c)), #fff 0 25%, #ff7a4a 55%, transparent 100%);
+  opacity: 0;
+  animation: mf-ember var(--d, 4.6s) ease-out var(--w, 0s) infinite;
+  will-change: transform, opacity;
+}
+
+.mf-lane b:nth-child(1) { --x: 35%; --d: 4.2s; --w: 0s; }
+.mf-lane b:nth-child(2) { --x: 65%; --d: 5.1s; --w: -1.3s; }
+.mf-lane b:nth-child(3) { --x: 45%; --d: 4.7s; --w: -2.6s; }
+.mf-lane b:nth-child(4) { --x: 58%; --d: 5.6s; --w: -3.7s; }
+.mf-lane.mf-r b { animation-delay: calc(var(--w, 0s) - 0.9s); }
+
+@keyframes mf-ember {
+  0% { opacity: 0; transform: translateY(0); }
+  10% { opacity: 1; }
+  70% { opacity: 0.7; }
+  100% { opacity: 0; transform: translateY(-78%); }
+}
+
+@keyframes mf-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- rank materials ---------- */
+
+.mf-kredit {
+  --mf-accent: #8d939b;
+  --mf-rim:
+    radial-gradient(circle, rgb(0 0 0 / 0.3) 0 0.5px, transparent 0.9px) 0 0 / 3px 3px,
+    linear-gradient(180deg, #686e75, #3d4248 50%, #25292d);
+  --mf-lip: rgb(201 206 212 / 0.55);
+  --mf-gem: #eef0f3;
+  --mf-gem-off: #1a1e22;
+}
+
+.mf-sloboda {
+  --mf-accent: #c47a3a;
+  --mf-rim:
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.05) 0 1px, transparent 1px 3px),
+    linear-gradient(135deg, #6a3818, #3e1e0b 50%, #241005);
+  --mf-lip: rgb(255 207 158 / 0.6);
+  --mf-gem: #e6964e;
+  --mf-gem-off: #1a0d06;
+}
+
+.mf-smart {
+  --mf-accent: #b7c2ce;
+  --mf-rim: linear-gradient(180deg, #2a323c, #10151b 50%, #1c232b);
+  --mf-lip: rgb(232 238 245 / 0.75);
+  --mf-gem: #f4f7fb;
+  --mf-gem-off: #121820;
+}
+
+.mf-telka {
+  --mf-accent: #e2b01a;
+  --mf-rim: linear-gradient(180deg, #4a380c, #1d1604 55%, #120d03);
+  --mf-lip: #ffe27a;
+  --mf-gem: #ffd34a;
+  --mf-gem-off: #2a2310;
+}
+
+.mf-optika {
+  --mf-accent: #3ec6e0;
+  --mf-rim:
+    linear-gradient(135deg, rgb(217 247 255 / 0.18), transparent 35% 65%, rgb(217 247 255 / 0.12)),
+    linear-gradient(180deg, #0f4552, #052129 60%, #031419);
+  --mf-lip: #d9f7ff;
+  --mf-gem: #3ec6e0;
+  --mf-gem-off: #04161b;
+}
+
+.mf-optika .mf-rim {
+  box-shadow: inset 0 0 0 1px #c9a15a, inset 0 1px 0 rgb(255 255 255 / 0.5), inset 0 -2px 3px rgb(0 0 0 / 0.35);
+}
+
+.mf-duo {
+  --mf-accent: #6ea8ff;
+  --mf-rim:
+    repeating-linear-gradient(45deg, rgb(156 196 255 / 0.08) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, #33476a, #142039 60%, #0c1626);
+  --mf-lip: #e7f0ff;
+  --mf-gem: #9cc4ff;
+  --mf-gem-off: #0b1630;
+  --mf-sweep: rgb(231 240 255 / 0.6);
+  --mf-sweep-t: 8s;
+}
+
+.mf-fiveg {
+  --mf-accent: #c86bff;
+  --mf-rim:
+    linear-gradient(90deg, rgb(200 107 255 / 0.25), transparent 30% 70%, rgb(200 107 255 / 0.25)),
+    linear-gradient(180deg, #3a1660, #1c0833 50%, #0c0416);
+  --mf-lip: #c86bff;
+  --mf-gem: #e2b4ff;
+  --mf-gem-off: #12021f;
+  --mf-glow: linear-gradient(180deg, rgb(200 107 255 / 0.85), rgb(120 40 200 / 0.45));
+  --mf-sweep: rgb(246 229 255 / 0.7);
+  --mf-sweep-t: 6s;
+}
+
+.mf-nekonecno {
+  --mf-accent: #ff3b4e;
+  --mf-rim:
+    linear-gradient(180deg, rgb(255 59 78 / 0.18), transparent 40%),
+    linear-gradient(180deg, #2a070d, #0e0205);
+  --mf-lip: #ffd27a;
+  --mf-gem: #ff3b4e;
+  --mf-gem-off: #12030a;
+  --mf-glow: linear-gradient(180deg, rgb(255 59 78 / 0.8), rgb(255 160 80 / 0.45));
+  --mf-sweep: rgb(255 246 216 / 0.8);
+  --mf-sweep-t: 4.6s;
+}
+
+.mf-nekonecno .mf-rim {
+  box-shadow:
+    inset 0 0 0 1.5px #e0a540,
+    inset 0 0 0 3px rgb(200 20 44 / 0.7),
+    inset 0 1px 0 #fff6d8,
+    inset 0 -2px 3px rgb(0 0 0 / 0.4);
+}
+
+.mf-nekonecno .mf-lip {
+  box-shadow: 0 0 0 1px #c8142c, 0 0 0 2px rgb(0 0 0 / 0.6);
+}
+
+/* ---------- states ---------- */
+
+/* 4KA TV: the frame stays, but drops under the bed visualizer burst (z 6)
+   and dims its own motion so the bonus glow reads first. */
+.stage.in-fs .reel-frame {
+  --mf-z: 5;
+}
+
+.stage.in-fs .mf {
+  --mf-fx: 0.45;
+}
+
+.stage.is-rank-up .mf-sweep {
+  animation-duration: 0.9s;
+}
+
+.stage.is-boot .mf *,
+.stage.is-ticket .mf *,
+.stage.is-exekucia .mf * {
+  animation-play-state: paused;
+}
+
+/* Phones: the 6 px bezel grows to 10 px by spending 4 px of the free space
+   around the frame; padding grows by the same 4 px, so the reel window keeps
+   its exact size and position. */
+.stage.shell-mw .reel-frame:has(> .mf),
+.stage.shell-pwa .reel-frame:has(> .mf) {
+  --bz: 10px;
+  width: calc(min(100cqw, calc(100cqh * 6 / 5.45)) + 8px);
+  height: calc(min(100cqh, calc(100cqw * 5.45 / 6)) + 8px);
+  max-width: none;
+  max-height: none;
+  margin: -4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mf * {
+    animation: none !important;
+  }
+  .mf-sweep,
+  .mf-wave,
+  .mf-lane {
+    display: none !important;
+  }
+  .mf-glow {
+    opacity: 0.4;
+  }
+}

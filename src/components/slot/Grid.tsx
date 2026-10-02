@@ -37,6 +37,8 @@ interface Props {
   chaseTarget?: PayId | null;
   /** Symbol Finančná správa holds this ZÁSAH. Those cells wear the FS seal. */
   fsSym?: FsSymId | null;
+  /** Rank cabinet layer (MachineFrame), painted in the bezel only. */
+  frame?: import("react").ReactNode;
 }
 
 /** Reel strips and the board read the swapped symbol from here, so every CellView agrees. */
@@ -266,6 +268,7 @@ export function SlotGrid({
   windowPhase = "reveal",
   chaseTarget,
   fsSym = null,
+  frame = null,
 }: Props) {
   const [, names] = useState(0);
   useEffect(() => subscribeTicketNames(() => names((n) => n + 1)), []);
@@ -412,6 +415,7 @@ export function SlotGrid({
       onClick={onTap}
     >
       <div className="frame-skin" aria-hidden="true" />
+      {frame}
       <i className="frame-bolt nw" aria-hidden="true" />
       <i className="frame-bolt ne" aria-hidden="true" />
       <i className="frame-bolt sw" aria-hidden="true" />
