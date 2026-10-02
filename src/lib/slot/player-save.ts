@@ -1,5 +1,5 @@
 import { BETS, START_BALANCE, type PayId } from "./symbols.ts";
-import type { ChaseModKind } from "./zasah";
+import type { ChaseModKind, FsSymId } from "./zasah.ts";
 import { readChaseFields } from "./zasah.ts";
 import type { PityMap } from "./pick-bonus";
 import type { TierId } from "./jackpot";
@@ -53,6 +53,7 @@ export interface PlayerSave {
   klienti: number;
   chaseSpin: number;
   chaseTarget: PayId | null;
+  chaseFsSym: FsSymId | null;
   chaseHits: number;
   chaseStrikes: number;
   chaseMod: ChaseModKind | null;
@@ -106,6 +107,7 @@ export function emptyPlayerSave(): PlayerSave {
     klienti: 0,
     chaseSpin: -1,
     chaseTarget: null,
+    chaseFsSym: null,
     chaseHits: 0,
     chaseStrikes: 0,
     chaseMod: null,
@@ -305,6 +307,7 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   const chase = readChaseFields(r);
   s.chaseSpin = chase.chaseSpin;
   s.chaseTarget = chase.chaseTarget;
+  s.chaseFsSym = chase.chaseFsSym;
   s.chaseHits = chase.chaseHits;
   s.chaseStrikes = chase.chaseStrikes;
   const mod = r.chaseMod === "bezDane" || r.chaseMod === "danUrad" ? r.chaseMod : null;

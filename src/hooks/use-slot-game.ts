@@ -10,6 +10,7 @@ import {
   WIN_POP_X,
   PAY_SYMBOLS,
   SCATTER,
+  FS_SYMBOL,
   START_BALANCE,
   TICKETS,
   payName,
@@ -23,6 +24,7 @@ import {
   createRng,
   emptyGrid,
   evaluate,
+  withoutScatterPay,
   generateBuyGrid,
   generateGrid,
   findTicket,
@@ -46,7 +48,7 @@ import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDes
 import { putBoard, readBestMark, readBestRecipe, readNick, saveNick, skipNick, winHow, writeBestHow, writeBestRecipe } from "@/lib/slot/board-api";
 import { emptyTally, mergeTally, notePays, recipeTumbles, topCans, topPays, type SeqTally, type WinRecipe } from "@/lib/slot/win-recipe";
 import { HEAT_MAX, heatFromWin } from "@/lib/slot/heat";
-import { ZASAH, modMul, rollTarget, rollWindows, tickMod, windowCount, type ChaseMod, type ChaseModKind, type ChaseOutcome, type ChaseState, type HackWindow } from "@/lib/slot/zasah";
+import { ZASAH, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, tickMod, windowCount, type ChaseMod, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
 import { BUILD_ID, dropStaleCaches, hardReload, releaseMatches } from "@/lib/slot/release";
 import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, duelPot, duelCreditDelta, forfeitDuel, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
 import { duelForfeit, duelLeave, duelTick } from "@/lib/slot/duel-api";
@@ -321,6 +323,9 @@ export function useSlotGame() {
   const [windowPhase, setWindowPhase] = useState<"travel" | "hover" | "land" | "reveal">("reveal");
   const [chaseCard, setChaseCard] = useState<null | { outcome: ChaseOutcome; line: string; rp: number }>(null);
   const chaseCardRef = useRef(chaseCard);
+  /** Chase-start notice: which symbol Finančná správa took over. */
+  const [fsReveal, setFsReveal] = useState<null | { sym: FsSymId; key: number }>(null);
+  const fsRevealWait = useRef<(() => void) | null>(null);
   const [taxFly, setTaxFly] = useState<TaxFly | null>(null);
   const [taxKey, setTaxKey] = useState(0);
   const staleRef = useRef(false);
@@ -394,6 +399,7 @@ export function useSlotGame() {
         target: s.chaseTarget,
         hits: s.chaseHits,
         strikes: s.chaseStrikes,
+        fsSym: s.chaseFsSym,
       };
       chaseRef.current = restored;
       setChase(restored);
@@ -497,6 +503,7 @@ export function useSlotGame() {
       klienti: klientiRef.current,
       chaseSpin: chaseRef.current ? chaseRef.current.spin : -1,
       chaseTarget: chaseRef.current?.target ?? null,
+      chaseFsSym: chaseRef.current?.fsSym ?? null,
       chaseHits: chaseRef.current?.hits ?? 0,
       chaseStrikes: chaseRef.current?.strikes ?? 0,
       chaseMod: modRef.current?.kind ?? null,
@@ -591,6 +598,7 @@ export function useSlotGame() {
       klienti: klientiRef.current,
       chaseSpin: chaseRef.current ? chaseRef.current.spin : -1,
       chaseTarget: chaseRef.current?.target ?? null,
+      chaseFsSym: chaseRef.current?.fsSym ?? null,
       chaseHits: chaseRef.current?.hits ?? 0,
       chaseStrikes: chaseRef.current?.strikes ?? 0,
       chaseMod: modRef.current?.kind ?? null,
@@ -682,6 +690,7 @@ export function useSlotGame() {
       klienti: klientiRef.current,
       chaseSpin: chaseRef.current ? chaseRef.current.spin : -1,
       chaseTarget: chaseRef.current?.target ?? null,
+      chaseFsSym: chaseRef.current?.fsSym ?? null,
       chaseHits: chaseRef.current?.hits ?? 0,
       chaseStrikes: chaseRef.current?.strikes ?? 0,
       chaseMod: modRef.current?.kind ?? null,
@@ -1057,7 +1066,7 @@ export function useSlotGame() {
     }
     heatRef.current = 0;
     setHeat(0);
-    const next: ChaseState = { spin: 0, target: null, hits: 0, strikes: 0 };
+    const next: ChaseState = { spin: 0, target: null, hits: 0, strikes: 0, fsSym: rollFsSymbol(Math.random) };
     chaseRef.current = next;
     setChase(next);
     setHackWindows([]);
@@ -1069,6 +1078,28 @@ export function useSlotGame() {
     setMessage("ZÁSAH");
     sfx.playSiren();
     return true;
+  }, []);
+
+  const closeFsReveal = useCallback(() => {
+    const done = fsRevealWait.current;
+    fsRevealWait.current = null;
+    setFsReveal(null);
+    done?.();
+  }, []);
+
+  /** Holds the first chase spin while the notice plays. Tap / Space closes it early. */
+  const showFsReveal = useCallback((sym: FsSymId, hold: number) => {
+    return new Promise<void>((resolve) => {
+      fsRevealWait.current?.();
+      fsRevealWait.current = resolve;
+      setFsReveal({ sym, key: Date.now() });
+      window.setTimeout(() => {
+        if (fsRevealWait.current !== resolve) return;
+        fsRevealWait.current = null;
+        setFsReveal(null);
+        resolve();
+      }, hold);
+    });
   }, []);
 
   const noteHeat = useCallback((amount: number, bet: number, _hold = false) => {
@@ -1478,6 +1509,18 @@ export function useSlotGame() {
       }
       skipDuelTick.current = false;
       if (chasing) sfx.startChaseBed();
+      if (chasing && chaseRef.current && (!chaseRef.current.fsSym || (chaseRef.current.spin === 0 && !chaseRef.current.target))) {
+        // FS takes its symbol once per chase. A save from before this rule draws one on the next spin.
+        const live = chaseRef.current;
+        const fsSym = live.fsSym ?? rollFsSymbol(Math.random);
+        const drawn: ChaseState = { ...live, fsSym, target: live.target === fsSym ? null : live.target };
+        chaseRef.current = drawn;
+        setChase(drawn);
+        sfx.playStrike();
+        setTopLine(fsSym === "scatter" ? "FINANČNÁ SPRÁVA · BONUS ZABLOKOVANÝ" : `FINANČNÁ SPRÁVA SLEDUJE · ${fsSymName(fsSym)}`);
+        await showFsReveal(fsSym, abort.current.skip ? 900 : dur(3400));
+      }
+      const scatterBlocked = chasing && chaseRef.current?.fsSym === "scatter";
       setHackWindows([]);
       setActiveWindow(-1);
       setWindowPhase("reveal");
@@ -1552,7 +1595,7 @@ export function useSlotGame() {
       const already = performance.now() - spunAt;
       await wait(dur(Math.max(0, STOPS[0] - already)), abort.current);
       if (chasing && chaseRef.current && !chaseRef.current.target) {
-        const aimed = { ...chaseRef.current, target: rollTarget(Math.random) };
+        const aimed = { ...chaseRef.current, target: rollTarget(Math.random, chaseRef.current.fsSym) };
         chaseRef.current = aimed;
         setChase(aimed);
       }
@@ -1572,7 +1615,7 @@ export function useSlotGame() {
       let tMark = STOPS[0];
       for (let c = 1; c < 6; c++) {
         const inBonus = isFree || inFsRef.current;
-        if (landedScatters >= 2) {
+        if (landedScatters >= 2 && !scatterBlocked) {
           setAnticipate(true);
           setReelFast(true);
           if (!inBonus) {
@@ -1580,11 +1623,11 @@ export function useSlotGame() {
             sfx.startAnticipate();
           }
         }
-        const tease = landedScatters >= 3 ? 900 : landedScatters >= 2 ? 720 : 0;
+        const tease = scatterBlocked ? 0 : landedScatters >= 3 ? 900 : landedScatters >= 2 ? 720 : 0;
         await wait(dur(STOPS[c] - tMark) + tease, abort.current);
         tMark = STOPS[c];
         setStoppedCols(c + 1);
-        sfx.setSpinEnergy(landedScatters >= 2 && !(isFree || inFsRef.current) ? 0.08 : 1 - (c + 1) / 6);
+        sfx.setSpinEnergy(landedScatters >= 2 && !scatterBlocked && !(isFree || inFsRef.current) ? 0.08 : 1 - (c + 1) / 6);
         sfx.playLand(c);
         const colN = next.reduce((n, row) => n + (row[c].kind === "scatter" ? 1 : 0), 0);
         if (colN > 0) {
@@ -1639,12 +1682,12 @@ export function useSlotGame() {
       const payHits = new Set<PayId>();
       const tally = emptyTally();
       const fsNow = isFree || inFsRef.current;
-      if (!fsNow && scatterPeak >= FS_TRIGGER_SCATTERS) pendingFs = true;
+      if (!fsNow && !scatterBlocked && scatterPeak >= FS_TRIGGER_SCATTERS) pendingFs = true;
       const DEAD = ["RAMPA STOJÍ", "VALCE SPALI", "NIČ. ZNOVA.", "POKUTA BEZ LÍSTKA", "ZÓNA TICHÁ"];
 
       for (;;) {
         setPhase("eval");
-        const ev = evaluate(board);
+        const ev = scatterBlocked ? withoutScatterPay(evaluate(board)) : evaluate(board);
         scatterPeak = Math.max(scatterPeak, ev.scatterCount);
         const cl = ev.wins.filter((w) => w.payId !== "scatter").length;
         clusterCount += cl;
@@ -1663,7 +1706,7 @@ export function useSlotGame() {
           }
         }
 
-        if (!fsNow && scatterPeak >= FS_TRIGGER_SCATTERS) {
+        if (!fsNow && !scatterBlocked && scatterPeak >= FS_TRIGGER_SCATTERS) {
           pendingFs = true;
           setTopLine(`${scatterPeak}× 4KA TV`);
         } else if (fsNow && scatterPeak >= FS_RETRIGGER_SCATTERS && !retriggered) {
@@ -1675,7 +1718,7 @@ export function useSlotGame() {
           setTopLine(`+${FS_RETRIGGER} 4KA TV`);
         }
 
-        const sPay = scatterPay(ev.scatterCount);
+        const sPay = scatterBlocked ? 0 : scatterPay(ev.scatterCount);
         const clusterX = ev.winX - sPay;
         const scatterDelta = Math.max(0, sPay - scatterPayLocked);
         scatterPayLocked = Math.max(scatterPayLocked, sPay);
@@ -1702,9 +1745,11 @@ export function useSlotGame() {
         if (main) {
           const rows = ranked.map((w) => {
             const src =
-              w.payId === "scatter"
-                ? SCATTER.src
-                : (PAY_SYMBOLS.find((p) => p.id === w.payId)?.src ?? PAY_SYMBOLS[0].src);
+              chasing && w.payId === chaseRef.current?.fsSym
+                ? FS_SYMBOL.src
+                : w.payId === "scatter"
+                  ? SCATTER.src
+                  : (PAY_SYMBOLS.find((p) => p.id === w.payId)?.src ?? PAY_SYMBOLS[0].src);
             const amt = formatMoney(+(w.payX * currentBet).toFixed(2));
             return { count: w.count, src, amount: amt, payX: w.payX, cells: w.cells };
           });
@@ -1774,7 +1819,7 @@ export function useSlotGame() {
         await wait(dur(80), abort.current);
       }
 
-      if (!fsNow && scatterPeak >= FS_TRIGGER_SCATTERS) pendingFs = true;
+      if (!fsNow && !scatterBlocked && scatterPeak >= FS_TRIGGER_SCATTERS) pendingFs = true;
       if (pendingFs) triggerScatterRef.current = scatterPeak;
       if (fsNow && scatterPeak >= FS_RETRIGGER_SCATTERS && !retriggered) {
         retriggered = true;
@@ -1911,7 +1956,7 @@ export function useSlotGame() {
           reveal();
           if (w.result === "hit") sfx.playHack();
           else if (w.result === "fs") sfx.playStrike();
-          // Land holds long enough for the corner snap, flicker and the FS badge drop.
+          // Land holds long enough for the corner snap and the FS seal stamp.
           await wait(dur(260 * slow), abort.current);
           setWindowPhase("reveal");
           await wait(dur(200 * slow), abort.current);
@@ -1923,7 +1968,7 @@ export function useSlotGame() {
           chaseEnded = true;
           endChase(rolled.outcome ?? "neutral", currentBet);
         } else {
-          const nextChase: ChaseState = { ...rolled.next, spin: played, target: rollTarget(Math.random) };
+          const nextChase: ChaseState = { ...rolled.next, spin: played, target: rollTarget(Math.random, rolled.next.fsSym) };
           chaseRef.current = nextChase;
           setChase(nextChase);
           persistNow();
@@ -2111,7 +2156,7 @@ export function useSlotGame() {
       setPhase("idle");
       if (chaseRef.current) {
         const c = chaseRef.current;
-        setTopLine(`ZÁSAH · SPIN ${c.spin + 1}/10 · HACK ${c.hits}/4 · FS ${c.strikes}/3`);
+        setTopLine(`ZÁSAH · SPIN ${c.spin + 1}/10 · HACK ${c.hits}/4 · FS ${c.strikes}/3${c.fsSym ? ` · FS = ${fsSymName(c.fsSym)}` : ""}`);
         setMessage(`ZÁSAH · ${c.target ? payName(c.target) : "CIEĽ"}`);
       } else {
         setTopLine(
@@ -2128,7 +2173,7 @@ export function useSlotGame() {
       if (pendingPick) return "pick";
       return "ok";
     },
-    [dur, waitForBanner, pushRank, noteResult, feedPool, runTicket, settleJob, armChase, endChase, noteHeat, persistNow],
+    [dur, waitForBanner, pushRank, noteResult, feedPool, runTicket, settleJob, armChase, endChase, noteHeat, persistNow, showFsReveal],
   );
 
   const settleDuel = useCallback((d: Duel) => {
@@ -2752,6 +2797,11 @@ export function useSlotGame() {
         closeBanner();
         return;
       }
+      if (fsRevealWait.current && (e.code === "Space" || e.code === "Enter" || e.code === "Escape")) {
+        e.preventDefault();
+        closeFsReveal();
+        return;
+      }
       if (chaseCardRef.current && (e.code === "Space" || e.code === "Enter" || e.code === "Escape")) {
         chaseCardRef.current = null;
         setChaseCard(null);
@@ -2769,7 +2819,7 @@ export function useSlotGame() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [started, playRound, stopReels, closeBanner, finishPick]);
+  }, [started, playRound, stopReels, closeBanner, finishPick, closeFsReveal]);
 
   const duelSpinOpen = Boolean(
     duel && duel.kind === "online" && duel.phase === "play" && !busy && !inFs && canDuelSpin(duel),
@@ -2880,6 +2930,8 @@ export function useSlotGame() {
     },
     chaseMod,
     chaseCard,
+    fsReveal,
+    dismissFsReveal: closeFsReveal,
     dismissChaseCard: () => {
       chaseCardRef.current = null;
       setChaseCard(null);

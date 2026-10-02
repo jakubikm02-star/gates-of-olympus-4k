@@ -263,6 +263,15 @@ export function evaluate(grid: Cell[][]): {
   return { wins, winX, scatterCount, multipliers, winMask, nearMiss };
 }
 
+/** ZÁSAH with 4KA TV under Finančná správa: the scatter win row, its pay and its highlight are dropped. */
+export function withoutScatterPay<T extends { wins: LineWin[]; winX: number; winMask: boolean[][] }>(ev: T): T {
+  const sc = ev.wins.find((w) => w.payId === "scatter");
+  if (!sc) return ev;
+  const winMask = ev.winMask.map((row) => [...row]);
+  for (const p of sc.cells) winMask[p.r][p.c] = false;
+  return { ...ev, wins: ev.wins.filter((w) => w !== sc), winX: ev.winX - sc.payX, winMask };
+}
+
 export function punchHoles(grid: Cell[][], winMask: boolean[][]): Cell[][] {
   return grid.map((row, r) => row.map((cell, c) => (winMask[r][c] ? { ...cell, gone: true } : { ...cell, gone: false })));
 }
@@ -400,7 +409,15 @@ export interface PaidSpin {
 
 export function resolvePaidSpin(
   rng: () => number,
-  opts: { ante: boolean; buy?: boolean; free?: boolean; globalMult: number; capRemain?: number },
+  opts: {
+    ante: boolean;
+    buy?: boolean;
+    free?: boolean;
+    globalMult: number;
+    capRemain?: number;
+    /** ZÁSAH with 4KA TV under Finančná správa: scatters neither pay nor trigger free spins. */
+    blockScatter?: boolean;
+  },
 ): PaidSpin {
   const ante = opts.buy || opts.free ? false : opts.ante;
   let board = opts.buy ? generateBuyGrid(rng) : generateGrid(rng, ante, !!opts.free);
@@ -435,8 +452,9 @@ export function resolvePaidSpin(
       const idx = PAY_SYMBOLS.findIndex((p) => p.id === w.payId);
       if (idx >= 0) symbolMask |= 1 << idx;
     }
-    const sPay = scatterPay(ev.scatterCount);
-    const clusterX = ev.winX - sPay;
+    const rawScatter = scatterPay(ev.scatterCount);
+    const clusterX = ev.winX - rawScatter;
+    const sPay = opts.blockScatter ? 0 : rawScatter;
     const scatterDelta = Math.max(0, sPay - scatterPayLocked);
     scatterPayLocked = Math.max(scatterPayLocked, sPay);
     const winX = clusterX + scatterDelta;
@@ -480,7 +498,7 @@ export function resolvePaidSpin(
     hitMax = true;
   }
 
-  const triggeredFs = !opts.free && scatterPeak >= FS_TRIGGER_SCATTERS;
+  const triggeredFs = !opts.free && !opts.blockScatter && scatterPeak >= FS_TRIGGER_SCATTERS;
   const retrigger = !!opts.free && scatterPeak >= FS_RETRIGGER_SCATTERS;
   const deadOrbs = sequenceX <= 0 ? listOrbs(board).length : 0;
 

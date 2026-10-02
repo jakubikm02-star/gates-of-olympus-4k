@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import { Volume2, VolumeX, Info, RefreshCw, Menu, Settings as SettingsIcon, Trophy } from "lucide-react";
-import { START_BALANCE, BETS, PAY_SYMBOLS, canSrc, canTier } from "@/lib/slot/symbols";
+import { START_BALANCE, BETS, PAY_SYMBOLS, FS_SYMBOL, canSrc, canTier } from "@/lib/slot/symbols";
+import { fsSymName, fsSymSrc, type FsSymId } from "@/lib/slot/zasah";
+import { FsReveal } from "./FsReveal";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
 import { jobClock, jobMeter, jobProgress, jobShownGoal, sayCluster, type JobCard } from "@/lib/slot/spend";
@@ -144,6 +146,19 @@ function HoldSpin({
     >
       <RefreshCw size={34} strokeWidth={2.6} />
     </button>
+  );
+}
+
+/** Chase HUD: which symbol is Finančná správa this round. */
+function FsChip({ sym, full }: { sym: FsSymId; full?: boolean }) {
+  const name = fsSymName(sym);
+  return (
+    <span className={`chase-fs${sym === "scatter" ? " is-blocked" : ""}${full ? " is-full" : ""}`} aria-label={`Finančná správa: ${name}`} title={`FS = ${name}`}>
+      <img src={fsSymSrc(sym)} alt="" />
+      <i aria-hidden="true" />
+      <img src={FS_SYMBOL.src} alt="" />
+      {full ? <em>{sym === "scatter" ? "FS · BONUS STOP" : `FS = ${name}`}</em> : <em>FS</em>}
+    </span>
   );
 }
 
@@ -418,6 +433,7 @@ export function SlotGame() {
                               <i key={`f${i}`} className={i < chase.strikes ? "is-fs" : ""} />
                             ))}
                           </span>
+                          {chase.fsSym ? <FsChip sym={chase.fsSym} /> : null}
                           <b>
                             SPIN {Math.min(chase.total, chase.spin + 1)}/{chase.total}
                           </b>
@@ -463,6 +479,7 @@ export function SlotGame() {
               activeWindow={g.chase?.activeWindow}
               windowPhase={g.chase?.phase}
               chaseTarget={g.chase?.target}
+              fsSym={g.chase?.fsSym ?? null}
             />
             {g.flies.map((f) => (
               <span
@@ -818,6 +835,7 @@ export function SlotGame() {
                     <i key={`f${i}`} className={i < chase.strikes ? "is-fs" : ""} />
                   ))}
                 </div>
+                {chase.fsSym ? <FsChip sym={chase.fsSym} full /> : null}
                 <b>
                   SPIN {Math.min(chase.total, chase.spin + 1)}/{chase.total}
                 </b>
@@ -848,6 +866,7 @@ export function SlotGame() {
           onAnte={() => g.setAnte(true)}
         />
       ) : null}
+      {g.fsReveal ? <FsReveal key={g.fsReveal.key} sym={g.fsReveal.sym} onClose={g.dismissFsReveal} /> : null}
       {g.chaseCard ? (
         <div className={`chase-end is-${g.chaseCard.outcome}`} role="dialog" aria-label={g.chaseCard.line}>
           <p>{g.chaseCard.outcome === "escape" ? "UNIKOL SI" : g.chaseCard.outcome === "unik" ? "DAŇOVÝ ÚNIK" : "TAK-TAK"}</p>

@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { COLS, ROWS, symbolSrc, ticketArt, canTier, FS_SYMBOL, PAY_SYMBOLS, TICKETS, type Cell, type PayId } from "@/lib/slot/symbols";
-import type { HackWindow } from "@/lib/slot/zasah";
+import { isFsCell, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
 import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
 import { CanFx, CanValue } from "./Can";
 
@@ -35,7 +35,12 @@ interface Props {
   activeWindow?: number;
   windowPhase?: "travel" | "hover" | "land" | "reveal";
   chaseTarget?: PayId | null;
+  /** Symbol Finančná správa holds this ZÁSAH. Those cells wear the FS seal. */
+  fsSym?: FsSymId | null;
 }
+
+/** Reel strips and the board read the swapped symbol from here, so every CellView agrees. */
+const FsSymContext = createContext<FsSymId | null>(null);
 
 function CellView({
   cell,
@@ -68,6 +73,8 @@ function CellView({
   tumbleFall: number;
   ticketLock?: boolean;
 }) {
+  const fsSym = useContext(FsSymContext);
+  const fsCell = isFsCell(cell, fsSym);
   const ticketId = cell.ticket ?? "stat";
   const ticketCustom = cell.kind === "park" && ticketLabel(ticketId) !== TICKETS[ticketId].name;
   const style = {
@@ -82,6 +89,7 @@ function CellView({
         cell.gone ? "is-hole" : "",
         win ? "is-win" : "",
         cell.kind === "scatter" ? "is-scatter" : "",
+        fsCell ? "is-fs-sym" : "",
         cell.kind === "park" ? `is-park is-ticket-${cell.ticket ?? "stat"}` : "",
         cell.kind === "mult" ? `is-mult can-t${canTier(cell.mult ?? 2)}` : "",
         ticketLock && cell.kind !== "park" ? "is-dim" : "",
@@ -100,13 +108,13 @@ function CellView({
     >
       {!cell.gone && (
         <img
-          src={cell.kind === "park" ? ticketArt(ticketId, ticketCustom) : symbolSrc(cell)}
+          src={fsCell ? FS_SYMBOL.src : cell.kind === "park" ? ticketArt(ticketId, ticketCustom) : symbolSrc(cell)}
           alt=""
           draggable={false}
           className="cell-img"
         />
       )}
-      {!cell.gone && cell.kind === "scatter" && <span className="scatter-label">SCATTER</span>}
+      {!cell.gone && cell.kind === "scatter" && !fsCell && <span className="scatter-label">SCATTER</span>}
       {!cell.gone && cell.kind === "park" && ticketCustom && (
         <span className="scatter-label">{ticketLabel(ticketId)}</span>
       )}
@@ -257,8 +265,8 @@ export function SlotGrid({
   activeWindow = -1,
   windowPhase = "reveal",
   chaseTarget,
+  fsSym = null,
 }: Props) {
-  const [fsMiss, setFsMiss] = useState(false);
   const [, names] = useState(0);
   useEffect(() => subscribeTicketNames(() => names((n) => n + 1)), []);
   const cascading = spinning || landing;
@@ -397,8 +405,9 @@ export function SlotGrid({
   }, [token, reduced]);
 
   return (
+    <FsSymContext.Provider value={fsSym}>
     <div
-      className="reel-frame"
+      className={`reel-frame${fsSym ? " has-fs-sym" : ""}`}
       aria-label="Herné pole 6×5"
       onClick={onTap}
     >
@@ -520,8 +529,6 @@ export function SlotGrid({
                   w={w}
                   state={hackState(i, activeWindow, windowPhase)}
                   target={target ? { src: target.src, name: target.name } : null}
-                  fsMiss={fsMiss}
-                  onFsMiss={() => setFsMiss(true)}
                 />
               );
             })}
@@ -529,6 +536,7 @@ export function SlotGrid({
         ) : null}
       </div>
     </div>
+    </FsSymContext.Provider>
   );
 }
 
@@ -548,14 +556,10 @@ function HackFrame({
   w,
   state,
   target,
-  fsMiss,
-  onFsMiss,
 }: {
   w: HackWindow;
   state: HackState;
   target: { src: string; name: string } | null;
-  fsMiss: boolean;
-  onFsMiss: () => void;
 }) {
   // One painted frame at the origin so the transform transition actually runs.
   const [launched, setLaunched] = useState(state !== "travel");
@@ -603,12 +607,8 @@ function HackFrame({
       <b className="hw-c hw-br" />
       <span className="hw-sweep" />
       {showResult && w.result === "hit" && w.lock && target ? <img className="hw-sym" src={target.src} alt={target.name} /> : null}
-      {showResult && w.result === "fs" ? (
-        <span className="fs-drop">
-          {!fsMiss ? <img src={FS_SYMBOL.src} alt="FS" onError={onFsMiss} /> : null}
-          <em className="mult-tag">FS</em>
-        </span>
-      ) : null}
+      {/* The cell already wears the FS seal: the strike is a red lock and a shock ring, nothing drops in. */}
+      {showResult && w.result === "fs" ? <span className="hw-fs-ring" /> : null}
       {showResult ? <b className="hw-tag">{w.result === "hit" ? "HACK" : w.result === "fs" ? "FS" : "MIMO"}</b> : null}
     </i>
   );

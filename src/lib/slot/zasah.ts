@@ -1,4 +1,4 @@
-import { COLS, PAY_SYMBOLS, type Cell, type PayId } from "./symbols.ts";
+import { COLS, FS_SYMBOL, PAY_SYMBOLS, SCATTER, type Cell, type PayId } from "./symbols.ts";
 
 /** Chase boost is 1.15 so the feature lands near 98% RTP. */
 export const ZASAH = {
@@ -8,13 +8,53 @@ export const ZASAH = {
   HITS: 4,
   STRIKES: 3,
   LOCK_P: 0.105,
-  FS_P: 0.067,
   WINDOWS: [1, 1, 1, 2, 2, 2, 2, 3, 3, 3] as const,
   MOD_SPINS: 15,
   ESCAPE_MUL: 1.23,
   UNIK_MUL: 0.77,
   RP: { escape: 40, neutral: 10, unik: -30 },
 } as const;
+
+/** A symbol Finančná správa takes over for one ZÁSAH: any pay symbol or the 4KA TV scatter. */
+export type FsSymId = PayId | "scatter";
+
+/**
+ * Draw weights for the FS symbol at chase start. Equal by default; tune here.
+ * The strike chance per window follows how often that symbol is on the final board,
+ * so the cheap symbols are the most dangerous and 4KA TV (rarest) the safest.
+ */
+export const FS_DRAW: readonly { id: FsSymId; w: number }[] = [
+  ...PAY_SYMBOLS.map((p) => ({ id: p.id as FsSymId, w: 1 })),
+  { id: "scatter", w: 1 },
+];
+
+export function rollFsSymbol(rng: () => number): FsSymId {
+  let total = 0;
+  for (const d of FS_DRAW) total += d.w;
+  let r = rng() * total;
+  for (const d of FS_DRAW) {
+    r -= d.w;
+    if (r < 0) return d.id;
+  }
+  return FS_DRAW[FS_DRAW.length - 1].id;
+}
+
+export function fsSymName(id: FsSymId): string {
+  if (id === "scatter") return SCATTER.name;
+  return PAY_SYMBOLS.find((p) => p.id === id)?.name ?? id;
+}
+
+export function fsSymSrc(id: FsSymId): string {
+  if (id === "scatter") return SCATTER.src;
+  return PAY_SYMBOLS.find((p) => p.id === id)?.src ?? FS_SYMBOL.src;
+}
+
+/** True when this cell is the symbol Finančná správa holds this ZÁSAH. */
+export function isFsCell(cell: Cell | undefined, fsSym: FsSymId | null | undefined): boolean {
+  if (!cell || !fsSym) return false;
+  if (fsSym === "scatter") return cell.kind === "scatter";
+  return cell.kind === "pay" && cell.payId === fsSym;
+}
 
 export type ChaseOutcome = "escape" | "unik" | "neutral";
 export type ChaseModKind = "bezDane" | "danUrad";
@@ -24,6 +64,8 @@ export interface ChaseState {
   target: PayId | null;
   hits: number;
   strikes: number;
+  /** Symbol swapped to Finančná správa for the whole chase. Drawn once at the start. */
+  fsSym?: FsSymId | null;
 }
 
 export interface ChaseMod {
@@ -38,8 +80,10 @@ export interface HackWindow {
   lock: boolean;
 }
 
-export function rollTarget(rng: () => number): PayId {
-  return PAY_SYMBOLS[Math.floor(rng() * PAY_SYMBOLS.length)].id;
+/** The target is never the FS symbol: 8 choices when FS holds a pay symbol, 9 when it holds 4KA TV. */
+export function rollTarget(rng: () => number, fsSym?: FsSymId | null): PayId {
+  const pool = fsSym && fsSym !== "scatter" ? PAY_SYMBOLS.filter((p) => p.id !== fsSym) : PAY_SYMBOLS;
+  return pool[Math.floor(rng() * pool.length)].id;
 }
 
 export function windowCount(spinIdx: number): 1 | 2 | 3 {
@@ -84,7 +128,8 @@ export function rollWindows(
     const row = board[Math.floor(cell / COLS)];
     const tile = row?.[cell % COLS];
     const natural = tile?.kind === "pay" && tile.payId === s.target;
-    if (rng() < ZASAH.FS_P) {
+    // A window on the FS symbol is a strike. It wins over the lock-on roll.
+    if (isFsCell(tile, s.fsSym)) {
       strikes += 1;
       windows.push({ cell, hover, result: "fs", lock: false });
       if (strikes >= ZASAH.STRIKES) outcome = "unik";
@@ -121,6 +166,7 @@ export function readChaseFields(raw: Record<string, unknown>): {
   chaseTarget: PayId | null;
   chaseHits: number;
   chaseStrikes: number;
+  chaseFsSym: FsSymId | null;
 } {
   const ids = new Set(PAY_SYMBOLS.map((p) => p.id));
   const hadChase = Object.prototype.hasOwnProperty.call(raw, "chaseSpin");
@@ -128,10 +174,13 @@ export function readChaseFields(raw: Record<string, unknown>): {
   if (hadChase) chaseSpin = Math.min(10, Math.max(-1, Math.floor(readNum(raw.chaseSpin, -1))));
   else if (Math.floor(readNum(raw.pursuitLeft, 0)) > 0) chaseSpin = 0;
   const targetOk = typeof raw.chaseTarget === "string" && ids.has(raw.chaseTarget as PayId);
+  const fsOk = raw.chaseFsSym === "scatter" || (typeof raw.chaseFsSym === "string" && ids.has(raw.chaseFsSym as PayId));
+  const fsSym = chaseSpin >= 0 && fsOk ? (raw.chaseFsSym as FsSymId) : null;
   return {
     chaseSpin,
-    chaseTarget: chaseSpin >= 0 && targetOk ? (raw.chaseTarget as PayId) : null,
+    chaseTarget: chaseSpin >= 0 && targetOk && raw.chaseTarget !== fsSym ? (raw.chaseTarget as PayId) : null,
     chaseHits: chaseSpin >= 0 ? Math.min(3, Math.max(0, Math.floor(readNum(raw.chaseHits, 0)))) : 0,
     chaseStrikes: chaseSpin >= 0 ? Math.min(2, Math.max(0, Math.floor(readNum(raw.chaseStrikes, 0)))) : 0,
+    chaseFsSym: fsSym,
   };
 }

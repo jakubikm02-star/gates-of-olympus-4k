@@ -1134,43 +1134,14 @@
     0 1px 2px #000;
 }
 
-/* FS badge falls into the window on the same curve as a thrown can (cell-drop). */
-.fs-drop {
-  inset: 6%;
-  display: grid;
-  place-items: center;
-  animation: fs-drop 0.32s cubic-bezier(0.42, 0, 1, 1) both;
-  will-change: transform;
-}
-
-.fs-drop img {
-  width: 92%;
-  height: 92%;
-  object-fit: contain;
-  filter: drop-shadow(0 4px 6px rgb(0 0 0 / 0.6));
-}
-
-.fs-drop .mult-tag {
-  position: absolute;
-  right: -2%;
-  top: -2%;
-  padding: 0 4px;
-  font: 800 10px/1.4 Oswald, sans-serif;
-  font-style: normal;
-  color: #fff;
-  background: #e24a12;
-  border-radius: 3px;
-  box-shadow: 0 0 8px #e24a12;
-}
-
-.fs-drop::after {
-  content: "";
-  position: absolute;
-  inset: 0;
+/* FS strike: the cell already wears the seal, so the window only fires a shock ring. */
+.hw-fs-ring {
+  inset: 4%;
   border-radius: 50%;
   border: 2px solid #ff5a1f;
+  box-shadow: 0 0 12px rgb(255 90 31 / 0.7);
   opacity: 0;
-  animation: fs-shock 0.42s ease-out 0.3s both;
+  animation: fs-shock 0.46s ease-out both;
 }
 
 @keyframes hw-rain { to { transform: translate3d(0, 50%, 0); } }
@@ -1205,12 +1176,6 @@
   50% { transform: translate(-2px, 0); opacity: 0.6; }
   75% { transform: translate(1px, 0) skewX(4deg); opacity: 1; }
   100% { transform: none; opacity: 1; }
-}
-@keyframes fs-drop {
-  0% { transform: translateY(calc(var(--fall, 3) * -105%)) rotate(-18deg); opacity: 0.4; }
-  78% { transform: translateY(3%) scale(1.06, 0.9) rotate(2deg); opacity: 1; }
-  90% { transform: translateY(-3%) scale(0.98, 1.03); }
-  100% { transform: none; }
 }
 @keyframes fs-shock {
   0% { transform: scale(0.5); opacity: 0.9; }
@@ -9996,4 +9961,342 @@ html:-webkit-full-screen {
   font-variant-numeric: tabular-nums;
   color: inherit;
   white-space: nowrap;
+}
+
+/* ===== ZÁSAH v3 · Finančná správa takes one symbol ===== */
+.cell.is-fs-sym .cell-img {
+  filter: drop-shadow(0 0 5px rgb(255 206 84 / 0.55)) drop-shadow(0 2px 3px rgb(0 0 0 / 0.6));
+}
+.cell.is-fs-sym::after {
+  content: "";
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(255 92 40 / 0.22), transparent 68%);
+  pointer-events: none;
+}
+
+.chase-fs {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px 2px 3px;
+  border-radius: 999px;
+  border: 1px solid rgb(240 196 25 / 0.75);
+  background: linear-gradient(180deg, #2a1608, #120a04);
+  color: #ffe9a8;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.5), 0 0 8px rgb(255 120 40 / 0.35);
+}
+.chase-fs img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+.chase-fs img:first-child {
+  opacity: 0.7;
+  filter: grayscale(0.6);
+}
+.chase-fs i {
+  width: 6px;
+  height: 6px;
+  border-top: 2px solid #f0c419;
+  border-right: 2px solid #f0c419;
+  transform: rotate(45deg);
+}
+.chase-fs em {
+  font: 800 10px/1 Oswald, sans-serif;
+  font-style: normal;
+  letter-spacing: 0.08em;
+}
+.chase-fs.is-blocked {
+  border-color: #ff5a1f;
+  color: #ffd2bf;
+}
+.chase-ticket .chase-fs.is-full {
+  display: flex;
+  margin: 8px 0 2px;
+  width: 100%;
+  justify-content: center;
+  color: #ffe9a8;
+}
+.chase-ticket .chase-fs.is-full {
+  flex-wrap: wrap;
+  border-radius: 10px;
+  padding: 4px 6px;
+}
+.chase-ticket .chase-fs.is-full em {
+  flex: 1 0 100%;
+  margin: 3px 0 0;
+  font-family: Oswald, sans-serif;
+  font-size: 10.5px;
+  line-height: 1.15;
+  text-align: center;
+}
+/* Phone ticker stays one line: the chip drops its text and the SPIN count (already in the ZÁSAH bar) yields. */
+.chase-mini .chase-fs {
+  gap: 2px;
+  padding: 1px 4px 1px 2px;
+}
+.chase-mini .chase-fs em {
+  display: none;
+}
+.chase-mini .chase-fs img {
+  width: 18px;
+  height: 18px;
+}
+.chase-mini:has(.chase-fs) > b {
+  display: none;
+}
+
+/* Chase-start notice */
+.fs-reveal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: radial-gradient(ellipse at 50% 42%, rgb(40 8 4 / 0.55), rgb(0 0 0 / 0.78) 70%);
+  animation: fsr-fade 0.25s ease-out both;
+}
+.fsr-card {
+  --fsr: #f0c419;
+  --fsr-hot: #ff5a1f;
+  position: relative;
+  width: min(340px, 92vw);
+  padding: 18px 18px 16px;
+  text-align: center;
+  color: #f4f1e6;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.05), transparent 30%),
+    linear-gradient(160deg, #1a0f08 0%, #0c0a0a 55%, #170606 100%);
+  clip-path: polygon(8% 0, 60% 0, 64% 4px, 92% 4px, 100% 7%, 100% 62%, 99% 65%, 99% 92%, 92% 100%, 36% 100%, 32% calc(100% - 4px), 8% calc(100% - 4px), 0 93%, 0 36%, 1px 33%, 1px 8%);
+  animation: fsr-in 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+}
+.fsr-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  fill: none;
+  stroke: var(--fsr);
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 4px rgb(240 196 25 / 0.55));
+}
+.fsr-frame path:first-child {
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.fsr-tick {
+  stroke: var(--fsr-hot);
+  stroke-width: 3;
+}
+.fsr-kicker {
+  margin: 0;
+  font: 700 10px/1 "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.28em;
+  color: #ff9a6a;
+}
+.fsr-stage {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  margin: 12px auto 10px;
+  perspective: 700px;
+}
+.fsr-flip {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: fsr-flip 1.5s cubic-bezier(0.55, 0, 0.2, 1) 0.55s both;
+}
+.fsr-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  backface-visibility: hidden;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.fsr-front {
+  background: radial-gradient(circle at 50% 40%, #3b2a12, #120c06 72%);
+  box-shadow: inset 0 0 0 2px rgb(240 196 25 / 0.6);
+  animation: fsr-jitter 0.5s steps(6, jump-none) 0.15s 2 both;
+}
+.fsr-back {
+  transform: rotateY(180deg);
+  background: radial-gradient(circle at 50% 45%, #3a0e06, #110505 72%);
+  box-shadow: inset 0 0 0 2px var(--fsr-hot), 0 0 22px rgb(255 90 31 / 0.45);
+}
+.fsr-face img {
+  width: 84%;
+  height: 84%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 6px rgb(0 0 0 / 0.6));
+}
+.fsr-glitch {
+  position: absolute;
+  inset: 8%;
+  background: var(--src) center / contain no-repeat;
+  mix-blend-mode: screen;
+  opacity: 0;
+  filter: hue-rotate(150deg) saturate(3);
+  animation: fsr-split 0.5s steps(5, jump-none) 0.15s 2 both;
+}
+.fsr-scan {
+  position: absolute;
+  left: -8%;
+  right: -8%;
+  top: 0;
+  height: 12%;
+  z-index: 2;
+  background: linear-gradient(180deg, transparent, rgb(255 120 60 / 0.75), transparent);
+  opacity: 0;
+  animation: fsr-scan 0.9s linear 0.1s 1 both;
+}
+.fsr-ring {
+  position: absolute;
+  inset: -6%;
+  border-radius: 50%;
+  border: 2px solid var(--fsr-hot);
+  opacity: 0;
+  animation: fs-shock 0.6s ease-out 1.9s both;
+}
+.fsr-title {
+  margin: 0;
+  font: 800 13px/1.15 Oswald, var(--font-display), sans-serif;
+  letter-spacing: 0.2em;
+  color: var(--fsr);
+  animation: fsr-rise 0.4s ease-out 1.9s both;
+}
+.fsr-name {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+  font: 800 1.15rem/1.1 Oswald, sans-serif;
+  letter-spacing: 0.02em;
+  animation: fsr-rise 0.4s ease-out 2s both;
+}
+.fsr-name img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+.fsr-name i {
+  font-style: normal;
+  color: var(--fsr);
+}
+.fsr-name span {
+  color: var(--fsr-hot);
+}
+.fsr-rule {
+  margin: 8px 4px 0;
+  font: 500 11.5px/1.35 "IBM Plex Mono", ui-monospace, monospace;
+  color: #d9d2c0;
+  animation: fsr-rise 0.4s ease-out 2.1s both;
+}
+.fsr-ok {
+  margin-top: 12px;
+  min-width: 120px;
+  height: 44px;
+  border: 0;
+  background: linear-gradient(180deg, #ffd84a, #e0a90f);
+  color: #1a1208;
+  font: 800 13px/1 Oswald, sans-serif;
+  letter-spacing: 0.14em;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  animation: fsr-rise 0.4s ease-out 2.2s both;
+}
+.fs-reveal.is-blocked .fsr-card {
+  --fsr: #ff5a1f;
+}
+.fs-reveal.is-blocked .fsr-title {
+  color: #ff5a1f;
+  font-size: 15px;
+}
+.fs-reveal.is-blocked .fsr-back::after {
+  content: "";
+  position: absolute;
+  inset: 10%;
+  border: 3px solid rgb(255 60 30 / 0.85);
+  border-radius: 50%;
+  background: linear-gradient(135deg, transparent 47%, rgb(255 60 30 / 0.85) 47% 53%, transparent 53%);
+}
+
+@keyframes fsr-fade { from { opacity: 0; } }
+@keyframes fsr-in {
+  from { transform: translateY(18px) scale(0.92); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes fsr-flip {
+  0% { transform: rotateY(0) scale(1); }
+  45% { transform: rotateY(100deg) scale(1.08); }
+  70% { transform: rotateY(196deg) scale(1.12); }
+  85% { transform: rotateY(176deg) scale(0.98); }
+  100% { transform: rotateY(180deg) scale(1); }
+}
+@keyframes fsr-jitter {
+  0% { transform: translate(2px, 0) skewX(-6deg); }
+  33% { transform: translate(-3px, 1px) skewX(8deg); }
+  66% { transform: translate(1px, -1px); }
+  100% { transform: none; }
+}
+@keyframes fsr-split {
+  0% { transform: translate(-5px, 0); opacity: 0.8; }
+  40% { transform: translate(4px, 1px); opacity: 0.5; }
+  80% { transform: translate(-2px, 0); opacity: 0.7; }
+  100% { transform: none; opacity: 0; }
+}
+@keyframes fsr-scan {
+  0% { transform: translateY(-20%); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(820%); opacity: 0; }
+}
+@keyframes fsr-rise {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fs-reveal,
+  .fsr-card,
+  .fsr-front,
+  .fsr-glitch,
+  .fsr-scan,
+  .fsr-ring,
+  .fsr-title,
+  .fsr-name,
+  .fsr-rule,
+  .fsr-ok,
+  .hw-fs-ring {
+    animation: none !important;
+  }
+  .fsr-flip {
+    animation: none;
+    transform: rotateY(180deg);
+  }
+  .fsr-scan,
+  .fsr-glitch,
+  .fsr-ring {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 400px) {
+  .fsr-card {
+    padding: 14px 14px 14px;
+  }
+  .fsr-stage {
+    width: 112px;
+    height: 112px;
+    margin: 10px auto 8px;
+  }
+  .fsr-name {
+    font-size: 1.02rem;
+  }
 }
