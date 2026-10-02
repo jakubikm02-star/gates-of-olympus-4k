@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import { Volume2, VolumeX, Info, RefreshCw, Menu, Settings as SettingsIcon, Trophy } from "lucide-react";
 import { START_BALANCE, BETS, PAY_SYMBOLS, FS_SYMBOL, canSrc, canTier } from "@/lib/slot/symbols";
-import { fsSymName, fsSymSrc, isFsCell, type FsSymId } from "@/lib/slot/zasah";
+import { fsSymName, fsSymSrc, type FsSymId } from "@/lib/slot/zasah";
 import { FsReveal } from "./FsReveal";
 import { TargetHud } from "./TargetReticle";
 import { useChaseAim } from "@/hooks/use-chase-aim";
@@ -215,10 +215,6 @@ export function SlotGame() {
           : "GOOD LUCK";
   const liveJob = g.job;
   const seal = liveJob ? null : g.ticketSeal;
-  let fsOnReels = 0;
-  if (g.chase?.fsSym) {
-    for (const row of g.grid) for (const cell of row) if (isFsCell(cell, g.chase.fsSym)) fsOnReels += 1;
-  }
 
   return (
     <div
@@ -237,7 +233,7 @@ export function SlotGame() {
       ) : null}
       <div className="stage-glow" />
       <div className="park-lines" aria-hidden="true" />
-      {g.chase ? <PoliceSmog danger={g.chase.tension === "danger"} full={fsOnReels >= 2} reduced={reducedMotion} /> : null}
+      {g.chase ? <PoliceSmog danger={g.chase.tension === "danger"} full={g.chase.strikes >= 2} reduced={reducedMotion} /> : null}
       {g.strike ? <HandBolt key={`${g.strike.r}-${g.strike.c}`} strike={g.strike} /> : null}
 
       {!g.started && (

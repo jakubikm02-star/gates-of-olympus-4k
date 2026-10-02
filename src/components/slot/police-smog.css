@@ -11,7 +11,7 @@
   mask-image: radial-gradient(ellipse 52% 44% at 50% 46%, rgb(0 0 0 / 0.1) 0%, rgb(0 0 0 / 0.42) 55%, #000 100%);
   animation: ps-in 0.9s ease-out both;
   --ps-cycle: 1.8s;
-  /* Quiet chase. Full strength (.is-full) is only with 2+ Finančná správa symbols on the reels. */
+  /* Quiet until the Finančná správa meter hits 2/3. .is-full restores the old brightness. */
   --ps-lo: 0.12;
   --ps-hi: 0.42;
 }
@@ -83,7 +83,7 @@
   animation: ps-sweep-r 7.5s ease-in-out infinite alternate;
 }
 
-/* Close to the third FS strike: quicker alternation only. Brightness stays down until 2+ symbols. */
+/* Close to the third strike: quicker alternation. Brightness stays down until the meter is 2/3. */
 .police-smog.is-danger {
   --ps-cycle: 0.9s;
 }
@@ -91,7 +91,7 @@
 .police-smog.is-danger .ps-blue .ps-beam {
   animation-duration: 3.6s;
 }
-/* Previous strength: 2 or more Finančná správa symbols on the board. */
+/* Previous strength, once the Finančná správa meter is at 2/3. */
 .police-smog.is-full {
   --ps-lo: 0.28;
   --ps-hi: 0.95;
