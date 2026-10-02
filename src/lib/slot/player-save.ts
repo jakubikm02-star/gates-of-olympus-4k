@@ -1,9 +1,9 @@
-import { BETS, START_BALANCE, type PayId } from "./symbols";
+import { BETS, START_BALANCE, type PayId } from "./symbols.ts";
 import type { ChaseModKind } from "./zasah";
-import { readChaseFields } from "./zasah";
+import { readChaseFields } from "./zasah.ts";
 import type { PityMap } from "./pick-bonus";
 import type { TierId } from "./jackpot";
-import { type JobCard, type JobFloor } from "./spend";
+import { type JobCard, type JobFloor } from "./spend.ts";
 
 export const SAVE_KEY = "parkizmus-v1";
 const LEGACY_KEYS = ["olympus4k-v1"];
@@ -225,6 +225,12 @@ function jobSave(raw: unknown): JobCard | null {
           ? Math.min(needB, Math.max(0, Math.round(num(r.haveB, 0) * 100) / 100))
           : Math.min(needB, Math.max(0, Math.floor(num(r.haveB, 0)))),
     seal: r.seal === true ? true : undefined,
+    // Split dual budget (newer saves). Missing on older saves: the ticket keeps its shared spin clock.
+    ...(() => {
+      if (!kindB || r.tries == null) return {};
+      const tries = Math.min(20, Math.max(1, Math.floor(num(r.tries, 1))));
+      return { tries, triesUsed: Math.min(tries, Math.max(0, Math.floor(num(r.triesUsed, 0)))) };
+    })(),
   };
 }
 

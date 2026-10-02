@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { formatMoney } from "@/lib/slot/format";
+import { ticketBonus } from "@/lib/slot/ticket-bonus";
+import { BonusNote } from "./TicketBonus";
 import { jobClock, jobLeft, jobMeter, jobScopeLabel, jobShownGoal, sayCluster, spinWord, type DailyBoard, type JobCard } from "@/lib/slot/spend";
 
 interface Props {
@@ -10,9 +12,12 @@ interface Props {
   daily: DailyBoard | null;
   offer: JobCard[] | null;
   onJob: (card: JobCard) => void;
+  /** Current buy multiplier. Only used to show the buy price on cards that need a buy. */
+  buyX?: number;
 }
 
-export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob }: Props) {
+export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob, buyX = 0 }: Props) {
+  const buyCost = (card: JobCard) => (buyX > 0 ? +((card.lockBet || 0) * buyX).toFixed(2) : undefined);
   const [otrsFail, setOtrsFail] = useState(false);
   const [otrsAck, setOtrsAck] = useState(false);
   useEffect(() => {
@@ -51,6 +56,7 @@ export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob }: 
             <div className="otrs-note">
               <em>{sayCluster(job.title)}</em>
               <span>{jobShownGoal(job)}</span>
+              <BonusNote info={ticketBonus(job)} buyCost={buyCost(job)} />
               <strong>
                 {jobClock(job)} · stávka {formatMoney(job.lockBet || 0)} zamknutá
               </strong>
@@ -86,6 +92,7 @@ export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob }: 
             {job && !job.mystery ? (
               <p className={`spend-active ${jobLeft(job) <= 5 ? "is-late" : ""}`}>
                 {jobShownGoal(job)} · {jobMeter(job)}
+                <BonusNote info={ticketBonus(job)} compact />
                 <span>
                   {jobScopeLabel(job)} · {jobClock(job)} · stávka {formatMoney(job.lockBet || 0)} zamknutá
                 </span>
@@ -96,12 +103,13 @@ export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob }: 
               {cards.map((card, i) => {
                 const mark = marks[i];
                 const running = job?.id === card.id;
+                const bonus = ticketBonus(card);
                 const locked = Boolean(mark) || Boolean(job) || credit < +(card.stake + (card.lockBet || 0)).toFixed(2);
                 return (
                   <button
                     key={card.id}
                     type="button"
-                    className={`spend-job ${card.floor} ${card.scope === "live" ? "is-live" : ""} ${card.scope === "any" ? "is-any" : ""} ${mark ? `is-done is-${mark}` : ""} ${running ? "is-run" : ""}`}
+                    className={`spend-job ${card.floor} ${card.scope === "live" ? "is-live" : ""} ${card.scope === "any" ? "is-any" : ""} ${mark ? `is-done is-${mark}` : ""} ${running ? "is-run" : ""} ${bonus.need ? `has-bonus is-${bonus.need}` : ""}`}
                     disabled={locked && !running}
                     onClick={() => {
                       if (locked) return;
@@ -109,6 +117,7 @@ export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob }: 
                     }}
                   >
                     <span className="spend-body">
+                      {bonus.need ? <BonusNote info={bonus} buyCost={buyCost(card)} /> : null}
                       <em>{sayCluster(card.title)}</em>
                       <span>{jobScopeLabel(card)} · {jobShownGoal(card)}</span>
                       <strong className="spend-dead">
@@ -138,7 +147,7 @@ export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob }: 
                 }}
               >
                 <em>SKONTROLOVAŤ OTRS</em>
-                <span>Neznáma úloha. Cena aj zisk až po prijatí.</span>
+                <span>Neznáma úloha. Cena aj zisk až po prijatí. Môže obsahovať úlohu v 4KA TV s vlastným limitom kôl 4KA TV, oddelene od točení v hre. Uvidíš ju hneď po prijatí.</span>
               </button>
             ) : null}
             {!job && otrsFail ? <p className="spend-active is-late">OTRS zamietnutý · málo kreditu</p> : null}

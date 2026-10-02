@@ -16,6 +16,8 @@ import { RankBadge } from "./RankBadge";
 import { RankPanel } from "./RankPanel";
 import { RankToast } from "./RankToast";
 import { SpendSheet } from "./SpendSheet";
+import { BonusIcon, BonusNote, BonusPill, LegCounters } from "./TicketBonus";
+import { ticketBonus } from "@/lib/slot/ticket-bonus";
 import { DuelSheet, DuelBar, DuelLink } from "./DuelSheet";
 import { Settings } from "./Settings";
 import { Leaderboard, NickAsk } from "./Leaderboard";
@@ -481,6 +483,11 @@ export function SlotGame() {
                   seal={seal?.verdict ?? null}
                   inFs={g.inFs}
                   onOpen={() => setJobOpen(true)}
+                  ante={g.ante}
+                  canBuy={g.canBuy}
+                  canAnte={g.canAnteOff && !g.chase}
+                  onBuy={() => void g.buyBonus()}
+                  onAnte={() => g.setAnte(true)}
                 />
               )}
             </div>
@@ -825,7 +832,21 @@ export function SlotGame() {
         </div>
       ) : null}
       {jobOpen && (liveJob || seal) ? (
-        <JobSheet job={liveJob ?? seal!.job} seal={seal?.verdict ?? null} inFs={g.inFs} onClose={() => setJobOpen(false)} />
+        <JobSheet
+          job={liveJob ?? seal!.job}
+          seal={seal?.verdict ?? null}
+          inFs={g.inFs}
+          onClose={() => setJobOpen(false)}
+          ante={g.ante}
+          buyCost={+(g.bet * g.buyX).toFixed(2)}
+          canBuy={g.canBuy}
+          canAnte={g.canAnteOff && !g.chase}
+          onBuy={() => {
+            setJobOpen(false);
+            void g.buyBonus();
+          }}
+          onAnte={() => g.setAnte(true)}
+        />
       ) : null}
       {g.chaseCard ? (
         <div className={`chase-end is-${g.chaseCard.outcome}`} role="dialog" aria-label={g.chaseCard.line}>
@@ -1005,6 +1026,7 @@ export function SlotGame() {
         daily={g.daily}
         offer={g.jobOffer}
         onJob={g.takeJob}
+        buyX={g.buyX}
       />
       <DuelSheet
         open={g.duelOpen}
@@ -1079,35 +1101,80 @@ function JobCardCompact({
   seal,
   inFs,
   onOpen,
+  ante,
+  canBuy,
+  canAnte,
+  onBuy,
+  onAnte,
 }: {
   job: JobCard;
   seal: "ok" | "fail" | null;
   inFs: boolean;
   onOpen: () => void;
+  ante: boolean;
+  canBuy: boolean;
+  canAnte: boolean;
+  onBuy: () => void;
+  onAnte: () => void;
 }) {
   const left = job.limit - job.spun;
   const pct = Math.round(jobProgress(job) * 100);
   const goal = jobGoalLines(job).join(" + ");
+  const bonus = ticketBonus(job);
+  const flag = Boolean(bonus.need) && !seal;
+  // CTA only between spins outside 4KA TV. Buy opens the usual confirmation; ante is the same switch as the side panel.
+  const cta = !flag || inFs ? null : bonus.cta === "buy" ? "buy" : bonus.cta === "ante" ? (ante ? "ante-on" : "ante") : null;
+  const live = inFs && (bonus.need === "fs" || bonus.need === "buy");
   return (
-    <button
-      type="button"
-      className={`job-chip is-compact ${!seal && left <= 5 ? "is-late" : ""} ${seal ? "is-sealed" : ""}`}
-      onClick={onOpen}
-      aria-label={`Tiket: ${goal}. ${jobMeter(job)}. ${jobClock(job, inFs)}. Ťukni pre detail.`}
-    >
-      <span className="jc-row">
-        <span className="job-kicker">{seal ? (seal === "ok" ? "ÚSPEŠNÝ" : "NEÚSPEŠNÝ") : "TIKET"}</span>
-        <span className="jc-goal">{goal}</span>
-        <span className="jc-more" aria-hidden="true">▴</span>
-      </span>
-      <span className="jc-row">
-        <span className="jc-bar" aria-hidden="true">
-          <i style={{ transform: `scaleX(${pct / 100})` }} />
+    <>
+      <button
+        type="button"
+        className={`job-chip is-compact ${!seal && left <= 5 && !(flag && bonus.split) ? "is-late" : ""} ${seal ? "is-sealed" : ""} ${flag ? `has-bonus is-${bonus.need}` : ""} ${flag && bonus.dual ? "is-dual" : ""} ${flag && bonus.split ? "is-split" : ""} ${cta ? "has-cta" : ""}`}
+        onClick={onOpen}
+        aria-label={`Tiket: ${goal}. ${flag ? `${bonus.badge}. ` : ""}${jobMeter(job)}. ${jobClock(job, inFs)}. Ťukni pre detail.`}
+      >
+        <span className="jc-row">
+          {flag ? (
+            <BonusPill info={bonus} live={live} />
+          ) : (
+            <span className="job-kicker">{seal ? (seal === "ok" ? "ÚSPEŠNÝ" : "NEÚSPEŠNÝ") : "TIKET"}</span>
+          )}
+          <span className="jc-goal">{goal}</span>
+          <span className="jc-more" aria-hidden="true">▴</span>
         </span>
-        <b className="jc-meter">{jobMeter(job)}</b>
-        <em className="jc-clock">{jobClock(job, inFs)}</em>
-      </span>
-    </button>
+        <span className="jc-row">
+          {flag && bonus.dual ? (
+            <LegCounters info={bonus} compact />
+          ) : (
+            <>
+              <span className="jc-bar" aria-hidden="true">
+                <i style={{ transform: `scaleX(${pct / 100})` }} />
+              </span>
+              <b className="jc-meter">{jobMeter(job)}</b>
+            </>
+          )}
+          {flag && bonus.split ? null : (
+            <em className="jc-clock">{flag && bonus.dual ? jobClock(job, inFs).replace(/^ešte /, "") : jobClock(job, inFs)}</em>
+          )}
+        </span>
+      </button>
+      {cta === "buy" ? (
+        <button type="button" className="jc-cta is-buy" onClick={onBuy} disabled={!canBuy} aria-label="Kúpiť 4KA TV (s potvrdením)">
+          <BonusIcon need="buy" size={14} />
+          <span>KÚPIŤ</span>
+        </button>
+      ) : cta === "ante" ? (
+        <button type="button" className="jc-cta is-ante" onClick={onAnte} disabled={!canAnte} aria-label="Zapnúť ANTE">
+          <BonusIcon need="ante" size={14} />
+          <span>ANTE</span>
+        </button>
+      ) : cta === "ante-on" ? (
+        <span className="jc-cta is-ante is-on" aria-label="ANTE zapnuté">
+          <BonusIcon need="ante" size={14} />
+          <span>ON</span>
+        </span>
+      ) : null}
+    </>
   );
 }
 
@@ -1116,12 +1183,25 @@ function JobSheet({
   seal,
   inFs,
   onClose,
+  ante,
+  buyCost,
+  canBuy,
+  canAnte,
+  onBuy,
+  onAnte,
 }: {
   job: JobCard;
   seal: "ok" | "fail" | null;
   inFs: boolean;
   onClose: () => void;
+  ante: boolean;
+  buyCost: number;
+  canBuy: boolean;
+  canAnte: boolean;
+  onBuy: () => void;
+  onAnte: () => void;
 }) {
+  const bonus = ticketBonus(job);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -1138,6 +1218,25 @@ function JobSheet({
         {jobGoalLines(job).map((line) => (
           <strong key={line}>{line}</strong>
         ))}
+        {!seal && bonus.need ? (
+          <BonusNote info={bonus} buyCost={buyCost}>
+            {inFs ? null : (
+              <span className="tb-actions">
+                {bonus.cta === "buy" ? (
+                  <button type="button" className="tb-btn is-buy" onClick={onBuy} disabled={!canBuy}>
+                    <BonusIcon need="buy" size={15} /> KÚPIŤ 4KA TV · {formatMoney(buyCost)}
+                  </button>
+                ) : null}
+                {bonus.need === "trigger" || bonus.need === "fs" ? (
+                  <button type="button" className={`tb-btn is-ante ${ante ? "is-on" : ""}`} onClick={onAnte} disabled={ante || !canAnte}>
+                    <BonusIcon need="ante" size={15} /> {ante ? "ANTE ZAPNUTÉ" : "ZAPNÚŤ ANTE · 4KA TV ×2"}
+                  </button>
+                ) : null}
+              </span>
+            )}
+          </BonusNote>
+        ) : null}
+        {bonus.dual && !seal ? <LegCounters info={bonus} /> : null}
         <span className="jc-bar is-big" aria-hidden="true">
           <i style={{ transform: `scaleX(${pct / 100})` }} />
         </span>

@@ -9527,3 +9527,473 @@ html:-webkit-full-screen {
   box-shadow: none;
   border: 1px dashed #3a434d;
 }
+
+/* —— Ticket needs 4KA TV (buy / only in 4KA TV / trigger in base). Display only. —— */
+.stage .board-job.has-job {
+  position: relative;
+}
+
+.tb-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 1.05rem;
+  padding: 0 6px 0 5px;
+  border-radius: 4px;
+  font: 700 0.62rem/1 Oswald, sans-serif;
+  letter-spacing: 0.1em;
+  color: #1a1208;
+  background: linear-gradient(180deg, #ffe56a, #f0a419);
+  box-shadow: 0 0 0 1px rgb(255 229 106 / 0.35), 0 0 10px rgb(240 164 25 / 0.45);
+}
+
+.tb-pill.is-buy {
+  color: #fff;
+  background: linear-gradient(180deg, #ff6a3d, #c0261b);
+  box-shadow: 0 0 0 1px rgb(255 170 120 / 0.55), 0 0 10px rgb(255 90 50 / 0.5);
+}
+
+.tb-pill.is-fs {
+  color: #04150d;
+  background: linear-gradient(180deg, #8af5c4, #2ec484);
+  box-shadow: 0 0 0 1px rgb(160 255 210 / 0.45), 0 0 10px rgb(46 196 132 / 0.5);
+}
+
+.tb-pill.is-trigger {
+  color: #031218;
+  background: linear-gradient(180deg, #9be8f6, #3ec6e0);
+  box-shadow: 0 0 0 1px rgb(170 240 255 / 0.45), 0 0 10px rgb(62 198 224 / 0.45);
+}
+
+.tb-pill.is-now {
+  animation: tb-now 1.1s ease-in-out infinite alternate;
+}
+
+@keyframes tb-now {
+  to { filter: brightness(1.25); box-shadow: 0 0 0 1px #fff, 0 0 16px rgb(255 255 255 / 0.5); }
+}
+
+/* Strip frame takes the colour of the requirement, so it reads at first glance. */
+.stage .board-job.has-job:has(.job-chip.has-bonus.is-buy) {
+  border-color: #ff6a3d;
+  box-shadow: inset 3px 0 0 #ff6a3d;
+}
+
+.stage .board-job.has-job:has(.job-chip.has-bonus.is-fs) {
+  border-color: #2ec484;
+  box-shadow: inset 3px 0 0 #2ec484;
+}
+
+.stage .board-job.has-job:has(.job-chip.has-bonus.is-trigger) {
+  border-color: #3ec6e0;
+  box-shadow: inset 3px 0 0 #3ec6e0;
+}
+
+.job-chip.is-compact.has-cta,
+.stage.shell-mw .job-chip.is-compact.has-cta,
+.stage.shell-pwa .job-chip.is-compact.has-cta {
+  padding-right: calc(3.3rem + 6px);
+}
+
+.job-chip.is-compact.has-bonus .jc-row {
+  gap: 6px;
+}
+
+.tb-legs {
+  flex: 1 1 auto;
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tb-leg {
+  flex: 0 1 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  height: 1rem;
+  padding: 0 5px 0 4px;
+  border-radius: 4px;
+  border: 1px solid rgb(240 196 25 / 0.45);
+  background: rgb(240 196 25 / 0.1);
+  color: #f6e7a8;
+  white-space: nowrap;
+}
+
+.tb-leg em {
+  font: 700 0.56rem/1 Oswald, sans-serif;
+  font-style: normal;
+  letter-spacing: 0.08em;
+}
+
+.tb-leg b {
+  font: 600 0.68rem/1 "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tb-leg.is-bonus.is-fs {
+  border-color: rgb(46 196 132 / 0.7);
+  background: rgb(46 196 132 / 0.14);
+  color: #b8ffdc;
+}
+
+.tb-leg.is-bonus.is-buy {
+  border-color: rgb(255 106 61 / 0.75);
+  background: rgb(255 106 61 / 0.14);
+  color: #ffd2c2;
+}
+
+.tb-leg.is-base.is-trigger {
+  border-color: rgb(62 198 224 / 0.7);
+  background: rgb(62 198 224 / 0.12);
+  color: #c9f4ff;
+}
+
+.job-chip.is-compact.is-dual .jc-clock {
+  max-width: 34%;
+}
+
+.jc-cta {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  bottom: 3px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 3.3rem;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  font: 700 0.64rem/1 Oswald, sans-serif;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.jc-cta.is-buy {
+  color: #fff;
+  background: linear-gradient(180deg, #ff7a45, #b8231a);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 0 12px rgb(255 90 50 / 0.35);
+}
+
+.jc-cta.is-ante {
+  color: #1a1208;
+  background: linear-gradient(180deg, #ffe56a, #e2a412);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.45), 0 0 12px rgb(240 196 25 / 0.35);
+}
+
+.jc-cta.is-ante.is-on {
+  cursor: default;
+  color: #b8ffdc;
+  background: rgb(46 196 132 / 0.16);
+  box-shadow: inset 0 0 0 1px rgb(46 196 132 / 0.6);
+}
+
+.jc-cta:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.85);
+  opacity: 0.45;
+}
+
+.jc-cta:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+/* Offer card / OTRS / sheet notice */
+.tb-note {
+  display: grid;
+  gap: 5px;
+  margin: 0 0 4px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1px solid rgb(240 196 25 / 0.55);
+  background: linear-gradient(180deg, rgb(48 36 8 / 0.85), rgb(14 12 8 / 0.9));
+  text-align: left;
+}
+
+.tb-note.is-buy {
+  border-color: rgb(255 106 61 / 0.8);
+  background: linear-gradient(180deg, rgb(70 20 10 / 0.9), rgb(18 8 6 / 0.92));
+}
+
+.tb-note.is-fs {
+  border-color: rgb(46 196 132 / 0.75);
+  background: linear-gradient(180deg, rgb(8 46 30 / 0.9), rgb(6 16 12 / 0.92));
+}
+
+.tb-note.is-trigger {
+  border-color: rgb(62 198 224 / 0.75);
+  background: linear-gradient(180deg, rgb(8 36 46 / 0.9), rgb(6 12 16 / 0.92));
+}
+
+.tb-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 5px;
+  padding: 3px 8px 3px 6px;
+  border-radius: 4px;
+  font: 700 0.72rem/1.1 Oswald, sans-serif;
+  letter-spacing: 0.1em;
+  color: #1a1208;
+  background: linear-gradient(180deg, #ffe56a, #f0a419);
+}
+
+.tb-note.is-buy .tb-badge {
+  color: #fff;
+  background: linear-gradient(180deg, #ff6a3d, #c0261b);
+}
+
+.tb-note.is-fs .tb-badge {
+  color: #04150d;
+  background: linear-gradient(180deg, #8af5c4, #2ec484);
+}
+
+.tb-note.is-trigger .tb-badge {
+  color: #031218;
+  background: linear-gradient(180deg, #9be8f6, #3ec6e0);
+}
+
+.tb-note .tb-hint,
+.tb-note .tb-cost {
+  display: block;
+  font: 500 0.7rem/1.3 Outfit, sans-serif;
+  letter-spacing: 0.02em;
+  color: #e6dcc0;
+  text-transform: none;
+}
+
+.tb-note .tb-cost {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  color: #ffd2c2;
+}
+
+.tb-split {
+  display: grid;
+  gap: 3px;
+}
+
+.tb-split-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: #f6e7a8;
+}
+
+.tb-split-row em {
+  font: 700 0.62rem/1 Oswald, sans-serif;
+  font-style: normal;
+  letter-spacing: 0.1em;
+}
+
+.tb-split-row span {
+  color: #fff;
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.tb-split-row.is-bonus {
+  color: #8af5c4;
+}
+
+.tb-note.is-buy .tb-split-row.is-bonus {
+  color: #ffb39a;
+}
+
+.spend-job.has-bonus .tb-note .tb-badge,
+.otrs-note .tb-note .tb-badge,
+.spend-active .tb-note .tb-badge {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: #1a1208;
+}
+
+.spend-job.has-bonus .tb-note.is-buy .tb-badge,
+.otrs-note .tb-note.is-buy .tb-badge,
+.spend-active .tb-note.is-buy .tb-badge {
+  color: #fff;
+}
+
+.spend-job.has-bonus .tb-note.is-fs .tb-badge,
+.otrs-note .tb-note.is-fs .tb-badge,
+.spend-active .tb-note.is-fs .tb-badge {
+  color: #04150d;
+}
+
+.spend-job.has-bonus .tb-note.is-trigger .tb-badge,
+.otrs-note .tb-note.is-trigger .tb-badge,
+.spend-active .tb-note.is-trigger .tb-badge {
+  color: #031218;
+}
+
+.spend-job.has-bonus .tb-note .tb-cost,
+.otrs-note .tb-note .tb-cost {
+  color: #ffd2c2;
+}
+
+.spend-job.has-bonus .tb-split-row em,
+.otrs-note .tb-split-row em {
+  color: inherit;
+}
+
+.spend-job.has-bonus .tb-note .tb-hint,
+.otrs-note .tb-note .tb-hint {
+  color: #e6dcc0;
+}
+
+.spend-job.has-bonus .tb-split-row span,
+.otrs-note .tb-split-row span {
+  color: #fff;
+}
+
+.spend-job.has-bonus.is-buy { border-color: rgb(255 106 61 / 0.85); }
+.spend-job.has-bonus.is-fs { border-color: rgb(46 196 132 / 0.8); }
+.spend-job.has-bonus.is-trigger { border-color: rgb(62 198 224 / 0.8); }
+
+.spend-active .tb-note {
+  margin-top: 6px;
+}
+
+.job-sheet .tb-note {
+  margin: 10px 0 4px;
+}
+
+.job-sheet .tb-legs {
+  margin: 8px 0 0;
+}
+
+.job-sheet .tb-leg {
+  height: 1.4rem;
+  padding: 0 8px;
+}
+
+.job-sheet .tb-leg em {
+  font-size: 0.7rem;
+}
+
+.job-sheet .tb-leg b {
+  font-size: 0.82rem;
+}
+
+.tb-actions {
+  display: grid;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.tb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  border: 0;
+  border-radius: 9px;
+  font: 700 0.86rem/1 Oswald, sans-serif;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.tb-btn.is-buy {
+  color: #fff;
+  background: linear-gradient(180deg, #ff7a45, #b8231a);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3);
+}
+
+.tb-btn.is-ante {
+  color: #1a1208;
+  background: linear-gradient(180deg, #ffe56a, #e2a412);
+}
+
+.tb-btn.is-ante.is-on {
+  color: #b8ffdc;
+  background: rgb(46 196 132 / 0.16);
+  box-shadow: inset 0 0 0 1px rgb(46 196 132 / 0.6);
+}
+
+.tb-btn:disabled:not(.is-on) {
+  cursor: not-allowed;
+  filter: grayscale(0.85);
+  opacity: 0.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tb-pill.is-now {
+    animation: none;
+  }
+}
+
+/* Split dual budget: each goal carries its own budget left (base spins / 4KA TV rounds). */
+.tb-left {
+  flex: 0 0 auto;
+  margin-left: 1px;
+  padding-left: 4px;
+  border-left: 1px solid rgb(255 255 255 / 0.22);
+  font: 600 0.62rem/1 "IBM Plex Mono", ui-monospace, monospace;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  color: #d7e3ea;
+  white-space: nowrap;
+}
+
+.tb-left.is-late {
+  color: #ff7a6a;
+}
+
+.tb-left.is-done {
+  color: #7dffb0;
+}
+
+.job-chip.is-compact.is-split .tb-legs {
+  gap: 4px;
+}
+
+.job-chip.is-compact.is-split .tb-leg {
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 0 4px 0 3px;
+}
+
+.job-chip.is-compact.is-split .tb-leg em {
+  letter-spacing: 0.02em;
+}
+
+.job-chip.is-compact.is-split .tb-leg b {
+  overflow: visible;
+}
+
+/* Long meter (cash): the icon and colour already name the goal, the label makes room for the numbers. */
+.job-chip.is-compact.is-split .tb-leg.is-long em {
+  display: none;
+}
+
+.job-sheet .tb-left {
+  font-size: 0.78rem;
+  padding-left: 6px;
+}
+
+.tb-split-budget,
+.otrs-note .tb-split-budget,
+.spend-job .tb-split-budget {
+  grid-column: 3;
+  justify-self: start;
+  margin-top: -1px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgb(0 0 0 / 0.28);
+  font: 600 0.66rem/1.2 "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+  white-space: nowrap;
+}

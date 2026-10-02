@@ -468,7 +468,11 @@ describe("míňať", () => {
         assert.equal(skip.has(otrs.templateB), false);
         assert.match(otrs.goal ?? "", / \+ /);
         assert.equal(otrs.limit % 5, 0);
-        assert.ok(otrs.limit >= 25 && otrs.limit <= 220, `combo spins ${otrs.limit}`);
+        if (otrs.tries != null) {
+          // Split dual: limit is the base goal's own base-spin budget, tries the 4KA TV rounds.
+          assert.ok(otrs.limit >= 15 && otrs.limit <= 400, `dual base spins ${otrs.limit}`);
+          assert.ok(otrs.tries >= 1 && otrs.tries <= 5, `dual tries ${otrs.tries}`);
+        } else assert.ok(otrs.limit >= 25 && otrs.limit <= 220, `combo spins ${otrs.limit}`);
         pairs.add([otrs.template, otrs.templateB].sort().join("+"));
       } else {
         assert.equal(otrs.kindB, undefined);

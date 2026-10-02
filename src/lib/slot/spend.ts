@@ -37,6 +37,13 @@ export interface JobCard {
   scopeB?: "base" | "live" | "any";
   /** Clock is dead but the LIVE feature has not closed yet. */
   seal?: boolean;
+  /**
+   * Dual OTRS (one goal in the base game, one only in 4KA TV) with split budgets.
+   * Set: `limit`/`spun` count base-game spins only (leg A, the base goal) and `tries`/`triesUsed`
+   * count 4KA TV rounds for leg B. Unset (older saves): one shared spin clock for both goals.
+   */
+  tries?: number;
+  triesUsed?: number;
 }
 
 /** Share of bank → stake band. Spins-at-bet is the other axis. */
@@ -172,8 +179,62 @@ export function jobDone(job: JobCard): boolean {
   return job.have >= job.need;
 }
 
+/** A goal that can only count inside 4KA TV (bought or any round). */
+function legIsBonus(kind: JobCard["kind"] | undefined, scope: JobCard["scope"]): boolean {
+  return kind === "buy" || scope === "live";
+}
+
+/** OTRS with one base goal and one 4KA TV goal. Which leg is the 4KA TV one, or null. */
+export function dualBonusLeg(job: Pick<JobCard, "kind" | "scope" | "kindB" | "scopeB">): "A" | "B" | null {
+  if (!job.kindB) return null;
+  const a = legIsBonus(job.kind, job.scope);
+  const b = legIsBonus(job.kindB, job.scopeB);
+  if (a === b) return null;
+  return a ? "A" : "B";
+}
+
+/** Dual ticket dealt with its own base-spin and 4KA TV-round budgets. Base goal is always leg A. */
+export function jobSplit(job: JobCard): boolean {
+  return job.tries != null && job.tries > 0 && dualBonusLeg(job) === "B";
+}
+
+export function jobBaseDone(job: JobCard): boolean {
+  return job.have >= job.need;
+}
+
+export function jobBonusDone(job: JobCard): boolean {
+  return (job.haveB ?? 0) >= (job.needB ?? 1);
+}
+
+/** 4KA TV rounds left for the bonus goal of a split dual ticket. */
+export function jobTriesLeft(job: JobCard): number {
+  return Math.max(0, (job.tries ?? 0) - (job.triesUsed ?? 0));
+}
+
+/** Unit of the 4KA TV budget: one whole round (kolo) of 4KA TV. */
+export function triesWord(n: number): string {
+  if (n === 1) return "kolo";
+  if (n >= 2 && n <= 4) return "kolá";
+  return "kôl";
+}
+
+/** Round of 4KA TV that is an attempt for this bonus goal: a buy goal only takes bought rounds. */
+function roundCounts(job: JobCard, ev: JobEvent): boolean {
+  if (!ev.featureOver) return false;
+  return job.kindB === "buy" ? Boolean(ev.bought) : true;
+}
+
+function splitClock(job: JobCard): string {
+  const left = jobLeft(job);
+  const tl = jobTriesLeft(job);
+  const a = jobBaseDone(job) ? "základ hotový" : `${left} ${spinWord(left)} v hre`;
+  const b = jobBonusDone(job) ? "4KA TV hotová" : `${tl} ${triesWord(tl)} 4KA TV`;
+  return `ešte ${a} + ${b}`;
+}
+
 export function jobClock(job: JobCard, inLive = false): string {
   if (jobDone(job)) return "SPLNENÁ";
+  if (jobSplit(job)) return jobStatus(job) === "fail" ? "NEÚSPEŠNÝ TIKET" : splitClock(job);
   const bothLive =
     Boolean(job.kindB) &&
     (job.scope === "live" || job.kind === "buy") &&
@@ -525,7 +586,15 @@ function makeOtrs(rng: () => number, credit: number, bet: number): JobCard {
     first = second;
     second = swap;
   }
-  const limit = comboSpinLimit(first, second);
+  // Dual (base goal + 4KA TV goal): base goal first, each goal gets its own budget. No extra rng draws.
+  const split = dualBonusLeg({ kind: first.kind, scope: first.scope, kindB: second.kind, scopeB: second.scope }) != null;
+  if (split && legIsBonus(first.kind, first.scope)) {
+    const swap = first;
+    first = second;
+    second = swap;
+  }
+  const budget = split ? dualBudget(first, second, floor) : null;
+  const limit = budget ? budget.spins : comboSpinLimit(first, second);
   const goal = `${otrsLine(first)} + ${otrsLine(second)}`;
   const stake = Math.max(first.stake, second.stake);
   const payout = Math.max(roundStake(stake * 1.7), Math.max(first.payout, second.payout));
@@ -535,7 +604,9 @@ function makeOtrs(rng: () => number, credit: number, bet: number): JobCard {
     template: first.template,
     templateB: second.template,
     title: pickOne(["OTRS", "KOMBINÁCIA", "DVE ÚLOHY", "ZMES"], rng),
-    detail: `${goal} · ${limit} ${spinWord(limit)}`,
+    detail: budget
+      ? `${goal} · ${limit} ${spinWord(limit)} v hre + ${budget.tries} ${triesWord(budget.tries)} 4KA TV`
+      : `${goal} · ${limit} ${spinWord(limit)}`,
     goal,
     stake,
     payout,
@@ -553,7 +624,39 @@ function makeOtrs(rng: () => number, credit: number, bet: number): JobCard {
     payIdB: second.payId,
     needB: second.need,
     haveB: 0,
+    ...(budget ? { tries: budget.tries, triesUsed: 0 } : {}),
   };
+}
+
+/**
+ * Split dual budgets, tuned on the real engine (sim/dual-sim.ts): clear rate of the whole ticket
+ * lands on the floor target (lacná ~80 %, stred ~58 %, drahá ~38 %) like every other ticket.
+ * M = 4KA TV rounds for the bonus goal (per floor and template). N = base spins for the base goal:
+ * the base goal's own tuned window (rare goals capped as in comboSpinLimit) × floor factor.
+ */
+export const DUAL_TRIES: Record<JobFloor, Record<string, number>> = {
+  lacna: { noc: 2, signal: 3, plechovky: 3 },
+  stred: { noc: 2, signal: 3, plechovky: 3 },
+  draha: { noc: 2, signal: 3, plechovky: 3 },
+};
+export const DUAL_BASE_X: Record<JobFloor, Record<string, number>> = {
+  lacna: { noc: 1.15, signal: 1.25, plechovky: 1.25 },
+  stred: { noc: 1.05, signal: 1.1, plechovky: 1.1 },
+  draha: { noc: 1.05, signal: 1.15, plechovky: 1.15 },
+};
+const DUAL_RARE_CAP: Record<string, number> = { siet: 100, vynos: 90, pot: 55 };
+
+export function dualBudget(base: JobCard, bonus: JobCard, floor: JobFloor): { spins: number; tries: number } {
+  const cap = DUAL_RARE_CAP[base.template];
+  const window = cap ? Math.min(base.limit, cap) : base.limit;
+  const spins = Math.min(400, snapFive(window * (DUAL_BASE_X[floor][bonus.template] ?? 1.1)));
+  const tries = DUAL_TRIES[floor][bonus.template] ?? 3;
+  return { spins, tries };
+}
+
+/** Test/sim hook: deal one OTRS card the same way dealJobs does. */
+export function dealOtrs(rng: () => number, credit: number, bet: number): JobCard {
+  return makeOtrs(rng, credit, bet);
 }
 
 export function dealJobs(rng: () => number, credit: number, bet: number): JobCard[] {
@@ -678,6 +781,57 @@ function legHops(template: string, kind: JobCard["kind"], need: number, have: nu
   return need - have > left * cap;
 }
 
+/** Both goals' progress, counted exactly as tickCombo does. Budgets are handled by the caller. */
+function comboProgress(job: JobCard, ev: JobEvent): { have: number; haveB: number } {
+  const aOn = jobOnThisSpin(job, ev);
+  const bOn = jobOnThisSpin(
+    { ...job, kind: job.kindB ?? job.kind, template: job.templateB ?? job.template, scope: job.scopeB ?? job.scope },
+    ev,
+  );
+  let have = job.have;
+  let haveB = job.haveB ?? 0;
+  if (aOn) have = countOne(job, ev).have;
+  if (bOn) {
+    haveB = countOne(
+      {
+        ...job,
+        kind: job.kindB ?? job.kind,
+        template: job.templateB ?? "",
+        scope: job.scopeB,
+        need: job.needB ?? 1,
+        have: haveB,
+        payId: job.payIdB,
+        payIdB: undefined,
+        kindB: undefined,
+        needB: undefined,
+        haveB: undefined,
+      },
+      ev,
+    ).have;
+  }
+  return { have, haveB };
+}
+
+/**
+ * Split dual ticket. Leg A (base goal) spends `limit` base-game spins; 4KA TV spins never touch it.
+ * Leg B (4KA TV goal) spends one of `tries` per finished 4KA TV round (a buy goal: per bought round);
+ * base spins never touch it. Fails as soon as either unfinished goal is out of its own budget.
+ */
+function tickSplit(job: JobCard, ev: JobEvent): JobCard {
+  const { have, haveB } = comboProgress(job, ev);
+  const live = Boolean(ev.liveSpin || ev.bought);
+  const baseOpen = !jobBaseDone(job);
+  const spun = baseOpen && !live && ev.spun !== false ? job.spun + 1 : job.spun;
+  let next: JobCard = { ...job, have, haveB, spun, seal: undefined };
+  if (!jobBonusDone(next) && roundCounts(next, ev)) next = { ...next, triesUsed: (job.triesUsed ?? 0) + 1 };
+  if (jobDone(next)) return next;
+  if (!jobBaseDone(next)) {
+    const left = Math.max(0, next.limit - next.spun);
+    if (left <= 0 || legHops(next.template, next.kind, next.need, next.have, left)) return { ...next, spun: next.limit };
+  }
+  return next;
+}
+
 function tickCombo(job: JobCard, ev: JobEvent): JobCard {
   const aOn = jobOnThisSpin(job, ev);
   const bOn = jobOnThisSpin(
@@ -732,6 +886,7 @@ export function tickJob(job: JobCard, ev: JobEvent): JobCard {
   if (job.template === "retaz" && job.need > 3) {
     job = { ...job, need: 3, limit: Math.max(job.limit, 50) };
   }
+  if (job.kindB && job.templateB && jobSplit(job)) return tickSplit(job, ev);
   if (job.kindB && job.templateB) return tickCombo(job, ev);
   if (!jobOnThisSpin(job, ev)) return job;
   let add = 0;
@@ -809,6 +964,11 @@ export function jobHopeless(job: JobCard, ev?: JobEvent): boolean {
 
 export function jobStatus(job: JobCard): "run" | "ok" | "fail" {
   if (jobDone(job)) return "ok";
+  if (jobSplit(job)) {
+    if (!jobBaseDone(job) && job.spun >= job.limit) return "fail";
+    if (!jobBonusDone(job) && (job.triesUsed ?? 0) >= (job.tries ?? 0)) return "fail";
+    return "run";
+  }
   if (job.seal) return "run";
   if (job.spun >= job.limit) return "fail";
   return "run";
@@ -833,6 +993,8 @@ export function jobParknetBroke(job: JobCard, credit: number, spinCost: number, 
   const wallet = +credit.toFixed(2);
   const buy = +Math.max(0, buyCost).toFixed(2);
   if (job.kind === "buy") return wallet < buy;
+  // Split dual: a buy goal still open can only be finished by buying, whatever the base goal does.
+  if (jobSplit(job) && job.kindB === "buy" && !jobBonusDone(job)) return wallet < buy;
   const spin = +Math.max(0, spinCost).toFixed(2);
   return wallet < spin && wallet < buy;
 }
@@ -867,7 +1029,11 @@ export function jobLcd(job: JobCard, verdict: "run" | "ok" | "fail"): { header: 
   const goal = jobShownGoal(job).split("·")[0]?.trim() || "CIEĽ";
   const rows: LcdRow[] = [
     { pin: 1, label: "CIEĽ", value: goal },
-    { pin: 2, label: "SPINY", value: `${left} / ${job.limit}` },
+    {
+      pin: 2,
+      label: "SPINY",
+      value: jobSplit(job) ? `${left} / ${job.limit} · ${jobTriesLeft(job)} ${triesWord(jobTriesLeft(job))} TV` : `${left} / ${job.limit}`,
+    },
     {
       pin: 3,
       label: "HOTOVÉ",

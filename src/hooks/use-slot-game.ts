@@ -56,6 +56,7 @@ import {
   freshDaily,
   jobParknetBroke,
   jobShownGoal,
+  jobSplit,
   jobStatus,
   stampDaily,
   tickJob,
@@ -437,7 +438,10 @@ export function useSlotGame() {
       loadedRaw?.seal && !(s.inFs && s.fsLeft > 0)
         ? { ...loadedRaw, seal: false, spun: loadedRaw.limit }
         : loadedRaw;
-    const dead = Boolean(loaded && loaded.spun >= loaded.limit && loaded.have < loaded.need);
+    const dead = Boolean(
+      loaded &&
+        (jobSplit(loaded) ? jobStatus(loaded) === "fail" : loaded.spun >= loaded.limit && loaded.have < loaded.need),
+    );
     if (loaded && !dead && !(s.inFs && s.fsLeft > 0)) {
       // A ticket locks its bet. An old or edited save can carry another betIndex; spin at the locked bet.
       const lockIdx = BETS.findIndex((b) => Math.abs(b - loaded.lockBet) < 0.001);
