@@ -8978,6 +8978,21 @@ html:-webkit-full-screen {
   margin-left: 2px;
 }
 
+.fb-chip.is-cascade {
+  gap: 4px;
+  color: #cfe7ff;
+  background: #10202f;
+  box-shadow: inset 0 0 0 1px #2a4a66;
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+}
+
+.fb-chip.is-cascade svg {
+  width: 14px;
+  height: 14px;
+  color: #7cc4ff;
+}
+
 .fb-chip.is-mult {
   color: #ffd9d4;
   background: #3a0f12;

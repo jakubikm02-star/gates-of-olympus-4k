@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchBoard, publicId, type BoardRow } from "@/lib/slot/board-api";
 import { canSrc, PAY_SYMBOLS, SCATTER, TICKETS, type PayId } from "@/lib/slot/symbols";
-import { recipeSentence, type WinRecipe } from "@/lib/slot/win-recipe";
+import { cascadeWord, recipeSentence, type WinRecipe } from "@/lib/slot/win-recipe";
 
 /* ---------- 7-segment LED ---------- */
 
@@ -179,6 +179,30 @@ function Can({ value }: { value: number }) {
   );
 }
 
+/** Falling block onto a settled row: reads as "symbols dropping in", not as a download arrow. */
+function CascadeIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M8.2 1.2v2.2M11.8 1.2v2.2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity="0.6" />
+      <rect x="6.5" y="5" width="7" height="5.6" rx="1.4" fill="currentColor" />
+      <rect x="1.8" y="12.6" width="7" height="5.6" rx="1.4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="11.2" y="12.6" width="7" height="5.6" rx="1.4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function CascadeChip({ n }: { n: number }) {
+  const word = cascadeWord(n);
+  return (
+    <span className="fb-chip is-cascade" title={`${n} ${word} (Cluster tumble)`}>
+      <CascadeIcon />
+      <b>{n}</b>
+      {" "}
+      {word.toUpperCase()}
+    </span>
+  );
+}
+
 export function RecipeStrip({ recipe }: { recipe: WinRecipe | null }) {
   if (!recipe) {
     return (
@@ -236,14 +260,7 @@ export function RecipeStrip({ recipe }: { recipe: WinRecipe | null }) {
           {showFs ? "Σ" : "×"} <b>{r.mult}×</b>
         </span>
       ) : null}
-      {r.tumbles ? (
-        <span className="fb-chip" title="Cluster tumble">
-          <svg viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M10 3v10M6 9l4 4 4-4M5 17h10" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <b>{r.tumbles}</b>
-        </span>
-      ) : null}
+      {r.tumbles ? <CascadeChip n={r.tumbles} /> : null}
       {r.vs ? (
         <span className="fb-chip">
           <b>{plain(r.vs[0])}</b>:<b>{plain(r.vs[1])}</b>
@@ -371,6 +388,10 @@ export function PriceBoard({
               <b>20</b> FS<em>+5</em>
             </span>
             <span>odohrané točenia 4KA TV · z toho navyše</span>
+          </li>
+          <li>
+            <CascadeChip n={3} />
+            <span>koľkokrát symboly dopadli znova (kaskády) · pri 4KA TV súčet za všetky točenia</span>
           </li>
           <li>
             <span className="fb-mode is-zasah">

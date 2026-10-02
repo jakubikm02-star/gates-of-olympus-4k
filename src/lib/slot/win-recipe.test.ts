@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { cleanRecipe, emptyTally, mergeTally, notePays, recipeFromHow, recipeSentence, topCans, topPays } from "./win-recipe.ts";
+import { cascadeWord, cleanRecipe, emptyTally, MAX_TUMBLES, mergeTally, notePays, recipeFromHow, recipeSentence, recipeTumbles, topCans, topPays } from "./win-recipe.ts";
 
 describe("cleanRecipe", () => {
   it("keeps a well-formed base recipe", () => {
@@ -94,5 +94,24 @@ describe("recipeSentence", () => {
     );
     assert.equal(s, "4KA TV, 4× 4ka TV, 20 točení 4KA TV (+5 navyše), 12× PDF 4K 5G, plechovky 100×, celkový násobič 64×.");
     assert.equal(recipeSentence(null, String), "Spôsob výhry nie je zaznamenaný.");
+  });
+});
+
+describe("FS tumbles", () => {
+  it("sums cascades over free spins only (trigger spin reset) and clamps to the server range", () => {
+    const fs = emptyTally();
+    mergeTally(fs, { ...emptyTally(), tumbles: 4 }); // trigger spin
+    fs.tumbles = 0; // as in use-slot-game: only the free spins count
+    for (const n of [2, 0, 3, 1]) mergeTally(fs, { ...emptyTally(), tumbles: n });
+    assert.equal(recipeTumbles(fs.tumbles), 6);
+    assert.equal(recipeTumbles(0), undefined);
+    assert.equal(recipeTumbles(140), MAX_TUMBLES);
+    // the clamped value survives the client cleaner (server board_recipe_clean uses the same 1..99)
+    assert.equal(cleanRecipe({ v: 1, mode: "fs", pays: [], tumbles: recipeTumbles(140) })?.tumbles, 99);
+    assert.equal(cleanRecipe({ v: 1, mode: "fs", pays: [], tumbles: 140 })?.tumbles, undefined);
+  });
+
+  it("uses Slovak count words", () => {
+    assert.deepEqual([1, 2, 4, 5, 12, 99].map(cascadeWord), ["kaskáda", "kaskády", "kaskády", "kaskád", "kaskád", "kaskád"]);
   });
 });

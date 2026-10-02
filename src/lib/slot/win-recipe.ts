@@ -126,6 +126,22 @@ export function mergeTally(into: SeqTally, add: SeqTally): void {
   into.tumbles += add.tumbles;
 }
 
+/** Server range for recipe.tumbles (board_recipe_clean drops, not clamps, anything outside 1..99). */
+export const MAX_TUMBLES = 99;
+
+/** Cascade count for a recipe: undefined when none, clamped to 99 (a long 4KA TV session can exceed it). */
+export function recipeTumbles(n: number): number | undefined {
+  if (!Number.isFinite(n) || n < 1) return undefined;
+  return Math.min(MAX_TUMBLES, Math.round(n));
+}
+
+/** Slovak count word: 1 kaskáda, 2–4 kaskády, 0/5+ kaskád. */
+export function cascadeWord(n: number): string {
+  if (n === 1) return "kaskáda";
+  if (n >= 2 && n <= 4) return "kaskády";
+  return "kaskád";
+}
+
 export function topPays(t: SeqTally, max = 3): RecipePay[] {
   return [...t.pays.entries()]
     .sort((a, b) => b[1].x - a[1].x || b[1].n - a[1].n)

@@ -44,7 +44,7 @@ import { emptyBoard, isEligibleBet, ticketResolve, TIER_BY_ID, type BoardSnap, t
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
 import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDesk, ticketProfit, type DeskDay } from "@/lib/slot/desk-api";
 import { putBoard, readBestMark, readBestRecipe, readNick, saveNick, skipNick, winHow, writeBestHow, writeBestRecipe } from "@/lib/slot/board-api";
-import { emptyTally, mergeTally, notePays, topCans, topPays, type SeqTally, type WinRecipe } from "@/lib/slot/win-recipe";
+import { emptyTally, mergeTally, notePays, recipeTumbles, topCans, topPays, type SeqTally, type WinRecipe } from "@/lib/slot/win-recipe";
 import { HEAT_MAX, heatFromWin } from "@/lib/slot/heat";
 import { ZASAH, modMul, rollTarget, rollWindows, tickMod, windowCount, type ChaseMod, type ChaseModKind, type ChaseOutcome, type ChaseState, type HackWindow } from "@/lib/slot/zasah";
 import { BUILD_ID, dropStaleCaches, hardReload, releaseMatches } from "@/lib/slot/release";
@@ -2178,6 +2178,7 @@ export function useSlotGame() {
               cans: topCans(fsTallyRef.current.cans),
               mult: sess.peak > 1 ? sess.peak : undefined,
               scatters: fsTallyRef.current.scatters >= 3 ? fsTallyRef.current.scatters : undefined,
+              tumbles: recipeTumbles(fsTallyRef.current.tumbles),
               spins: sess.played || undefined,
               extra: sess.extra || undefined,
               ante: (!sess.bought && fsAnteRef.current) || undefined,
@@ -2362,6 +2363,8 @@ export function useSlotGame() {
         await wait(300);
         fsTallyRef.current = { ...emptyTally(), scatters: triggerScatterRef.current };
         mergeTally(fsTallyRef.current, lastTallyRef.current);
+        // tumbles = cascades during the free spins only, not the trigger spin
+        fsTallyRef.current.tumbles = 0;
         fsAnteRef.current = Boolean(anteRef.current && !opts?.buy);
         fsSessionRef.current = {
           left: fsCount,
