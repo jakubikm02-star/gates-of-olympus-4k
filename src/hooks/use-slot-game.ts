@@ -209,6 +209,7 @@ export function useSlotGame() {
   const jpShowRef = useRef(false);
   const [jpHit, setJpHit] = useState<JackpotHit | null>(null);
   const [ticketLock, setTicketLock] = useState(false);
+  const ticketLockRef = useRef(false);
   const pendingLiveTicketRef = useRef<TierId | null>(null);
   const [job, setJob] = useState<JobCard | null>(null);
   const [ticketSeal, setTicketSeal] = useState<{ job: JobCard; verdict: "ok" | "fail" } | null>(null);
@@ -437,6 +438,14 @@ export function useSlotGame() {
         ? { ...loadedRaw, seal: false, spun: loadedRaw.limit }
         : loadedRaw;
     const dead = Boolean(loaded && loaded.spun >= loaded.limit && loaded.have < loaded.need);
+    if (loaded && !dead && !(s.inFs && s.fsLeft > 0)) {
+      // A ticket locks its bet. An old or edited save can carry another betIndex; spin at the locked bet.
+      const lockIdx = BETS.findIndex((b) => Math.abs(b - loaded.lockBet) < 0.001);
+      if (lockIdx >= 0 && lockIdx !== s.betIndex) {
+        setBetIndex(lockIdx);
+        betIndexRef.current = lockIdx;
+      }
+    }
     setJob(dead ? null : loaded);
     jobRef.current = dead ? null : loaded;
     pendingLiveTicketRef.current = s.pendingLiveTicket;
@@ -809,17 +818,26 @@ export function useSlotGame() {
     if (bootingRef.current) return;
     bootingRef.current = true;
     setBooting(true);
-    sfx.unlockAudio();
-    sfx.setMuted(muted);
-    await Promise.race([
-      sfx.whenSpinReady(),
-      new Promise<void>((resolve) => window.setTimeout(resolve, 2200)),
-    ]);
-    sfx.startAmbience();
-    setStarted(true);
-    setPhase(inFsRef.current && fsSessionRef.current.left > 0 ? "fs" : "idle");
-    setBooting(false);
-    bootingRef.current = false;
+    try {
+      sfx.unlockAudio();
+      sfx.setMuted(muted);
+      await Promise.race([
+        Promise.resolve()
+          .then(() => sfx.whenSpinReady())
+          .catch(() => {}),
+        new Promise<void>((resolve) => window.setTimeout(resolve, 2200)),
+      ]);
+      try {
+        sfx.startAmbience();
+      } catch {
+        /* audio is optional */
+      }
+    } finally {
+      setStarted(true);
+      setPhase(inFsRef.current && fsSessionRef.current.left > 0 ? "fs" : "idle");
+      setBooting(false);
+      bootingRef.current = false;
+    }
   }, [muted]);
 
   useEffect(() => {
@@ -852,8 +870,10 @@ export function useSlotGame() {
   }, []);
 
   const changeBet = useCallback((dir: -1 | 1) => {
-    if (busyRef.current || jobRef.current || duelRef.current || duelLinkRef.current || chaseRef.current) {
-      if (chaseRef.current) setJobToast("Počas ZÁSAHU zamknuté");
+    if (busyRef.current || inFsRef.current || fsSessionRef.current.left > 0) return;
+    // Lowering the bet is always a way out. A ticket and a duel keep their locked bet (they end on their own when unaffordable).
+    if (jobRef.current || duelRef.current || duelLinkRef.current || (chaseRef.current && dir > 0)) {
+      if (chaseRef.current && dir > 0) setJobToast("Počas ZÁSAHU zamknuté");
       return;
     }
     setBetIndex((i) => Math.min(BETS.length - 1, Math.max(0, i + dir)));
@@ -862,12 +882,22 @@ export function useSlotGame() {
 
   useEffect(() => () => sfx.stopHeartbeat(), []);
 
+  /** Bankruptcy only when nothing can still pay out: no spin running, no free spins pending, no duel escrow, no ticket claim. */
+  const bustOpen = useCallback(() => {
+    if (busyRef.current || inFsRef.current || fsSessionRef.current.left > 0) return false;
+    if (duelRef.current || duelLinkRef.current || jpShowRef.current || ticketLockRef.current) return false;
+    return balanceRef.current < BETS[0];
+  }, []);
+
   const askBust = useCallback(() => {
-    if (busyRef.current || inFsRef.current || duelRef.current || chaseRef.current || chaseCardRef.current) return;
-    if (balanceRef.current >= BETS[0]) return;
+    if (chaseCardRef.current) {
+      chaseCardRef.current = null;
+      setChaseCard(null);
+    }
+    if (!bustOpen()) return;
     setBustAsk(true);
     sfx.playClick();
-  }, []);
+  }, [bustOpen]);
 
   const cancelBust = useCallback(() => {
     setBustAsk(false);
@@ -875,11 +905,25 @@ export function useSlotGame() {
   }, []);
 
   const confirmBust = useCallback(() => {
-    if (busyRef.current || balanceRef.current >= BETS[0]) {
+    if (!bustOpen()) {
       setBustAsk(false);
       return;
     }
     setBustAsk(false);
+    autoRef.current = false;
+    setAutoOn(false);
+    setAutoLeft(0);
+    if (chaseRef.current) {
+      // A chase holds no money. It is voided with the rank, no RP or klienti for it.
+      chaseRef.current = null;
+      setChase(null);
+      setHackWindows([]);
+      setActiveWindow(-1);
+      sfx.stopHeartbeat();
+      sfx.stopChaseBed();
+    }
+    chaseCardRef.current = null;
+    setChaseCard(null);
     const before = standing(rankRef.current.rp);
     const peakStand = standing(Math.max(rankRef.current.peak, rankRef.current.rp));
     const from = `${before.name}${before.roman ? ` ${before.roman}` : ""}`;
@@ -913,7 +957,7 @@ export function useSlotGame() {
     setTopLine("EXEKÚCIA · KREDIT IV");
     setMessage(`Kredit ${START_BALANCE}`);
     sfx.playThunder();
-  }, []);
+  }, [bustOpen]);
 
   useEffect(() => {
     if (!exekucia) return;
@@ -1135,18 +1179,21 @@ export function useSlotGame() {
 
   const runTicket = useCallback(
     async (tier: TierId) => {
+      ticketLockRef.current = true;
       setTicketLock(true);
-      setPhase("max");
-      sfx.playCollect();
-      await wait(400);
       try {
+        setPhase("max");
+        sfx.playCollect();
+        await wait(400);
         const claimed = await withRetry(() => postParkClaim(tier, playerIdRef.current));
         applyBoard(claimed);
         await payPoolHit(claimed, `LÍSTOK ${TICKETS[tier].name}`, { v: 1, mode: "ticket", pays: [], ticket: tier });
       } catch {
         /* keep lock off */
+      } finally {
+        ticketLockRef.current = false;
+        setTicketLock(false);
       }
-      setTicketLock(false);
     },
     [applyBoard, payPoolHit],
   );
@@ -1198,7 +1245,7 @@ export function useSlotGame() {
     }
   }, [pushRank, stampDailyJob, noteTicket, noteHeat]);
 
-  const failParknetJob = useCallback((cur: JobCard) => {
+  const failParknetJob = useCallback((cur: JobCard, line = "NEÚSPEŠNÝ TIKET · MÁLO KREDITU NA 4KA TV") => {
     const burned = { ...cur, seal: false, spun: cur.limit };
     jobRef.current = null;
     setJob(null);
@@ -1210,22 +1257,91 @@ export function useSlotGame() {
     setLcdFlash({ job: burned, verdict: "fail" });
     setTicketSeal({ job: burned, verdict: "fail" });
     stampDailyJob(burned, "fail");
-    setTopLine("NEÚSPEŠNÝ TIKET · MÁLO KREDITU NA 4KA TV");
+    setTopLine(line);
     sfx.playThunder();
   }, [stampDailyJob, noteTicket]);
 
+  /** ZÁSAH that can no longer be paid ends quietly: no outcome, no RP, no klienti. */
+  const voidChase = useCallback(() => {
+    if (!chaseRef.current) return;
+    chaseRef.current = null;
+    setChase(null);
+    setHackWindows([]);
+    setActiveWindow(-1);
+    sfx.stopHeartbeat();
+    sfx.stopChaseBed();
+    setTopLine("ZÁSAH UKONČENÝ · MÁLO KREDITU");
+    setMessage("ZÁSAH ukončený bez trestu");
+    setJobToast("ZÁSAH UKONČENÝ · MÁLO KREDITU");
+    persistNow();
+  }, [persistNow]);
+
+  /**
+   * Way out between spins. Never touches pays or odds: it only turns ante off, lowers the bet to what the
+   * wallet covers, ends a ticket whose locked bet is unaffordable, and voids a ZÁSAH nobody can pay.
+   * Free spins, a duel (VZDAŤ + blank timer) and a running spin are left alone.
+   */
   useEffect(() => {
-    if (busy || inFs || duel) return;
-    const cur = jobRef.current;
-    if (!cur) return;
-    const betNow = cur.lockBet > 0 ? cur.lockBet : BETS[betIndexRef.current];
+    if (!hydrated || !started || busy || inFs || fsSessionRef.current.left > 0) return;
+    if (duel || duelLink) return;
     const rankId = standing(rankRef.current.rp).id;
-    const perk = perkOf(rankId);
-    const spinCost = ante ? +(betNow * perk.anteMul).toFixed(2) : betNow;
-    const buyCost = +(betNow * buyXOf(rankId)).toFixed(2);
-    if (!jobParknetBroke(cur, balance, spinCost, buyCost)) return;
-    failParknetJob(cur);
-  }, [balance, job, busy, inFs, duel, ante, failParknetJob]);
+    const perkNow = perkOf(rankId);
+    const anteOf = (b: number) => +(b * perkNow.anteMul).toFixed(2);
+    const wallet = +balance.toFixed(2);
+    const betNow = BETS[betIndex];
+    const anteOff = (why: string) => {
+      anteRef.current = false;
+      setAnte(false);
+      setJobToast(why);
+    };
+    const haltAuto = () => {
+      if (!autoRef.current && !autoOn) return;
+      autoRef.current = false;
+      setAutoOn(false);
+      setAutoLeft(0);
+      setAutoReason("AUTO STOP · MÁLO KREDITU");
+    };
+    const cur = jobRef.current;
+    if (cur && !cur.seal) {
+      // The ticket keeps its locked bet. Ante can go, the bet cannot.
+      if (ante && wallet < anteOf(betNow) && wallet >= betNow) {
+        haltAuto();
+        anteOff("ANTE VYPNUTÉ · MÁLO KREDITU");
+        return;
+      }
+      const buyCost = +(betNow * buyXOf(rankId)).toFixed(2);
+      if (jobParknetBroke(cur, wallet, betNow, buyCost)) {
+        haltAuto();
+        failParknetJob(cur);
+      } else if (wallet < betNow) {
+        haltAuto();
+        failParknetJob(cur, "NEÚSPEŠNÝ TIKET · MÁLO KREDITU NA ZAMKNUTÚ STÁVKU");
+      }
+      return;
+    }
+    const stakeNow = ante ? anteOf(betNow) : betNow;
+    if (wallet >= stakeNow) return;
+    haltAuto();
+    if (ante) {
+      anteOff("ANTE VYPNUTÉ · MÁLO KREDITU");
+      if (wallet >= betNow) return;
+    }
+    let idx = -1;
+    for (let i = Math.min(betIndex, BETS.length - 1); i >= 0; i -= 1) {
+      if (BETS[i] <= wallet) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx >= 0) {
+      betIndexRef.current = idx;
+      setBetIndex(idx);
+      setJobToast(`STÁVKA ZNÍŽENÁ · ${formatMoney(BETS[idx])}`);
+      return;
+    }
+    // Not even the smallest bet: a chase cannot go on, EXEKÚCIA opens.
+    if (chaseRef.current) voidChase();
+  }, [hydrated, started, busy, inFs, duel, duelLink, balance, betIndex, ante, job, rp, chase, autoOn, failParknetJob, voidChase]);
 
   const waitForPick = useCallback(() => {
     return new Promise<void>((resolve) => {
@@ -1341,7 +1457,7 @@ export function useSlotGame() {
   }, [waitForPick, pushRank, noteResult, noteHeat]);
 
   const runSequence = useCallback(
-    async (opts?: { buy?: boolean; free?: boolean }): Promise<"fs" | "ok" | "max" | "pick"> => {
+    async (opts?: { buy?: boolean; free?: boolean }): Promise<"fs" | "ok" | "max" | "pick" | "skip"> => {
       const currentBet = BETS[betIndexRef.current];
       const perk = perkOf(standing(rankRef.current.rp).id);
       const currentStake = anteRef.current ? +(currentBet * perk.anteMul).toFixed(2) : currentBet;
@@ -1354,7 +1470,7 @@ export function useSlotGame() {
       if (!isFree && balanceRef.current < cost) {
         skipDuelTick.current = true;
         setMessage("Nedostatok kreditu — doplň demo zostatok");
-        return "ok";
+        return "skip";
       }
       skipDuelTick.current = false;
       if (chasing) sfx.startChaseBed();
@@ -2321,6 +2437,16 @@ export function useSlotGame() {
       }
 
       const r = await runSequence(opts);
+      if (r === "skip") {
+        // Nothing was charged or played: no rank, no buy settle, no duel tick. Auto must not burn its count.
+        if (autoRef.current) {
+          autoRef.current = false;
+          setAutoOn(false);
+          setAutoLeft(0);
+          setAutoReason("AUTO STOP · MÁLO KREDITU");
+        }
+        return;
+      }
       const betNow = BETS[betIndexRef.current];
       const triggerCash = +(lastPaidXRef.current * betNow).toFixed(2);
       const rankIdNow = standing(rankRef.current.rp).id;
@@ -2541,6 +2667,18 @@ export function useSlotGame() {
     }
     const betNow = BETS[betIndexRef.current];
     const taken = { ...card, lockBet: card.lockBet || betNow };
+    {
+      // After paying the ticket there must be credit for at least one spin at the locked bet
+      // (a buy ticket: for the buy). Otherwise it would be dead on arrival.
+      const rankIdNow = standing(rankRef.current.rp).id;
+      const left = +(balanceRef.current - taken.stake).toFixed(2);
+      const spinCost = BETS[betIndexRef.current];
+      const buyCost = +(spinCost * buyXOf(rankIdNow)).toFixed(2);
+      if (left < spinCost || jobParknetBroke(taken, left, spinCost, buyCost)) {
+        setJobToast("Málo kreditu na tiket aj točenie");
+        return;
+      }
+    }
     setBalance((b) => +(b - taken.stake).toFixed(2));
     jobRef.current = taken;
     setJob(taken);
@@ -2615,10 +2753,15 @@ export function useSlotGame() {
         setChaseCard(null);
         return;
       }
-      if (busyRef.current) return;
+      if (busyRef.current || staleRef.current) return;
+      if (inFsRef.current) {
+        // Free spins left paused (error / reload) resume from the keyboard too.
+        if (fsSessionRef.current.left > 0) void playRound({ resumeFs: true });
+        return;
+      }
       const live = duelRef.current;
       if (live && !canDuelSpin(live)) return;
-      if (!inFsRef.current) void playRound();
+      void playRound();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -2679,10 +2822,13 @@ export function useSlotGame() {
     setQuick,
     ante,
     setAnte: (v: boolean) => {
-      if (busyRef.current || duelRef.current || duelLinkRef.current || chaseRef.current) {
-        if (chaseRef.current) setJobToast("Počas ZÁSAHU zamknuté");
+      if (busyRef.current || inFsRef.current || fsSessionRef.current.left > 0) return;
+      // Turning ante OFF is always allowed between spins (also in ZÁSAH). Turning it on stays locked there.
+      if (duelRef.current || duelLinkRef.current || (chaseRef.current && v)) {
+        if (chaseRef.current && v) setJobToast("Počas ZÁSAHU zamknuté");
         return;
       }
+      anteRef.current = v;
       setAnte(v);
       sfx.playClick();
     },
@@ -2835,16 +2981,28 @@ export function useSlotGame() {
     exekucia,
     dismissExekucia: () => setExekucia(null),
     broke: balance < BETS[0],
+    canBust:
+      balance < BETS[0] &&
+      !busy &&
+      !inFs &&
+      fsLeft <= 0 &&
+      !duel &&
+      !duelLink &&
+      !ticketLock &&
+      !jpHit,
+    canLowerBet: !busy && !inFs && fsLeft <= 0 && !job && !duel && !duelLink && betIndex > 0,
+    canAnteOff: !busy && !inFs && fsLeft <= 0 && !duel && !duelLink,
     bestWin,
     canSpin:
       started &&
       !stale &&
       !busy &&
-      !inFs &&
       !buyAsk &&
       !chaseCard &&
-      balance >= stake &&
-      (!duel || (duel.phase === "play" && canDuelSpin(duel))),
+      // Free spins left over after an error or a reload resume from the spin button (no stake).
+      (inFs
+        ? fsLeft > 0
+        : balance >= stake && (!duel || (duel.phase === "play" && canDuelSpin(duel)))),
     canBuy:
       started &&
       !stale &&
@@ -3023,7 +3181,8 @@ export function useSlotGame() {
       if (duelRef.current) return "Už beží duel.";
       const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
       const spins = need > 0 ? Math.round(need) : 10;
-      if (balanceRef.current < +(stake * spins * 1.2).toFixed(2)) return "Málo kreditu.";
+      // Hot-seat: both seats spin from this one wallet while the winnings sit in the duel bank.
+      if (balanceRef.current < +(stake * spins * 1.2 * 2).toFixed(2)) return "Málo kreditu.";
       const i = BETS.reduce((best, v, idx) => (Math.abs(v - stake) < Math.abs(BETS[best] - stake) ? idx : best), 0);
       setBetIndex(i);
       betIndexRef.current = i;

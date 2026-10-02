@@ -96,7 +96,7 @@ export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob }: 
               {cards.map((card, i) => {
                 const mark = marks[i];
                 const running = job?.id === card.id;
-                const locked = Boolean(mark) || Boolean(job) || credit < card.stake;
+                const locked = Boolean(mark) || Boolean(job) || credit < +(card.stake + (card.lockBet || 0)).toFixed(2);
                 return (
                   <button
                     key={card.id}
@@ -129,7 +129,7 @@ export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob }: 
                 type="button"
                 className="spend-job mystery"
                 onClick={() => {
-                  if (credit < mystery.stake) {
+                  if (credit < +(mystery.stake + (mystery.lockBet || 0)).toFixed(2)) {
                     setOtrsFail(true);
                     return;
                   }

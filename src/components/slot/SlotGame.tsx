@@ -108,8 +108,8 @@ function HoldSpin({
   const down = (e: PointerEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
-    if (!g.started || g.inFs || g.buyAsk) return;
-    if (g.busy) {
+    if (!g.started || g.buyAsk) return;
+    if (g.busy || !g.canSpin) {
       return;
     }
     held.current = false;
@@ -124,9 +124,9 @@ function HoldSpin({
   const up = () => {
     window.clearTimeout(timer.current);
     timer.current = 0;
-    if (!g.started || g.inFs || g.buyAsk) return;
+    if (!g.started || g.buyAsk) return;
     if (held.current) return;
-    if (g.busy) return;
+    if (g.busy || !g.canSpin) return;
     void g.spin();
   };
 
@@ -297,7 +297,7 @@ export function SlotGame() {
               type="button"
               className={`parchment ante ${g.ante ? "on" : ""}`}
               onClick={() => g.setAnte(!g.ante)}
-              disabled={g.busy || Boolean(g.duel) || Boolean(g.duelLink) || Boolean(g.chase)}
+              disabled={!g.canAnteOff || (Boolean(g.chase) && !g.ante)}
             >
               <em>ANTE BET</em>
               <strong>{g.perk.anteMul.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}×</strong>
@@ -620,7 +620,7 @@ export function SlotGame() {
               type="button"
               className="round-btn"
               onClick={() => g.changeBet(-1)}
-              disabled={g.busy || Boolean(g.job) || Boolean(g.duel) || Boolean(g.duelLink) || Boolean(g.chase) || g.betIndex <= 0}
+              disabled={!g.canLowerBet}
               aria-label={g.job || g.duel || g.duelLink ? "Stávka zamknutá" : "Znížiť stávku"}
             >
               −
@@ -638,7 +638,7 @@ export function SlotGame() {
               type="button"
               className="round-btn"
               onClick={() => g.changeBet(1)}
-              disabled={g.busy || Boolean(g.job) || Boolean(g.duel) || Boolean(g.duelLink) || Boolean(g.chase) || g.betIndex >= BETS.length - 1}
+              disabled={g.busy || g.inFs || Boolean(g.job) || Boolean(g.duel) || Boolean(g.duelLink) || Boolean(g.chase) || g.betIndex >= BETS.length - 1}
               aria-label={g.job || g.duel || g.duelLink ? "Stávka zamknutá" : "Zvýšiť stávku"}
             >
               +
@@ -716,8 +716,8 @@ export function SlotGame() {
             </button>
           )}
           {g.autoReason && !g.autoOn && !g.duel && <span className="auto-stop">{g.autoReason}</span>}
-          {g.broke && !g.inFs && !g.duel && !g.duelLink && !g.chase && (
-            <button type="button" className="chip-btn gold" onClick={g.askBust} disabled={g.busy}>
+          {g.canBust && (
+            <button type="button" className="chip-btn gold" onClick={g.askBust}>
               EXEKÚCIA
             </button>
           )}

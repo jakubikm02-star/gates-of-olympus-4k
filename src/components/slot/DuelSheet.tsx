@@ -453,10 +453,13 @@ export function DuelSheet({
                   Hráč 2
                   <input value={b} onChange={(e) => setB(e.target.value)} maxLength={16} />
                 </label>
+                {credit >= seatCost(need, stake) && credit < seatCost(need, stake) * 2 ? (
+                  <p className="spend-active is-late">Pri stole točia obaja z jedného kreditu · min. {formatMoney(seatCost(need, stake) * 2)}</p>
+                ) : null}
                 <button
                   type="button"
                   className="chip-btn gold duel-go"
-                  disabled={credit < seatCost(need, stake)}
+                  disabled={credit < seatCost(need, stake) * 2}
                   onClick={() => setBlock(onStart("spins", a, b, stake, need, anteOn))}
                 >
                   ZAČNI PRI STOLE

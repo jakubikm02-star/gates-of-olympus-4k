@@ -97,7 +97,8 @@ async function rpc(name: string, body?: Record<string, unknown>): Promise<unknow
     }
     const ct = res.headers.get("content-type") || "";
     if (!ct.includes("json")) throw new Error(`pool rpc ${name} not json`);
-    return res.json();
+    // Await inside the try so a stalled body is still cut by the 2.5 s abort.
+    return await res.json();
   } finally {
     clearTimeout(kill);
   }
