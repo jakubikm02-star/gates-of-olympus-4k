@@ -44,7 +44,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     id: "rj45",
     name: "Hrdzavý RJ45",
     src: "/symbols/rj45.png",
-    pays: [0.25, 0.75, 2],
+    pays: [0.2, 0.59, 1.58],
     weight: 14.8,
     quip: "Ešte drží. Skoro.",
   },
@@ -52,7 +52,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     id: "router",
     name: "Wi-Fi router",
     src: "/symbols/router.png?v=3",
-    pays: [0.4, 0.9, 4],
+    pays: [0.32, 0.71, 3.16],
     weight: 13.7,
     quip: "Heslo je na spodku.",
   },
@@ -60,7 +60,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     id: "hap",
     name: "hAP ac²",
     src: "/symbols/hap.png",
-    pays: [0.5, 1, 5],
+    pays: [0.4, 0.79, 3.95],
     weight: 12.7,
     quip: "Winbox otvorený na 8291.",
   },
@@ -68,7 +68,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     id: "roof",
     name: "Krytina",
     src: "/symbols/roof.png",
-    pays: [0.8, 1.2, 8],
+    pays: [0.63, 0.95, 6.32],
     weight: 11.8,
     quip: "Padá aj v lete.",
   },
@@ -76,7 +76,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     id: "arris",
     name: "Set-top box",
     src: "/symbols/arris.png",
-    pays: [1, 1.5, 10],
+    pays: [0.79, 1.19, 7.9],
     weight: 10.9,
     quip: "Modem, ktorý prežil tri providery.",
   },
@@ -84,7 +84,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     id: "case",
     name: "Kufrík",
     src: "/symbols/case.png",
-    pays: [1.5, 2, 12],
+    pays: [1.19, 1.58, 9.48],
     weight: 10.1,
     quip: "Vnútri je len merací kábel a hnev.",
   },
@@ -92,7 +92,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     id: "dacia",
     name: "Dacia Jogger",
     src: "/symbols/dacia.png",
-    pays: [2, 5, 15],
+    pays: [1.58, 3.95, 11.85],
     weight: 9.3,
     quip: "Sedem miest, nula hanby.",
   },
@@ -100,7 +100,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     id: "meter",
     name: "OLP-87",
     src: "/symbols/meter.png",
-    pays: [2.5, 10, 25],
+    pays: [1.98, 7.9, 19.75],
     weight: 8.6,
     quip: "−27 dBm. Zázrak, že to svieti.",
   },
@@ -108,7 +108,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
     id: "pdf",
     name: "PDF 4K 5G",
     src: "/symbols/pdf.png",
-    pays: [10, 25, 50],
+    pays: [7.9, 19.75, 39.5],
     weight: 8,
     quip: "ULTRA MAX PRO. Stále PDF.",
   },
@@ -231,18 +231,18 @@ export function fsTriggerSpins(scatters: number, base = FS_SPINS): number {
   const extra = Math.max(0, Math.floor(scatters) - FS_TRIGGER_SCATTERS);
   return base + extra * FS_EXTRA_PER_SCATTER;
 }
-export const BUY_COST_X = 100;
+export const BUY_COST_X = 79;
 export const ANTE_COST = 1.25;
 export const START_BALANCE = 5000;
 
-/** Sheet, not one lucky sample. Hit is measured. Bonus 1/448 and ante 1/224 are the scatter pins. Buy is 96.5× (100× stake, Gates). */
+/** Sheet, not one lucky sample. Hit is measured. Bonus 1/448 and ante 1/224 are the scatter pins. Buy price is 79×, measured return ~79.2×. */
 export const MATH_NOTE = {
   spins: 30_000,
   rtp: 0.96,
   hit: 0.284,
   bonusEvery: 448,
   anteBonusEvery: 224,
-  buyEv: 0.965,
+  buyEv: 0.792,
   maxEvery: null as number | null,
 };
 

@@ -33,7 +33,7 @@ function nextUid(): number {
  */
 export const mathTune = {
   /** Chance Zeus throws on a screen. Opening and every tumble share it. */
-  baseThrow: 0.036,
+  baseThrow: 0.07,
   fsThrow: 0.3,
   sticky: 0.156,
 };

@@ -151,7 +151,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             Lístok vo feature smie padnúť, ceremónia ide až po SIEŤ SPADLA. Banner je{" "}
             <code>1-FTTB · 1 742,20</code> — žiadny WinBox, žiadny terminál.
           </li>
-          <li>Ante zdvojnásobí 4ka TV, nie šancu lístka. Od SMART stojí 1,22× namiesto 1,25×. Buy je vždy 100×. Pity je IDLE meter, nikdy jackpot.</li>
+          <li>Ante zdvojnásobí 4ka TV, nie šancu lístka. Od SMART stojí 1,22× namiesto 1,25×. Buy je vždy 79×. Pity je IDLE meter, nikdy jackpot.</li>
           <li>
             KONTROLA má vlastný PITY meter na každú stávku (100). Iba mŕtvy spin (+2) a 3 / 4 scattere
             (+30). Po spustení bar padne na 0. Kúpiť sa nedá.
@@ -173,12 +173,12 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             MAX WIN 5000× ukončí feature.
           </li>
           <li>
-            Kúpa voľných točení = 100× základná stávka na každom ranku. Ante sa na kúpu nevzťahuje.
-            Do ranku sa kúpa ráta ako 100 točení. Max 5000× je strop celej feature — potom FEATURE TERMINATED.
+            Kúpa voľných točení = 79× základná stávka na každom ranku. Ante sa na kúpu nevzťahuje.
+            Do ranku sa kúpa ráta ako 79 točení. Max 5000× je strop celej feature — potom FEATURE TERMINATED.
           </li>
           <li>
             Rovnaký tvar ako Gates of Olympus: RTP okolo {(MATH_NOTE.rtp * 100).toFixed(1)} %, hit{" "}
-            {(MATH_NOTE.hit * 100).toFixed(1)} %, PARKNET aj kúpa sú tá istá feature. Bonus 1/{MATH_NOTE.bonusEvery}, kúpa za 100×
+            {(MATH_NOTE.hit * 100).toFixed(1)} %, PARKNET aj kúpa sú tá istá feature. Bonus 1/{MATH_NOTE.bonusEvery}, kúpa za 79×
             vracia asi {(MATH_NOTE.buyEv * 100).toFixed(1)}×. High-vol demo, nie certifikát 96.50 %.
           </li>
         </ul>
@@ -187,7 +187,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
           <p>
             {MATH_NOTE.spins.toLocaleString("sk-SK")} paid spinov, rovnaký engine ako hra. Hit rate{" "}
             {(MATH_NOTE.hit * 100).toFixed(2)} %. Bonus každých {MATH_NOTE.bonusEvery} točení, s ante 1/
-            {MATH_NOTE.anteBonusEvery}. Buy EV {MATH_NOTE.buyEv.toFixed(3)} (100× stávka, ante off). Max 5000×{" "}
+            {MATH_NOTE.anteBonusEvery}. Buy EV {MATH_NOTE.buyEv.toFixed(3)} (79× stávka, ante off). Max 5000×{" "}
             {MATH_NOTE.maxEvery ? `~1/${MATH_NOTE.maxEvery}` : "v tejto vzorke 0×"}.
           </p>
         </details>

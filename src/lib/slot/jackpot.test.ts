@@ -160,8 +160,8 @@ describe("rank stake + perk", () => {
     assert.equal(perkOf("optika").deadRebate, 0.03);
     assert.equal(perkOf("nekonecno").deadRebate, 0.05);
     assert.equal(perkOf("nekonecno").stickyOrbs, false);
-    assert.equal(buyXOf("fiveg"), 100);
-    assert.equal(buyXOf("nekonecno"), 100);
+    assert.equal(buyXOf("fiveg"), 79);
+    assert.equal(buyXOf("nekonecno"), 79);
     assert.equal(fsSpinsOf("duo"), 16);
     assert.equal(fsSpinsOf("fiveg"), 16);
     assert.equal(fsSpinsOf("nekonecno"), 17);
