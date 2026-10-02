@@ -3,6 +3,8 @@ import { Volume2, VolumeX, Info, RefreshCw, Menu, Settings as SettingsIcon, Trop
 import { START_BALANCE, BETS, PAY_SYMBOLS, FS_SYMBOL, canSrc, canTier } from "@/lib/slot/symbols";
 import { fsSymName, fsSymSrc, type FsSymId } from "@/lib/slot/zasah";
 import { FsReveal } from "./FsReveal";
+import { TargetHud } from "./TargetReticle";
+import { useChaseAim } from "@/hooks/use-chase-aim";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
 import { jobClock, jobMeter, jobProgress, jobShownGoal, sayCluster, type JobCard } from "@/lib/slot/spend";
@@ -181,6 +183,7 @@ export function SlotGame() {
     return () => mq.removeEventListener("change", apply);
   }, []);
   const spinning = g.phase === "spinning" || g.phase === "landing";
+  const aim = useChaseAim(g.chase, g.phase === "spinning");
   const god = g.throwBolt ? "bolt" : g.anticipate ? "anti" : spinning ? "run" : g.inFs || g.winTier || g.displayWin > 0 ? "win" : "idle";
   const resolving =
     spinning ||
@@ -408,41 +411,7 @@ export function SlotGame() {
             </div>
             <div className={`top-ticker ${g.chase ? "is-chase" : ""} ${g.chase || g.spinWin > 0 ? "has-win" : g.topLine && !g.topLine.startsWith("SYMBOLY PLATIA") ? "" : "is-idle"}`}>
               {g.chase ? (
-                <>
-                  <span className="chase-desk">
-                    ZÁSAH · CIEĽ
-                    <strong>{PAY_SYMBOLS.find((s) => s.id === g.chase?.target)?.name ?? "…"}</strong>
-                  </span>
-                  <span className="chase-mini">
-                    {(() => {
-                      const chase = g.chase;
-                      if (!chase) return null;
-                      const target = PAY_SYMBOLS.find((s) => s.id === chase.target);
-                      return (
-                        <>
-                          {target ? <img src={target.src} alt="" /> : <strong>CIEĽ</strong>}
-                          <em className="chase-goal">{target?.name ?? "CIEĽ"}</em>
-                          <em>HACK {chase.hits}/4</em>
-                          <span className="chase-pins">
-                            {Array.from({ length: 4 }, (_, i) => (
-                              <i key={`h${i}`} className={i < chase.hits ? "is-hit" : ""} />
-                            ))}
-                          </span>
-                          <em>FS {chase.strikes}/3</em>
-                          <span className="chase-pins is-fs">
-                            {Array.from({ length: 3 }, (_, i) => (
-                              <i key={`f${i}`} className={i < chase.strikes ? "is-fs" : ""} />
-                            ))}
-                          </span>
-                          {chase.fsSym ? <FsChip sym={chase.fsSym} /> : null}
-                          <b>
-                            SPIN {Math.min(chase.total, chase.spin + 1)}/{chase.total}
-                          </b>
-                        </>
-                      );
-                    })()}
-                  </span>
-                </>
+                <TargetHud aim={aim} strikes={g.chase.strikes} fsSym={g.chase.fsSym} turbo={g.turbo} />
               ) : g.spinWin > 0 ? (
                 <>
                   TUMBLE
@@ -479,7 +448,8 @@ export function SlotGame() {
               hackWindows={g.windows}
               activeWindow={g.chase?.activeWindow}
               windowPhase={g.chase?.phase}
-              chaseTarget={g.chase?.target}
+              chaseTarget={g.chase ? aim.id : null}
+              aimOn={Boolean(g.chase && aim.id && aim.played && !g.inFs && g.phase !== "spinning")}
               fsSym={g.chase?.fsSym ?? null}
               frame={<MachineFrame id={g.rank.id} division={g.rank.division} />}
             />
@@ -816,7 +786,7 @@ export function SlotGame() {
           {(() => {
             const chase = g.chase;
             if (!chase) return null;
-            const target = PAY_SYMBOLS.find((s) => s.id === chase.target);
+            const target = PAY_SYMBOLS.find((s) => s.id === aim.id);
             return (
               <>
                 {target ? (

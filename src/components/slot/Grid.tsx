@@ -35,6 +35,8 @@ interface Props {
   activeWindow?: number;
   windowPhase?: "travel" | "hover" | "land" | "reveal";
   chaseTarget?: PayId | null;
+  /** ZÁSAH result on screen: cells with chaseTarget wear the green lock-on frame, the rest dim. */
+  aimOn?: boolean;
   /** Symbol Finančná správa holds this ZÁSAH. Those cells wear the FS seal. */
   fsSym?: FsSymId | null;
   /** Rank cabinet layer (MachineFrame), painted in the bezel only. */
@@ -59,6 +61,7 @@ function CellView({
   expired,
   tumbleFall,
   ticketLock,
+  aim = null,
 }: {
   cell: Cell;
   r: number;
@@ -74,6 +77,7 @@ function CellView({
   expired: boolean;
   tumbleFall: number;
   ticketLock?: boolean;
+  aim?: "on" | "dim" | null;
 }) {
   const fsSym = useContext(FsSymContext);
   const fsCell = isFsCell(cell, fsSym);
@@ -104,6 +108,8 @@ function CellView({
         expired ? "is-expired" : "",
         dumping && !reduced ? "is-dump" : "",
         tumbleFall && !reduced ? "is-drop" : "",
+        aim === "on" && !cell.gone ? "is-aim" : "",
+        aim === "dim" && !cell.gone && !fsCell && !win ? "is-aim-dim" : "",
       ].join(" ")}
       style={style}
       data-rc={`${r}-${c}`}
@@ -124,6 +130,14 @@ function CellView({
       {!cell.gone && cell.kind === "mult" && <CanValue mult={cell.mult ?? 2} />}
       {!cell.gone && win && <span className="win-fx" aria-hidden="true" />}
       {hot && <span className="orb-strike" aria-hidden="true" />}
+      {aim === "on" && !cell.gone && (
+        <span className="aim-lock" aria-hidden="true">
+          <b className="al-tl" />
+          <b className="al-tr" />
+          <b className="al-bl" />
+          <b className="al-br" />
+        </span>
+      )}
       {popping && win && (
         <span className="pop-burst" aria-hidden="true">
           {Array.from({ length: 16 }, (_, i) => (
@@ -267,6 +281,7 @@ export function SlotGrid({
   activeWindow = -1,
   windowPhase = "reveal",
   chaseTarget,
+  aimOn = false,
   fsSym = null,
   frame = null,
 }: Props) {
@@ -410,7 +425,7 @@ export function SlotGrid({
   return (
     <FsSymContext.Provider value={fsSym}>
     <div
-      className={`reel-frame${fsSym ? " has-fs-sym" : ""}`}
+      className={`reel-frame${fsSym ? " has-fs-sym" : ""}${aimOn && chaseTarget ? " is-aiming" : ""}`}
       aria-label="Herné pole 6×5"
       onClick={onTap}
     >
@@ -510,6 +525,13 @@ export function SlotGrid({
                         expired={expiredUids.includes(cell.uid)}
                         tumbleFall={cell.fall ?? 0}
                         ticketLock={ticketLock}
+                        aim={
+                          aimOn && chaseTarget && !ticketLock
+                            ? cell.kind === "pay" && cell.payId === chaseTarget
+                              ? "on"
+                              : "dim"
+                            : null
+                        }
                       />
                     );
                   })}

@@ -10413,3 +10413,385 @@ html:-webkit-full-screen {
 .job-sheet .tg-goal.is-done .tg-head b {
   color: #7ee2a8;
 }
+
+/* ===== ZÁSAH target reticle · green = HACK target, red = Finančná správa =====
+   The chase row keeps the ticker's height in every shell; only the reticle hangs over the gap. */
+.top-ticker.is-chase {
+  --zt: #39ff88;
+  --zt-hi: #c9ffe0;
+  --zt-soft: rgb(57 255 136 / 0.42);
+  --zt-d: 52px;
+  --zt-top: -17px;
+  --zt-icon: 44px;
+  /* Some shells leave the row static; relative without offsets keeps the flow and anchors the reticle. */
+  position: relative;
+  overflow: visible;
+  z-index: 12;
+  justify-content: flex-start;
+  padding: 0 6px 0 calc(var(--zt-d) + 12px);
+  white-space: nowrap;
+  border-color: rgb(57 255 136 / 0.7);
+  background: linear-gradient(90deg, #0a2416 0%, #08130d 46%, #0b0c10 100%);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.55), inset 0 0 14px rgb(57 255 136 / 0.12), 0 0 10px rgb(57 255 136 / 0.14);
+  color: var(--zt-hi);
+}
+.top-ticker.is-chase,
+.stage.shell-mw .top-ticker.is-chase,
+.stage.shell-pwa .top-ticker.is-chase {
+  white-space: nowrap;
+  overflow: visible;
+}
+@media (min-width: 721px) {
+  .top-ticker.is-chase {
+    --zt-d: 60px;
+    --zt-top: -8px;
+    --zt-icon: 50px;
+  }
+}
+
+.zt-hud {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+.zt-ret {
+  position: absolute;
+  left: 2px;
+  top: var(--zt-top);
+  width: var(--zt-d);
+  height: var(--zt-d);
+  z-index: 2;
+  pointer-events: none;
+}
+.zt-scope {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  /* Lit centre so dark symbols (hAP, set-top box) still read on a phone. */
+  background: radial-gradient(circle at 50% 46%, #3a8a5e 0%, #1a4a31 34%, #0a2015 62%, #020604 100%);
+  box-shadow: 0 0 0 2px #020604, 0 0 0 3px rgb(57 255 136 / 0.55), 0 0 16px rgb(57 255 136 / 0.45), 0 6px 14px rgb(0 0 0 / 0.65);
+}
+.zt-cross {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  overflow: visible;
+  fill: none;
+  stroke: var(--zt);
+  filter: drop-shadow(0 0 2px rgb(57 255 136 / 0.9));
+}
+.zt-ring { stroke-width: 2.6; }
+.zt-ring2 { stroke-width: 0.8; opacity: 0.45; stroke-dasharray: 3 5; }
+.zt-ticks { stroke-width: 3.2; stroke-linecap: square; }
+.zt-brk { stroke-width: 3; stroke-linecap: square; opacity: 0.9; }
+.zt-icon {
+  position: relative;
+  z-index: 1;
+  width: var(--zt-icon);
+  height: var(--zt-icon);
+  object-fit: contain;
+  filter: drop-shadow(0 0 1px #e6fff0) drop-shadow(0 0 4px rgb(57 255 136 / 0.7)) drop-shadow(0 2px 2px rgb(0 0 0 / 0.7));
+  user-select: none;
+  animation: zt-pop 0.38s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+.zt-q {
+  position: relative;
+  z-index: 1;
+  font: 800 22px/1 Oswald, sans-serif;
+  color: var(--zt);
+  animation: zt-blink 0.6s steps(2, jump-none) infinite;
+}
+.zt-snap,
+.zt-flash {
+  position: absolute;
+  inset: -6px;
+  z-index: 3;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+}
+/* The glow converges into the reticle: starts wide, lands on the ring, gone by ~380 ms. */
+.zt-snap {
+  border: 3px solid var(--zt);
+  box-shadow: 0 0 18px 4px rgb(57 255 136 / 0.75), inset 0 0 12px rgb(57 255 136 / 0.6);
+  animation: zt-converge 0.38s cubic-bezier(0.3, 0.7, 0.4, 1) both;
+}
+.zt-flash {
+  inset: 0;
+  background: radial-gradient(circle, rgb(220 255 235 / 0.95) 0%, rgb(57 255 136 / 0.7) 38%, transparent 72%);
+  animation: zt-flash 0.42s ease-out both;
+}
+.zt-hud.is-turbo .zt-icon,
+.zt-hud.is-turbo .zt-snap {
+  animation-duration: 0.3s;
+}
+
+.zt-meta {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+.zt-meta em {
+  font: 800 8.5px/1 Oswald, sans-serif;
+  font-style: normal;
+  letter-spacing: 0.22em;
+  color: var(--zt);
+}
+.zt-meta b {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 800 12px/1.05 Oswald, sans-serif;
+  letter-spacing: 0.03em;
+  color: #fff;
+  text-shadow: 0 0 8px rgb(57 255 136 / 0.55);
+  animation: zt-name 0.32s ease-out both;
+}
+.zt-hud.is-aiming .zt-meta b {
+  color: var(--zt);
+}
+
+.zt-hits {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+}
+.zt-segs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 3px;
+  background: rgb(0 0 0 / 0.55);
+  box-shadow: inset 0 0 0 1px rgb(57 255 136 / 0.35);
+}
+.zt-segs i {
+  position: relative;
+  width: 11px;
+  height: 9px;
+  border-radius: 1px;
+  background: rgb(57 255 136 / 0.12);
+  overflow: hidden;
+}
+.zt-segs i::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #b8ffd6, var(--zt) 55%, #12b85a);
+  box-shadow: 0 0 6px var(--zt);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+.zt-segs i.is-on::after {
+  transform: none;
+}
+.zt-segs i.is-new::after {
+  animation: zt-fill 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+.zt-hits b {
+  font: 800 12px/1 Oswald, sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: var(--zt);
+}
+.zt-hud.is-close .zt-segs {
+  box-shadow: inset 0 0 0 1px var(--zt), 0 0 8px rgb(57 255 136 / 0.4);
+}
+
+/* FS: red + erb, never a ring or brackets. */
+.zt-fs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  height: 20px;
+  padding: 0 5px 0 2px;
+  border-radius: 4px;
+  border: 1px solid rgb(255 59 48 / 0.85);
+  background: linear-gradient(180deg, #3a0907, #160302);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.5), 0 0 8px rgb(255 40 30 / 0.35);
+}
+.zt-fs img {
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
+}
+.zt-fs-src {
+  opacity: 0.6;
+  filter: grayscale(0.7);
+}
+.zt-fs-erb {
+  filter: drop-shadow(0 0 3px rgb(255 40 30 / 0.8));
+}
+.zt-fs-pips {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 2px;
+}
+.zt-fs-pips i {
+  width: 6px;
+  height: 9px;
+  border-radius: 1px;
+  background: rgb(255 59 48 / 0.18);
+  box-shadow: inset 0 0 0 1px rgb(255 59 48 / 0.5);
+}
+.zt-fs-pips i.is-on {
+  background: #ff3b30;
+  box-shadow: 0 0 5px #ff3b30;
+}
+@media (min-width: 721px) {
+  .zt-hud {
+    gap: 14px;
+  }
+  .zt-meta {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .zt-meta em {
+    font-size: 10px;
+  }
+  .zt-meta b {
+    font-size: 15px;
+  }
+  .zt-segs i {
+    width: 16px;
+    height: 10px;
+  }
+  .zt-hits b {
+    font-size: 14px;
+  }
+}
+@media (max-width: 370px) {
+  .zt-hud {
+    gap: 7px;
+  }
+  .zt-segs i {
+    width: 9px;
+  }
+  .zt-fs-src {
+    display: none;
+  }
+}
+
+@keyframes zt-pop {
+  0% { transform: scale(0.35) rotate(-14deg); opacity: 0; }
+  55% { transform: scale(1.14) rotate(2deg); opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+@keyframes zt-converge {
+  0% { transform: scale(1.9); opacity: 0; }
+  35% { opacity: 1; }
+  100% { transform: scale(0.92); opacity: 0; }
+}
+@keyframes zt-flash {
+  0% { transform: scale(0.6); opacity: 0; }
+  25% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1.3); opacity: 0; }
+}
+@keyframes zt-fill {
+  0% { transform: scaleX(0); }
+  100% { transform: none; }
+}
+@keyframes zt-name {
+  0% { transform: translateX(-6px); opacity: 0; }
+  100% { transform: none; opacity: 1; }
+}
+@keyframes zt-blink {
+  0% { opacity: 1; }
+  100% { opacity: 0.35; }
+}
+
+/* On the reels: the target locks in green with corner brackets, the rest steps back. */
+.cell .aim-lock {
+  position: absolute;
+  inset: 5%;
+  z-index: 2;
+  border-radius: 10%;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px rgb(57 255 136 / 0.9), inset 0 0 14px rgb(57 255 136 / 0.45), 0 0 10px rgb(57 255 136 / 0.5);
+  background: radial-gradient(circle, rgb(57 255 136 / 0.16), transparent 70%);
+  animation: aim-in 0.22s ease-out both;
+}
+.cell .aim-lock::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  box-shadow: 0 0 14px 2px rgb(57 255 136 / 0.55), inset 0 0 10px rgb(57 255 136 / 0.35);
+  opacity: 0.3;
+  animation: aim-breathe 1.4s ease-in-out 0.22s infinite alternate;
+}
+.aim-lock b {
+  position: absolute;
+  width: 26%;
+  height: 26%;
+  border: 0 solid #b9ffd6;
+  filter: drop-shadow(0 0 3px #39ff88);
+}
+.aim-lock .al-tl { left: 4%; top: 4%; border-width: 3px 0 0 3px; }
+.aim-lock .al-tr { right: 4%; top: 4%; border-width: 3px 3px 0 0; }
+.aim-lock .al-bl { left: 4%; bottom: 4%; border-width: 0 0 3px 3px; }
+.aim-lock .al-br { right: 4%; bottom: 4%; border-width: 0 3px 3px 0; }
+.cell.is-aim .cell-img {
+  z-index: 3;
+}
+.cell.is-aim-dim .cell-img {
+  opacity: 0.62;
+}
+/* FS cells read red: the erb sits on a red alarm plate, no green, no brackets. */
+.reel-frame.is-aiming .cell.is-fs-sym::after,
+.stage.in-chase .cell.is-fs-sym::after {
+  inset: 6%;
+  border-radius: 12%;
+  background: radial-gradient(circle, rgb(255 40 30 / 0.34), rgb(120 6 4 / 0.18) 62%, transparent 74%);
+  box-shadow: inset 0 0 0 2px rgb(255 59 48 / 0.75), 0 0 10px rgb(255 40 30 / 0.35);
+}
+.stage.in-chase .cell.is-fs-sym .cell-img {
+  filter: drop-shadow(0 0 6px rgb(255 40 30 / 0.75)) drop-shadow(0 2px 3px rgb(0 0 0 / 0.6));
+}
+/* HACK hits are the target colour too. */
+.hack-window.is-hit,
+.hack-window.is-lock {
+  --hw: #39ff88;
+  --hw-soft: rgb(57 255 136 / 0.42);
+}
+.chase-pins i.is-hit {
+  background: #2fd872;
+}
+@keyframes aim-breathe {
+  0% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+@keyframes aim-in {
+  0% { opacity: 0; transform: scale(1.12); }
+  100% { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zt-icon,
+  .zt-q,
+  .zt-meta b,
+  .zt-segs i.is-new::after,
+  .cell .aim-lock,
+  .cell .aim-lock::after {
+    animation: none;
+  }
+  .zt-snap,
+  .zt-flash {
+    display: none;
+  }
+}
