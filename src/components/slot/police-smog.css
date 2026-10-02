@@ -11,8 +11,9 @@
   mask-image: radial-gradient(ellipse 52% 44% at 50% 46%, rgb(0 0 0 / 0.1) 0%, rgb(0 0 0 / 0.42) 55%, #000 100%);
   animation: ps-in 0.9s ease-out both;
   --ps-cycle: 1.8s;
-  --ps-lo: 0.28;
-  --ps-hi: 0.95;
+  /* Quiet chase. Full strength (.is-full) is only with 2+ Finančná správa symbols on the reels. */
+  --ps-lo: 0.12;
+  --ps-hi: 0.42;
 }
 
 .ps-side {
@@ -68,7 +69,7 @@
   margin-top: -21vmax;
   background: center / 100% 100% no-repeat;
   transform-origin: 0 50%;
-  opacity: 0.42;
+  opacity: 0.18;
   will-change: transform;
 }
 .ps-red .ps-beam {
@@ -82,15 +83,25 @@
   animation: ps-sweep-r 7.5s ease-in-out infinite alternate;
 }
 
-/* Close to the third FS strike: quicker, harder alternation (red/blue still ≤ 1.1 peaks/s each). */
+/* Close to the third FS strike: quicker alternation only. Brightness stays down until 2+ symbols. */
 .police-smog.is-danger {
   --ps-cycle: 0.9s;
-  --ps-lo: 0.2;
-  --ps-hi: 1;
 }
 .police-smog.is-danger .ps-red .ps-beam,
 .police-smog.is-danger .ps-blue .ps-beam {
   animation-duration: 3.6s;
+}
+/* Previous strength: 2 or more Finančná správa symbols on the board. */
+.police-smog.is-full {
+  --ps-lo: 0.28;
+  --ps-hi: 0.95;
+}
+.police-smog.is-full .ps-beam {
+  opacity: 0.42;
+}
+.police-smog.is-danger.is-full {
+  --ps-lo: 0.2;
+  --ps-hi: 1;
 }
 
 @keyframes ps-in {
@@ -148,11 +159,22 @@
 
 @media (max-width: 720px) {
   .police-smog {
+    --ps-lo: 0.09;
+    --ps-hi: 0.32;
+  }
+  .ps-beam {
+    opacity: 0.13;
+  }
+  .police-smog.is-full {
     --ps-lo: 0.2;
     --ps-hi: 0.72;
   }
-  .ps-beam {
+  .police-smog.is-full .ps-beam {
     opacity: 0.3;
+  }
+  .police-smog.is-danger.is-full {
+    --ps-lo: 0.2;
+    --ps-hi: 1;
   }
 }
 
@@ -162,6 +184,9 @@
   animation: none !important;
 }
 .police-smog.is-static .ps-side {
+  opacity: 0.26;
+}
+.police-smog.is-static.is-full .ps-side {
   opacity: 0.55;
 }
 .police-smog.is-static .ps-beam,
@@ -174,6 +199,9 @@
     animation: none !important;
   }
   .police-smog .ps-side {
+    opacity: 0.26;
+  }
+  .police-smog.is-full .ps-side {
     opacity: 0.55;
   }
   .police-smog .ps-beam,
