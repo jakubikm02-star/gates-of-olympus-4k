@@ -59,6 +59,8 @@ export interface PlayerSave {
   chaseMod: ChaseModKind | null;
   chaseModLeft: number;
   fsModMul: number;
+  /** Display only: summed BEZ DANE / DAŇOVÝ ÚNIK deltas of the running 4KA TV (already inside fsCash). */
+  fsTaxDelta: number;
 }
 
 export function emptyPlayerSave(): PlayerSave {
@@ -113,6 +115,7 @@ export function emptyPlayerSave(): PlayerSave {
     chaseMod: null,
     chaseModLeft: 0,
     fsModMul: 1,
+    fsTaxDelta: 0,
   };
 }
 
@@ -316,6 +319,7 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.chaseModLeft = s.chaseMod ? modLeft : 0;
   const mul = num(r.fsModMul, 1);
   s.fsModMul = mul === 1.23 || mul === 0.77 ? mul : 1;
+  s.fsTaxDelta = num(r.fsTaxDelta, 0, -1_000_000_000, 1_000_000_000);
   if (!s.inFs || s.fsLeft <= 0) {
     s.inFs = false;
     s.fsLeft = 0;

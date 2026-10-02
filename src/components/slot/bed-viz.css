@@ -1,11 +1,10 @@
-/* 4KA TV bed visualizer. Every animated property is opacity or transform; the shadows/gradients
-   below are painted once and then only composited. */
+/* 4KA TV bed visualizer: rainbow liquid fog + stars. Animated DOM properties are opacity/transform
+   only; the fog (prerendered blurred sprites, moved/faded) and the stars are two canvases. */
 .bed-viz {
-  /* Own z-layers, overridable by frame skins: rim light + spectrum ring ABOVE the reel frame
-     (and any machine/rank frame art up to z 11), aura behind it, burst over the reels. */
+  /* Own z-layers, overridable by frame skins: everything that reacts to the music sits BEHIND the
+     reel frame (and the HUD, which stays on top); only the emblem sits above the bottom rail. */
+  --bv-back-z: -1;
   --bv-z: 12;
-  --bv-aura-z: -1;
-  --bv-burst-z: 6;
   position: absolute;
   left: 0;
   top: 0;
@@ -14,21 +13,22 @@
   pointer-events: none;
 }
 
-/* Glow/hot only paint outside their box (outer box-shadow) and the ring draws outside the frame
-   edge, so sitting above the frame never covers the symbols. */
-.bv-glow,
-.bv-hot,
-.bv-ring {
-  z-index: var(--bv-z);
-}
-
-.bv-aura {
-  z-index: var(--bv-aura-z);
-}
-
 .bed-viz > * {
   position: absolute;
   pointer-events: none;
+}
+
+.bv-aura,
+.bv-fog,
+.bv-glow,
+.bv-ring,
+.bv-hot {
+  z-index: var(--bv-back-z);
+}
+
+/* Coarse fog canvas (VIZ.FOG_RES), smoothly upscaled by the compositor. */
+.bv-fog {
+  image-rendering: auto;
 }
 
 .bv-glow,
@@ -42,20 +42,20 @@
 .bv-glow {
   box-shadow:
     0 0 0 2px rgb(150 240 255 / 0.85),
-    0 0 22px 5px rgb(62 198 224 / 0.95),
-    0 0 64px 16px rgb(40 160 230 / 0.55),
-    0 0 130px 36px rgb(30 120 220 / 0.3);
+    0 0 22px 5px rgb(62 198 224 / 0.9),
+    0 0 64px 16px rgb(40 160 230 / 0.5),
+    0 0 130px 36px rgb(30 120 220 / 0.28);
 }
 
+/* Beat punch: hot white-gold rim right on the frame edge, over the coloured layers. */
 .bv-hot {
   box-shadow:
     0 0 0 2px rgb(255 250 228 / 0.95),
-    0 0 18px 5px rgb(255 244 200 / 0.85),
-    0 0 56px 16px rgb(240 196 25 / 0.45),
-    0 0 120px 40px rgb(62 198 224 / 0.3);
+    0 0 14px 4px rgb(255 244 200 / 0.8),
+    0 0 46px 12px rgb(255 214 10 / 0.35);
 }
 
-/* Bass aura behind the cabinet: the Trap Nation "breathing" light on the background. */
+/* Bass aura behind the cabinet. */
 .bv-aura {
   left: 50%;
   top: 50%;
@@ -66,54 +66,58 @@
   will-change: transform, opacity;
   background: radial-gradient(
     closest-side,
-    rgb(80 215 245 / 0.62),
-    rgb(40 140 225 / 0.3) 52%,
-    rgb(30 100 210 / 0.1) 78%,
+    rgb(80 215 245 / 0.55),
+    rgb(40 140 225 / 0.26) 52%,
+    rgb(30 100 210 / 0.08) 78%,
     rgb(30 100 210 / 0) 100%
   );
 }
 
-.bv-burst {
-  left: 50%;
-  top: 50%;
-  z-index: var(--bv-burst-z);
-  width: 120%;
-  aspect-ratio: 1;
+/* Round 4KA TV emblem under the reels, centre of the bottom spectrum. */
+.bv-emblem {
+  z-index: var(--bv-z);
+  transform: translate(-50%, -50%);
+  will-change: transform;
   border-radius: 50%;
-  opacity: 0;
-  transform: translate(-50%, -50%) scale(0.7);
-  will-change: transform, opacity;
-  background: radial-gradient(
-    circle at 50% 50%,
-    rgb(235 252 255 / 0.6) 0%,
-    rgb(140 230 255 / 0.36) 16%,
-    rgb(62 198 224 / 0.16) 36%,
-    rgb(62 198 224 / 0) 62%
-  );
+  filter: drop-shadow(0 2px 6px rgb(0 0 0 / 0.55));
+}
+
+.bv-emblem-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.bv-emblem-4ka {
+  font: 900 25px/1 var(--font-display, "Archivo Black", "Arial Black", system-ui, sans-serif);
+  fill: #f4fbff;
+  letter-spacing: -0.5px;
+}
+
+.bv-emblem-tv {
+  font: 800 15px/1 var(--font-display, "Archivo Black", "Arial Black", system-ui, sans-serif);
+  fill: #ffd60a;
+  letter-spacing: 3px;
 }
 
 .has-bed-viz {
   will-change: transform;
 }
 
-.bed-viz.is-static .bv-ring,
 .bed-viz.is-static .bv-aura,
-.bed-viz.is-static .bv-hot,
-.bed-viz.is-static .bv-burst {
+.bed-viz.is-static .bv-hot {
   display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bv-ring,
   .bv-aura,
-  .bv-hot,
-  .bv-burst {
+  .bv-hot {
     display: none;
   }
 }
 
-/* Keep the Mbps / 4KA TV / HLÁSENIE row readable over the rim light. It is a flex item, so z-index
-   applies without changing its positioning. */
+/* Keep the Mbps / 4KA TV / HLÁSENIE row readable. It is a flex item, so z-index applies without
+   changing its positioning. */
 .stage.in-fs .board-meter {
   z-index: 13;
 }

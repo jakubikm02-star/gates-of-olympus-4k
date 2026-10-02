@@ -1,0 +1,183 @@
+/* ZÁSAH police-light haze. Everything animates transform/opacity only (compositor-friendly). */
+.police-smog {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  overflow: hidden;
+  contain: strict;
+  /* Keep the reels readable: the haze thins out towards the middle of the screen. */
+  -webkit-mask-image: radial-gradient(ellipse 52% 44% at 50% 46%, rgb(0 0 0 / 0.1) 0%, rgb(0 0 0 / 0.42) 55%, #000 100%);
+  mask-image: radial-gradient(ellipse 52% 44% at 50% 46%, rgb(0 0 0 / 0.1) 0%, rgb(0 0 0 / 0.42) 55%, #000 100%);
+  animation: ps-in 0.9s ease-out both;
+  --ps-cycle: 1.8s;
+  --ps-lo: 0.28;
+  --ps-hi: 0.95;
+}
+
+.ps-side {
+  position: absolute;
+  inset: 0;
+  will-change: opacity;
+  animation: ps-alt var(--ps-cycle) ease-in-out infinite;
+}
+
+.ps-blue {
+  animation-delay: calc(var(--ps-cycle) / -2);
+}
+
+.ps-fog {
+  position: absolute;
+  width: 92vmax;
+  height: 92vmax;
+  background: center / 100% 100% no-repeat;
+  will-change: transform;
+}
+
+.ps-red .ps-f1 {
+  left: -50vmax;
+  top: -34vmax;
+  background-image: url("/fx/smog-red.webp");
+  animation: ps-drift-a 17s ease-in-out infinite alternate;
+}
+.ps-red .ps-f2 {
+  left: -46vmax;
+  top: 26vh;
+  background-image: url("/fx/smog-red2.webp");
+  animation: ps-drift-b 23s ease-in-out infinite alternate;
+}
+.ps-blue .ps-f1 {
+  right: -50vmax;
+  bottom: -34vmax;
+  background-image: url("/fx/smog-blue.webp");
+  animation: ps-drift-a 19s ease-in-out infinite alternate-reverse;
+}
+.ps-blue .ps-f2 {
+  right: -46vmax;
+  bottom: 26vh;
+  background-image: url("/fx/smog-blue2.webp");
+  animation: ps-drift-b 21s ease-in-out infinite alternate-reverse;
+}
+
+/* A soft cone anchored in a top corner, sweeping down through the haze. */
+.ps-beam {
+  position: absolute;
+  top: 0;
+  width: 125vmax;
+  height: 42vmax;
+  margin-top: -21vmax;
+  background: center / 100% 100% no-repeat;
+  transform-origin: 0 50%;
+  opacity: 0.42;
+  will-change: transform;
+}
+.ps-red .ps-beam {
+  left: 0;
+  background-image: url("/fx/beam-red.webp");
+  animation: ps-sweep-l 6.5s ease-in-out infinite alternate;
+}
+.ps-blue .ps-beam {
+  left: 100%;
+  background-image: url("/fx/beam-blue.webp");
+  animation: ps-sweep-r 7.5s ease-in-out infinite alternate;
+}
+
+/* Close to the third FS strike: quicker, harder alternation (red/blue still ≤ 1.1 peaks/s each). */
+.police-smog.is-danger {
+  --ps-cycle: 0.9s;
+  --ps-lo: 0.2;
+  --ps-hi: 1;
+}
+.police-smog.is-danger .ps-red .ps-beam,
+.police-smog.is-danger .ps-blue .ps-beam {
+  animation-duration: 3.6s;
+}
+
+@keyframes ps-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ps-alt {
+  0%,
+  100% {
+    opacity: var(--ps-lo);
+  }
+  50% {
+    opacity: var(--ps-hi);
+  }
+}
+@keyframes ps-drift-a {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate3d(7vmax, 5vmax, 0) rotate(48deg) scale(1.12);
+  }
+  100% {
+    transform: translate3d(3vmax, 11vmax, 0) rotate(105deg) scale(0.95);
+  }
+}
+@keyframes ps-drift-b {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1.05);
+  }
+  50% {
+    transform: translate3d(5vmax, -6vmax, 0) rotate(-40deg) scale(0.92);
+  }
+  100% {
+    transform: translate3d(9vmax, -2vmax, 0) rotate(-85deg) scale(1.1);
+  }
+}
+@keyframes ps-sweep-l {
+  from {
+    transform: rotate(14deg);
+  }
+  to {
+    transform: rotate(72deg);
+  }
+}
+@keyframes ps-sweep-r {
+  from {
+    transform: rotate(166deg);
+  }
+  to {
+    transform: rotate(108deg);
+  }
+}
+
+@media (max-width: 720px) {
+  .police-smog {
+    --ps-lo: 0.2;
+    --ps-hi: 0.72;
+  }
+  .ps-beam {
+    opacity: 0.3;
+  }
+}
+
+/* Reduced motion: one static soft glow, red left / blue right. */
+.police-smog.is-static,
+.police-smog.is-static * {
+  animation: none !important;
+}
+.police-smog.is-static .ps-side {
+  opacity: 0.55;
+}
+.police-smog.is-static .ps-beam,
+.police-smog.is-static .ps-f2 {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .police-smog,
+  .police-smog * {
+    animation: none !important;
+  }
+  .police-smog .ps-side {
+    opacity: 0.55;
+  }
+  .police-smog .ps-beam,
+  .police-smog .ps-f2 {
+    display: none;
+  }
+}

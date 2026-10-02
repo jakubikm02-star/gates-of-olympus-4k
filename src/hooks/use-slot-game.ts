@@ -48,7 +48,7 @@ import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDes
 import { putBoard, readBestMark, readBestRecipe, readNick, saveNick, skipNick, winHow, writeBestHow, writeBestRecipe } from "@/lib/slot/board-api";
 import { emptyTally, mergeTally, notePays, recipeTumbles, topCans, topPays, type SeqTally, type WinRecipe } from "@/lib/slot/win-recipe";
 import { HEAT_MAX, heatFromWin } from "@/lib/slot/heat";
-import { ZASAH, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, tickMod, windowCount, type ChaseMod, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
+import { ZASAH, applyMod, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, stepMod, windowCount, type ChaseMod, type ModScope, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
 import { BUILD_ID, dropStaleCaches, hardReload, releaseMatches } from "@/lib/slot/release";
 import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, duelPot, duelCreditDelta, forfeitDuel, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
 import { duelForfeit, duelLeave, duelTick } from "@/lib/slot/duel-api";
@@ -93,8 +93,6 @@ export interface TaxFly {
 }
 
 export type WinBanner = "win" | "big" | "mega" | "epic" | "massive" | "max" | "fs" | "fsTotal" | "pool" | null;
-/** MASÍVNA VÝHRA stays up this long unless tapped (count-up ~4.2 s + hold). */
-const MASSIVE_HOLD_MS = 7600;
 
 export interface BannerMeta {
   spins: number;
@@ -134,6 +132,26 @@ function decodeArt(src: string): Promise<void> {
     };
     img.decoding = "async";
     img.src = src;
+  });
+}
+
+/** Shortest wait for the jackpot RPC, so turbo / tapped-stop spins still pick up a ticket on a quick network. */
+const POOL_WAIT_MIN_MS = 250;
+
+/** Resolves with the promise's value, or with null once `ms` passes. The promise keeps running either way. */
+function settleWithin<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => resolve(null), ms);
+    p.then(
+      (v) => {
+        window.clearTimeout(timer);
+        resolve(v);
+      },
+      () => {
+        window.clearTimeout(timer);
+        resolve(null);
+      },
+    );
   });
 }
 
@@ -184,6 +202,8 @@ export function useSlotGame() {
   const [seqMult, setSeqMult] = useState(0);
   const [banner, setBanner] = useState<WinBanner>(null);
   const [bannerAmount, setBannerAmount] = useState(0);
+  /** BEZ DANE / DAŇOVÝ ÚRAD step behind the banner amount (display only: the amount is already net). */
+  const [bannerTax, setBannerTax] = useState<TaxFly | null>(null);
   /** Win in bet multiples for the banner on screen (MASÍVNA VÝHRA shows it). */
   const [bannerX, setBannerX] = useState(0);
   const [bannerMeta, setBannerMeta] = useState<BannerMeta | null>(null);
@@ -220,6 +240,9 @@ export function useSlotGame() {
   const pendingLiveTicketRef = useRef<TierId | null>(null);
   const [job, setJob] = useState<JobCard | null>(null);
   const [ticketSeal, setTicketSeal] = useState<{ job: JobCard; verdict: "ok" | "fail" } | null>(null);
+  /** Display only: one-shot ticket animation (stake paid on accept / payout on success). */
+  const [ticketFx, setTicketFx] = useState<{ id: number; kind: "pay" | "payout"; job: JobCard } | null>(null);
+  const clearTicketFx = useCallback(() => setTicketFx(null), []);
   const jobRef = useRef<JobCard | null>(null);
   const rebateRef = useRef({ paid: 0, spins: 0 });
   const [jobOffer, setJobOffer] = useState<JobCard[] | null>(null);
@@ -291,6 +314,10 @@ export function useSlotGame() {
   const pickRevealedRef = useRef<boolean[]>([]);
   const pityByBetRef = useRef<PityMap>({});
   const kontrolaArmedRef = useRef(false);
+  /** Tax period of the spin that armed KONTROLA (null = none / ZÁSAH / duel). */
+  const pickModRef = useRef<ChaseMod | null>(null);
+  /** BEZ DANE / DAŇOVÝ ÚNIK delta of the last free spin (summed into the 4KA TV session). */
+  const lastTaxDeltaRef = useRef(0);
   const featureXRef = useRef(0);
   const rankRef = useRef({ rp: 0, peak: 0, shield: false });
   const streakRef = useRef(0);
@@ -370,7 +397,10 @@ export function useSlotGame() {
     peak: 0,
     bought: false,
     triggerCash: 0,
+    /** Legacy saves only (≠ 1): the whole bonus is multiplied at the end. New bonuses pay the modifier per free spin. */
     modMul: 1,
+    /** Sum of the per-free-spin BEZ DANE / DAŇOVÝ ÚNIK deltas (display at the end of the bonus). */
+    taxDelta: 0,
   });
   const resumeOnce = useRef(false);
 
@@ -442,6 +472,7 @@ export function useSlotGame() {
       bought: Boolean(s.fsBought),
       triggerCash: s.fsTriggerCash ?? 0,
       modMul: s.fsModMul || 1,
+      taxDelta: s.fsTaxDelta ?? 0,
     };
     const loadedRaw = s.job ? { ...s.job, lockBet: s.job.lockBet || BETS[s.betIndex] } : null;
     const loaded =
@@ -513,6 +544,7 @@ export function useSlotGame() {
       chaseMod: modRef.current?.kind ?? null,
       chaseModLeft: modRef.current?.left ?? 0,
       fsModMul: fsSessionRef.current.modMul,
+      fsTaxDelta: fsSessionRef.current.taxDelta,
     };
     if (dead) writeLocal(saveSnapRef.current);
   }, []);
@@ -608,6 +640,7 @@ export function useSlotGame() {
       chaseMod: modRef.current?.kind ?? null,
       chaseModLeft: modRef.current?.left ?? 0,
       fsModMul: fsSessionRef.current.modMul,
+      fsTaxDelta: fsSessionRef.current.taxDelta,
       updatedAt: Date.now(),
     };
     saveSnapRef.current = next;
@@ -700,6 +733,7 @@ export function useSlotGame() {
       chaseMod: modRef.current?.kind ?? null,
       chaseModLeft: modRef.current?.left ?? 0,
       fsModMul: fsSessionRef.current.modMul,
+      fsTaxDelta: fsSessionRef.current.taxDelta,
     };
     saveSnapRef.current = payload;
     writeLocal(payload);
@@ -958,7 +992,7 @@ export function useSlotGame() {
     setHeat(0);
     modRef.current = null;
     setChaseMod(null);
-    fsSessionRef.current = { ...fsSessionRef.current, modMul: 1 };
+    fsSessionRef.current = { ...fsSessionRef.current, modMul: 1, taxDelta: 0 };
     reloadStreakRef.current = 0;
     spinsSinceReloadRef.current = 0;
     setReloadStreak(0);
@@ -1264,6 +1298,7 @@ export function useSlotGame() {
       setSpinTape((t) => [{ label: "TIKET", amount: `+${formatMoney(next.payout)} · +${parts.total} RP` }, ...t].slice(0, 8));
       setLcdFlash({ job: next, verdict: "ok" });
       setTicketSeal({ job: next, verdict: "ok" });
+      setTicketFx({ id: Date.now(), kind: "payout", job: next });
       stampDailyJob(next, "ok");
       sfx.playTicketOk();
     } else if (st === "fail") {
@@ -1457,9 +1492,22 @@ export function useSlotGame() {
     pityByBetRef.current = spendPity(pityByBetRef.current, betNow);
     setPityByBet(pityByBetRef.current);
     await waitForPick();
-    const cash = +(pickTotalXRef.current * betNow).toFixed(2);
+    const pickMod = pickModRef.current;
+    pickModRef.current = null;
+    const cash0 = +(pickTotalXRef.current * betNow).toFixed(2);
+    const { net: cash, delta: pickDelta } = applyMod(cash0, pickMod, duelRef.current ? "duel" : "pick");
     const escrow = Boolean(duelRef.current && duelRef.current.phase !== "done");
     if (cash > 0) {
+      if (Math.abs(pickDelta) >= 0.01) {
+        // Gross first, then the modifier chip, then the meter glides to what is credited.
+        setDisplayWin(cash0);
+        setSpinWin(cash0);
+        await wait(520);
+        setTaxKey((k) => k + 1);
+        setTaxFly({ kind: pickDelta < 0 ? "danUrad" : "bezDane", gross: cash0, net: cash, delta: pickDelta });
+        sfx.playMult();
+        await wait(260);
+      }
       if (!escrow) setBalance((b) => +(b + cash).toFixed(2));
       noteHeat(cash, betNow);
       setDisplayWin(cash);
@@ -1586,7 +1634,10 @@ export function useSlotGame() {
       sfx.duckMusic(0.42);
 
       await afterPaint();
-      const pot = await poolP;
+      const STOPS = [520, 620, 730, 850, 990, 1180];
+      // The shared jackpot RPC must not hold the reels: wait for it only until the first reel would stop anyway.
+      // A ticket that arrives later is not lost; the server keeps it pending and returns it on the next spin.
+      const pot = await settleWithin(poolP, Math.max(POOL_WAIT_MIN_MS, dur(STOPS[0]) - (performance.now() - spunAt)));
       const spunTicket = pot?.ticket ?? null;
 
       const rng = createRng();
@@ -1595,7 +1646,6 @@ export function useSlotGame() {
         : generateGrid(rng, opts?.free ? false : anteRef.current, !!opts?.free);
       if (spunTicket) next = plantTicket(next, spunTicket, rng);
 
-      const STOPS = [520, 620, 730, 850, 990, 1180];
       const already = performance.now() - spunAt;
       await wait(dur(Math.max(0, STOPS[0] - already)), abort.current);
       if (chasing && chaseRef.current && !chaseRef.current.target) {
@@ -1846,6 +1896,8 @@ export function useSlotGame() {
           if (stored >= PITY_GOAL) {
             pityByBetRef.current = spendPity(nextMap, currentBet);
             kontrolaArmedRef.current = true;
+            // KONTROLA pays with the tax period of the spin that earned it (that spin already counted it down).
+            pickModRef.current = chasing || duelRef.current ? null : modRef.current;
             pendingPick = true;
           } else {
             pityByBetRef.current = nextMap;
@@ -1919,11 +1971,15 @@ export function useSlotGame() {
       }
       featureXRef.current += paidX;
       const cash0 = +(paidX * currentBet).toFixed(2);
-      const mul = !chasing && !isFree && !opts?.buy && !duelRef.current ? modMul(modRef.current) : 1;
-      const cash = +(cash0 * mul).toFixed(2);
-      const taxDelta = +(cash - cash0).toFixed(2);
+      // Tax period (BEZ DANE +23 % / DAŇOVÝ ÚNIK −23 %): every paid, bought and free spin pays with it and
+      // counts it down; ZÁSAH and duel spins do not. A bonus resumed from an old save (modMul ≠ 1) keeps the
+      // old rule: its free spins neither pay with nor count the period, the end multiplier does.
+      const legacyFs = isFree && fsSessionRef.current.modMul !== 1;
+      const modScope: ModScope = chasing ? "chase" : duelRef.current ? "duel" : isFree ? "fs" : opts?.buy ? "buy" : "base";
+      const { net: cash, delta: taxDelta } = legacyFs ? { net: cash0, delta: 0 } : applyMod(cash0, modRef.current, modScope);
+      const mul = legacyFs ? 1 : stepMod(modRef.current, modScope).mul;
+      if (isFree) lastTaxDeltaRef.current = taxDelta;
       setTaxFly(null);
-      if (pendingFs) fsSessionRef.current.modMul = opts?.buy ? 1 : mul;
       let chaseEnded = false;
       if (chasing && chaseRef.current) {
         const live = chaseRef.current;
@@ -1978,10 +2034,12 @@ export function useSlotGame() {
           persistNow();
         }
       }
-      if (!chasing && !isFree && !opts?.buy && !duelRef.current && modRef.current) {
-        const nextMod = tickMod(modRef.current);
-        modRef.current = nextMod;
-        setChaseMod(nextMod);
+      if (modRef.current && !legacyFs) {
+        const nextMod = stepMod(modRef.current, modScope).next;
+        if (nextMod !== modRef.current) {
+          modRef.current = nextMod;
+          setChaseMod(nextMod);
+        }
       }
       if (cash > 0 && !chaseEnded) noteHeat(cash, currentBet, Boolean(isFree || opts?.buy || pendingFs || inFsRef.current));
       if (!isFree && cash0 > 0 && Math.abs(taxDelta) >= 0.01) {
@@ -1993,10 +2051,17 @@ export function useSlotGame() {
         setTaxFly({ kind: taxDelta < 0 ? "danUrad" : "bezDane", gross: cash0, net: cash, delta: taxDelta });
         sfx.playMult();
         await wait(dur(260), abort.current);
+      } else if (isFree && cash0 > 0 && Math.abs(taxDelta) >= 0.01) {
+        // Inside 4KA TV: a quicker gross → chip → net step on the spin ticker (the bonus meter adds the net).
+        setSpinWin(cash0);
+        await wait(dur(240), abort.current);
+        setTaxKey((k) => k + 1);
+        setTaxFly({ kind: taxDelta < 0 ? "danUrad" : "bezDane", gross: cash0, net: cash, delta: taxDelta });
+        sfx.playMult();
       }
       setSpinWin(cash);
       if (!isFree) setDisplayWin(cash);
-      if (Math.abs(taxDelta) >= 0.01 && !isFree && cash0 > 0) await wait(dur(900), abort.current);
+      if (Math.abs(taxDelta) >= 0.01 && cash0 > 0) await wait(dur(isFree ? 480 : 900), abort.current);
 
       lastPaidXRef.current = currentBet > 0 ? cash / currentBet : 0;
       if (!isFree) roundCashRef.current = cash;
@@ -2144,6 +2209,7 @@ export function useSlotGame() {
         bannerOpen.current = true;
         setBanner(kind);
         setBannerAmount(cash);
+        setBannerTax(!isFree && cash0 > 0 && Math.abs(taxDelta) >= 0.01 ? { kind: taxDelta < 0 ? "danUrad" : "bezDane", gross: cash0, net: cash, delta: taxDelta } : null);
         setBannerX(x);
         if (kind === "max") sfx.playMaxWin();
         else if (kind === "massive") sfx.playMassiveWin();
@@ -2153,7 +2219,8 @@ export function useSlotGame() {
           autoRef.current &&
           autoHaltRef.current &&
           (kind === "big" || kind === "mega" || kind === "epic" || kind === "massive" || kind === "max");
-        await waitForBanner(halt ? "click" : kind === "massive" ? MASSIVE_HOLD_MS : 2800);
+        // MASÍVNA VÝHRA never auto-closes (also in autoplay): it waits for the taps (finish count, close).
+        await waitForBanner(halt || kind === "massive" ? "click" : 2800);
       }
 
       setWinMask(null);
@@ -2268,7 +2335,9 @@ export function useSlotGame() {
           }
           setFsLeft(sess.left);
           persistNow();
+          lastTaxDeltaRef.current = 0;
           const inner = await runSequence({ free: true });
+          sess.taxDelta = +(sess.taxDelta + lastTaxDeltaRef.current).toFixed(2);
           mergeTally(fsTallyRef.current, lastTallyRef.current);
           sess.left -= 1;
           sess.played += 1;
@@ -2304,18 +2373,37 @@ export function useSlotGame() {
       const closeFs = async (hitCap: boolean, applyBoughtRank: (returned: number, extra: { mult: number; bannerHit: boolean; retriggers?: number }) => void) => {
         const sess = fsSessionRef.current;
         const betNow = BETS[betIndexRef.current];
+        // sess.cash already holds the free spins net of the tax period; only a bonus resumed from an old save
+        // still carries an end multiplier.
         const mul = sess.bought ? 1 : sess.modMul || 1;
         const fsPaid = +(sess.cash * mul).toFixed(2);
         const fsCash = fsPaid;
         const featureTotal = +(fsPaid + sess.triggerCash).toFixed(2);
+        // Display only: the BEZ DANE / DAŇOVÝ ÚNIK step on the bonus part (the trigger spin was shown on its own).
+        const fsDelta = +(fsPaid - sess.cash + sess.taxDelta).toFixed(2);
+        const fsTax: TaxFly | null =
+          fsPaid > 0 && Math.abs(fsDelta) >= 0.01
+            ? { kind: fsDelta < 0 ? "danUrad" : "bezDane", gross: +(featureTotal - fsDelta).toFixed(2), net: featureTotal, delta: fsDelta }
+            : null;
         await wait(400);
         setInFs(false);
         inFsRef.current = false;
         setFsLeft(0);
         setGlobalMult(0);
         globalMultRef.current = 0;
+        if (fsTax) {
+          // Gross first, then the modifier chip, then the meter glides to what is credited.
+          setDisplayWin(fsTax.gross);
+          setSpinWin(fsTax.gross);
+          await wait(dur(520), abort.current);
+          setTaxKey((k) => k + 1);
+          setTaxFly(fsTax);
+          sfx.playMult();
+          await wait(dur(260), abort.current);
+        }
         setDisplayWin(featureTotal);
         setSpinWin(featureTotal);
+        if (fsTax) await wait(dur(900), abort.current);
         const featureX = betNow > 0 ? featureTotal / betNow : 0;
         // 4KA TV pops no per-spin banners, so a massive bonus is announced once, at the end, before the summary.
         const massive = featureX >= WIN_POP_X.massive;
@@ -2323,11 +2411,13 @@ export function useSlotGame() {
           bannerOpen.current = true;
           setBanner("massive");
           setBannerAmount(featureTotal);
+          setBannerTax(fsTax);
           setBannerX(featureX);
           setPhase("big");
           setTopLine("MASÍVNA VÝHRA");
           sfx.playMassiveWin();
-          await waitForBanner(autoRef.current && autoHaltRef.current ? "click" : MASSIVE_HOLD_MS);
+          // Never auto-closes: autoplay waits here (paused) until the player taps it away.
+          await waitForBanner("click");
         }
         setBannerMeta({
           spins: sess.played,
@@ -2338,6 +2428,7 @@ export function useSlotGame() {
         bannerOpen.current = true;
         setBanner("fsTotal");
         setBannerAmount(featureTotal);
+        setBannerTax(fsTax);
         setPhase(hitCap ? "max" : "big");
         setTopLine("4KA TV SKONČILA");
         setMessage(featureTotal > 0 ? `VÝHRA ${formatMoney(featureTotal)}` : "4KA TV SKONČILA");
@@ -2387,6 +2478,7 @@ export function useSlotGame() {
           bought: false,
           triggerCash: 0,
           modMul: 1,
+          taxDelta: 0,
         };
         persistNow();
         await waitForBanner("click");
@@ -2571,7 +2663,9 @@ export function useSlotGame() {
           peak: 0,
           bought: Boolean(opts?.buy),
           triggerCash,
-          modMul: opts?.buy ? 1 : fsSessionRef.current.modMul || 1,
+          // The tax period now pays per free spin (see runSequence), never as one end multiplier.
+          modMul: 1,
+          taxDelta: 0,
         };
         setInFs(true);
         inFsRef.current = true;
@@ -2588,6 +2682,7 @@ export function useSlotGame() {
         bannerOpen.current = true;
         setBanner("fs");
         setBannerAmount(fsCount);
+        setBannerTax(null);
         setTopLine(`GRATULUJEME · 4KA TV · ${fsCount}`);
         await waitForBanner();
         await wait(200);
@@ -2754,6 +2849,7 @@ export function useSlotGame() {
     setJob(taken);
     setTicketSeal(null);
     setSpendOpen(Boolean(taken.mystery));
+    setTicketFx({ id: Date.now(), kind: "pay", job: taken });
     setTopLine(`${jobShownGoal(taken)} · stávka ${formatMoney(taken.lockBet)} zamknutá`);
     if (taken.mystery) {
       setJobToast(`OTRS OTVORENÝ · ${jobShownGoal(taken)}`);
@@ -2924,6 +3020,7 @@ export function useSlotGame() {
     bannerAmount,
     bannerX,
     bannerMeta,
+    bannerTax,
     closeBanner,
     pickOpen,
     pickTiles,
@@ -3098,6 +3195,8 @@ export function useSlotGame() {
     takeJob,
     job,
     ticketSeal,
+    ticketFx,
+    clearTicketFx,
     jobOffer,
     daily,
     jobToast,

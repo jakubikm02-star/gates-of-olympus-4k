@@ -16,12 +16,15 @@ import {
   resetCue,
   resetCueLevels,
   resetCues,
+  revertVolumes,
+  saveVolumes,
   setCueLevel,
   setVolume,
   stopCuePreview,
   subscribeSfx,
   subscribeVolume,
   unlockAudio,
+  volumesDirty,
 } from "@/lib/slot/audio";
 import { contractCatalog } from "@/lib/slot/spend";
 import { saveContractTitles, subscribeContracts } from "@/lib/slot/job-titles";
@@ -232,7 +235,7 @@ function SoundSheet({ password }: { password: string }) {
   );
 }
 
-/** Player master volume, 0–200 %. Not behind the admin gate: it is a per-device preference. */
+/** Global master volume, 0–200 %. Admin only (behind the password); saved for every player via VolumeSave. */
 export function VolumeControl() {
   const [v, setV] = useState(getVolume);
   useEffect(() => subscribeVolume(() => setV(getVolume())), []);
@@ -278,7 +281,7 @@ export function VolumeControl() {
         </button>
       </div>
       <p className="vol-note" id="vol-note">
-        {pct > 100 ? "Nad 100 % zosilňuje celý mix a limiter stráži skreslenie." : "Celá hra. Uloží sa v tomto zariadení."}
+        {pct > 100 ? "Nad 100 % zosilňuje celý mix a limiter stráži skreslenie." : "Celá hra, pre všetkých hráčov."}
         {pct !== 100 ? (
           <button type="button" className="vol-reset" onClick={() => set(100)}>
             100 %
@@ -339,7 +342,7 @@ function CueVolume({ id, name }: { id: string; name: string }) {
   );
 }
 
-/** Per-sound player volume, one slider per sound slot, 0–200 %. Applied before the master volume. */
+/** Global per-sound volume, one slider per sound slot, 0–200 %. Applied before the master volume. Admin only. */
 export function CueVolumes() {
   const [, bump] = useState(0);
   useEffect(() => subscribeVolume(() => bump((n) => n + 1)), []);
@@ -353,7 +356,7 @@ export function CueVolumes() {
       </summary>
       <div className="cue-vols-body">
         <p className="vol-note cue-vols-note">
-          Každý zvuk zvlášť, 0–200 %. Násobí sa s Hlasitosťou hore (50 % × 200 % = 100 %). Uloží sa v tomto zariadení.
+          Každý zvuk zvlášť, 0–200 %. Násobí sa s Hlasitosťou hore (50 % × 200 % = 100 %). Platí pre všetkých hráčov po uložení.
         </p>
         <button type="button" className="cue-vols-reset" disabled={!changed} onClick={() => resetCueLevels()}>
           Resetovať všetko na 100&nbsp;%
@@ -369,6 +372,45 @@ export function CueVolumes() {
         )}
       </div>
     </details>
+  );
+}
+
+/** Admin: save the sliders for every player, or throw the unsaved moves away. */
+function VolumeSave({ password }: { password: string }) {
+  const [, bump] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => subscribeVolume(() => bump((n) => n + 1)), []);
+  // Leaving Settings without saving: back to what everybody hears.
+  useEffect(() => () => revertVolumes(), []);
+  const dirty = volumesDirty();
+  const save = async () => {
+    setBusy(true);
+    const err = await saveVolumes(password);
+    setBusy(false);
+    setMsg(err ? { ok: false, text: err } : { ok: true, text: "Uložené. Platí pre všetkých hráčov." });
+  };
+  return (
+    <div className="vol-save">
+      <p className="vol-note">{dirty ? "Neuložené zmeny počuješ len ty." : "Hlasitosti platia pre všetkých hráčov."}</p>
+      <div className="vol-save-row">
+        <button type="button" className="sound-reset" disabled={busy || !dirty} onClick={() => void save()}>
+          {busy ? "…" : "ULOŽIŤ PRE VŠETKÝCH"}
+        </button>
+        <button
+          type="button"
+          className="cue-vols-reset"
+          disabled={busy || !dirty}
+          onClick={() => {
+            revertVolumes();
+            setMsg(null);
+          }}
+        >
+          Zahodiť zmeny
+        </button>
+      </div>
+      {msg ? <p className={msg.ok ? "sound-note" : "sound-err"}>{msg.text}</p> : null}
+    </div>
   );
 }
 
@@ -407,10 +449,11 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
             ×
           </button>
         </header>
-        <VolumeControl />
-        <CueVolumes />
         {gate && gate !== "bad" && gate !== "down" ? (
           <>
+            <VolumeControl />
+            <CueVolumes />
+            <VolumeSave password={gate} />
             <SoundSheet password={gate} />
             <ContractNames password={gate} />
           </>
@@ -422,7 +465,7 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
               void enter();
             }}
           >
-            <p className="sound-note">Vstup len s heslom. Zmeny platia pre všetkých hráčov.</p>
+            <p className="sound-note">Vstup len s heslom. Zmeny (aj hlasitosť zvukov) platia pre všetkých hráčov.</p>
             <input
               className="sound-pass"
               type="password"

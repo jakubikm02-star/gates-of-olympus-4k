@@ -1,7 +1,7 @@
 import { ANTE_COST, BUY_COST_X, FS_RETRIGGER, FS_SPINS, MAX_WIN_X } from "../src/lib/slot/symbols.ts";
 import { createRng, resolvePaidSpin, type PaidSpin } from "../src/lib/slot/engine.ts";
 import { heatFromWin } from "../src/lib/slot/heat.ts";
-import { ZASAH, modMul, rollTarget, rollWindows, tickMod, windowCount, type ChaseMod, type ChaseState } from "../src/lib/slot/zasah.ts";
+import { ZASAH, modMul, rollTarget, rollWindows, stepMod, tickMod, windowCount, type ChaseMod, type ChaseState } from "../src/lib/slot/zasah.ts";
 
 function playFeature(
   rng: () => number,
@@ -143,6 +143,8 @@ function buyEv(n: number, seed = 9) {
 }
 
 const noZasah = process.argv.includes("--no-zasah");
+/** --tax=v3: old rule (period only on base spins, triggered bonus × the trigger spin's mod, free spins don't count). Default v4. */
+const taxRule = process.argv.find((a) => a.startsWith("--tax="))?.slice("--tax=".length) === "v3" ? "v3" : "v4";
 const n = Number(process.argv.find((a) => /^\d+$/.test(a)) ?? 40000);
 function zasahRun(spins: number, seed = 5) {
   const rng = createRng(seed);
@@ -185,12 +187,25 @@ function zasahRun(spins: number, seed = 5) {
       if (x > 0) heat = Math.min(100, heat + heatFromWin(x));
     };
     if (spin.triggeredFs) {
-      const feat = playFeature(rng, spin, (fsX) => {
-        if (!chasing) note(fsX * mul);
-      });
-      extra = Math.max(0, feat.paid - spin.paidX) * mul;
-      reward += Math.max(0, extra - Math.max(0, feat.paid - spin.paidX));
-      penalty += Math.max(0, Math.max(0, feat.paid - spin.paidX) - extra);
+      if (taxRule === "v3") {
+        const feat = playFeature(rng, spin, (fsX) => {
+          if (!chasing) note(fsX * mul);
+        });
+        extra = Math.max(0, feat.paid - spin.paidX) * mul;
+        reward += Math.max(0, extra - Math.max(0, feat.paid - spin.paidX));
+        penalty += Math.max(0, Math.max(0, feat.paid - spin.paidX) - extra);
+      } else {
+        // v4: every free spin pays with the period as it stands and counts it down.
+        playFeature(rng, spin, (fsX) => {
+          const step = stepMod(mod, "fs");
+          mod = step.next;
+          const got = fsX * step.mul;
+          extra += got;
+          if (got > fsX) reward += got - fsX;
+          else penalty += fsX - got;
+          if (!chasing) note(got);
+        });
+      }
     }
     const got = basePaid + extra;
     paid += got;
@@ -223,6 +238,7 @@ function zasahRun(spins: number, seed = 5) {
     rtpReward: +(reward / stakeOut).toFixed(4),
     rtpPenalty: +(penalty / stakeOut).toFixed(4),
     rtpWithZasah: +(paid / stakeOut).toFixed(4),
+    taxRule,
   };
 }
 

@@ -12,7 +12,8 @@
  *                                                                                             ▼
  *                                             out = audioOut(): volume Gain 0–2 ▶ limiter ▶ destination
  *
- * cue[key] is the player's per-sound slider (p4k.volume.<key>), so effective = cue × master.
+ * cue[key] is the per-sound slider, so effective = cue × master. Both are GLOBAL: set by the admin in
+ * Settings, stored in Supabase public.sfx_volume, loaded by every client at start (100 % until then).
  * Analysers (e.g. the 4KA TV visualizer) tap `mediaSource(el)` or the voice gain, so they read
  * the signal before both the per-sound and the master volume. Nothing may connect to
  * ctx.destination directly, or it would skip the volume sliders: connect to audioOut() instead.
@@ -21,7 +22,15 @@
  */
 
 import { VIZ } from "./bed-viz";
-import { CUE_LEVEL_MAX, clampCueLevel, cueLevelKey, directElementVolume, parseCueLevel } from "./cue-volume";
+import {
+  CUE_LEVEL_MAX,
+  MASTER_KEY,
+  clampCueLevel,
+  directElementVolume,
+  globalLevelsPayload,
+  isLegacyVolumeKey,
+  parseGlobalLevels,
+} from "./cue-volume";
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -44,14 +53,14 @@ const playing: Partial<Record<string, { stop: () => void }>> = {};
 const CUT_PREV = new Set(["win", "winFull", "payout", "bigwin", "tumble", "pop", "tableA", "tableB", "massive"]);
 /** Player master volume, 0 … 2 (0 % … 200 %). Above 1 the limiter engages. */
 export const VOLUME_MAX = 2;
-const VOLUME_KEY = "p4k.volume";
-let volume = readVolume();
+/** Global master volume (admin-set, loaded from Supabase). 100 % until loaded or if the fetch fails. */
+let volume = 1;
 let out: GainNode | null = null;
 let limiter: DynamicsCompressorNode | null = null;
 const elSources = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
 /** Which per-sound bus an element routed by mediaSource() feeds ("" = straight to out). */
 const elRoute = new WeakMap<HTMLMediaElement, string>();
-/** Per-sound player volume, 0 … 2, lazily read from localStorage. */
+/** Global per-sound volume, 0 … 2 (missing = 100 %). */
 const cueLevels: Record<string, number> = {};
 /** Per-sound gain nodes: "fx:<key>" feeds sfx, "el:<key>" (HTMLAudio) feeds out. */
 const cueBuses = new Map<string, GainNode>();
@@ -183,8 +192,10 @@ function rememberPreview(key: string, bytes: ArrayBuffer, type: string): void {
   previewUrl[key] = URL.createObjectURL(new Blob([bytes.slice(0)], { type: type || "audio/mpeg" }));
 }
 
-async function sfxRpc(name: string, body: Record<string, unknown>): Promise<Response> {
+async function sfxRpc(name: string, body: Record<string, unknown>, low = false): Promise<Response> {
   return fetch(`${SUPA_URL}/rest/v1/rpc/${name}`, {
+    // Music blobs are tens of MB of base64; let the jackpot / board calls on the same host go first.
+    ...(low ? ({ priority: "low" } as RequestInit) : {}),
     method: "POST",
     headers: {
       apikey: SUPA_ANON,
@@ -202,12 +213,12 @@ function b64ToBytes(b64: string): ArrayBuffer {
   return out.buffer;
 }
 
-/** Same as b64ToBytes, but yields so a ~19 MB FLAC cannot freeze the boot click. Whitespace (Postgres base64 newlines) is skipped. */
+/** atob of a 19 MB bed is one long main-thread stall. Yield between chunks; Postgres base64 has newlines. */
 async function b64ToBytesYield(b64: string): Promise<ArrayBuffer> {
   const parts: Uint8Array[] = [];
   let total = 0;
-  let carry = "";
   const STEP = 256 * 1024;
+  let carry = "";
   const take = (clean: string) => {
     if (!clean) return;
     const bin = atob(clean);
@@ -223,12 +234,12 @@ async function b64ToBytesYield(b64: string): Promise<ArrayBuffer> {
     carry = clean.slice(usable);
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
   }
-  take(carry);
+  if (carry) take(carry);
   const out = new Uint8Array(total);
   let o = 0;
-  for (const part of parts) {
-    out.set(part, o);
-    o += part.length;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.length;
   }
   return out.buffer;
 }
@@ -245,55 +256,43 @@ function fileToB64(file: Blob): Promise<string> {
   });
 }
 
-async function pullOne(row: { key?: string; mime?: string }): Promise<void> {
-  const key = row.key || "";
-  if (!(key in FILES) || custom.has(key)) return;
-  try {
-    const audio = await sfxRpc("sfx_audio", { p_key: key });
-    if (!audio.ok) return;
-    const b64 = (await audio.json()) as unknown;
-    if (typeof b64 !== "string" || b64.length < 8) return;
-    if (custom.has(key)) return;
-    // The 4KA TV bed is ~26 MB of base64. Decoding it in one atob blocks the
-    // main thread long enough that HRAŤ never becomes clickable (or the tab OOMs).
-    const bytes = b64.length > 512 * 1024 ? await b64ToBytesYield(b64) : b64ToBytes(b64);
-    if (custom.has(key)) return;
-    const type = sniffMime(bytes, row.mime || "");
-    stored[key] = { bytes, type };
-    custom.add(key);
-    rememberPreview(key, bytes, type);
-  } catch {
-    /* this cue stays on the built-in file */
-  }
-}
-
 async function pullRemote(musicOnly = false): Promise<void> {
   const list = await sfxRpc("sfx_keys", {});
   if (!list.ok) return;
   const rows = (await list.json()) as { key?: string; mime?: string }[];
   if (!Array.isArray(rows)) return;
-  const jobs = rows.filter((row) => {
+  const pull = async (row: { key?: string; mime?: string }, low: boolean) => {
     const key = row.key || "";
-    if (!(key in FILES) || custom.has(key)) return false;
-    const music = MUSIC_KEYS.has(key);
-    return musicOnly ? music : !music;
-  });
-  if (musicOnly) {
-    for (const row of jobs) await pullOne(row);
+    if (!(key in FILES) || custom.has(key)) return;
+    const audio = await sfxRpc("sfx_audio", { p_key: key }, low);
+    if (!audio.ok) return;
+    const b64 = (await audio.json()) as unknown;
+    if (typeof b64 !== "string" || b64.length < 8) return;
+    const bytes = b64.length > 512 * 1024 ? await b64ToBytesYield(b64) : b64ToBytes(b64);
+    const type = sniffMime(bytes, row.mime || "");
+    stored[key] = { bytes, type };
+    custom.add(key);
+    rememberPreview(key, bytes, type);
+  };
+  // Short cues first, together. The big music beds after them, one at a time, at low priority, so they do not
+  // saturate a phone link while the player is already spinning. Music is not part of boot: a 19 MB atob
+  // froze HRAŤ. It starts after the player presses play.
+  const music = rows.filter((row) => MUSIC_KEYS.has(row.key || ""));
+  if (!musicOnly) {
+    await Promise.all(rows.filter((row) => !MUSIC_KEYS.has(row.key || "")).map((row) => pull(row, false).catch(() => {})));
   } else {
-    await Promise.all(jobs.map((row) => pullOne(row)));
+    for (const row of music) await pull(row, true).catch(() => {});
   }
 }
 
 let hydrated = false;
-let musicPromise: Promise<void> | null = null;
 
 function hydrateCustoms(): Promise<void> {
   if (hydrated) return Promise.resolve();
   return queue(async () => {
     if (hydrated) return;
     try {
-      await pullRemote(false);
+      await pullRemote();
     } catch {
       /* originals stay */
     }
@@ -302,7 +301,9 @@ function hydrateCustoms(): Promise<void> {
   });
 }
 
-/** Bed / zásah are huge. Load them after the player hits HRAŤ, never during boot. */
+let musicPromise: Promise<void> | null = null;
+
+/** Bed / zásah uploads. Not during boot — the FLAC bed is ~19 MB of base64. */
 function ensureMusic(): Promise<void> {
   if (!musicPromise) {
     musicPromise = hydrateCustoms()
@@ -333,14 +334,94 @@ export function isMuted(): boolean {
   return muted;
 }
 
-function readVolume(): number {
+/** Volumes used to be per device in localStorage (p4k.volume*). They are global now: drop the old keys once. */
+function dropLegacyVolumes(): void {
   try {
-    const raw = typeof localStorage !== "undefined" ? localStorage.getItem(VOLUME_KEY) : null;
-    const v = raw === null ? 1 : Number(raw);
-    return Number.isFinite(v) ? Math.max(0, Math.min(VOLUME_MAX, v)) : 1;
+    if (typeof localStorage === "undefined") return;
+    const old: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (isLegacyVolumeKey(k)) old.push(k as string);
+    }
+    for (const k of old) localStorage.removeItem(k);
   } catch {
-    return 1;
+    /* private mode */
   }
+}
+
+/** Last levels loaded from / saved to the server (what every player hears). */
+let savedLevels: Record<string, number> = {};
+let levelsLoaded = false;
+
+function applyLevels(levels: Record<string, number>): void {
+  setMasterNow(levels[MASTER_KEY] ?? 1);
+  for (const key of Object.keys(FILES)) {
+    cueLevels[key] = clampCueLevel(levels[key] ?? 1);
+    applyCueLevel(key);
+  }
+  liveBed?.duck(liveDuck);
+  refreshPreviewEl();
+  for (const fn of volumeListeners) fn();
+}
+
+/**
+ * Global volumes: one cheap public GET at start (public.sfx_volume, a few rows). Missing rows or a
+ * failed fetch = 100 %. Applied live (gains glide, nothing restarts).
+ */
+async function loadGlobalVolumes(): Promise<void> {
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/sfx_volume?select=key,level`, {
+      headers: { apikey: SUPA_ANON, Authorization: `Bearer ${SUPA_ANON}` },
+    });
+    if (!res.ok) return;
+    savedLevels = parseGlobalLevels(await res.json(), new Set(Object.keys(FILES)));
+    levelsLoaded = true;
+    applyLevels(savedLevels);
+  } catch {
+    /* defaults stay */
+  }
+}
+
+if (typeof window !== "undefined") {
+  dropLegacyVolumes();
+  void loadGlobalVolumes();
+}
+
+/** True when the admin moved a slider since the last load/save (preview only, not saved yet). */
+export function volumesDirty(): boolean {
+  if (Math.round(volume * 100) !== Math.round((savedLevels[MASTER_KEY] ?? 1) * 100)) return true;
+  return Object.keys(FILES).some((k) => Math.round(getCueLevel(k) * 100) !== Math.round((savedLevels[k] ?? 1) * 100));
+}
+
+/** Throw away unsaved slider moves: back to what every player hears. */
+export function revertVolumes(): void {
+  applyLevels(savedLevels);
+}
+
+/** Whether the global levels came from the server (false: defaults, fetch failed or pending). */
+export function volumesLoaded(): boolean {
+  return levelsLoaded;
+}
+
+/** Admin: save the master + every per-sound level for all players (admin password, like sfx_put). */
+export async function saveVolumes(password: string): Promise<string | null> {
+  if (!password.trim()) return "Zadaj heslo.";
+  const levels = globalLevelsPayload(volume, cueLevels, Object.keys(FILES));
+  let res: Response;
+  try {
+    res = await sfxRpc("sfx_volume_put", { p_pass: password, p_levels: levels });
+  } catch {
+    return "Hlasitosť sa nepodarilo uložiť.";
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    if (text.includes("denied")) return "Zlé heslo.";
+    return "Hlasitosť sa nepodarilo uložiť.";
+  }
+  savedLevels = levels;
+  levelsLoaded = true;
+  for (const fn of volumeListeners) fn();
+  return null;
 }
 
 /** Soft limiter: transparent up to 100 %, a fast brick-wall-ish knee above it so 200 % does not clip. */
@@ -368,16 +449,7 @@ export function cueKeys(): string[] {
 /** Per-sound volume of one slot, 0 … 2 (default 1). */
 export function getCueLevel(key: string): number {
   if (!key || !(key in FILES)) return 1;
-  if (!(key in cueLevels)) {
-    let raw: string | null = null;
-    try {
-      raw = typeof localStorage !== "undefined" ? localStorage.getItem(cueLevelKey(key)) : null;
-    } catch {
-      raw = null;
-    }
-    cueLevels[key] = parseCueLevel(raw);
-  }
-  return cueLevels[key];
+  return cueLevels[key] ?? 1;
 }
 
 function applyCueLevel(key: string): void {
@@ -392,33 +464,22 @@ function applyCueLevel(key: string): void {
   }
 }
 
-/** 0 … 2 for one slot. Persisted per device as p4k.volume.<key> (100 % = no entry). */
+/** Admin slider: 0 … 2 for one slot, applied live on this device. saveVolumes() makes it global. */
 export function setCueLevel(key: string, next: number): void {
   if (!(key in FILES)) return;
   const v = clampCueLevel(next);
   if (v === getCueLevel(key)) return;
   cueLevels[key] = v;
-  try {
-    if (v === 1) localStorage.removeItem(cueLevelKey(key));
-    else localStorage.setItem(cueLevelKey(key), String(v));
-  } catch {
-    /* private mode */
-  }
   applyCueLevel(key);
   liveBed?.duck(liveDuck);
   refreshPreviewEl();
   for (const fn of volumeListeners) fn();
 }
 
-/** Every slot back to 100 %. The master volume is left alone. */
+/** Admin: every slot back to 100 % (preview until saved). The master volume is left alone. */
 export function resetCueLevels(): void {
   for (const key of Object.keys(FILES)) {
     cueLevels[key] = 1;
-    try {
-      localStorage.removeItem(cueLevelKey(key));
-    } catch {
-      /* private mode */
-    }
     applyCueLevel(key);
   }
   liveBed?.duck(liveDuck);
@@ -470,24 +531,25 @@ export function subscribeVolume(fn: () => void): () => void {
   return () => volumeListeners.delete(fn);
 }
 
-/** 0 … 2. Smoothed on the Web Audio gain; HTMLAudio fallbacks are capped at 1.0. Persisted. */
+/** Admin master slider, 0 … 2, applied live on this device; saveVolumes() makes it global. */
 export function setVolume(next: number): void {
+  if (!setMasterNow(next)) return;
+  liveBed?.duck(liveDuck);
+  refreshPreviewEl();
+  for (const fn of volumeListeners) fn();
+}
+
+/** Master gain glide (Web Audio) + limiter mode; HTMLAudio fallbacks are capped at 1.0. */
+function setMasterNow(next: number): boolean {
   const v = Math.max(0, Math.min(VOLUME_MAX, Math.round(next * 100) / 100));
-  if (v === volume) return;
+  if (v === volume) return false;
   volume = v;
-  try {
-    localStorage.setItem(VOLUME_KEY, String(v));
-  } catch {
-    /* private mode */
-  }
   if (ctx && out) {
     out.gain.cancelScheduledValues(ctx.currentTime);
     out.gain.setTargetAtTime(v, ctx.currentTime, 0.03);
     tuneLimiter(ctx.currentTime);
   }
-  liveBed?.duck(liveDuck);
-  refreshPreviewEl();
-  for (const fn of volumeListeners) fn();
+  return true;
 }
 
 /** Final stage input (volume → limiter → speakers). Connect here, never to ctx.destination. */
@@ -1310,6 +1372,15 @@ function untapViz(node: AudioNode): void {
 export function bedAnalyser(): AnalyserNode | null {
   if (!ctx || ctx.state !== "running" || !vizSource || !vizAnalyser || muted) return null;
   return vizAnalyser;
+}
+
+/**
+ * Seconds between the analyser seeing a sample and the speaker playing it (base + output latency,
+ * as far as the browser reports them; 0 where unsupported). The visualizer holds frames back by this.
+ */
+export function bedLatency(): { output: number; base: number } {
+  const c = ctx as (AudioContext & { outputLatency?: number }) | null;
+  return { output: c?.outputLatency ?? 0, base: c?.baseLatency ?? 0 };
 }
 
 function ownCue(key: string): boolean {

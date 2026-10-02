@@ -823,55 +823,7 @@
   filter: saturate(0.55) brightness(0.42) contrast(1.08);
 }
 
-.stage.in-chase::before,
-.stage.in-chase::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 34%;
-  pointer-events: none;
-  z-index: 6;
-}
-
-.stage.in-chase::before {
-  left: 0;
-  background: linear-gradient(90deg, rgb(255 24 36 / 0.72), rgb(255 32 40 / 0.28) 42%, transparent 78%);
-  animation: siren-wash 2.6s ease-in-out infinite;
-}
-
-.stage.in-chase::after {
-  right: 0;
-  background: linear-gradient(270deg, rgb(36 92 255 / 0.72), rgb(40 80 255 / 0.26) 42%, transparent 78%);
-  animation: siren-wash 2.6s ease-in-out infinite reverse;
-}
-
-@keyframes siren-wash {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-@media (max-width: 720px) {
-  .stage.in-chase::before,
-  .stage.in-chase::after {
-    width: 14%;
-  }
-  .stage.in-chase::before {
-    background: linear-gradient(90deg, rgb(255 24 36 / 0.34), transparent 72%);
-  }
-  .stage.in-chase::after {
-    background: linear-gradient(270deg, rgb(36 92 255 / 0.32), transparent 72%);
-  }
-  .stage.chase-danger::after {
-    width: 14%;
-    background: linear-gradient(270deg, rgb(255 32 32 / 0.4), transparent 72%);
-  }
-}
+/* The police lights during ZÁSAH are <PoliceSmog /> (police-smog.css). */
 
 .chase-ticket {
   position: absolute;
@@ -923,11 +875,6 @@
   color: #f4f1e6;
   border: 2px solid #f0c419;
   box-shadow: 0 16px 40px rgb(0 0 0 / 0.55);
-}
-
-.stage.chase-danger::after {
-  animation: siren-wash 0.9s ease-in-out infinite;
-  background: linear-gradient(270deg, rgb(255 32 32 / 0.85), transparent 70%);
 }
 
 .hack-layer {
@@ -1321,11 +1268,7 @@
   .hack-window *::before,
   .hack-window *::after,
   .chase-target,
-  .chase-target.is-close,
-  .stage.in-chase::before,
-  .stage.in-chase::after,
-  .stage.chase-danger::before,
-  .stage.chase-danger::after {
+  .chase-target.is-close {
     animation: none !important;
     transition: none !important;
   }
@@ -10785,4 +10728,44 @@ html:-webkit-full-screen {
   .zt-flash {
     display: none;
   }
+}
+
+/* Tax step on every win display (top ticker, banners, 4KA TV summary, MASÍVNA VÝHRA). */
+.tax-fly.has-detail {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.tax-fly .tax-fly-detail {
+  flex-basis: 100%;
+  text-align: center;
+  opacity: 0.75;
+}
+
+.tax-fly.is-ticker {
+  font-size: 0.62em;
+}
+
+.wb-tax {
+  margin: 4px 0 0;
+}
+
+.wb-table tr.tax td {
+  vertical-align: middle;
+}
+
+.wb-table tr.tax .tax-fly {
+  margin-left: 0;
+}
+
+.mw-tax {
+  position: relative;
+  margin: 6px 0 0;
+  font-size: clamp(14px, 2.4vmin, 20px);
+  text-align: center;
+}
+
+.mw-stamp.is-tax {
+  color: #ffd2bf;
+  border-color: #e24a12;
 }

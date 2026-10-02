@@ -155,6 +155,36 @@ export function tickMod(m: ChaseMod | null): ChaseMod | null {
   return { kind: m.kind, left: m.left - 1 };
 }
 
+/**
+ * Where a payout or a spin comes from, for the BEZ DANE / DAŇOVÝ ÚNIK period:
+ * base = paid base spin, fs = free spin inside 4KA TV (triggered or bought), buy = the bought 4KA TV
+ * entry spin, pick = KONTROLA payout, chase = ZÁSAH spin (has its own BOOST), duel = duel spin (escrow).
+ */
+export type ModScope = "base" | "fs" | "buy" | "pick" | "chase" | "duel";
+
+/** The ±23 % hits every payout while the period runs, except ZÁSAH chase spins and duel spins. */
+export function modApplies(scope: ModScope): boolean {
+  return scope !== "chase" && scope !== "duel";
+}
+
+/** Every played spin counts the period down, free spins included. KONTROLA is no spin (its trigger spin already counted). */
+export function modTicks(scope: ModScope): boolean {
+  return scope === "base" || scope === "fs" || scope === "buy";
+}
+
+/** Payout after the period modifier, rounded to cents; delta = net − gross (display). */
+export function applyMod(gross: number, m: ChaseMod | null, scope: ModScope): { net: number; delta: number } {
+  const mul = modApplies(scope) ? modMul(m) : 1;
+  const net = +(gross * mul).toFixed(2);
+  return { net, delta: +(net - gross).toFixed(2) };
+}
+
+/** One spin of the period: the modifier it pays with, and the period left after it. */
+export function stepMod(m: ChaseMod | null, scope: ModScope): { mul: number; next: ChaseMod | null } {
+  const mul = modApplies(scope) ? modMul(m) : 1;
+  return { mul, next: modTicks(scope) ? tickMod(m) : m };
+}
+
 function readNum(v: unknown, fallback: number): number {
   const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
   return Number.isFinite(n) ? n : fallback;

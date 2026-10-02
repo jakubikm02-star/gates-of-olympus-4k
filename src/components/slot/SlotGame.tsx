@@ -6,6 +6,8 @@ import { FsReveal } from "./FsReveal";
 import { TargetHud } from "./TargetReticle";
 import { useChaseAim } from "@/hooks/use-chase-aim";
 import { BedVisualizer } from "./BedVisualizer";
+import { TaxChip } from "./TaxChip";
+import { PoliceSmog } from "./PoliceSmog";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
 import { jobClock, jobMeter, jobProgress, jobShownGoal, sayCluster, type JobCard } from "@/lib/slot/spend";
@@ -22,6 +24,7 @@ import { MachineFrame } from "./MachineFrame";
 import { RankPanel } from "./RankPanel";
 import { RankToast } from "./RankToast";
 import { SpendSheet } from "./SpendSheet";
+import { TicketFx } from "./TicketFx";
 import { BonusIcon, BonusNote, BonusPill, LegCounters, TicketGoals } from "./TicketBonus";
 import { ticketBonus } from "@/lib/slot/ticket-bonus";
 import { DuelSheet, DuelBar, DuelLink } from "./DuelSheet";
@@ -230,6 +233,7 @@ export function SlotGame() {
       ) : null}
       <div className="stage-glow" />
       <div className="park-lines" aria-hidden="true" />
+      {g.chase ? <PoliceSmog danger={g.chase.tension === "danger"} reduced={reducedMotion} /> : null}
       {g.strike ? <HandBolt key={`${g.strike.r}-${g.strike.c}`} strike={g.strike} /> : null}
 
       {!g.started && (
@@ -419,9 +423,10 @@ export function SlotGame() {
                 <>
                   TUMBLE
                   <strong>
-                    <CountUp value={g.seqMult > 1 && g.baseWin > 0 ? g.baseWin : g.spinWin} />
-                    {g.seqMult > 1 ? <em className="ticker-x"> ×{g.seqMult}</em> : null}
+                    <CountUp value={g.taxFly ? g.spinWin : g.seqMult > 1 && g.baseWin > 0 ? g.baseWin : g.spinWin} glide={Boolean(g.taxFly)} ms={g.taxFly ? 850 : undefined} />
+                    {g.seqMult > 1 && !g.taxFly ? <em className="ticker-x"> ×{g.seqMult}</em> : null}
                   </strong>
+                  {g.taxFly ? <TaxChip key={g.taxKey} tax={g.taxFly} className="is-ticker" /> : null}
                 </>
               ) : g.topLine && !g.topLine.startsWith("SYMBOLY PLATIA") ? (
                 g.topLine
@@ -587,15 +592,7 @@ export function SlotGame() {
               {g.displayWin > 0 ? (
                 <>
                   VÝHRA <CountUp value={g.displayWin} glide={Boolean(g.taxFly)} ms={g.taxFly ? 850 : undefined} />
-                  {g.taxFly ? (
-                    <em key={g.taxKey} className={`tax-fly ${g.taxFly.kind === "danUrad" ? "is-tax" : "is-free"}`}>
-                      {g.taxFly.kind === "danUrad" ? "−23 % daňový úrad" : "+23 % bez dane"}
-                      <small>
-                        {g.taxFly.delta < 0 ? "−" : "+"}
-                        {formatMoney(Math.abs(g.taxFly.delta))}
-                      </small>
-                    </em>
-                  ) : null}
+                  {g.taxFly ? <TaxChip key={g.taxKey} tax={g.taxFly} /> : null}
                 </>
               ) : g.payHint ? (
                 "VÝHRA"
@@ -822,7 +819,7 @@ export function SlotGame() {
       ) : null}
       {g.chaseMod ? (
         <div className={`mod-badge ${g.chaseMod.kind === "bezDane" ? "is-free" : "is-tax"}`}>
-          {g.chaseMod.kind === "bezDane" ? "BEZ DANE" : "DAŇOVÝ ÚRAD"} · {g.chaseMod.left}
+          {g.chaseMod.kind === "bezDane" ? "BEZ DANE" : "DAŇOVÝ ÚNIK"} · {g.chaseMod.left}
         </div>
       ) : null}
       {jobOpen && (liveJob || seal) ? (
@@ -857,7 +854,7 @@ export function SlotGame() {
         </div>
       ) : null}
       {g.banner === "massive" ? (
-        <MassiveWin key={`${g.bannerAmount}-${g.bannerX}`} amount={g.bannerAmount} x={g.bannerX} onClose={g.closeBanner} />
+        <MassiveWin key={`${g.bannerAmount}-${g.bannerX}`} amount={g.bannerAmount} x={g.bannerX} tax={g.bannerTax} onClose={g.closeBanner} />
       ) : null}
       {g.banner && g.banner !== "massive" && (
         <div className="banner" onClick={g.closeBanner} role="presentation">
@@ -916,6 +913,14 @@ export function SlotGame() {
                         <td>4KA TV UKONČENÁ</td>
                       </tr>
                     )}
+                    {g.bannerTax ? (
+                      <tr className="tax">
+                        <td>{g.bannerTax.kind === "danUrad" ? "daňový únik −23 %" : "bez dane +23 %"}</td>
+                        <td>
+                          <TaxChip tax={g.bannerTax} detail />
+                        </td>
+                      </tr>
+                    ) : null}
                     <tr className="total">
                       <td>TOTAL WIN</td>
                       <td>
@@ -925,9 +930,16 @@ export function SlotGame() {
                   </tbody>
                 </table>
               ) : (
-                <p className="wb-amt">
-                  credit-out: <CountUp value={g.bannerAmount} />
-                </p>
+                <>
+                  <p className="wb-amt">
+                    credit-out: <CountUp value={g.bannerAmount} />
+                  </p>
+                  {g.bannerTax ? (
+                    <p className="wb-tax">
+                      <TaxChip tax={g.bannerTax} detail />
+                    </p>
+                  ) : null}
+                </>
               )}
               {g.banner === "max" && <p className="wb-err">status: 4KA TV UKONČENÁ</p>}
               {g.banner !== "max" && g.banner !== "fs" && g.banner !== "fsTotal" && (
@@ -1026,6 +1038,7 @@ export function SlotGame() {
         onJob={g.takeJob}
         buyX={g.buyX}
       />
+      <TicketFx fx={g.ticketFx} reduced={reducedMotion} onDone={g.clearTicketFx} current={g.job} />
       <DuelSheet
         open={g.duelOpen}
         duel={g.duel}

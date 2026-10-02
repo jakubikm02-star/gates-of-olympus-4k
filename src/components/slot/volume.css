@@ -377,3 +377,17 @@
     transition: none;
   }
 }
+
+/* Admin: save the global volumes for every player. */
+.vol-save {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 14px;
+}
+
+.vol-save-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}

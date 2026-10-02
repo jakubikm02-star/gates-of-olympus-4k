@@ -48,8 +48,7 @@ import {
 } from "./preview";
 
 // Kick (and share) PGLite bootstrap as soon as the auth server module loads.
-// A missing PGLite data file (production, no DATABASE_URL) must not reject
-// unhandled — that kills the serverless process before the game can boot.
+// A missing data file must not reject unhandled — that exits the serverless process.
 void ensureDbReady().catch((err) => {
   console.error("[db] PGLite bootstrap failed:", err);
 });

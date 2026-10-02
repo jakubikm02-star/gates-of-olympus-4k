@@ -1,8 +1,10 @@
 import "./massive-win.css";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { formatMoney } from "@/lib/slot/format";
+import type { TaxFly } from "@/hooks/use-slot-game";
+import { TaxChip } from "./TaxChip";
 
-/** Count-up length. The hook keeps the card up a while longer (MASSIVE_HOLD_MS) unless tapped. */
+/** Count-up length. The card never auto-closes (autoplay too): first tap finishes the count, the next one closes. */
 const COUNT_MS = 4200;
 const TITLE = ["MASÍVNA", "VÝHRA"];
 /** Count-up "drops": share of the sum at which the stage takes a hit (≈ 1.1 / 1.7 / 2.3 / 2.9 s with the ease-out). */
@@ -91,10 +93,13 @@ function Barrier() {
 export function MassiveWin({
   amount,
   x,
+  tax = null,
   onClose,
 }: {
   amount: number;
   x: number;
+  /** BEZ DANE / DAŇOVÝ ÚNIK step behind `amount` (display only; `amount` is already what is credited). */
+  tax?: TaxFly | null;
   onClose: () => void;
 }) {
   const reduced = useMemo(
@@ -238,6 +243,11 @@ export function MassiveWin({
               <span className="mw-plate-shine" aria-hidden="true" />
             </div>
           </div>
+          {tax ? (
+            <p className="mw-tax">
+              <TaxChip tax={tax} detail />
+            </p>
+          ) : null}
           <p className="mw-x">
             <span className="mw-x-tag" aria-hidden="true">
               PAAS
@@ -246,12 +256,23 @@ export function MassiveWin({
           </p>
           <div className="mw-ticket" aria-hidden="true">
             <span className="mw-ticket-head">PARKOVACÍ LÍSTOK · VÝJAZD VOĽNÝ</span>
-            <span className="mw-stamp">
-              <span>BEZ DANE</span>
-              <small>Finančná správa nič nenašla</small>
-            </span>
+            {tax?.kind === "danUrad" ? (
+              <span className="mw-stamp is-tax">
+                <span>DAŇOVÝ ÚNIK −23 %</span>
+                <small>Finančná správa si vzala svoje</small>
+              </span>
+            ) : (
+              <span className="mw-stamp">
+                <span>{tax ? "BEZ DANE +23 %" : "BEZ DANE"}</span>
+                <small>Finančná správa nič nenašla</small>
+              </span>
+            )}
           </div>
-          <p className="mw-hint">{done ? "ťukni a pokračuj" : "ťukni a preskoč"}</p>
+          {done ? (
+            <p key="go" className="mw-hint is-go">Ťukni pre pokračovanie</p>
+          ) : (
+            <p key="skip" className="mw-hint">ťukni a preskoč</p>
+          )}
         </div>
       </div>
     </div>
