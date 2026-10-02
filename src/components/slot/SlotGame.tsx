@@ -1067,8 +1067,8 @@ export function SlotGame() {
 
 function jobGoalLines(job: JobCard): string[] {
   return jobShownGoal(job)
-    .replaceAll("pádov dokopy", "pop dokopy")
-    .replaceAll("pádmi dokopy", "pop dokopy")
+    .replaceAll("pádov dokopy", "Cluster tumble dokopy")
+    .replaceAll("pádmi dokopy", "Cluster tumble dokopy")
     .replaceAll("klastrami", "cluster")
     .split(" + ");
 }

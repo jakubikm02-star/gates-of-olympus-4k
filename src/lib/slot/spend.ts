@@ -63,8 +63,8 @@ const TEMPLATES: {
   payIds?: PayId[];
 }[] = [
   { id: "zber", titles: ["ZBER", "OBCHÔDZKA", "DENNÁ DÁVKA"], kind: "wins", scope: "base", need: [14, 22], until: [65, 65], line: "výherných spinov dokopy" },
-  { id: "balik", titles: ["CLUSTER POP", "REŤAZ POP", "DVA A VIAC"], kind: "chain", scope: "base", need: [4, 7], until: [60, 100], line: "spinov s 2+ pop dokopy" },
-  { id: "pada", titles: ["SÚČET POP", "POP", "POP DOLE"], kind: "tumbles", scope: "base", need: [20, 30], until: [70, 70], line: "pop dokopy" },
+  { id: "balik", titles: ["CLUSTER TUMBLE", "REŤAZ CLUSTER TUMBLE", "DVA A VIAC"], kind: "chain", scope: "base", need: [4, 7], until: [60, 100], line: "spinov s 2+ Cluster tumble dokopy" },
+  { id: "pada", titles: ["SÚČET CLUSTER TUMBLE", "CLUSTER TUMBLE", "CLUSTER TUMBLE DOLE"], kind: "tumbles", scope: "base", need: [20, 30], until: [70, 70], line: "Cluster tumble dokopy" },
   { id: "siet", titles: ["SIEŤ", "ANTÉNA", "4KA TV", "ŠTYRI TELEVÍZORY"], kind: "live", scope: "base", need: [1, 1], until: [50, 720], line: "spustiť 4KA TV" },
   { id: "signal", titles: ["TACHYKARDIA", "TEP 180", "PULZ PLECHOVIEK"], kind: "signal", scope: "live", need: [10, 51], until: [30, 30], line: "z násobičov dokopy v 4KA TV" },
   { id: "retaz", titles: ["REŤAZ", "TRI V RADE", "BEZ PRESTÁVKY"], kind: "wins", scope: "base", need: [3, 3], until: [15, 110], line: "výhier po sebe, mŕtvy vynuluje" },

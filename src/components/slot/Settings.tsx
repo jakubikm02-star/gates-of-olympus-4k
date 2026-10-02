@@ -18,7 +18,7 @@ const SOUND_CUES: { id: string; name: string; loop?: boolean; when?: string; hea
   { id: "ticketOk", name: "Úspešný tiket", when: "Splnený kontrakt. Zber, reťaz a ostatné úlohy." },
   { id: "win", name: "Výhra", when: "Výhra v sekvencii od 5× do 20×." },
   { id: "winFull", name: "Výhra plná", when: "Výhra v sekvencii od 20×." },
-  { id: "pop", name: "Prasknutie", when: "Výherné symboly zmiznú pred pádom." },
+  { id: "pop", name: "Cluster tumble", when: "Výherné symboly zmiznú pred pádom." },
   { id: "tumble", name: "Pád", when: "Nové symboly padnú. Ďalší pád je o niečo vyšší." },
   { id: "can", name: "Plechovka", when: "Dopad plechovky a jej započítanie do výhry." },
   { id: "zap", name: "Rampa", when: "Plechovka po páde. Spolu s ňou ide aj Elektrika." },

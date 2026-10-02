@@ -498,7 +498,7 @@ export const RANK_REWARDS = [
   { id: "stake", title: "Výška stávky", detail: "Rovnaký násobok na vyššej stávke dá viac RP, lebo suma je väčšia. Bežná hra na max stávke v NEKONEČNE bez big win RP berie. Jedna prehra nie je celá divízia." },
   { id: "mult", title: "Násobič", detail: "Plechovky sa násobia sumou výhry. Samy o sebe sú malé, big win ich zväčší." },
   { id: "streak", title: "Séria výhier", detail: "Séria, tumble a banner sa násobia sumou. Mŕtvy spin zhodí sériu na 0 — od SLOBODY jeden hold." },
-  { id: "tumble", title: "Cluster pop", detail: "Dva a viac pop v jednom spine: +2 až +8 RP." },
+  { id: "tumble", title: "Cluster tumble", detail: "Dva a viac Cluster tumble v jednom spine: +2 až +8 RP." },
   { id: "banner", title: "BIG / MEGA / EPIC / MAX", detail: "Popup: +4 / +8 / +12 / +18." },
   { id: "bonus", title: "4KA TV", detail: "4KA TV total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Buy je vždy 79×. 4KA TV je 15, od DUO 16, v NEKONEČNO 17. Kúpa sa ráta voči cene, prehra berie entry ako mŕtve spiny (max 1 divízia)." },
   { id: "rank", title: "Aktívna liga", detail: "Vyšší rank berie viac RP za mŕtvy spin. Ante 1,10× od SMART, cashback so stropom od OPTIKA, +1 a +2 točenia v 4KA TV. Liga nenásobí výhru a nelacní buy." },
@@ -620,7 +620,7 @@ export function rankBits(b: RankBreakdown): string[] {
   if (b.fromStake) bits.push(`stávka ${b.fromStake > 0 ? "+" : ""}${b.fromStake}`);
   if (b.fromMult) bits.push(`× +${b.fromMult}`);
   if (b.fromStreak) bits.push(`séria +${b.fromStreak}`);
-  if (b.fromTumble) bits.push(`pop +${b.fromTumble}`);
+  if (b.fromTumble) bits.push(`Cluster tumble +${b.fromTumble}`);
   if (b.fromBanner) bits.push(`banner +${b.fromBanner}`);
   if (b.fromBonus) bits.push(`4KA TV +${b.fromBonus}`);
   if (b.fromBuy) bits.push(`kúpa ${b.fromBuy}`);

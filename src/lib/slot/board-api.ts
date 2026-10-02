@@ -33,7 +33,7 @@ export function winHow(opts: {
   const bits: string[] = [opts.mode === "BASE" ? "BASE" : "4KA TV"];
   if (opts.mode === "BASE") {
     for (const name of (opts.pays ?? []).slice(0, 2)) bits.push(name);
-    if ((opts.pops ?? 0) > 0 && bits.length < 4) bits.push(`${opts.pops} pop`);
+    if ((opts.pops ?? 0) > 0 && bits.length < 4) bits.push(`${opts.pops} Cluster tumble`);
   } else {
     if ((opts.signal ?? 0) > 1) bits.push(`SIGNÁL ${Math.round(opts.signal!)}×`);
     if ((opts.pdf ?? 0) > 0 && bits.length < 4) bits.push(`${opts.pdf}× PDF`);
