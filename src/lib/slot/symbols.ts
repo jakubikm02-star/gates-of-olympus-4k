@@ -166,12 +166,29 @@ export function ticketArt(id: TicketId, customName: boolean): string {
   return customName ? t.blank : t.src;
 }
 
+/** Can look tier, presentation only. Bands follow ORB_TABLE: 2–5, 6–15, 20–50, 100+. */
+export type CanTier = 1 | 2 | 3 | 4;
+
+export function canTier(mult: number): CanTier {
+  if (mult >= 100) return 4;
+  if (mult >= 20) return 3;
+  if (mult >= 6) return 2;
+  return 1;
+}
+
+export function canSrc(mult: number): string {
+  return `/symbols/can-t${canTier(mult)}.webp`;
+}
+
+/** PARKVOLT cans (4 tiers) + the electric arc layer of the top tier. */
+export const CAN_ART: readonly string[] = [1, 2, 3, 4].map((t) => `/symbols/can-t${t}.webp`).concat("/symbols/can-arc.webp");
+
 export const ALL_ART: readonly string[] = [
   ...PAY_SYMBOLS.map((s) => s.src),
   SCATTER.src,
   FS_SYMBOL.src,
   ...Object.values(TICKETS).flatMap((t) => [t.src, t.blank]),
-  "/symbols/can.png",
+  ...CAN_ART,
   "/art/paas-idle.png?v=3",
   "/art/paas-run.png?v=3",
   "/art/paas-anti.png?v=4",
@@ -263,7 +280,7 @@ export function scatterPay(count: number): number {
 export function symbolSrc(cell: Cell): string {
   if (cell.kind === "scatter") return SCATTER.src;
   if (cell.kind === "park") return TICKETS[cell.ticket ?? "stat"].src;
-  if (cell.kind === "mult") return "/symbols/can.png";
+  if (cell.kind === "mult") return canSrc(cell.mult ?? 2);
   const s = PAY_SYMBOLS.find((p) => p.id === cell.payId);
   return s?.src ?? PAY_SYMBOLS[0].src;
 }

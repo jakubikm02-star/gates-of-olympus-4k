@@ -97,7 +97,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             </div>
           ))}
           <div className="pay-row">
-            <img src="/symbols/can.png" alt="" className="pay-ico" />
+            <img src="/symbols/can-t1.webp" alt="" className="pay-ico" />
             <div>
               <div className="pay-name">Energy plechovka · násobič</div>
               <div className="pay-vals">

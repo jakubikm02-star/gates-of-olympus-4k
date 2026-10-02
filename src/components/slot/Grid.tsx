@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { COLS, ROWS, symbolSrc, ticketArt, FS_SYMBOL, PAY_SYMBOLS, TICKETS, type Cell, type PayId } from "@/lib/slot/symbols";
+import { COLS, ROWS, symbolSrc, ticketArt, canTier, FS_SYMBOL, PAY_SYMBOLS, TICKETS, type Cell, type PayId } from "@/lib/slot/symbols";
 import type { HackWindow } from "@/lib/slot/zasah";
 import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
+import { CanFx, CanValue } from "./Can";
 
 export interface ClusterPay {
   x: number;
@@ -82,7 +83,7 @@ function CellView({
         win ? "is-win" : "",
         cell.kind === "scatter" ? "is-scatter" : "",
         cell.kind === "park" ? `is-park is-ticket-${cell.ticket ?? "stat"}` : "",
-        cell.kind === "mult" ? "is-mult" : "",
+        cell.kind === "mult" ? `is-mult can-t${canTier(cell.mult ?? 2)}` : "",
         ticketLock && cell.kind !== "park" ? "is-dim" : "",
         ticketLock && cell.kind === "park" ? "is-lock" : "",
         hot ? "is-struck" : "",
@@ -109,7 +110,8 @@ function CellView({
       {!cell.gone && cell.kind === "park" && ticketCustom && (
         <span className="scatter-label">{ticketLabel(ticketId)}</span>
       )}
-      {!cell.gone && cell.kind === "mult" && <span className="mult-tag">{cell.mult}X</span>}
+      {!cell.gone && cell.kind === "mult" && <CanFx mult={cell.mult ?? 2} />}
+      {!cell.gone && cell.kind === "mult" && <CanValue mult={cell.mult ?? 2} />}
       {!cell.gone && win && <span className="win-fx" aria-hidden="true" />}
       {hot && <span className="orb-strike" aria-hidden="true" />}
       {popping && win && (

@@ -564,7 +564,6 @@
   font-weight: 900;
   font-size: clamp(0.78rem, 2.1vw, 1.15rem);
   color: #fff8d0;
-  text-shadow: 0 0 12px #ffe14a, 0 2px 0 #3a2208;
   pointer-events: none;
   animation: fly-to-meter 0.72s cubic-bezier(0.18, 0.8, 0.22, 1) forwards;
 }
@@ -2020,6 +2019,123 @@
 .cell.is-mult .cell-img {
   width: 88%;
   height: 90%;
+  filter: drop-shadow(0 6px 8px rgb(0 0 0 / 0.55));
+}
+
+/* PARKVOLT multiplier can. Art is pre-rendered per tier (public/symbols/can-t*.webp);
+   the value is live text so it stays crisp. Only transform/opacity animate. */
+.cell.is-mult,
+.fly-orb {
+  container-type: size;
+}
+
+.can-t1 { --can-ink: #7cff00; --can-glow: rgb(124 255 0 / 0.55); }
+.can-t2 { --can-ink: #00e5ff; --can-glow: rgb(0 229 255 / 0.55); }
+.can-t3 { --can-ink: #c46bff; --can-glow: rgb(177 77 255 / 0.6); }
+.can-t4 { --can-ink: #ffc629; --can-glow: rgb(255 198 41 / 0.65); }
+
+.can-val {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  display: flex;
+  align-items: baseline;
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1;
+  font-size: clamp(0.95rem, 3vw, 1.5rem);
+  font-size: 38cqmin;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  color: #fff;
+  -webkit-text-stroke: 0.05em #030304;
+  paint-order: stroke fill;
+  text-shadow:
+    0 0.05em 0 #000,
+    0 0 0.16em var(--can-ink, #7cff00),
+    0 0 0.42em var(--can-glow, rgb(124 255 0 / 0.55));
+  transform: translate(-50%, -46%) skewX(-7deg);
+  pointer-events: none;
+  animation: can-val-pop 0.4s cubic-bezier(0.22, 1.5, 0.36, 1) both;
+}
+
+.can-val small {
+  font-size: 0.56em;
+  margin-right: 0.02em;
+  color: var(--can-ink, #7cff00);
+}
+
+.can-val.is-d2 { font-size: 35cqmin; }
+.can-val.is-d3 { font-size: 29cqmin; }
+
+.can-t4 .can-val {
+  color: #fff3c4;
+}
+
+@keyframes can-val-pop {
+  0% { transform: translate(-50%, -46%) skewX(-7deg) scale(0.2); }
+  70% { transform: translate(-50%, -46%) skewX(-7deg) scale(1.12); }
+  100% { transform: translate(-50%, -46%) skewX(-7deg) scale(1); }
+}
+
+/* High tiers: static glow behind the can; top tier adds two flickering arc layers. */
+.can-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.can-fx::before {
+  content: "";
+  position: absolute;
+  inset: 4% 14%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--can-glow), transparent 78%);
+}
+
+.can-t3 .can-fx::before {
+  background: radial-gradient(closest-side, rgb(177 77 255 / 0.55), rgb(255 198 41 / 0.18) 62%, transparent 80%);
+}
+
+.can-t4 .can-fx::before {
+  inset: -2% 6%;
+  animation: can-aura 1.6s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.can-fx i {
+  position: absolute;
+  inset: 5% 6%;
+  background: url("/symbols/can-arc.webp") center / contain no-repeat;
+  opacity: 0;
+  animation: can-arc 0.9s steps(1, end) infinite;
+  will-change: opacity;
+}
+
+.can-fx i + i {
+  transform: scale(-1, 1);
+  animation-delay: 0.45s;
+  animation-duration: 1.15s;
+}
+
+@keyframes can-aura {
+  0%, 100% { opacity: 0.6; transform: scale(0.94); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+
+@keyframes can-arc {
+  0% { opacity: 0.95; }
+  12% { opacity: 0.25; }
+  20% { opacity: 1; }
+  34% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .can-fx i { animation: none; opacity: 0.75; }
+  .can-fx i + i { opacity: 0; }
 }
 
 .cell.is-win {
@@ -2124,7 +2240,7 @@
   opacity: 0.4;
 }
 
-.cell.is-expired .mult-tag {
+.cell.is-expired .can-val {
   text-decoration: line-through;
   color: #f2b0b0;
 }
@@ -2201,7 +2317,7 @@
   filter: brightness(0.86) saturate(0.88) drop-shadow(0 8px 10px rgb(0 0 0 / 0.55));
 }
 
-.cell.is-dormant .mult-tag {
+.cell.is-dormant .can-val {
   opacity: 0.85;
 }
 
@@ -2211,13 +2327,16 @@
 
 .cell.is-struck .cell-img {
   animation: orb-ignite 0.42s cubic-bezier(0.22, 1.4, 0.36, 1) both;
-  filter: drop-shadow(0 0 18px #ffe14a) brightness(1.45);
+  filter: drop-shadow(0 0 14px var(--can-ink, #ffe14a)) brightness(1.25);
 }
 
-.cell.is-struck .mult-tag {
-  color: #fff8d0;
-  text-shadow: 0 0 14px #ffe14a, 0 2px 0 #3a2208;
-  animation: mult-pop 0.35s cubic-bezier(0.22, 1.5, 0.36, 1) both;
+.cell.is-struck .can-val {
+  color: #fff;
+  text-shadow:
+    0 0.05em 0 #000,
+    0 0 0.2em var(--can-ink, #ffe14a),
+    0 0 0.6em var(--can-ink, #ffe14a);
+  animation: can-val-pop 0.35s cubic-bezier(0.22, 1.5, 0.36, 1) both;
 }
 
 @keyframes orb-ignite {
@@ -2267,7 +2386,7 @@
   animation: hot-pulse 0.35s ease-in-out infinite;
 }
 
-.cell.is-hot .mult-tag {
+.cell.is-hot .can-val {
   color: #d8ffd0;
   text-shadow: 0 0 12px #4dff6a;
 }
@@ -6099,6 +6218,8 @@
   .tumble-win,
   .win-line.has-win,
   .mult-tag,
+  .can-val,
+  .can-fx::before,
   .wb-caret,
   .banner-card,
   .rank-stamp,

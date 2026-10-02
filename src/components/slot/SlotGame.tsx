@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import { Volume2, VolumeX, Info, RefreshCw, Menu, Settings as SettingsIcon, Trophy } from "lucide-react";
-import { START_BALANCE, BETS, PAY_SYMBOLS } from "@/lib/slot/symbols";
+import { START_BALANCE, BETS, PAY_SYMBOLS, canSrc, canTier } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
 import { jobClock, jobMeter, jobProgress, jobShownGoal, type JobCard } from "@/lib/slot/spend";
@@ -8,6 +8,7 @@ import { rankPeekIds } from "@/lib/slot/pick-bonus";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { useShell } from "@/hooks/use-shell";
 import { SlotGrid } from "./Grid";
+import { CanValue } from "./Can";
 import { Paytable } from "./Paytable";
 import { PickBonus } from "./PickBonus";
 import { CountUp } from "./CountUp";
@@ -464,11 +465,11 @@ export function SlotGame() {
             {g.flies.map((f) => (
               <span
                 key={f.key}
-                className="fly-orb"
+                className={`fly-orb can-t${canTier(f.mult)}`}
                 style={{ left: `${((f.c + 0.5) / 6) * 100}%`, top: `${((f.r + 0.5) / 5) * 100}%` }}
               >
-                <img src="/symbols/can.png" alt="" />
-                {f.mult}X
+                <img src={canSrc(f.mult)} alt="" />
+                <CanValue mult={f.mult} />
               </span>
             ))}
             <RankToast flash={resolving || g.inFs ? null : g.rankFlash} />
