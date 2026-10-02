@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { formatMoney } from "@/lib/slot/format";
-import { jobClock, jobLeft, jobMeter, jobScopeLabel, jobShownGoal, spinWord, type DailyBoard, type JobCard } from "@/lib/slot/spend";
+import { jobClock, jobLeft, jobMeter, jobScopeLabel, jobShownGoal, sayCluster, spinWord, type DailyBoard, type JobCard } from "@/lib/slot/spend";
 
 interface Props {
   open: boolean;
@@ -49,7 +49,7 @@ export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob }: 
             </header>
             <p className="modal-lead">Úloha, podmienky, cena a zisk sú teraz známe.</p>
             <div className="otrs-note">
-              <em>{job.title}</em>
+              <em>{sayCluster(job.title)}</em>
               <span>{jobShownGoal(job)}</span>
               <strong>
                 {jobClock(job)} · stávka {formatMoney(job.lockBet || 0)} zamknutá
@@ -109,7 +109,7 @@ export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob }: 
                     }}
                   >
                     <span className="spend-body">
-                      <em>{card.title}</em>
+                      <em>{sayCluster(card.title)}</em>
                       <span>{jobScopeLabel(card)} · {jobShownGoal(card)}</span>
                       <strong className="spend-dead">
                         do {card.limit} {spinWord(card.limit)} · stávka {formatMoney(card.lockBet)}

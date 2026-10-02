@@ -185,14 +185,25 @@ export function jobClock(job: JobCard, inLive = false): string {
   return `ešte ${left} ${spinWord(left)}`;
 }
 
+/** Old tickets and board lines still say pop. Show the new name without rewriting saves. */
+export function sayCluster(text: string): string {
+  return text
+    .replaceAll("CLUSTER POP", "CLUSTER TUMBLE")
+    .replaceAll("REŤAZ POP", "REŤAZ CLUSTER TUMBLE")
+    .replaceAll("SÚČET POP", "SÚČET CLUSTER TUMBLE")
+    .replaceAll("POP DOLE", "CLUSTER TUMBLE DOLE")
+    .replaceAll(/\bPOP\b/g, "CLUSTER TUMBLE")
+    .replaceAll(/\bpop\b/g, "Cluster tumble");
+}
+
 export function jobShownGoal(job: JobCard): string {
   if (job.kind === "hydra" && job.payId && job.payIdB && job.needB) {
     return `${payName(job.payId)} ${job.need}× + ${payName(job.payIdB)} ${job.needB}× výhier dokopy`;
   }
   if (job.kind === "collect" && job.payId) return `${job.need}× nevýherných ${payName(job.payId)} dokopy`;
   if (job.kind === "symbol" && job.payId) return `${job.need}× výhier ${payName(job.payId)} dokopy`;
-  if (job.kind === "cash") return job.goal || `Nazbieraj ${formatMoney(job.need)} € vo výhrach`;
-  return job.goal || job.detail;
+  if (job.kind === "cash") return sayCluster(job.goal || `Nazbieraj ${formatMoney(job.need)} € vo výhrach`);
+  return sayCluster(job.goal || job.detail);
 }
 
 export function jobMeter(job: JobCard): string {

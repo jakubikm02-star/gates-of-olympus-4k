@@ -3,7 +3,7 @@ import { Volume2, VolumeX, Info, RefreshCw, Menu, Settings as SettingsIcon, Trop
 import { START_BALANCE, BETS, PAY_SYMBOLS, canSrc, canTier } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
-import { jobClock, jobMeter, jobProgress, jobShownGoal, type JobCard } from "@/lib/slot/spend";
+import { jobClock, jobMeter, jobProgress, jobShownGoal, sayCluster, type JobCard } from "@/lib/slot/spend";
 import { rankPeekIds } from "@/lib/slot/pick-bonus";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { useShell } from "@/hooks/use-shell";
@@ -1134,7 +1134,7 @@ function JobSheet({
     <div className="job-sheet-scrim" onClick={onClose}>
       <div className="job-sheet" role="dialog" aria-label="Detail tiketu" onClick={(e) => e.stopPropagation()}>
         <span className="job-sheet-grip" aria-hidden="true" />
-        <p className="job-kicker">{seal ? (seal === "ok" ? "ÚSPEŠNÝ TIKET" : "NEÚSPEŠNÝ TIKET") : `TIKET · ${job.title}`}</p>
+        <p className="job-kicker">{seal ? (seal === "ok" ? "ÚSPEŠNÝ TIKET" : "NEÚSPEŠNÝ TIKET") : `TIKET · ${sayCluster(job.title)}`}</p>
         {jobGoalLines(job).map((line) => (
           <strong key={line}>{line}</strong>
         ))}

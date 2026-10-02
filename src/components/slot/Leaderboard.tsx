@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchBoard, type BoardRow } from "@/lib/slot/board-api";
+import { sayCluster } from "@/lib/slot/spend";
 
 function led(n: number): string {
   return Math.round(n).toLocaleString("sk-SK");
@@ -40,7 +41,7 @@ function Pump({ row, mine }: { row: BoardRow; mine: boolean }) {
         {chips.length ? (
           <p className="pump-how">
             {chips.map((chip) => (
-              <span key={chip}>{chip}</span>
+              <span key={chip}>{sayCluster(chip)}</span>
             ))}
           </p>
         ) : null}
