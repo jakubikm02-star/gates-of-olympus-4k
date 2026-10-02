@@ -1518,7 +1518,7 @@ export function useSlotGame() {
         setChase(drawn);
         sfx.playStrike();
         setTopLine(fsSym === "scatter" ? "FINANČNÁ SPRÁVA · BONUS ZABLOKOVANÝ" : `FINANČNÁ SPRÁVA SLEDUJE · ${fsSymName(fsSym)}`);
-        await showFsReveal(fsSym, abort.current.skip ? 900 : dur(3400));
+        await showFsReveal(fsSym, abort.current.skip ? 900 : dur(6800));
       }
       const scatterBlocked = chasing && chaseRef.current?.fsSym === "scatter";
       setHackWindows([]);
