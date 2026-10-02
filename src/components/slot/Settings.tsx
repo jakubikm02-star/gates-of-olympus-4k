@@ -102,6 +102,7 @@ function SoundSheet({ password }: { password: string }) {
   const audio = useRef<HTMLAudioElement | null>(null);
   const [, bump] = useState(0);
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
   useEffect(() => subscribeSfx(() => bump((n) => n + 1)), []);
   useEffect(() => {
     return () => {
@@ -128,9 +129,12 @@ function SoundSheet({ password }: { password: string }) {
     audio.current?.pause();
   };
   const pick = async (id: string, file: File | undefined) => {
-    if (!file) return;
+    if (!file || busy) return;
     stop();
+    setBusy(true);
+    setErr("Ukladám… veľký súbor môže trvať aj štvrť minúty.");
     const msg = await replaceCue(id, file, password);
+    setBusy(false);
     setErr(msg ?? "Uložené. Počujú to všetci hráči.");
   };
   const drop = async (id: string) => {
@@ -157,6 +161,7 @@ function SoundSheet({ password }: { password: string }) {
             <input
               type="file"
               accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.webm,.flac,.opus"
+              disabled={busy}
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 e.target.value = "";
