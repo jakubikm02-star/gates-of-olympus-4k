@@ -511,34 +511,103 @@ export function SlotGrid({
         {hackWindows && hackWindows.length > 0 ? (
           <div className="hack-layer">
             {hackWindows.map((w, i) => {
-              const live = i === activeWindow;
-              const state = live ? windowPhase : "reveal";
-              const showResult = state === "land" || state === "reveal";
-              const place = state === "hover" ? w.hover : w.cell;
-              const col = place % COLS;
-              const row = Math.floor(place / COLS);
               const target = PAY_SYMBOLS.find((p) => p.id === chaseTarget);
               return (
-                <i
+                <HackFrame
                   key={`${w.cell}-${i}`}
-                  className={`hack-window is-${state}${showResult ? ` is-${w.result}` : ""}${showResult && w.lock ? " is-lock" : ""}`}
-                  style={
-                    state === "travel"
-                      ? undefined
-                      : ({ ["--col" as string]: String(col), ["--row" as string]: String(row) } as CSSProperties)
-                  }
-                >
-                  {showResult && w.result === "hit" && w.lock && target ? <img src={target.src} alt={target.name} /> : null}
-                  {showResult && w.result === "fs" && !fsMiss ? (
-                    <img src={FS_SYMBOL.src} alt="FS" onError={() => setFsMiss(true)} />
-                  ) : null}
-                  {showResult ? <b>{w.result === "hit" ? "HACK" : w.result === "fs" ? "FS" : "MIMO"}</b> : null}
-                </i>
+                  w={w}
+                  state={hackState(i, activeWindow, windowPhase)}
+                  target={target ? { src: target.src, name: target.name } : null}
+                  fsMiss={fsMiss}
+                  onFsMiss={() => setFsMiss(true)}
+                />
               );
             })}
           </div>
         ) : null}
       </div>
     </div>
+  );
+}
+
+type HackState = "pending" | "travel" | "hover" | "land" | "reveal";
+
+/** Earlier windows are settled, the live one follows the hook phase, later ones stay hidden. */
+function hackState(i: number, active: number, phase: "travel" | "hover" | "land" | "reveal"): HackState {
+  if (active < 0 || i < active) return "reveal";
+  if (i > active) return "pending";
+  return phase;
+}
+
+/** Travel origin: top centre of the board, slightly enlarged. */
+const HACK_ORIGIN = { x: 2.5, y: 0, s: 1.3 };
+
+function HackFrame({
+  w,
+  state,
+  target,
+  fsMiss,
+  onFsMiss,
+}: {
+  w: HackWindow;
+  state: HackState;
+  target: { src: string; name: string } | null;
+  fsMiss: boolean;
+  onFsMiss: () => void;
+}) {
+  // One painted frame at the origin so the transform transition actually runs.
+  const [launched, setLaunched] = useState(state !== "travel");
+  useLayoutEffect(() => {
+    if (state !== "travel" || launched) return;
+    let b = 0;
+    const a = requestAnimationFrame(() => {
+      b = requestAnimationFrame(() => setLaunched(true));
+    });
+    return () => {
+      cancelAnimationFrame(a);
+      cancelAnimationFrame(b);
+    };
+  }, [state, launched]);
+  if (state === "pending") return null;
+  const atOrigin = state === "travel" && !launched;
+  const place = state === "travel" || state === "hover" ? w.hover : w.cell;
+  const pos = atOrigin ? HACK_ORIGIN : { x: place % COLS, y: Math.floor(place / COLS), s: 1 };
+  const showResult = state === "land" || state === "reveal";
+  const result = showResult ? w.result : "scan";
+  const style = {
+    ["--x" as string]: String(pos.x),
+    ["--y" as string]: String(pos.y),
+    ["--s" as string]: String(pos.s),
+    ["--fall" as string]: String(Math.floor(w.cell / COLS) + 1),
+  } as CSSProperties;
+  return (
+    <i
+      className={`hack-window is-${state} is-${result}${showResult && w.lock ? " is-lock" : ""}`}
+      style={style}
+      aria-hidden="true"
+    >
+      <span className="hw-rain" />
+      <span className="hw-glow" />
+      <svg className="hw-frame" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path className="hw-outer" d="M14 2 H58 L62 6 H86 L98 18 V70 L94 74 V86 L86 98 H40 L36 94 H14 L2 82 V30 L6 26 V14 Z" />
+        <path className="hw-inner" d="M17 7 H56 L60 11 H84 L93 20 V68 L89 72 V84 L84 93 H42 L38 89 H16 L7 80 V32 L11 28 V17 Z" />
+        <path className="hw-tick" d="M66 6 H80 M20 94 H32 M98 30 V44 M2 56 V70" />
+      </svg>
+      <span className="hw-dots"><i /><i /><i /></span>
+      <span className="hw-chev">▾▾▾</span>
+      <b className="hw-c hw-tl" />
+      <b className="hw-c hw-tr" />
+      <b className="hw-c hw-bl" />
+      <b className="hw-c hw-br" />
+      <span className="hw-sweep" />
+      {showResult && w.result === "hit" && w.lock && target ? <img className="hw-sym" src={target.src} alt={target.name} /> : null}
+      {showResult && w.result === "fs" ? (
+        <span className="fs-drop">
+          {!fsMiss ? <img src={FS_SYMBOL.src} alt="FS" onError={onFsMiss} /> : null}
+          <em className="mult-tag">FS</em>
+        </span>
+      ) : null}
+      {showResult ? <b className="hw-tag">{w.result === "hit" ? "HACK" : w.result === "fs" ? "FS" : "MIMO"}</b> : null}
+    </i>
   );
 }

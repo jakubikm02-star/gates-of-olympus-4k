@@ -1747,9 +1747,10 @@ export function useSlotGame() {
           reveal();
           if (w.result === "hit") sfx.playHack();
           else if (w.result === "fs") sfx.playStrike();
-          await wait(dur(80 * slow), abort.current);
+          // Land holds long enough for the corner snap, flicker and the FS badge drop.
+          await wait(dur(260 * slow), abort.current);
           setWindowPhase("reveal");
-          await wait(dur(300 * slow), abort.current);
+          await wait(dur(200 * slow), abort.current);
           await wait(dur(160 * slow), abort.current);
         }
         setActiveWindow(-1);

@@ -3,7 +3,7 @@ import { Volume2, VolumeX, Info, RefreshCw, Menu, Settings as SettingsIcon, Trop
 import { START_BALANCE, BETS, PAY_SYMBOLS } from "@/lib/slot/symbols";
 import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
-import { jobClock, jobMeter, jobShownGoal } from "@/lib/slot/spend";
+import { jobClock, jobMeter, jobProgress, jobShownGoal, type JobCard } from "@/lib/slot/spend";
 import { rankPeekIds } from "@/lib/slot/pick-bonus";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { useShell } from "@/hooks/use-shell";
@@ -151,6 +151,7 @@ export function SlotGame() {
   const [deskOpen, setDeskOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
+  const [jobOpen, setJobOpen] = useState(false);
   const [, names] = useState(0);
   useEffect(() => subscribeTicketNames(() => names((n) => n + 1)), []);
   useEffect(() => {
@@ -474,34 +475,12 @@ export function SlotGame() {
             </div>
             <div className={`board-job ${liveJob || seal ? "has-job" : ""} ${seal ? `is-seal is-${seal.verdict}` : ""}`}>
               {(liveJob || seal) && (
-                <div className={`job-chip ${liveJob && liveJob.limit - liveJob.spun <= 5 ? "is-late" : ""} ${seal ? "is-sealed" : ""}`}>
-                  <div className="job-head">
-                    <span className="job-kicker">{seal ? (seal.verdict === "ok" ? "ÚSPEŠNÝ" : "NEÚSPEŠNÝ") : "TIKET"}</span>
-                    <strong>
-                      {jobShownGoal(liveJob ?? seal!.job)
-                        .replaceAll("pádov dokopy", "pop dokopy")
-                        .replaceAll("pádmi dokopy", "pop dokopy")
-                        .replaceAll("klastrami", "cluster")
-                        .split(" + ")
-                        .map((line) => (
-                          <span key={line}>{line}</span>
-                        ))}
-                    </strong>
-                  </div>
-                  <span className="job-facts">
-                    <b>
-                      {jobMeter(liveJob ?? seal!.job)
-                        .split(" + ")
-                        .map((line) => (
-                          <span key={line}>{line}</span>
-                        ))}
-                    </b>
-                    <em>{jobClock(liveJob ?? seal!.job, g.inFs)}</em>
-                    <i>
-                      {formatMoney((liveJob ?? seal!.job).stake)} → {formatMoney((liveJob ?? seal!.job).payout)}
-                    </i>
-                  </span>
-                </div>
+                <JobCardCompact
+                  job={liveJob ?? seal!.job}
+                  seal={seal?.verdict ?? null}
+                  inFs={g.inFs}
+                  onOpen={() => setJobOpen(true)}
+                />
               )}
             </div>
             </div>
@@ -839,6 +818,9 @@ export function SlotGame() {
           ) : null}
         </div>
       ) : null}
+      {jobOpen && (liveJob || seal) ? (
+        <JobSheet job={liveJob ?? seal!.job} seal={seal?.verdict ?? null} inFs={g.inFs} onClose={() => setJobOpen(false)} />
+      ) : null}
       {g.chaseCard ? (
         <div className={`chase-end is-${g.chaseCard.outcome}`} role="dialog" aria-label={g.chaseCard.line}>
           <p>{g.chaseCard.outcome === "escape" ? "UNIKOL SI" : g.chaseCard.outcome === "unik" ? "DAŇOVÝ ÚNIK" : "TAK-TAK"}</p>
@@ -1073,6 +1055,100 @@ export function SlotGame() {
         weekDue={g.weekDue}
         weekTarget={g.weekTarget}
       />
+    </div>
+  );
+}
+
+function jobGoalLines(job: JobCard): string[] {
+  return jobShownGoal(job)
+    .replaceAll("pádov dokopy", "pop dokopy")
+    .replaceAll("pádmi dokopy", "pop dokopy")
+    .replaceAll("klastrami", "cluster")
+    .split(" + ");
+}
+
+/** Fixed-height ticket strip under the reels. Long goals never wrap; tap opens the sheet. */
+function JobCardCompact({
+  job,
+  seal,
+  inFs,
+  onOpen,
+}: {
+  job: JobCard;
+  seal: "ok" | "fail" | null;
+  inFs: boolean;
+  onOpen: () => void;
+}) {
+  const left = job.limit - job.spun;
+  const pct = Math.round(jobProgress(job) * 100);
+  const goal = jobGoalLines(job).join(" + ");
+  return (
+    <button
+      type="button"
+      className={`job-chip is-compact ${!seal && left <= 5 ? "is-late" : ""} ${seal ? "is-sealed" : ""}`}
+      onClick={onOpen}
+      aria-label={`Tiket: ${goal}. ${jobMeter(job)}. ${jobClock(job, inFs)}. Ťukni pre detail.`}
+    >
+      <span className="jc-row">
+        <span className="job-kicker">{seal ? (seal === "ok" ? "ÚSPEŠNÝ" : "NEÚSPEŠNÝ") : "TIKET"}</span>
+        <span className="jc-goal">{goal}</span>
+        <span className="jc-more" aria-hidden="true">▴</span>
+      </span>
+      <span className="jc-row">
+        <span className="jc-bar" aria-hidden="true">
+          <i style={{ transform: `scaleX(${pct / 100})` }} />
+        </span>
+        <b className="jc-meter">{jobMeter(job)}</b>
+        <em className="jc-clock">{jobClock(job, inFs)}</em>
+      </span>
+    </button>
+  );
+}
+
+function JobSheet({
+  job,
+  seal,
+  inFs,
+  onClose,
+}: {
+  job: JobCard;
+  seal: "ok" | "fail" | null;
+  inFs: boolean;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const pct = Math.round(jobProgress(job) * 100);
+  return (
+    <div className="job-sheet-scrim" onClick={onClose}>
+      <div className="job-sheet" role="dialog" aria-label="Detail tiketu" onClick={(e) => e.stopPropagation()}>
+        <span className="job-sheet-grip" aria-hidden="true" />
+        <p className="job-kicker">{seal ? (seal === "ok" ? "ÚSPEŠNÝ TIKET" : "NEÚSPEŠNÝ TIKET") : `TIKET · ${job.title}`}</p>
+        {jobGoalLines(job).map((line) => (
+          <strong key={line}>{line}</strong>
+        ))}
+        <span className="jc-bar is-big" aria-hidden="true">
+          <i style={{ transform: `scaleX(${pct / 100})` }} />
+        </span>
+        <dl>
+          <dt>Stav</dt>
+          <dd>{jobMeter(job)}</dd>
+          <dt>Čas</dt>
+          <dd>{jobClock(job, inFs)}</dd>
+          <dt>Vklad → výplata</dt>
+          <dd>
+            {formatMoney(job.stake)} → {formatMoney(job.payout)}
+          </dd>
+        </dl>
+        <button type="button" className="job-sheet-ok" onClick={onClose}>
+          OK
+        </button>
+      </div>
     </div>
   );
 }

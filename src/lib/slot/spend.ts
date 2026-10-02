@@ -826,6 +826,14 @@ export function jobParknetBroke(job: JobCard, credit: number, spinCost: number, 
   return wallet < spin && wallet < buy;
 }
 
+/** 0..1 for the compact ticket bar. Two-goal tickets average both legs. */
+export function jobProgress(job: JobCard): number {
+  const part = (have: number, need: number) => (need > 0 ? Math.min(1, Math.max(0, have / need)) : 0);
+  const a = part(job.have, job.need);
+  if (job.kind === "hydra" || job.kindB) return (a + part(job.haveB ?? 0, job.needB ?? 1)) / 2;
+  return a;
+}
+
 export function jobChip(job: JobCard): string {
   return `TIKET ${job.have}/${job.need} · ${jobLeft(job)}`;
 }

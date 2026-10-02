@@ -27,7 +27,9 @@ function syncAppHeight(): void {
 }
 
 export function useShell(): Shell {
-  const [shell, setShell] = useState<Shell>(readShell);
+  // SSR always renders "pc"; reading the real shell in the initializer made hydration keep
+  // the server class forever (React does not patch mismatched attributes). Resolve it after mount.
+  const [shell, setShell] = useState<Shell>("pc");
 
   useEffect(() => {
     const apply = () => {
