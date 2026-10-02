@@ -261,6 +261,8 @@ export function jobShownGoal(job: JobCard): string {
   if (job.kind === "hydra" && job.payId && job.payIdB && job.needB) {
     return `${payName(job.payId)} ${job.need}× + ${payName(job.payIdB)} ${job.needB}× výhier dokopy`;
   }
+  // Two-goal ticket (OTRS / dual): job.goal carries both goals "A + B". The single-goal lines below only know goal A.
+  if (job.kindB) return sayCluster(job.goal || job.detail.split(" · ")[0] || "");
   if (job.kind === "collect" && job.payId) return `${job.need}× nevýherných ${payName(job.payId)} dokopy`;
   if (job.kind === "symbol" && job.payId) return `${job.need}× výhier ${payName(job.payId)} dokopy`;
   if (job.kind === "cash") return sayCluster(job.goal || `Nazbieraj ${formatMoney(job.need)} € vo výhrach`);

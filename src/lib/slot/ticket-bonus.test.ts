@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dealJobs, type JobCard } from "./spend.ts";
+import { dealJobs, dealOtrs, jobShownGoal, type JobCard } from "./spend.ts";
 import { legNeed, ticketBonus } from "./ticket-bonus.ts";
 
 const J = (o: Partial<JobCard>): JobCard => ({
@@ -50,5 +50,28 @@ test("read-only: never mutates a dealt ticket", () => {
       ticketBonus(card);
       assert.equal(JSON.stringify(card), copy);
     }
+  }
+});
+
+test("two-goal ticket names both goals even when goal A is a symbol goal", () => {
+  // Martin's ticket: 37× nevýherných Kufrík + sivý lístok, 7/37 + 0/1.
+  const job = J({
+    kind: "collect", template: "nevyherne", payId: "case", need: 37, have: 7,
+    kindB: "ticket", templateB: "pot", scopeB: "base", needB: 1, haveB: 0,
+    goal: "37× nevýherných Kufrík + 1× sivý lístok 1-FTTB",
+  });
+  assert.equal(jobShownGoal(job), "37× nevýherných Kufrík + 1× sivý lístok 1-FTTB");
+  const t = ticketBonus(job);
+  assert.deepEqual(
+    t.legs.map((l) => [l.goal, l.meter, Math.round(l.pct * 100), l.done]),
+    [["37× nevýherných Kufrík", "7/37", 19, false], ["1× sivý lístok 1-FTTB", "0/1", 0, false]],
+  );
+  for (let s = 1; s < 400; s++) {
+    let x = s;
+    const rng = () => ((x = (x * 16807) % 2147483647) / 2147483647);
+    const otrs = dealOtrs(rng, 5000, 1);
+    const legs = ticketBonus(otrs).legs;
+    assert.equal(legs.length, 2);
+    for (const l of legs) assert.ok(l.goal.length > 3, `seed ${s}: empty goal in ${otrs.goal}`);
   }
 });

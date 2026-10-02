@@ -50,11 +50,14 @@ export function BonusNote({
   info,
   buyCost,
   compact = false,
+  rows = true,
   children,
 }: {
   info: TicketBonus;
   buyCost?: number;
   compact?: boolean;
+  /** Goal rows for dual tickets. Off where TicketGoals already lists every goal. */
+  rows?: boolean;
   children?: ReactNode;
 }) {
   if (!info.need) return null;
@@ -64,7 +67,7 @@ export function BonusNote({
         <BonusIcon need={info.need} size={compact ? 12 : 14} />
         {info.badge}
       </span>
-      {info.dual ? (
+      {info.dual && rows ? (
         <span className="tb-split">
           {info.legs.map((leg, i) => (
             <span key={i} className={`tb-split-row is-${leg.where}`}>
@@ -82,5 +85,34 @@ export function BonusNote({
       ) : null}
       {children}
     </span>
+  );
+}
+
+/**
+ * Every goal of a two-goal ticket (OTRS, dual or not): own title, own x/y, own bar and,
+ * for split dual tickets, its own budget left. Display only.
+ */
+export function TicketGoals({ info, say = (t) => t }: { info: TicketBonus; say?: (text: string) => string }) {
+  return (
+    <ol className="tg-list">
+      {info.legs.map((leg, i) => (
+        <li
+          key={i}
+          className={`tg-goal is-${leg.where} ${leg.need ? `is-${leg.need}` : ""} ${leg.done ? "is-done" : ""} ${leg.late ? "is-late" : ""}`}
+        >
+          <span className="tg-head">
+            <i className="tg-no">{i + 1}</i>
+            <BonusIcon need={legIcon(leg)} size={11} />
+            <em>{leg.where === "bonus" ? leg.label : leg.need === "trigger" ? "ZÁKLAD · SPUSTI TV" : "ZÁKLAD"}</em>
+            <b>{leg.done ? `✓ ${leg.meter}` : leg.meter}</b>
+          </span>
+          <strong className="tg-title">{say(leg.goal)}</strong>
+          <span className="jc-bar tg-bar" aria-hidden="true">
+            <i style={{ transform: `scaleX(${leg.pct})` }} />
+          </span>
+          {leg.budget ? <span className="tg-budget">{leg.budget}</span> : null}
+        </li>
+      ))}
+    </ol>
   );
 }

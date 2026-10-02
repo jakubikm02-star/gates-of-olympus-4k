@@ -18,7 +18,7 @@ import { RankBadge } from "./RankBadge";
 import { RankPanel } from "./RankPanel";
 import { RankToast } from "./RankToast";
 import { SpendSheet } from "./SpendSheet";
-import { BonusIcon, BonusNote, BonusPill, LegCounters } from "./TicketBonus";
+import { BonusIcon, BonusNote, BonusPill, LegCounters, TicketGoals } from "./TicketBonus";
 import { ticketBonus } from "@/lib/slot/ticket-bonus";
 import { DuelSheet, DuelBar, DuelLink } from "./DuelSheet";
 import { Settings } from "./Settings";
@@ -1106,12 +1106,15 @@ export function SlotGame() {
   );
 }
 
-function jobGoalLines(job: JobCard): string[] {
-  return jobShownGoal(job)
+function sayGoal(text: string): string {
+  return text
     .replaceAll("pádov dokopy", "Cluster tumble dokopy")
     .replaceAll("pádmi dokopy", "Cluster tumble dokopy")
-    .replaceAll("klastrami", "cluster")
-    .split(" + ");
+    .replaceAll("klastrami", "cluster");
+}
+
+function jobGoalLines(job: JobCard): string[] {
+  return sayGoal(jobShownGoal(job)).split(" + ");
 }
 
 /** Fixed-height ticket strip under the reels. Long goals never wrap; tap opens the sheet. */
@@ -1229,16 +1232,15 @@ function JobSheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   const pct = Math.round(jobProgress(job) * 100);
+  const two = bonus.legs.length > 1;
   return (
     <div className="job-sheet-scrim" onClick={onClose}>
       <div className="job-sheet" role="dialog" aria-label="Detail tiketu" onClick={(e) => e.stopPropagation()}>
         <span className="job-sheet-grip" aria-hidden="true" />
         <p className="job-kicker">{seal ? (seal === "ok" ? "ÚSPEŠNÝ TIKET" : "NEÚSPEŠNÝ TIKET") : `TIKET · ${sayCluster(job.title)}`}</p>
-        {jobGoalLines(job).map((line) => (
-          <strong key={line}>{line}</strong>
-        ))}
+        {two ? null : jobGoalLines(job).map((line, i) => <strong key={i}>{line}</strong>)}
         {!seal && bonus.need ? (
-          <BonusNote info={bonus} buyCost={buyCost}>
+          <BonusNote info={bonus} buyCost={buyCost} rows={!two}>
             {inFs ? null : (
               <span className="tb-actions">
                 {bonus.cta === "buy" ? (
@@ -1255,13 +1257,16 @@ function JobSheet({
             )}
           </BonusNote>
         ) : null}
-        {bonus.dual && !seal ? <LegCounters info={bonus} /> : null}
-        <span className="jc-bar is-big" aria-hidden="true">
-          <i style={{ transform: `scaleX(${pct / 100})` }} />
-        </span>
+        {two ? (
+          <TicketGoals info={bonus} say={sayGoal} />
+        ) : (
+          <span className="jc-bar is-big" aria-hidden="true">
+            <i style={{ transform: `scaleX(${pct / 100})` }} />
+          </span>
+        )}
         <dl>
           <dt>Stav</dt>
-          <dd>{jobMeter(job)}</dd>
+          <dd>{two ? `hotové ${bonus.legs.filter((l) => l.done).length} z ${bonus.legs.length}` : jobMeter(job)}</dd>
           <dt>Čas</dt>
           <dd>{jobClock(job, inFs)}</dd>
           <dt>Vklad → výplata</dt>

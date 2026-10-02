@@ -21,6 +21,9 @@ export interface TicketLeg {
   /** Narrow meter for the fixed strip (cash in whole euros). */
   meterShort?: string;
   goal: string;
+  /** This goal's own progress 0..1, for its own bar. */
+  pct: number;
+  done: boolean;
   /** Split dual only: this goal's own budget left ("32 toč." / "3 kolá"), "✓" when the goal is done. */
   left?: string;
   /** Same budget, long form for the sheet and offer ("32 točení v hre" / "3 kolá 4KA TV"). */
@@ -63,6 +66,10 @@ function meterShortOf(kind: JobCard["kind"], have: number, need: number): string
   return `${Math.floor(have)}/${Math.ceil(need)} €`;
 }
 
+function partOf(have: number, need: number): number {
+  return need > 0 ? Math.min(1, Math.max(0, have / need)) : 0;
+}
+
 function legLabel(need: BonusNeed | null): string {
   if (need === "buy") return "KÚPA";
   if (need === "fs") return "4KA TV";
@@ -83,6 +90,8 @@ export function ticketBonus(job: JobCard): TicketBonus {
       meter: meterOf(job.kind, job.have, job.need),
       meterShort: meterShortOf(job.kind, job.have, job.need),
       goal: goals[0] ?? "",
+      pct: partOf(job.have, job.need),
+      done: job.have >= job.need,
     });
     legs.push({
       where: b === "buy" || b === "fs" ? "bonus" : "base",
@@ -91,6 +100,8 @@ export function ticketBonus(job: JobCard): TicketBonus {
       meter: meterOf(job.kindB!, job.haveB ?? 0, job.needB ?? 0),
       meterShort: meterShortOf(job.kindB!, job.haveB ?? 0, job.needB ?? 0),
       goal: goals.slice(1).join(" + "),
+      pct: partOf(job.haveB ?? 0, job.needB ?? 1),
+      done: (job.haveB ?? 0) >= (job.needB ?? 1),
     });
   }
   const needs = (two ? legs.map((l) => l.need) : [a]).filter((n): n is BonusNeed => n != null);
