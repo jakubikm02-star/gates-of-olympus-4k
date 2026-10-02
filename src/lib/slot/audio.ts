@@ -36,6 +36,8 @@ let anticipateNodes: { stop: () => void } | null = null;
 let liveBed: { stop: () => void; duck: (amount: number) => void } | null = null;
 let liveEl: HTMLAudioElement | null = null;
 let loopKey: string | null = null;
+let loopGen = 0;
+let pendingLoop: "bed" | "zasah" | null = null;
 const LIVE_VOL = 0.62;
 let liveDuck = 1;
 const playing: Partial<Record<string, { stop: () => void }>> = {};
@@ -200,6 +202,37 @@ function b64ToBytes(b64: string): ArrayBuffer {
   return out.buffer;
 }
 
+/** Same as b64ToBytes, but yields so a ~19 MB FLAC cannot freeze the boot click. Whitespace (Postgres base64 newlines) is skipped. */
+async function b64ToBytesYield(b64: string): Promise<ArrayBuffer> {
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  let carry = "";
+  const STEP = 256 * 1024;
+  const take = (clean: string) => {
+    if (!clean) return;
+    const bin = atob(clean);
+    const bytes = new Uint8Array(bin.length);
+    for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
+    parts.push(bytes);
+    total += bytes.length;
+  };
+  for (let i = 0; i < b64.length; i += STEP) {
+    const clean = (carry + b64.slice(i, i + STEP)).replace(/\s+/g, "");
+    const usable = clean.length - (clean.length % 4);
+    take(clean.slice(0, usable));
+    carry = clean.slice(usable);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  }
+  take(carry);
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const part of parts) {
+    out.set(part, o);
+    o += part.length;
+  }
+  return out.buffer;
+}
+
 function fileToB64(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -212,42 +245,76 @@ function fileToB64(file: Blob): Promise<string> {
   });
 }
 
-async function pullRemote(): Promise<void> {
+async function pullOne(row: { key?: string; mime?: string }): Promise<void> {
+  const key = row.key || "";
+  if (!(key in FILES) || custom.has(key)) return;
+  try {
+    const audio = await sfxRpc("sfx_audio", { p_key: key });
+    if (!audio.ok) return;
+    const b64 = (await audio.json()) as unknown;
+    if (typeof b64 !== "string" || b64.length < 8) return;
+    if (custom.has(key)) return;
+    // The 4KA TV bed is ~26 MB of base64. Decoding it in one atob blocks the
+    // main thread long enough that HRAŤ never becomes clickable (or the tab OOMs).
+    const bytes = b64.length > 512 * 1024 ? await b64ToBytesYield(b64) : b64ToBytes(b64);
+    if (custom.has(key)) return;
+    const type = sniffMime(bytes, row.mime || "");
+    stored[key] = { bytes, type };
+    custom.add(key);
+    rememberPreview(key, bytes, type);
+  } catch {
+    /* this cue stays on the built-in file */
+  }
+}
+
+async function pullRemote(musicOnly = false): Promise<void> {
   const list = await sfxRpc("sfx_keys", {});
   if (!list.ok) return;
   const rows = (await list.json()) as { key?: string; mime?: string }[];
   if (!Array.isArray(rows)) return;
-  await Promise.all(
-    rows.map(async (row) => {
-      const key = row.key || "";
-      if (!(key in FILES)) return;
-      const audio = await sfxRpc("sfx_audio", { p_key: key });
-      if (!audio.ok) return;
-      const b64 = (await audio.json()) as unknown;
-      if (typeof b64 !== "string" || b64.length < 8) return;
-      const bytes = b64ToBytes(b64);
-      const type = sniffMime(bytes, row.mime || "");
-      stored[key] = { bytes, type };
-      custom.add(key);
-      rememberPreview(key, bytes, type);
-    }),
-  );
+  const jobs = rows.filter((row) => {
+    const key = row.key || "";
+    if (!(key in FILES) || custom.has(key)) return false;
+    const music = MUSIC_KEYS.has(key);
+    return musicOnly ? music : !music;
+  });
+  if (musicOnly) {
+    for (const row of jobs) await pullOne(row);
+  } else {
+    await Promise.all(jobs.map((row) => pullOne(row)));
+  }
 }
 
 let hydrated = false;
+let musicPromise: Promise<void> | null = null;
 
 function hydrateCustoms(): Promise<void> {
   if (hydrated) return Promise.resolve();
   return queue(async () => {
     if (hydrated) return;
     try {
-      await pullRemote();
+      await pullRemote(false);
     } catch {
       /* originals stay */
     }
     hydrated = true;
     emitSfx();
   });
+}
+
+/** Bed / zásah are huge. Load them after the player hits HRAŤ, never during boot. */
+function ensureMusic(): Promise<void> {
+  if (!musicPromise) {
+    musicPromise = hydrateCustoms()
+      .then(() => pullRemote(true))
+      .then(() => {
+        emitSfx();
+      })
+      .catch(() => {
+        musicPromise = null;
+      });
+  }
+  return musicPromise;
 }
 
 async function decodeCustom(key: string): Promise<void> {
@@ -1071,22 +1138,47 @@ export function playFsStart(): void {
 }
 
 export function startLiveBed(): void {
-  startCueLoop("bed");
+  const gen = ++loopGen;
+  pendingLoop = "bed";
+  void ensureMusic().then(() => {
+    if (gen !== loopGen) return;
+    startCueLoop("bed");
+  });
 }
 
 export function startChaseBed(): void {
   if (loopKey === "zasah" && liveEl) return;
-  startCueLoop("zasah");
+  const gen = ++loopGen;
+  pendingLoop = "zasah";
+  void ensureMusic().then(() => {
+    if (gen !== loopGen) return;
+    startCueLoop("zasah");
+  });
 }
 
 export function stopChaseBed(): void {
+  if (pendingLoop === "zasah") {
+    pendingLoop = null;
+    loopGen += 1;
+  }
   if (loopKey !== "zasah") return;
   stopLiveBed();
 }
 
+function haltLiveBed(): void {
+  loopKey = null;
+  const tap = vizSource instanceof MediaElementAudioSourceNode ? vizSource : null;
+  liveBed?.stop();
+  if (tap) untapViz(tap);
+  liveBed = null;
+  liveEl = null;
+  duckMusic(1);
+}
+
 function startCueLoop(key: string): void {
   unlockAudio();
-  stopLiveBed();
+  haltLiveBed();
+  pendingLoop = null;
   loopKey = key;
   const el = new Audio(cueSrc(key));
   el.loop = true;
@@ -1153,13 +1245,9 @@ function startCueLoop(key: string): void {
 }
 
 export function stopLiveBed(): void {
-  loopKey = null;
-  const tap = vizSource instanceof MediaElementAudioSourceNode ? vizSource : null;
-  liveBed?.stop();
-  if (tap) untapViz(tap);
-  liveBed = null;
-  liveEl = null;
-  duckMusic(1);
+  loopGen += 1;
+  pendingLoop = null;
+  haltLiveBed();
 }
 
 function vizNode(): AnalyserNode | null {
@@ -1369,6 +1457,7 @@ export function previewCue(key: string): boolean {
 
 let previewEl: HTMLAudioElement | null = null;
 let previewKey = "";
+let previewGen = 0;
 
 /** Keep a direct-playing preview element in step with the sliders (routed ones follow the graph). */
 function refreshPreviewEl(): void {
@@ -1377,29 +1466,35 @@ function refreshPreviewEl(): void {
 
 /** Bed / zásah preview: an <audio> like the game's loop, on the same "el:<key>" bus. */
 function previewLoopEl(key: string): boolean {
-  const src = cueSrc(key);
-  if (!src) return false;
-  if (!previewEl) {
-    previewEl = new Audio();
-    previewEl.preload = "auto";
-    previewEl.setAttribute("playsinline", "true");
-  }
-  const el = previewEl;
-  previewKey = key;
-  el.pause();
-  el.loop = true;
-  el.src = src;
-  void (ctx?.state === "suspended" ? ctx.resume() : Promise.resolve()).then(() => {
-    mediaSource(el, key);
-    el.volume = muted ? 0 : elementVolume(el, LIVE_VOL, key);
-    void el.play().catch(() => {});
+  const gen = ++previewGen;
+  void ensureMusic().then(() => {
+    if (gen !== previewGen) return;
+    const src = cueSrc(key);
+    if (!src) return;
+    if (!previewEl) {
+      previewEl = new Audio();
+      previewEl.preload = "auto";
+      previewEl.setAttribute("playsinline", "true");
+    }
+    const el = previewEl;
+    previewKey = key;
+    el.pause();
+    el.loop = true;
+    el.src = src;
+    void (ctx?.state === "suspended" ? ctx.resume() : Promise.resolve()).then(() => {
+      if (gen !== previewGen) return;
+      mediaSource(el, key);
+      el.volume = muted ? 0 : elementVolume(el, LIVE_VOL, key);
+      void el.play().catch(() => {});
+    });
+    cuePreview = { stop: () => el.pause() };
+    cuePreviewTimer = window.setTimeout(stopCuePreview, 5000);
   });
-  cuePreview = { stop: () => el.pause() };
-  cuePreviewTimer = window.setTimeout(stopCuePreview, 5000);
   return true;
 }
 
 export function stopCuePreview(): void {
+  previewGen += 1;
   window.clearTimeout(cuePreviewTimer);
   cuePreviewTimer = 0;
   cuePreview?.stop();
@@ -1461,6 +1556,7 @@ export function startAmbience(): void {
     musicTimer = null;
   }
   if (music && ctx) music.gain.setTargetAtTime(0, ctx.currentTime, 0.04);
+  void ensureMusic();
 }
 
 export function resumeIfNeeded(): void {

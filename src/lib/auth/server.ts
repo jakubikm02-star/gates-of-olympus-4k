@@ -48,7 +48,11 @@ import {
 } from "./preview";
 
 // Kick (and share) PGLite bootstrap as soon as the auth server module loads.
-void ensureDbReady();
+// A missing PGLite data file (production, no DATABASE_URL) must not reject
+// unhandled — that kills the serverless process before the game can boot.
+void ensureDbReady().catch((err) => {
+  console.error("[db] PGLite bootstrap failed:", err);
+});
 
 /**
  * Preview secret must outlive module reloads: PGLite (and its session rows) is
