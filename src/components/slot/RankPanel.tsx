@@ -1,8 +1,17 @@
 import { useEffect } from "react";
-import { RankMark } from "./RankBadge";
+import { RankFrame } from "./RankFrame";
 import { BANDS, NEKONECNO_FLOOR, RANK_PERKS, RANK_REWARDS, RANKS, perkOf, type Standing } from "@/lib/slot/ranks";
 
 const ROMAN = ["", "I", "II", "III", "IV"];
+
+/** Best tier ever reached in a rank family (4 = IV … 1 = I); IV when never reached. */
+function bestDiv(rankIndex: number, peak: number): number {
+  let best = 4;
+  for (const b of BANDS) {
+    if (b.rankIndex === rankIndex && b.division > 0 && peak >= b.floor) best = Math.min(best, b.division);
+  }
+  return best;
+}
 
 interface Props {
   open: boolean;
@@ -61,8 +70,8 @@ export function RankPanel({ open, onClose, stand, peak, shield, streak = 0, week
           className={`rank-hero rk-${stand.id}`}
           style={{ ["--rk" as string]: stand.color, ["--rk-ink" as string]: stand.ink }}
         >
-          <span className="rank-shield lg" aria-hidden="true">
-            <RankMark id={stand.id} size={28} />
+          <span className="rank-shield lg rf-slot" aria-hidden="true">
+            <RankFrame id={stand.id} division={stand.division} size={60} scale={1.1} />
           </span>
           <div>
             <em>
@@ -96,8 +105,8 @@ export function RankPanel({ open, onClose, stand, peak, shield, streak = 0, week
                 className={`rk-${p.id} ${current ? "is-now" : ""}`}
                 style={{ ["--rk" as string]: rank?.color ?? "#8d939b", ["--rk-ink" as string]: rank?.ink ?? "#e8eaee" }}
               >
-                <span className="rank-shield sm" aria-hidden="true">
-                  <RankMark id={p.id} size={14} />
+                <span className="rank-shield sm rf-slot" aria-hidden="true">
+                  <RankFrame id={p.id} division={current ? stand.division : 1} size={28} still={!current} />
                 </span>
                 <div>
                   <strong>
@@ -130,8 +139,8 @@ export function RankPanel({ open, onClose, stand, peak, shield, streak = 0, week
                 className={`rk-${r.id} ${current ? "is-now" : ""} ${reached ? "is-hit" : ""}`}
                 style={{ ["--rk" as string]: r.color, ["--rk-ink" as string]: r.ink }}
               >
-                <span className="rank-shield sm" aria-hidden="true">
-                  <RankMark id={r.id} size={14} />
+                <span className="rank-shield sm rf-slot" aria-hidden="true">
+                  <RankFrame id={r.id} division={current ? stand.division : bestDiv(i, peak)} size={28} still={!current} dim={!reached} />
                 </span>
                 <div className="rank-lad-meta">
                   <strong>{r.name}</strong>

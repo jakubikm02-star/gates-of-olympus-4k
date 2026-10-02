@@ -1,4 +1,6 @@
 import { Cable, Infinity, Layers, Radio, Smartphone, Sparkles, Tv, Wallet } from "lucide-react";
+import { frameTier } from "@/lib/slot/rank-frames";
+import { RankFrame, RankPillFx } from "./RankFrame";
 import { ladderNeedle, RANKS, rankBits, type RankBreakdown, type RankFlash, type Standing } from "@/lib/slot/ranks";
 
 const ICONS = {
@@ -85,13 +87,14 @@ export function RankBadge({ stand, delta = 0, streak = 0, parts = null, perkTitl
     return (
       <button
         type="button"
-        className={`rank-chip rk-${stand.id}`}
+        className={`rank-chip rf-pill rf-pill-${frameTier(stand.id)} rk-${stand.id}`}
         onClick={onOpen}
         aria-label={`Rank ${label}`}
         title={hint}
         style={{ ["--rk" as string]: stand.color, ["--rk-ink" as string]: stand.ink }}
       >
-        <RankMark id={stand.id} size={15} />
+        <RankPillFx id={stand.id} />
+        <RankFrame id={stand.id} division={stand.division} size={16} scale={1.85} />
         <em>{label}</em>
       </button>
     );
@@ -155,8 +158,8 @@ export function RankBadge({ stand, delta = 0, streak = 0, parts = null, perkTitl
           <circle cx="100" cy="108" r="5.5" />
         </g>
       </svg>
-      <span className="rank-hub" aria-hidden="true">
-        <RankMark id={stand.id} size={14} />
+      <span className="rank-hub rf-hub" aria-hidden="true">
+        <RankFrame id={stand.id} division={stand.division} size={18} scale={1.5} />
       </span>
       <span className="rank-meta">
         <em>{label}</em>
