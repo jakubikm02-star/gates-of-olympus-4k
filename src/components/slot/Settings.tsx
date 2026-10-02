@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { cueSrc, isCustomCue, replaceCue, resetCue, resetCues, subscribeSfx, unlockAudio } from "@/lib/slot/audio";
+import { cueSrc, isCustomCue, previewHeartbeat, replaceCue, resetCue, resetCues, subscribeSfx, unlockAudio } from "@/lib/slot/audio";
 import { contractCatalog } from "@/lib/slot/spend";
 import { saveContractTitles, subscribeContracts } from "@/lib/slot/job-titles";
 import { adminOk } from "@/lib/slot/ticket-names";
 
-const SOUND_CUES: { id: string; name: string; loop?: boolean; when: string }[] = [
+const SOUND_CUES: { id: string; name: string; loop?: boolean; when?: string; head?: boolean }[] = [
   { id: "click", name: "Klik", when: "Tlačidlá, stávka, ante, menu." },
   { id: "spin", name: "Točenie", loop: true, when: "Slučka od štartu točenia, kým valce bežia. Pri 2+ scatteroch stíchne." },
   { id: "land", name: "Dopad 1", when: "Náhodne jeden z troch, keď stĺpec zastane." },
@@ -27,7 +27,16 @@ const SOUND_CUES: { id: string; name: string; loop?: boolean; when: string }[] =
   { id: "payout", name: "Výplata", when: "Výhra sa pripíše na kredit v base, mimo duelu." },
   { id: "fsStart", name: "Štart 4KA TV", when: "Začiatok 4KA TV." },
   { id: "bed", name: "Podklad 4KA TV", loop: true, when: "Počas celej 4KA TV. Naskočí na náhodnom mieste skladby. Súbor do 50 MB." },
-  { id: "zasah", name: "Podklad zásahu", loop: true, when: "Počas ZÁSAHU. Naskočí na náhodnom mieste skladby. Súbor do 50 MB." },
+  { id: "zasah", name: "Podklad zásahu", loop: true, when: "Čo robí: hudba pod celým zásahom. Naskočí na náhodnom mieste skladby. Odporúčanie: dlhá tmavá slučka bez spevu, napätie. Do 50 MB." },
+  { id: "z-head", name: "Akcie zásahu", head: true },
+  { id: "zStart", name: "Štart zásahu", when: "Čo robí: raz, keď zásah naskočí (10 spinov, auto stop). Odporúčanie: krátka siréna alebo klaksón, 1–2 s, ostrý nástup. Kým nenahráš vlastný, hrá sa kontrola." },
+  { id: "zTravel", name: "Let okna", when: "Čo robí: skenovacie okno letí na symbol. Odporúčanie: krátky whoosh alebo sken, 0,3–0,6 s. Kým nenahráš vlastný, hrá sa rampa zrýchlene." },
+  { id: "zHit", name: "Zásah sedí", when: "Čo robí: okno sadne a symbol sedí. Odporúčanie: suchý lock, klik alebo minca, do 0,5 s. Kým nenahráš vlastný, hrá sa minca." },
+  { id: "zFs", name: "Finančná správa", when: "Čo robí: okno sadne na finančnú správu, úder. Odporúčanie: tupý úder alebo krátky alarm, 0,4–0,8 s. Kým nenahráš vlastný, hrá sa tichší hrom." },
+  { id: "zHeart", name: "Tep", when: "Čo robí: od druhého úderu finančnej správy sa opakuje, kým zásah neskončí. Odporúčanie: jeden dvojúder srdca (lub-dub), do 1 s, ticho na konci. Kým nenahráš vlastný, je to syntetický tep." },
+  { id: "zEscape", name: "Únik", when: "Čo robí: zásah končí únikom, 15 spinov bez dane. Odporúčanie: krátka úľava, nie veľká výhra, 1–2 s. Kým nenahráš vlastný, hrá sa úspešný tiket a harfa." },
+  { id: "zTax", name: "Daňový úrad", when: "Čo robí: zásah končí prehrou, 15 spinov s daňou −23 %. Odporúčanie: suchý fail alebo bzučiak, do 2 s. Kým nenahráš vlastný, hrá sa big win B." },
+  { id: "zNeutral", name: "Koniec bez ničoho", when: "Čo robí: zásah skončí bez úniku aj bez dane. Odporúčanie: krátke povzdychnutie. Kým nenahráš vlastný, nehrá nič." },
   { id: "kontrola", name: "Kontrola", when: "Štart KONTROLA." },
   { id: "tableA", name: "Big win A", when: "Náhodne A alebo B: BIG od 20×, MEGA od 35×, SUPER MEGA od 50×, aj koniec 4KA TV s výhrou. MAX 5000× hrá to isté." },
   { id: "tableB", name: "Big win B", when: "Náhodne A alebo B pri veľkej výhre a na konci 4KA TV." },
@@ -101,11 +110,17 @@ function SoundSheet({ password }: { password: string }) {
   }, []);
   const play = (id: string, loop = false) => {
     unlockAudio();
+    const src = cueSrc(id);
+    if (!src) {
+      if (id === "zHeart") previewHeartbeat();
+      else setErr("Kým nenahráš súbor, tento slot je ticho.");
+      return;
+    }
     if (!audio.current) audio.current = new Audio();
     const el = audio.current;
     el.pause();
     el.loop = loop;
-    el.src = cueSrc(id);
+    el.src = src;
     el.volume = 0.85;
     void el.play();
   };
@@ -125,9 +140,14 @@ function SoundSheet({ password }: { password: string }) {
   };
   return (
     <div className="sound-sheet is-open">
-      <p className="sound-note">Zmena zvuku ide do jadra. Platí pre všetkých hráčov. Reset pri jednom vráti len ten. Bonus a zásah môžu mať súbor do 50 MB, ostatné do 12 MB.</p>
+      <p className="sound-note">Zmena zvuku ide do jadra. Platí pre všetkých hráčov. Reset pri jednom vráti len ten. Podklad 4KA TV a zásahu môže mať súbor do 50 MB, ostatné do 12 MB. Slot zásahu, kým nemá vlastný súbor, hrá doterajší zvuk.</p>
       {err ? <p className="sound-err">{err}</p> : null}
-      {SOUND_CUES.map((cue) => (
+      {SOUND_CUES.map((cue) =>
+        cue.head ? (
+          <p className="sound-note sound-group" key={cue.id}>
+            {cue.name}
+          </p>
+        ) : (
         <div className="sound-row" key={cue.id}>
           <button type="button" onClick={() => play(cue.id, cue.loop)}>
             {cue.loop ? "Slučka" : "Hraj"}
@@ -157,7 +177,8 @@ function SoundSheet({ password }: { password: string }) {
             <span>{cue.when}</span>
           </div>
         </div>
-      ))}
+        ),
+      )}
       <div className="sound-row is-wide">
         <button type="button" onClick={stop}>
           Stop

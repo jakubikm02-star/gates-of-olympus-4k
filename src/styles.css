@@ -3776,6 +3776,17 @@
   line-height: 1.4;
 }
 
+.sound-group {
+  margin-top: 8px;
+  padding-top: 10px;
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff6d8;
+  border-top: 1px solid rgb(90 58 24 / 0.55);
+}
+
 .sound-err {
   margin: 0 12px 8px;
   color: #ffb4a8;

@@ -1043,6 +1043,7 @@ export function useSlotGame() {
       sfx.playTaxLoss();
     } else {
       klientiRef.current += Math.max(1, Math.round(betNow));
+      sfx.playChaseNeutral();
       // A running BEZ DANE / DAŇOVÝ ÚRAD modifier keeps counting. Neutral does not cancel it.
     }
     setKlienti(klientiRef.current);

@@ -52,6 +52,15 @@ const FILES: Record<string, string> = {
   can: "/sfx/can-open.mp3?v=open2",
   bed: "/sfx/fs-bed.mp3?v=moon2",
   zasah: "/sfx/fs-bed.mp3?v=zasah1",
+  /** Zásah one-shots. Empty until the admin uploads; the game keeps the old cue. */
+  zStart: "/sfx/kontrola.mp3?v=ignition1",
+  zTravel: "/sfx/zap.mp3?v=park1",
+  zHit: "/sfx/coin.mp3",
+  zFs: "/sfx/thunder.mp3?v=park1",
+  zHeart: "",
+  zEscape: "/sfx/ticket-ok.mp3?v=garand1",
+  zTax: "/sfx/table-b.mp3?v=fail1",
+  zNeutral: "",
 };
 
 const CUSTOM_MAX = 12 * 1024 * 1024;
@@ -144,7 +153,7 @@ async function pullRemote(): Promise<void> {
   await Promise.all(
     rows.map(async (row) => {
       const key = row.key || "";
-      if (!FILES[key]) return;
+      if (!(key in FILES)) return;
       const audio = await sfxRpc("sfx_audio", { p_key: key });
       if (!audio.ok) return;
       const b64 = (await audio.json()) as unknown;
@@ -279,7 +288,7 @@ function probeAudio(bytes: ArrayBuffer, type: string): Promise<boolean> {
 }
 
 export async function replaceCue(key: string, file: File, password: string): Promise<string | null> {
-  if (!FILES[key]) return "Tento zvuk sa nedá vymeniť.";
+  if (!(key in FILES)) return "Tento zvuk sa nedá vymeniť.";
   if (!password.trim()) return "Zadaj heslo.";
   const limit = cueMaxLabel(key);
   if (file.size > cueMax(key)) return `Súbor je väčší ako ${limit}.`;
@@ -317,7 +326,7 @@ export async function replaceCue(key: string, file: File, password: string): Pro
 }
 
 export async function resetCue(key: string, password: string): Promise<string | null> {
-  if (!FILES[key]) return "Tento zvuk sa nedá vrátiť.";
+  if (!(key in FILES)) return "Tento zvuk sa nedá vrátiť.";
   if (!password.trim()) return "Zadaj heslo.";
   unlockAudio();
   const res = await sfxRpc("sfx_drop", { p_pass: password, p_key: key });
@@ -775,35 +784,76 @@ export function stopLiveBed(): void {
   duckMusic(1);
 }
 
+function ownCue(key: string): boolean {
+  return custom.has(key) && Boolean(bufs[key]);
+}
+
+function playOwn(
+  key: string,
+  opts: { gain?: number; rate?: number; pan?: number; loop?: boolean; when?: number } = {},
+): boolean {
+  if (!ownCue(key)) return false;
+  return Boolean(playBuf(key, opts));
+}
+
 export function playSiren(): void {
   stopSpin();
   duckMusic(0.4);
+  if (playOwn("zStart", { gain: 0.9 })) return;
   if (!playBuf("kontrola", { gain: 0.92 })) playBuf("siren", { gain: 0.7 });
 }
 
 export function playHackTravel(): void {
+  if (playOwn("zTravel", { gain: 0.55 })) return;
   playBuf("zap", { gain: 0.35, rate: 1.4 });
 }
 
 export function playHack(): void {
+  if (playOwn("zHit", { gain: 0.8 })) return;
   playBuf("coin", { gain: 0.7, rate: 1.2 });
 }
 
 export function playStrike(): void {
+  if (playOwn("zFs", { gain: 0.75 })) return;
   playBuf("thunder", { gain: 0.5 });
 }
 
 export function playEscape(): void {
+  if (playOwn("zEscape", { gain: 0.85 })) return;
   playBuf("ticketOk", { gain: 0.8 });
   playBuf("harp", { gain: 0.45 });
 }
 
 export function playTaxLoss(): void {
+  if (playOwn("zTax", { gain: 0.75 })) return;
   playBuf("tableB", { gain: 0.7 });
+}
+
+export function playChaseNeutral(): void {
+  playOwn("zNeutral", { gain: 0.8 });
 }
 
 let heartTimer = 0;
 let heartNodes: OscillatorNode[] = [];
+
+function synthHeartbeat(): void {
+  if (!ctx || !sfx || muted) return;
+  const now = ctx.currentTime;
+  for (const delay of [0, 0.16]) {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(55, now + delay);
+    g.gain.setValueAtTime(0.0001, now + delay);
+    g.gain.exponentialRampToValueAtTime(0.35, now + delay + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.14);
+    osc.connect(g);
+    g.connect(sfx);
+    osc.start(now + delay);
+    osc.stop(now + delay + 0.16);
+    heartNodes.push(osc);
+  }
+}
 
 export function stopHeartbeat(): void {
   window.clearInterval(heartTimer);
@@ -823,25 +873,21 @@ export function startHeartbeat(): void {
   if (muted) return;
   unlockAudio();
   const beat = () => {
-    if (!ctx || !sfx || muted) return;
-    const now = ctx.currentTime;
-    for (const delay of [0, 0.16]) {
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(55, now + delay);
-      g.gain.setValueAtTime(0.0001, now + delay);
-      g.gain.exponentialRampToValueAtTime(0.35, now + delay + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.14);
-      osc.connect(g);
-      g.connect(sfx);
-      osc.start(now + delay);
-      osc.stop(now + delay + 0.16);
-      heartNodes.push(osc);
-    }
+    if (muted) return;
+    if (playOwn("zHeart", { gain: 0.85 })) return;
+    synthHeartbeat();
   };
   beat();
-  heartTimer = window.setInterval(beat, 850);
+  const dur = ownCue("zHeart") ? bufs.zHeart.duration : 0;
+  const gap = dur > 0.2 ? Math.max(850, Math.round(dur * 1000) + 80) : 850;
+  heartTimer = window.setInterval(beat, gap);
+}
+
+/** One beat in the settings preview, before a custom file exists. */
+export function previewHeartbeat(): void {
+  unlockAudio();
+  if (playOwn("zHeart", { gain: 0.85 })) return;
+  synthHeartbeat();
 }
 
 export function playPickStart(): void {
