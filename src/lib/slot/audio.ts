@@ -2,9 +2,26 @@
  * Sample bank: Mixkit (slot/thunder/whoosh) + Kenney Casino (CC0)
  * + Freesound LilMati coin05 (CC0). Pragmatic Play SFX are not used.
  * Synth fallbacks fire only if a buffer has not decoded yet.
+ *
+ * Node graph (master volume is the LAST stage, after every analyser tap):
+ *
+ *   one-shot / loop ▶ voice gain ─▶ cue[key] 0–2 ─▶ sfx ─┐
+ *   synth music ─────────────────────────────────▶ music ┴▶ master (mute, 0.92) ▶ glue comp ─┐
+ *   bed/zásah <audio> ─▶ MediaElementSource (mediaSource(el, key)) ─▶ cue[el:key] 0–2 ────────┤
+ *                       └─ (4KA TV visualizer analyser taps here, before every volume) ─────  │
+ *                                                                                             ▼
+ *                                             out = audioOut(): volume Gain 0–2 ▶ limiter ▶ destination
+ *
+ * cue[key] is the player's per-sound slider (p4k.volume.<key>), so effective = cue × master.
+ * Analysers (e.g. the 4KA TV visualizer) tap `mediaSource(el)` or the voice gain, so they read
+ * the signal before both the per-sound and the master volume. Nothing may connect to
+ * ctx.destination directly, or it would skip the volume sliders: connect to audioOut() instead.
+ * Fallback sounds are counted to the slot whose moment they play (withCue): e.g. zásah start
+ * without its own upload plays the KONTROLA sample on the „Štart zásahu“ slider.
  */
 
 import { VIZ } from "./bed-viz";
+import { CUE_LEVEL_MAX, clampCueLevel, cueLevelKey, directElementVolume, parseCueLevel } from "./cue-volume";
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -22,7 +39,23 @@ let loopKey: string | null = null;
 const LIVE_VOL = 0.62;
 let liveDuck = 1;
 const playing: Partial<Record<string, { stop: () => void }>> = {};
-const CUT_PREV = new Set(["win", "winFull", "payout", "bigwin", "tumble", "pop", "tableA", "tableB"]);
+const CUT_PREV = new Set(["win", "winFull", "payout", "bigwin", "tumble", "pop", "tableA", "tableB", "massive"]);
+/** Player master volume, 0 … 2 (0 % … 200 %). Above 1 the limiter engages. */
+export const VOLUME_MAX = 2;
+const VOLUME_KEY = "p4k.volume";
+let volume = readVolume();
+let out: GainNode | null = null;
+let limiter: DynamicsCompressorNode | null = null;
+const elSources = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
+/** Which per-sound bus an element routed by mediaSource() feeds ("" = straight to out). */
+const elRoute = new WeakMap<HTMLMediaElement, string>();
+/** Per-sound player volume, 0 … 2, lazily read from localStorage. */
+const cueLevels: Record<string, number> = {};
+/** Per-sound gain nodes: "fx:<key>" feeds sfx, "el:<key>" (HTMLAudio) feeds out. */
+const cueBuses = new Map<string, GainNode>();
+/** Slot that owns the sounds started right now (fallbacks play on the event's slider). */
+let scope: string | null = null;
+const volumeListeners = new Set<() => void>();
 const bufs: Record<string, AudioBuffer> = {};
 /** 4KA TV visualizer tap: read-only analyser on the bed loop. Never feeds the speakers. */
 const VIZ_KEYS = new Set(["bed"]);
@@ -68,6 +101,8 @@ const FILES: Record<string, string> = {
   zEscape: "/sfx/ticket-ok.mp3?v=garand1",
   zTax: "/sfx/table-b.mp3?v=fail1",
   zNeutral: "",
+  /** MASÍVNA VÝHRA (250×+). Until the admin uploads one, the game plays the big-win fanfare (A/B). */
+  massive: "/sfx/table-a.mp3?v=glitch1",
 };
 
 const CUE_MAX = 50 * 1024 * 1024;
@@ -231,6 +266,211 @@ export function isMuted(): boolean {
   return muted;
 }
 
+function readVolume(): number {
+  try {
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem(VOLUME_KEY) : null;
+    const v = raw === null ? 1 : Number(raw);
+    return Number.isFinite(v) ? Math.max(0, Math.min(VOLUME_MAX, v)) : 1;
+  } catch {
+    return 1;
+  }
+}
+
+/** Soft limiter: transparent up to 100 %, a fast brick-wall-ish knee above it so 200 % does not clip. */
+function tuneLimiter(when: number): void {
+  if (!limiter) return;
+  const hot = volume > 1.001;
+  limiter.threshold.setValueAtTime(hot ? -3 : 0, when);
+  limiter.knee.setValueAtTime(hot ? 4 : 0, when);
+  limiter.ratio.setValueAtTime(hot ? 14 : 1, when);
+  limiter.attack.setValueAtTime(0.002, when);
+  limiter.release.setValueAtTime(0.14, when);
+}
+
+export function getVolume(): number {
+  return volume;
+}
+
+export { CUE_LEVEL_MAX };
+
+/** Every sound slot with its own per-sound slider (the FILES keys). */
+export function cueKeys(): string[] {
+  return Object.keys(FILES);
+}
+
+/** Per-sound volume of one slot, 0 … 2 (default 1). */
+export function getCueLevel(key: string): number {
+  if (!key || !(key in FILES)) return 1;
+  if (!(key in cueLevels)) {
+    let raw: string | null = null;
+    try {
+      raw = typeof localStorage !== "undefined" ? localStorage.getItem(cueLevelKey(key)) : null;
+    } catch {
+      raw = null;
+    }
+    cueLevels[key] = parseCueLevel(raw);
+  }
+  return cueLevels[key];
+}
+
+function applyCueLevel(key: string): void {
+  const v = getCueLevel(key);
+  if (ctx) {
+    for (const id of ["fx:" + key, "el:" + key]) {
+      const g = cueBuses.get(id);
+      if (!g) continue;
+      g.gain.cancelScheduledValues(ctx.currentTime);
+      g.gain.setTargetAtTime(v, ctx.currentTime, 0.03);
+    }
+  }
+}
+
+/** 0 … 2 for one slot. Persisted per device as p4k.volume.<key> (100 % = no entry). */
+export function setCueLevel(key: string, next: number): void {
+  if (!(key in FILES)) return;
+  const v = clampCueLevel(next);
+  if (v === getCueLevel(key)) return;
+  cueLevels[key] = v;
+  try {
+    if (v === 1) localStorage.removeItem(cueLevelKey(key));
+    else localStorage.setItem(cueLevelKey(key), String(v));
+  } catch {
+    /* private mode */
+  }
+  applyCueLevel(key);
+  liveBed?.duck(liveDuck);
+  refreshPreviewEl();
+  for (const fn of volumeListeners) fn();
+}
+
+/** Every slot back to 100 %. The master volume is left alone. */
+export function resetCueLevels(): void {
+  for (const key of Object.keys(FILES)) {
+    cueLevels[key] = 1;
+    try {
+      localStorage.removeItem(cueLevelKey(key));
+    } catch {
+      /* private mode */
+    }
+    applyCueLevel(key);
+  }
+  liveBed?.duck(liveDuck);
+  refreshPreviewEl();
+  for (const fn of volumeListeners) fn();
+}
+
+/** Live gain from the per-sound bus through the master volume (for checks): cue × master. */
+export function cueGainNow(key: string): { cue: number; master: number; effective: number } | null {
+  const g = cueBuses.get("fx:" + key) ?? cueBuses.get("el:" + key);
+  if (!g || !out) return null;
+  return { cue: g.gain.value, master: out.gain.value, effective: g.gain.value * out.gain.value };
+}
+
+/** Per-sound gain node. Buffer sounds feed sfx (mix bus), media elements feed out directly. */
+function cueBus(key: string, element = false): AudioNode | null {
+  if (!ctx || !sfx || !out) return null;
+  const target = element ? out : sfx;
+  if (!key || !(key in FILES)) return target;
+  const id = (element ? "el:" : "fx:") + key;
+  let g = cueBuses.get(id);
+  if (!g) {
+    g = ctx.createGain();
+    g.gain.value = getCueLevel(key);
+    g.connect(target);
+    cueBuses.set(id, g);
+  }
+  return g;
+}
+
+/** Run `fn` with its sounds on `key`'s slider. An outer scope wins (fallback chains keep the event's slot). */
+function withCue<T>(key: string, fn: () => T): T {
+  const prev = scope;
+  scope = prev ?? key;
+  try {
+    return fn();
+  } finally {
+    scope = prev;
+  }
+}
+
+/** Where synth fallbacks connect: the current slot's bus, else the plain sfx bus. */
+function synthOut(): AudioNode | null {
+  return (scope && cueBus(scope)) || sfx;
+}
+
+export function subscribeVolume(fn: () => void): () => void {
+  volumeListeners.add(fn);
+  return () => volumeListeners.delete(fn);
+}
+
+/** 0 … 2. Smoothed on the Web Audio gain; HTMLAudio fallbacks are capped at 1.0. Persisted. */
+export function setVolume(next: number): void {
+  const v = Math.max(0, Math.min(VOLUME_MAX, Math.round(next * 100) / 100));
+  if (v === volume) return;
+  volume = v;
+  try {
+    localStorage.setItem(VOLUME_KEY, String(v));
+  } catch {
+    /* private mode */
+  }
+  if (ctx && out) {
+    out.gain.cancelScheduledValues(ctx.currentTime);
+    out.gain.setTargetAtTime(v, ctx.currentTime, 0.03);
+    tuneLimiter(ctx.currentTime);
+  }
+  liveBed?.duck(liveDuck);
+  refreshPreviewEl();
+  for (const fn of volumeListeners) fn();
+}
+
+/** Final stage input (volume → limiter → speakers). Connect here, never to ctx.destination. */
+export function audioOut(): AudioNode | null {
+  return out;
+}
+
+/**
+ * One MediaElementSource per element (the API allows only one), wired to audioOut().
+ * Only while the context runs: an element captured by a suspended context plays silence.
+ * Analysers can fan out from the returned node; it is upstream of the volume gain.
+ */
+export function mediaSource(el: HTMLMediaElement, cue = ""): MediaElementAudioSourceNode | null {
+  const known = elSources.get(el);
+  if (known) {
+    const was = elRoute.get(el);
+    // Elements from playBlob() are wired by hand (was === undefined): leave them.
+    if (was === undefined || was === cue) return known;
+    const from = cueBus(was, true);
+    const to = cueBus(cue, true);
+    if (!to) return known;
+    try {
+      if (from) known.disconnect(from);
+    } catch {
+      /* not connected */
+    }
+    known.connect(to);
+    elRoute.set(el, cue);
+    return known;
+  }
+  if (!ctx || !out || ctx.state !== "running") return null;
+  try {
+    const node = ctx.createMediaElementSource(el);
+    node.connect(cueBus(cue, true) ?? out);
+    elSources.set(el, node);
+    elRoute.set(el, cue);
+    return node;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Element volume for a part of the mix: exact through the graph (the cue bus and the master
+ * volume do the rest), min(1, level × cue × master) when the element plays direct.
+ */
+export function elementVolume(el: HTMLMediaElement, level: number, cue = ""): number {
+  return elSources.has(el) ? Math.min(1, level) : directElementVolume(level, cue ? getCueLevel(cue) : 1, volume);
+}
+
 export function unlockAudio(): void {
   if (!ctx) {
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -249,16 +489,23 @@ export function unlockAudio(): void {
     comp.release.value = 0.16;
     sfx.connect(master);
     music.connect(master);
+    out = ctx.createGain();
+    out.gain.value = volume;
+    limiter = ctx.createDynamicsCompressor();
+    tuneLimiter(0);
     master.connect(comp);
-    comp.connect(ctx.destination);
+    comp.connect(out);
+    out.connect(limiter);
+    limiter.connect(ctx.destination);
+    ctx.addEventListener("statechange", () => {
+      // A bed routed through the graph (volume chain and/or visualizer tap) goes quiet if the context sleeps mid-loop; wake it.
+      const routed = (liveEl && elSources.has(liveEl)) || vizSource;
+      if (ctx?.state === "suspended" && routed && !muted && document.visibilityState === "visible") void ctx.resume();
+    });
     whiteBuf = makeNoise(ctx, 1.4, "white");
     brownBuf = makeNoise(ctx, 1.6, "brown");
     void loadBank();
     void hydrateCustoms().then(() => applyCustoms());
-    // A bed routed through the graph for the visualizer stops if the context suspends mid-bonus; bring it back.
-    ctx.addEventListener("statechange", () => {
-      if (ctx?.state === "suspended" && vizSource && !muted && document.visibilityState === "visible") void ctx.resume();
-    });
   }
   if (ctx.state === "suspended") void ctx.resume();
 }
@@ -459,6 +706,7 @@ function playBlob(
   opts: { gain?: number; rate?: number; pan?: number; loop?: boolean; when?: number },
 ): { stop: () => void; gain: GainNode } | null {
   const url = previewUrl[name];
+  const bus = cueBus(scope ?? name);
   if (!ctx || !sfx || !url) return null;
   const el = new Audio(url);
   el.loop = !!opts.loop;
@@ -466,6 +714,7 @@ function playBlob(
   el.playbackRate = opts.rate ?? 1;
   el.preload = "auto";
   const node = ctx.createMediaElementSource(el);
+  elSources.set(el, node);
   const g = ctx.createGain();
   const t = opts.when ?? ctx.currentTime;
   g.gain.setValueAtTime(opts.gain ?? 0.85, t);
@@ -473,7 +722,7 @@ function playBlob(
   p.pan.setValueAtTime(Math.max(-1, Math.min(1, opts.pan ?? 0)), t);
   node.connect(p);
   p.connect(g);
-  g.connect(sfx);
+  g.connect(bus ?? sfx);
   const start = () => {
     void el.play().catch(() => {});
   };
@@ -505,6 +754,7 @@ function playBuf(
   const b = bufs[name];
   if (!ctx || !sfx) return null;
   if (!b) return custom.has(name) ? playBlob(name, opts) : null;
+  const bus = cueBus(scope ?? name);
   const t = opts.when ?? ctx.currentTime;
   const src = ctx.createBufferSource();
   src.buffer = b;
@@ -516,7 +766,8 @@ function playBuf(
   p.pan.setValueAtTime(Math.max(-1, Math.min(1, opts.pan ?? 0)), t);
   src.connect(p);
   p.connect(g);
-  g.connect(sfx);
+  g.connect(bus ?? sfx);
+  // Visualizer reads the voice gain, i.e. before the per-sound and master volume.
   const tapped = VIZ_KEYS.has(name) && tapNode(g);
   src.start(t);
   if (!opts.loop) src.stop(t + b.duration / (opts.rate ?? 1) + 0.02);
@@ -548,7 +799,7 @@ function env(duration: number, peak: number, attack = 0.005, when = 0): GainNode
   g.gain.setValueAtTime(0, t);
   g.gain.linearRampToValueAtTime(peak, t + attack);
   g.gain.exponentialRampToValueAtTime(0.0001, t + duration);
-  g.connect(sfx);
+  g.connect(synthOut() ?? sfx);
   return g;
 }
 
@@ -596,55 +847,61 @@ function noise(kind: "white" | "brown", duration: number, peak: number, hp = 200
 }
 
 export function playClick(): void {
-  if (!playBuf("click", { gain: 0.7, rate: 0.95 + Math.random() * 0.1 })) {
-    noise("white", 0.04, 0.06, 1200, 5000);
-    tone("triangle", 880, 0.05, 0.035);
-  }
+  withCue("click", () => {
+    if (!playBuf("click", { gain: 0.7, rate: 0.95 + Math.random() * 0.1 })) {
+      noise("white", 0.04, 0.06, 1200, 5000);
+      tone("triangle", 880, 0.05, 0.035);
+    }
+  });
 }
 
 export function playCollect(): void {
-  if (!playBuf("collect", { gain: 0.72, rate: 0.96 + Math.random() * 0.08 })) {
-    playCoin();
-  }
+  withCue("collect", () => {
+    if (!playBuf("collect", { gain: 0.72, rate: 0.96 + Math.random() * 0.08 })) {
+      playCoin();
+    }
+  });
 }
 
 export function startSpin(): void {
-  if (!ctx || !sfx) return;
-  stopSpin();
-  duckMusic(0.45);
-  liveBed?.duck(0.78);
-  const sample = playBuf("spin", { gain: 0.62, loop: true, rate: 1 });
-  if (sample) {
-    spinNodes = { gain: sample.gain, stop: sample.stop };
-    return;
-  }
-  if (!whiteBuf || !brownBuf) return;
-  const src = ctx.createBufferSource();
-  src.buffer = whiteBuf;
-  src.loop = true;
-  const bp = ctx.createBiquadFilter();
-  bp.type = "bandpass";
-  bp.frequency.value = 920;
-  bp.Q.value = 1.1;
-  const g = ctx.createGain();
-  g.gain.value = 0.07;
-  src.connect(bp);
-  bp.connect(g);
-  g.connect(sfx);
-  src.start();
-  spinNodes = {
-    gain: g,
-    stop: () => {
-      g.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.05);
-      window.setTimeout(() => {
-        try {
-          src.stop();
-        } catch {
-          /* already */
-        }
-      }, 90);
-    },
-  };
+  withCue("spin", () => {
+    if (!ctx || !sfx) return;
+    stopSpin();
+    duckMusic(0.45);
+    liveBed?.duck(0.78);
+    const sample = playBuf("spin", { gain: 0.62, loop: true, rate: 1 });
+    if (sample) {
+      spinNodes = { gain: sample.gain, stop: sample.stop };
+      return;
+    }
+    if (!whiteBuf || !brownBuf) return;
+    const src = ctx.createBufferSource();
+    src.buffer = whiteBuf;
+    src.loop = true;
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 920;
+    bp.Q.value = 1.1;
+    const g = ctx.createGain();
+    g.gain.value = 0.07;
+    src.connect(bp);
+    bp.connect(g);
+    g.connect(synthOut() ?? sfx);
+    src.start();
+    spinNodes = {
+      gain: g,
+      stop: () => {
+        g.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.05);
+        window.setTimeout(() => {
+          try {
+            src.stop();
+          } catch {
+            /* already */
+          }
+        }, 90);
+      },
+    };
+  });
 }
 
 export function setSpinEnergy(t: number): void {
@@ -668,63 +925,79 @@ export function playLand(col = 0): void {
   if (pick === lastLand) pick = (pick + 1 + Math.floor(Math.random() * 2)) % LAND_KEYS.length;
   lastLand = pick;
   const name = LAND_KEYS[pick];
-  if (!playBuf(name, { gain: 0.38, rate: 0.97 + Math.random() * 0.06, pan })) {
-    noise("white", 0.055, 0.13, 1800, 7000, undefined, pan);
-    tone("sine", 118 - col * 8, 0.14, 0.09, 48, undefined, pan);
-  }
+  withCue(name, () => {
+    if (!playBuf(name, { gain: 0.38, rate: 0.97 + Math.random() * 0.06, pan })) {
+      noise("white", 0.055, 0.13, 1800, 7000, undefined, pan);
+      tone("sine", 118 - col * 8, 0.14, 0.09, 48, undefined, pan);
+    }
+  });
 }
 
 export function playWin(size: "spark" | "full" = "spark"): void {
-  if (size === "full") {
-    if (playBuf("winFull", { gain: 0.62 })) return;
-  } else if (playBuf("win", { gain: 0.72, rate: 0.94 + Math.random() * 0.12 })) {
-    return;
-  }
-  if (!ctx) return;
-  const t = ctx.currentTime;
-  if (size === "full") {
-    tone("sine", 261, 0.32, 0.05, undefined, t);
-    tone("sine", 329, 0.34, 0.045, undefined, t + 0.05);
-    tone("sine", 392, 0.36, 0.05, undefined, t + 0.1);
-  } else {
-    tone("sine", 392, 0.18, 0.045, 330, t);
-    tone("sine", 523, 0.16, 0.03, undefined, t + 0.02);
-  }
+  withCue(size === "full" ? "winFull" : "win", () => {
+    if (size === "full") {
+      if (playBuf("winFull", { gain: 0.62 })) return;
+    } else if (playBuf("win", { gain: 0.72, rate: 0.94 + Math.random() * 0.12 })) {
+      return;
+    }
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    if (size === "full") {
+      tone("sine", 261, 0.32, 0.05, undefined, t);
+      tone("sine", 329, 0.34, 0.045, undefined, t + 0.05);
+      tone("sine", 392, 0.36, 0.05, undefined, t + 0.1);
+    } else {
+      tone("sine", 392, 0.18, 0.045, 330, t);
+      tone("sine", 523, 0.16, 0.03, undefined, t + 0.02);
+    }
+  });
 }
 
 export function playCoin(): void {
-  if (!playBuf("coin", { gain: 0.65, rate: 0.96 + Math.random() * 0.08 })) {
-    tone("sine", 1480, 0.12, 0.05, 1360);
-  }
+  withCue("coin", () => {
+    if (!playBuf("coin", { gain: 0.65, rate: 0.96 + Math.random() * 0.08 })) {
+      tone("sine", 1480, 0.12, 0.05, 1360);
+    }
+  });
 }
 
 export function playTicketOk(): void {
-  if (!playBuf("ticketOk", { gain: 0.9 })) playCoin();
+  withCue("ticketOk", () => {
+    if (!playBuf("ticketOk", { gain: 0.9 })) playCoin();
+  });
 }
 
 export function playPayout(): void {
-  if (!playBuf("payout", { gain: 0.46 })) playCoin();
+  withCue("payout", () => {
+    if (!playBuf("payout", { gain: 0.46 })) playCoin();
+  });
 }
 
 export function playTumble(cascade = 0): void {
-  playing["pop"]?.stop();
-  const rate = Math.min(1.12, 0.96 + cascade * 0.03);
-  if (!playBuf("tumble", { gain: Math.min(0.9, 0.62 + cascade * 0.06), rate })) {
-    noise("brown", 0.32, 0.11, 50, 900);
-  }
+  withCue("tumble", () => {
+    playing["pop"]?.stop();
+    const rate = Math.min(1.12, 0.96 + cascade * 0.03);
+    if (!playBuf("tumble", { gain: Math.min(0.9, 0.62 + cascade * 0.06), rate })) {
+      noise("brown", 0.32, 0.11, 50, 900);
+    }
+  });
 }
 
 export function playPop(): void {
-  if (!playBuf("pop", { gain: 0.7 }) && !playBuf("electric", { gain: 0.55 })) {
-    noise("white", 0.1, 0.12, 600, 7000);
-  }
+  withCue("pop", () => {
+    if (!playBuf("pop", { gain: 0.7 }) && !playBuf("electric", { gain: 0.55 })) {
+      noise("white", 0.1, 0.12, 600, 7000);
+    }
+  });
 }
 
 export function playZap(): void {
   playBuf("electric", { gain: 0.7, rate: 1.05 });
   if (!playBuf("zap", { gain: 0.8 })) {
-    noise("white", 0.08, 0.2, 1800, 9000);
-    tone("sawtooth", 520, 0.1, 0.06, 70);
+    withCue("zap", () => {
+      noise("white", 0.08, 0.2, 1800, 9000);
+      tone("sawtooth", 520, 0.1, 0.06, 70);
+    });
   }
 }
 
@@ -735,31 +1008,33 @@ export function playScatter(n = 1): void {
 }
 
 export function startAnticipate(): void {
-  if (!ctx || !sfx || anticipateNodes) return;
-  duckMusic(0.16);
-  const t = ctx.currentTime;
-  const bed = playBuf("anticipate", { gain: 0.01, loop: true, rate: 1 });
-  if (bed) {
-    bed.gain.gain.setValueAtTime(0.01, t);
-    bed.gain.gain.linearRampToValueAtTime(0.78, t + 0.18);
-    anticipateNodes = {
-      stop: () => {
-        bed.gain.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.18);
-        window.setTimeout(bed.stop, 380);
-      },
-    };
-    return;
-  }
-  const harp = playBuf("harp", { gain: 0.12, rate: 0.82, loop: true });
-  if (harp) {
-    harp.gain.gain.linearRampToValueAtTime(0.4, t + 1.2);
-    anticipateNodes = {
-      stop: () => {
-        harp.gain.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.2);
-        window.setTimeout(harp.stop, 400);
-      },
-    };
-  }
+  withCue("anticipate", () => {
+    if (!ctx || !sfx || anticipateNodes) return;
+    duckMusic(0.16);
+    const t = ctx.currentTime;
+    const bed = playBuf("anticipate", { gain: 0.01, loop: true, rate: 1 });
+    if (bed) {
+      bed.gain.gain.setValueAtTime(0.01, t);
+      bed.gain.gain.linearRampToValueAtTime(0.78, t + 0.18);
+      anticipateNodes = {
+        stop: () => {
+          bed.gain.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.18);
+          window.setTimeout(bed.stop, 380);
+        },
+      };
+      return;
+    }
+    const harp = playBuf("harp", { gain: 0.12, rate: 0.82, loop: true });
+    if (harp) {
+      harp.gain.gain.linearRampToValueAtTime(0.4, t + 1.2);
+      anticipateNodes = {
+        stop: () => {
+          harp.gain.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.2);
+          window.setTimeout(harp.stop, 400);
+        },
+      };
+    }
+  });
 }
 
 export function stopAnticipate(): void {
@@ -768,25 +1043,31 @@ export function stopAnticipate(): void {
 }
 
 export function playThunder(): void {
-  if (!playBuf("thunder", { gain: 0.9 })) {
-    noise("brown", 0.7, 0.24, 20, 380);
-    noise("white", 0.12, 0.16, 900, 6000);
-  }
+  withCue("thunder", () => {
+    if (!playBuf("thunder", { gain: 0.9 })) {
+      noise("brown", 0.7, 0.24, 20, 380);
+      noise("white", 0.12, 0.16, 900, 6000);
+    }
+  });
 }
 
 export function playMult(): void {
-  if (!playBuf("can", { gain: 1, rate: 0.98 + Math.random() * 0.05 })) {
-    playBuf("collect", { gain: 0.5, rate: 0.98 });
-  }
+  withCue("can", () => {
+    if (!playBuf("can", { gain: 1, rate: 0.98 + Math.random() * 0.05 })) {
+      playBuf("collect", { gain: 0.5, rate: 0.98 });
+    }
+  });
 }
 
 export function playFsStart(): void {
-  stopSpin();
-  duckMusic(0.18);
-  if (!playBuf("fsStart", { gain: 0.82 })) {
-    playThunder();
-    playBuf("harp", { gain: 0.7 });
-  }
+  withCue("fsStart", () => {
+    stopSpin();
+    duckMusic(0.18);
+    if (!playBuf("fsStart", { gain: 0.82 })) {
+      playThunder();
+      playBuf("harp", { gain: 0.7 });
+    }
+  });
 }
 
 export function startLiveBed(): void {
@@ -814,12 +1095,16 @@ function startCueLoop(key: string): void {
   el.muted = muted;
   liveDuck = 1;
   const vol = () => {
-    el.volume = muted ? 0 : LIVE_VOL * Math.max(0.18, Math.min(1, liveDuck));
+    el.volume = muted ? 0 : elementVolume(el, LIVE_VOL * Math.max(0.18, Math.min(1, liveDuck)), key);
   };
   vol();
   const playSafe = () => {
     void (ctx?.state === "suspended" ? ctx.resume() : Promise.resolve()).then(() => {
-      if (VIZ_KEYS.has(key) && liveEl === el) tapElement(el);
+      // Route through the volume chain first (running context only), then fan out to the visualizer.
+      if (liveEl === el && mediaSource(el, key)) {
+        if (VIZ_KEYS.has(key)) tapElement(el, key);
+        vol();
+      }
       void el.play().then(vol).catch(() => {
         window.setTimeout(() => void el.play().then(vol).catch(() => {}), 180);
       });
@@ -871,10 +1156,7 @@ export function stopLiveBed(): void {
   loopKey = null;
   const tap = vizSource instanceof MediaElementAudioSourceNode ? vizSource : null;
   liveBed?.stop();
-  if (tap) {
-    untapViz(tap);
-    tap.disconnect();
-  }
+  if (tap) untapViz(tap);
   liveBed = null;
   liveEl = null;
   duckMusic(1);
@@ -903,27 +1185,24 @@ function tapNode(node: AudioNode): boolean {
 }
 
 /**
- * HTMLAudioElement path. A media element can only be read by routing it through the graph,
- * so it goes element → destination (no master, no compressor: same level and mute as before,
- * element volume/muted still apply) plus element → analyser. Only done while the context is
- * running: tapping into a suspended context would silence the bed, so then the bed plays
- * directly and the visualizer just breathes.
+ * HTMLAudioElement path. A media element can only be read through the graph and may have only
+ * one MediaElementSource, so reuse the volume chain's mediaSource(el, key) (element → per-sound
+ * gain → audioOut → volume → limiter → speakers) and fan it out to the analyser, which thus reads
+ * the signal before the per-sound and the player's volume. Never connect to ctx.destination here
+ * (it would skip the volume). mediaSource() only captures while the context is running: otherwise
+ * the bed plays directly and the visualizer just breathes.
  */
-function tapElement(el: HTMLAudioElement): boolean {
+function tapElement(el: HTMLAudioElement, key: string): boolean {
   if (!ctx || ctx.state !== "running" || tappedEls.has(el)) return false;
   const an = vizNode();
   if (!an) return false;
-  try {
-    const node = ctx.createMediaElementSource(el);
-    tappedEls.add(el);
-    node.connect(ctx.destination);
-    if (vizSource) untapViz(vizSource);
-    node.connect(an);
-    vizSource = node;
-    return true;
-  } catch {
-    return false;
-  }
+  const node = mediaSource(el, key);
+  if (!node) return false;
+  tappedEls.add(el);
+  if (vizSource) untapViz(vizSource);
+  node.connect(an);
+  vizSource = node;
+  return true;
 }
 
 function untapViz(node: AudioNode): void {
@@ -958,40 +1237,54 @@ function playOwn(
 }
 
 export function playSiren(): void {
-  stopSpin();
-  duckMusic(0.4);
-  if (playOwn("zStart", { gain: 0.9 })) return;
-  if (!playBuf("kontrola", { gain: 0.92 })) playBuf("siren", { gain: 0.7 });
+  withCue("zStart", () => {
+    stopSpin();
+    duckMusic(0.4);
+    if (playOwn("zStart", { gain: 0.9 })) return;
+    if (!playBuf("kontrola", { gain: 0.92 })) playBuf("siren", { gain: 0.7 });
+  });
 }
 
 export function playHackTravel(): void {
-  if (playOwn("zTravel", { gain: 0.55 })) return;
-  playBuf("zap", { gain: 0.35, rate: 1.4 });
+  withCue("zTravel", () => {
+    if (playOwn("zTravel", { gain: 0.55 })) return;
+    playBuf("zap", { gain: 0.35, rate: 1.4 });
+  });
 }
 
 export function playHack(): void {
-  if (playOwn("zHit", { gain: 0.8 })) return;
-  playBuf("coin", { gain: 0.7, rate: 1.2 });
+  withCue("zHit", () => {
+    if (playOwn("zHit", { gain: 0.8 })) return;
+    playBuf("coin", { gain: 0.7, rate: 1.2 });
+  });
 }
 
 export function playStrike(): void {
-  if (playOwn("zFs", { gain: 0.75 })) return;
-  playBuf("thunder", { gain: 0.5 });
+  withCue("zFs", () => {
+    if (playOwn("zFs", { gain: 0.75 })) return;
+    playBuf("thunder", { gain: 0.5 });
+  });
 }
 
 export function playEscape(): void {
-  if (playOwn("zEscape", { gain: 0.85 })) return;
-  playBuf("ticketOk", { gain: 0.8 });
-  playBuf("harp", { gain: 0.45 });
+  withCue("zEscape", () => {
+    if (playOwn("zEscape", { gain: 0.85 })) return;
+    playBuf("ticketOk", { gain: 0.8 });
+    playBuf("harp", { gain: 0.45 });
+  });
 }
 
 export function playTaxLoss(): void {
-  if (playOwn("zTax", { gain: 0.75 })) return;
-  playBuf("tableB", { gain: 0.7 });
+  withCue("zTax", () => {
+    if (playOwn("zTax", { gain: 0.75 })) return;
+    playBuf("tableB", { gain: 0.7 });
+  });
 }
 
 export function playChaseNeutral(): void {
-  playOwn("zNeutral", { gain: 0.8 });
+  withCue("zNeutral", () => {
+    playOwn("zNeutral", { gain: 0.8 });
+  });
 }
 
 let heartTimer = 0;
@@ -1009,7 +1302,7 @@ function synthHeartbeat(): void {
     g.gain.exponentialRampToValueAtTime(0.35, now + delay + 0.02);
     g.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.14);
     osc.connect(g);
-    g.connect(sfx);
+    g.connect(synthOut() ?? sfx);
     osc.start(now + delay);
     osc.stop(now + delay + 0.16);
     heartNodes.push(osc);
@@ -1035,8 +1328,10 @@ export function startHeartbeat(): void {
   unlockAudio();
   const beat = () => {
     if (muted) return;
-    if (playOwn("zHeart", { gain: 0.85 })) return;
-    synthHeartbeat();
+    withCue("zHeart", () => {
+      if (playOwn("zHeart", { gain: 0.85 })) return;
+      synthHeartbeat();
+    });
   };
   beat();
   const dur = ownCue("zHeart") ? bufs.zHeart.duration : 0;
@@ -1044,17 +1339,88 @@ export function startHeartbeat(): void {
   heartTimer = window.setInterval(beat, gap);
 }
 
+let cuePreview: { stop: () => void } | null = null;
+let cuePreviewTimer = 0;
+
+/**
+ * Player's per-sound preview (Settings): the slot's own sample through its per-sound bus and the
+ * master volume, so it sounds exactly as in the game. Loops stop after a few seconds.
+ * Returns false while the sample is not decoded yet (or the slot is empty).
+ */
+export function previewCue(key: string): boolean {
+  unlockAudio();
+  stopCuePreview();
+  if (!(key in FILES)) return false;
+  if (key === "zHeart" && !ownCue("zHeart")) {
+    previewHeartbeat();
+    return true;
+  }
+  if (MUSIC_KEYS.has(key)) return previewLoopEl(key);
+  const loop = key === "spin" || key === "anticipate";
+  const handle = withCue(key, () => playBuf(key, { gain: 0.85, loop }));
+  if (!handle) {
+    void loadBank();
+    return false;
+  }
+  cuePreview = handle;
+  if (loop) cuePreviewTimer = window.setTimeout(stopCuePreview, 5000);
+  return true;
+}
+
+let previewEl: HTMLAudioElement | null = null;
+let previewKey = "";
+
+/** Keep a direct-playing preview element in step with the sliders (routed ones follow the graph). */
+function refreshPreviewEl(): void {
+  if (previewEl && previewKey && !previewEl.paused) previewEl.volume = muted ? 0 : elementVolume(previewEl, LIVE_VOL, previewKey);
+}
+
+/** Bed / zásah preview: an <audio> like the game's loop, on the same "el:<key>" bus. */
+function previewLoopEl(key: string): boolean {
+  const src = cueSrc(key);
+  if (!src) return false;
+  if (!previewEl) {
+    previewEl = new Audio();
+    previewEl.preload = "auto";
+    previewEl.setAttribute("playsinline", "true");
+  }
+  const el = previewEl;
+  previewKey = key;
+  el.pause();
+  el.loop = true;
+  el.src = src;
+  void (ctx?.state === "suspended" ? ctx.resume() : Promise.resolve()).then(() => {
+    mediaSource(el, key);
+    el.volume = muted ? 0 : elementVolume(el, LIVE_VOL, key);
+    void el.play().catch(() => {});
+  });
+  cuePreview = { stop: () => el.pause() };
+  cuePreviewTimer = window.setTimeout(stopCuePreview, 5000);
+  return true;
+}
+
+export function stopCuePreview(): void {
+  window.clearTimeout(cuePreviewTimer);
+  cuePreviewTimer = 0;
+  cuePreview?.stop();
+  cuePreview = null;
+}
+
 /** One beat in the settings preview, before a custom file exists. */
 export function previewHeartbeat(): void {
-  unlockAudio();
-  if (playOwn("zHeart", { gain: 0.85 })) return;
-  synthHeartbeat();
+  withCue("zHeart", () => {
+    unlockAudio();
+    if (playOwn("zHeart", { gain: 0.85 })) return;
+    synthHeartbeat();
+  });
 }
 
 export function playPickStart(): void {
-  stopSpin();
-  duckMusic(0.4);
-  if (!playBuf("kontrola", { gain: 0.78 })) playBuf("siren", { gain: 0.4 });
+  withCue("kontrola", () => {
+    stopSpin();
+    duckMusic(0.4);
+    if (!playBuf("kontrola", { gain: 0.78 })) playBuf("siren", { gain: 0.4 });
+  });
 }
 
 export function playBigWin(): void {
@@ -1064,13 +1430,29 @@ export function playBigWin(): void {
   playing["tableB"]?.stop();
   playing["bigwin"]?.stop();
   const key = Math.random() < 0.5 ? "tableA" : "tableB";
-  if (!playBuf(key, { gain: 0.82 })) {
-    playBuf("bigwin", { gain: 0.8 }) || playBuf("winFull", { gain: 0.8 });
-  }
+  withCue(key, () => {
+    if (!playBuf(key, { gain: 0.82 })) {
+      playBuf("bigwin", { gain: 0.8 }) || playBuf("winFull", { gain: 0.8 });
+    }
+  });
 }
 
 export function playMaxWin(): void {
   playBigWin();
+}
+
+/** MASÍVNA VÝHRA. Own upload if the admin set one, else the existing big-win fanfare. */
+export function playMassiveWin(): void {
+  withCue("massive", () => {
+    stopSpin();
+    duckMusic(0.3);
+    liveBed?.duck(0.35);
+    playing["tableA"]?.stop();
+    playing["tableB"]?.stop();
+    playing["bigwin"]?.stop();
+    if (playOwn("massive", { gain: 0.9 })) return;
+    playBigWin();
+  });
 }
 
 export function startAmbience(): void {

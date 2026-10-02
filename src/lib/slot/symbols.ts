@@ -239,6 +239,12 @@ export const WIN_POP_X = {
   big: 20,
   mega: 35,
   epic: 50,
+  /**
+   * MASÍVNA VÝHRA: 5× the epic floor, 1/20 of the 5000× cap. Engine sim (5 M base spins, 2 seeds):
+   * a base spin pays 250×+ about 1 in 3 800, a 4KA TV ends at 250×+ in ~8.5 % of bonuses,
+   * together ~1 in 2 100 paid spins (200× would be ~1 in 1 500, 300× ~1 in 2 800).
+   */
+  massive: 250,
 } as const;
 export const FS_SPINS = 15;
 export const FS_RETRIGGER = 5;

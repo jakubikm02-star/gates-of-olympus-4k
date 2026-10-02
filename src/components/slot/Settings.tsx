@@ -1,5 +1,28 @@
-import { useEffect, useRef, useState } from "react";
-import { cueSrc, isCustomCue, previewHeartbeat, replaceCue, resetCue, resetCues, subscribeSfx, unlockAudio } from "@/lib/slot/audio";
+import "./volume.css";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  CUE_LEVEL_MAX,
+  VOLUME_MAX,
+  cueSrc,
+  elementVolume,
+  getCueLevel,
+  getVolume,
+  isCustomCue,
+  mediaSource,
+  playCoin,
+  previewCue,
+  previewHeartbeat,
+  replaceCue,
+  resetCue,
+  resetCueLevels,
+  resetCues,
+  setCueLevel,
+  setVolume,
+  stopCuePreview,
+  subscribeSfx,
+  subscribeVolume,
+  unlockAudio,
+} from "@/lib/slot/audio";
 import { contractCatalog } from "@/lib/slot/spend";
 import { saveContractTitles, subscribeContracts } from "@/lib/slot/job-titles";
 import { adminOk } from "@/lib/slot/ticket-names";
@@ -40,6 +63,7 @@ const SOUND_CUES: { id: string; name: string; loop?: boolean; when?: string; hea
   { id: "kontrola", name: "Kontrola", when: "Štart KONTROLA." },
   { id: "tableA", name: "Big win A", when: "Náhodne A alebo B: BIG od 20×, MEGA od 35×, SUPER MEGA od 50×, aj koniec 4KA TV s výhrou. MAX 5000× hrá to isté." },
   { id: "tableB", name: "Big win B", when: "Náhodne A alebo B pri veľkej výhre a na konci 4KA TV." },
+  { id: "massive", name: "Masívna výhra", when: "Čo robí: fanfára pod ohlásením MASÍVNA VÝHRA, od 250× stávky. V base pri spine, v 4KA TV raz na konci (súčet bonusu), pred súhrnom. Odporúčanie: veľká fanfára s nábehom, 4–7 s, nech nesie odpočítavanie sumy. Kým nenahráš vlastný, hrá sa Big win A alebo B." },
 ];
 
 function ContractNames({ password }: { password: string }) {
@@ -122,7 +146,8 @@ function SoundSheet({ password }: { password: string }) {
     el.pause();
     el.loop = loop;
     el.src = src;
-    el.volume = 0.85;
+    mediaSource(el, id);
+    el.volume = elementVolume(el, 0.85, id);
     void el.play();
   };
   const stop = () => {
@@ -207,6 +232,146 @@ function SoundSheet({ password }: { password: string }) {
   );
 }
 
+/** Player master volume, 0–200 %. Not behind the admin gate: it is a per-device preference. */
+export function VolumeControl() {
+  const [v, setV] = useState(getVolume);
+  useEffect(() => subscribeVolume(() => setV(getVolume())), []);
+  const pct = Math.round(v * 100);
+  const max = Math.round(VOLUME_MAX * 100);
+  const set = (next: number) => {
+    unlockAudio();
+    setVolume(next / 100);
+  };
+  return (
+    <div className={`vol ${pct > 100 ? "is-boost" : ""} ${pct === 0 ? "is-zero" : ""}`}>
+      <div className="vol-head">
+        <label htmlFor="vol-master">Hlasitosť</label>
+        <output htmlFor="vol-master" className="vol-val" aria-hidden="true">
+          {pct}&nbsp;%
+        </output>
+      </div>
+      <div className="vol-row">
+        <button type="button" className="vol-step" aria-label="Tichšie o 10 %" onClick={() => set(Math.max(0, pct - 10))}>
+          −
+        </button>
+        <div className="vol-track" style={{ "--vol": pct / max } as CSSProperties}>
+          <i className="vol-fill" aria-hidden="true" />
+          <i className="vol-mark" aria-hidden="true" />
+          <input
+            id="vol-master"
+            type="range"
+            min={0}
+            max={max}
+            step={1}
+            value={pct}
+            aria-valuetext={`${pct} %`}
+            aria-describedby="vol-note"
+            onChange={(e) => set(Number(e.target.value))}
+            onPointerUp={() => playCoin()}
+            onKeyUp={(e) => {
+              if (e.key.startsWith("Arrow") || e.key === "Home" || e.key === "End" || e.key.startsWith("Page")) playCoin();
+            }}
+          />
+        </div>
+        <button type="button" className="vol-step" aria-label="Hlasnejšie o 10 %" onClick={() => set(Math.min(max, pct + 10))}>
+          +
+        </button>
+      </div>
+      <p className="vol-note" id="vol-note">
+        {pct > 100 ? "Nad 100 % zosilňuje celý mix a limiter stráži skreslenie." : "Celá hra. Uloží sa v tomto zariadení."}
+        {pct !== 100 ? (
+          <button type="button" className="vol-reset" onClick={() => set(100)}>
+            100 %
+          </button>
+        ) : null}
+      </p>
+    </div>
+  );
+}
+
+function CueVolume({ id, name }: { id: string; name: string }) {
+  const pct = Math.round(getCueLevel(id) * 100);
+  const max = Math.round(CUE_LEVEL_MAX * 100);
+  const input = `vol-cue-${id}`;
+  const set = (next: number) => {
+    unlockAudio();
+    setCueLevel(id, next / 100);
+  };
+  return (
+    <div className={`cue-vol ${pct > 100 ? "is-boost" : ""} ${pct === 0 ? "is-zero" : ""}`} data-cue={id}>
+      <div className="cue-vol-head">
+        <label htmlFor={input}>{name}</label>
+        {pct !== 100 ? (
+          <button type="button" className="vol-reset" aria-label={`${name}: späť na 100 %`} onClick={() => set(100)}>
+            100 %
+          </button>
+        ) : null}
+        <output htmlFor={input} className="cue-vol-val" aria-hidden="true">
+          {pct}&nbsp;%
+        </output>
+      </div>
+      <div className="cue-vol-row">
+        <button type="button" className="vol-step" aria-label={`${name}: tichšie o 10 %`} onClick={() => set(Math.max(0, pct - 10))}>
+          −
+        </button>
+        <div className="vol-track" style={{ "--vol": pct / max } as CSSProperties}>
+          <i className="vol-fill" aria-hidden="true" />
+          <i className="vol-mark" aria-hidden="true" />
+          <input
+            id={input}
+            type="range"
+            min={0}
+            max={max}
+            step={1}
+            value={pct}
+            aria-valuetext={`${pct} %`}
+            onChange={(e) => set(Number(e.target.value))}
+          />
+        </div>
+        <button type="button" className="vol-step" aria-label={`${name}: hlasnejšie o 10 %`} onClick={() => set(Math.min(max, pct + 10))}>
+          +
+        </button>
+        <button type="button" className="vol-step cue-vol-play" aria-label={`Prehrať: ${name}`} onClick={() => previewCue(id)}>
+          ▶
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Per-sound player volume, one slider per sound slot, 0–200 %. Applied before the master volume. */
+export function CueVolumes() {
+  const [, bump] = useState(0);
+  useEffect(() => subscribeVolume(() => bump((n) => n + 1)), []);
+  useEffect(() => () => stopCuePreview(), []);
+  const changed = SOUND_CUES.filter((cue) => !cue.head && Math.round(getCueLevel(cue.id) * 100) !== 100).length;
+  return (
+    <details className="cue-vols" onToggle={(e) => !(e.currentTarget as HTMLDetailsElement).open && stopCuePreview()}>
+      <summary>
+        <span>Hlasitosť jednotlivých zvukov</span>
+        {changed ? <em className="cue-vols-badge">{changed === 1 ? "1 upravený" : changed < 5 ? `${changed} upravené` : `${changed} upravených`}</em> : null}
+      </summary>
+      <div className="cue-vols-body">
+        <p className="vol-note cue-vols-note">
+          Každý zvuk zvlášť, 0–200 %. Násobí sa s Hlasitosťou hore (50 % × 200 % = 100 %). Uloží sa v tomto zariadení.
+        </p>
+        <button type="button" className="cue-vols-reset" disabled={!changed} onClick={() => resetCueLevels()}>
+          Resetovať všetko na 100&nbsp;%
+        </button>
+        {SOUND_CUES.map((cue) =>
+          cue.head ? (
+            <p className="cue-vols-group" key={cue.id}>
+              {cue.name}
+            </p>
+          ) : (
+            <CueVolume key={cue.id} id={cue.id} name={cue.name} />
+          ),
+        )}
+      </div>
+    </details>
+  );
+}
+
 export function Settings({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [pass, setPass] = useState("");
   const [gate, setGate] = useState("");
@@ -242,6 +407,8 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
             ×
           </button>
         </header>
+        <VolumeControl />
+        <CueVolumes />
         {gate && gate !== "bad" && gate !== "down" ? (
           <>
             <SoundSheet password={gate} />

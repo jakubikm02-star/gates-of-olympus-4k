@@ -1,0 +1,1329 @@
+/*
+ * MASÍVNA VÝHRA — 250×+ announcement. Riddim / 4KA / PAAS look with a glossy rendered finish.
+ * Animates transform and opacity only. Hits (count-up drops) are ≥ 0.4 s apart and the hit
+ * flash is a low-opacity tint, never a full-screen white flash.
+ */
+.mw {
+  --mw-ink: #07050c;
+  --mw-acid: #b8ff1f;
+  --mw-acid-2: #4fe000;
+  --mw-tox: #9b2bff;
+  --mw-tox-2: #4b0d99;
+  --mw-mag: #ff2fa8;
+  --mw-cyan: #29f0ff;
+  --mw-gold: #ffd75a;
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+/* ---------- backdrop ---------- */
+.mw-back {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(180deg, rgb(255 255 255 / 0.025) 0 1px, transparent 1px 3px),
+    radial-gradient(55% 40% at 50% 40%, rgb(155 43 255 / 0.3), transparent 70%),
+    radial-gradient(70% 45% at 50% 100%, rgb(184 255 31 / 0.16), transparent 70%),
+    radial-gradient(120% 90% at 50% 50%, rgb(10 6 18 / 0.9), rgb(3 2 6 / 0.98));
+  animation: mw-fade 0.35s ease-out both;
+}
+
+/* Fibre lines: thin diagonal strands with a light pulse running along each. */
+.mw-fibre {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  animation: mw-fade 0.6s 0.3s ease-out forwards;
+}
+
+.mw-fibre i {
+  position: absolute;
+  left: -20vw;
+  width: 140vw;
+  height: 1px;
+  top: calc(12% + var(--f) * 15%);
+  overflow: hidden;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(155 43 255 / 0.35) 30%,
+    rgb(184 255 31 / 0.3) 70%,
+    transparent
+  );
+  transform: rotate(calc(-14deg + var(--f) * 5.5deg));
+}
+
+.mw-fibre i::after {
+  content: "";
+  position: absolute;
+  inset: -1px auto -1px 0;
+  width: 18%;
+  background: linear-gradient(90deg, transparent, #eaffb0, var(--mw-acid), transparent);
+  box-shadow: 0 0 8px var(--mw-acid);
+  transform: translateX(-100%);
+  animation: mw-pulse calc(1.6s + var(--f) * 0.37s) calc(var(--f) * -0.45s) linear infinite;
+}
+
+.mw-fibre i:nth-child(even)::after {
+  background: linear-gradient(90deg, transparent, #ffd2f0, var(--mw-mag), transparent);
+  box-shadow: 0 0 8px var(--mw-mag);
+  animation-direction: reverse;
+}
+
+.mw-rays {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 180vmax;
+  height: 180vmax;
+  margin: -90vmax 0 0 -90vmax;
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgb(155 43 255 / 0.2) 0deg 4deg,
+    transparent 4deg 13deg,
+    rgb(184 255 31 / 0.12) 13deg 15deg,
+    transparent 15deg 24deg
+  );
+  -webkit-mask-image: radial-gradient(circle, #000 0 14%, transparent 50%);
+  mask-image: radial-gradient(circle, #000 0 14%, transparent 50%);
+  opacity: 0;
+  animation:
+    mw-fade 0.8s 0.15s ease-out forwards,
+    mw-spin 40s linear infinite;
+}
+
+.mw-glow {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 96vmin;
+  height: 96vmin;
+  margin: -48vmin 0 0 -48vmin;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgb(184 255 31 / 0.32),
+    rgb(155 43 255 / 0.22) 36%,
+    transparent 66%
+  );
+  opacity: 0;
+  transform: scale(0.4);
+  animation:
+    mw-bloom 0.9s 0.1s cubic-bezier(0.2, 0.9, 0.2, 1) forwards,
+    mw-breathe 0.86s 1s ease-in-out infinite;
+}
+
+/* Hit tint: soft, centred, ≤ 0.3 opacity — a pressure wave, not a strobe. */
+.mw-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(50% 40% at 50% 46%, rgb(184 255 31 / 0.5), transparent 70%),
+    radial-gradient(90% 70% at 50% 46%, rgb(255 47 168 / 0.35), transparent 75%);
+  opacity: 0;
+}
+
+.mw.is-hit-a .mw-flash {
+  animation: mw-tint-a 0.42s ease-out;
+}
+.mw.is-hit-b .mw-flash {
+  animation: mw-tint-b 0.42s ease-out;
+}
+.mw.is-drop .mw-flash {
+  animation: mw-tint-a 0.7s ease-out;
+}
+
+/* Spectrum analyser along the bottom. */
+.mw-spec {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: clamp(90px, 19vh, 170px);
+  pointer-events: none;
+  opacity: 0;
+  -webkit-mask-image: linear-gradient(0deg, rgb(0 0 0 / 0.85) 20%, transparent);
+  mask-image: linear-gradient(0deg, rgb(0 0 0 / 0.85) 20%, transparent);
+  animation: mw-fade 0.5s 0.4s ease-out forwards;
+}
+
+.mw-spec-in {
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  padding: 0 6px;
+  transform-origin: 50% 100%;
+}
+
+.mw-spec i {
+  flex: 1;
+  height: calc(var(--h) * 100%);
+  background:
+    repeating-linear-gradient(0deg, transparent 0 5px, rgb(3 2 6 / 0.85) 5px 7px),
+    linear-gradient(0deg, var(--mw-acid) 0%, #e9ff8a 30%, var(--mw-mag) 70%, var(--mw-tox) 100%);
+  clip-path: polygon(0 4%, 100% 0, 100% 100%, 0 100%);
+  transform-origin: 50% 100%;
+  transform: scaleY(0.3);
+  animation: mw-eq var(--t) var(--d) ease-in-out infinite alternate;
+}
+
+.mw.is-hit-a .mw-spec-in {
+  animation: mw-spec-a 0.45s ease-out;
+}
+.mw.is-hit-b .mw-spec-in {
+  animation: mw-spec-b 0.45s ease-out;
+}
+.mw.is-drop .mw-spec-in {
+  animation: mw-spec-a 0.7s ease-out;
+}
+
+/* ---------- PAAS barrier (bottom-left, lifts on the final reveal) ---------- */
+.mw-gate {
+  position: absolute;
+  left: clamp(10px, 5vw, 80px);
+  bottom: clamp(18px, 5vh, 44px);
+  height: 0;
+  width: 0;
+  pointer-events: none;
+  opacity: 0;
+  animation: mw-rise 0.5s 0.6s ease-out forwards;
+}
+
+.mw-gate-post {
+  position: absolute;
+  left: -9px;
+  bottom: -40px;
+  width: 18px;
+  height: 64px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(90deg, #2a2338, #8b819d 35%, #3a3150 60%, #15111e);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.4),
+    0 6px 14px rgb(0 0 0 / 0.6);
+}
+
+.mw-gate-p {
+  position: absolute;
+  left: 50%;
+  bottom: 70px;
+  width: 30px;
+  height: 30px;
+  margin-left: -15px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  font: 800 21px/1 var(--font-sans);
+  color: #fff;
+  background: linear-gradient(160deg, #3d8bff, #0b47c9 60%, #062b85);
+  box-shadow:
+    inset 0 0 0 2px #fff,
+    inset 0 2px 0 3px rgb(255 255 255 / 0.25),
+    0 0 14px rgb(41 120 255 / 0.7);
+}
+
+.mw-gate-arm {
+  position: absolute;
+  left: 0;
+  bottom: 14px;
+  width: clamp(150px, 40vw, 380px);
+  height: 12px;
+  margin-top: -6px;
+  border-radius: 6px;
+  background: repeating-linear-gradient(90deg, #f6f2ff 0 24px, var(--mw-mag) 24px 48px), #fff;
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.7),
+    inset 0 -3px 0 rgb(0 0 0 / 0.35),
+    0 0 14px rgb(255 47 168 / 0.6);
+  transform-origin: 6px 50%;
+  transform: rotate(0deg);
+}
+
+.mw-gate-arm::after {
+  /* red tip light */
+  content: "";
+  position: absolute;
+  right: 4px;
+  top: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff3355;
+  box-shadow: 0 0 10px 2px #ff3355;
+  animation: mw-blink 0.9s steps(2, jump-none) infinite;
+}
+
+.mw.is-done .mw-gate-arm {
+  animation: mw-lift 0.9s 0.15s cubic-bezier(0.3, 1.5, 0.5, 1) forwards;
+}
+
+.mw.is-done .mw-gate-arm::after {
+  background: var(--mw-acid);
+  box-shadow: 0 0 10px 2px var(--mw-acid);
+  animation: none;
+}
+
+/* ---------- stage ---------- */
+.mw-stage {
+  position: relative;
+  max-width: 100%;
+}
+
+.mw.is-hit-a .mw-stage {
+  animation: mw-shake-a 0.38s cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+.mw.is-hit-b .mw-stage {
+  animation: mw-shake-b 0.38s cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+.mw.is-drop .mw-stage {
+  animation: mw-shake-drop 0.62s cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+
+.mw-core {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: clamp(4px, 1.1vh, 12px);
+  padding: 0 14px;
+  text-align: center;
+  /* CRT / set-top turn-on */
+  transform-origin: 50% 45%;
+  animation: mw-tv-on 0.42s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+/* Set-top box display: signal bars · text · LIVE */
+.mw-kicker {
+  position: relative;
+  z-index: 2;
+  margin: 0 0 clamp(2px, 0.8vh, 8px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  clip-path: polygon(
+    10px 0,
+    100% 0,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    0 100%,
+    0 10px
+  );
+  background: linear-gradient(180deg, #2c2536, #110d18 55%, #07050b);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    inset 0 -1px 0 rgb(0 0 0 / 0.8),
+    inset 0 0 0 1px rgb(155 43 255 / 0.55);
+  font-family: var(--font-mono);
+  font-size: clamp(0.58rem, 2.4vw, 0.8rem);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: #e7dcff;
+  white-space: nowrap;
+  opacity: 0;
+  animation: mw-rise 0.5s 0.25s ease-out forwards;
+}
+
+.mw-kick-txt b {
+  color: var(--mw-acid);
+  text-shadow: 0 0 8px rgb(184 255 31 / 0.8);
+}
+
+.mw-sig {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+
+.mw-sig i {
+  width: 3px;
+  background: var(--mw-acid);
+  box-shadow: 0 0 6px var(--mw-acid);
+  opacity: 0.25;
+  animation: mw-sig 1.2s steps(1, end) infinite;
+}
+.mw-sig i:nth-child(1) {
+  height: 25%;
+  animation-delay: 0s;
+}
+.mw-sig i:nth-child(2) {
+  height: 50%;
+  animation-delay: 0.15s;
+}
+.mw-sig i:nth-child(3) {
+  height: 75%;
+  animation-delay: 0.3s;
+}
+.mw-sig i:nth-child(4) {
+  height: 100%;
+  animation-delay: 0.45s;
+}
+
+.mw.is-done .mw-sig i {
+  animation: none;
+  opacity: 1;
+}
+
+.mw-live {
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: #ff2b55;
+  color: #fff;
+  font-size: 0.85em;
+  letter-spacing: 0.1em;
+  box-shadow: 0 0 8px rgb(255 43 85 / 0.7);
+  animation: mw-blink 1.4s steps(2, jump-none) infinite;
+}
+
+/* ---------- title: chrome-acid bevel, thick outline, specular, glint, RGB split, wobble ---------- */
+.mw-title {
+  position: relative;
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  line-height: 0.97;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(3rem, min(15.5vw, 13.5vh), 8rem);
+  letter-spacing: 0.02em;
+}
+
+.mw-wave {
+  position: absolute;
+  left: -30vw;
+  right: -30vw;
+  top: 50%;
+  height: 1.1em;
+  margin-top: -0.55em;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  animation: mw-fade 0.5s 0.9s ease-out forwards;
+}
+
+.mw-wave::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(200% + 400px);
+  background: url("/massive/wave.svg") 0 50% / 400px 100% repeat-x;
+  filter: drop-shadow(0 0 6px rgb(184 255 31 / 0.7));
+  opacity: 0.55;
+  animation: mw-scroll 1.72s linear infinite;
+}
+
+.mw-title-wob {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  transform-origin: 50% 60%;
+  animation: mw-wub 0.43s 1.25s ease-in-out infinite alternate;
+}
+
+.mw.is-done .mw-title-wob {
+  animation: mw-wub-soft 0.86s ease-in-out infinite alternate;
+}
+
+.mw-title-in {
+  display: grid;
+  justify-items: center;
+}
+
+.mw-title-in.is-ghost {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: screen;
+  opacity: 0.85;
+}
+
+.mw-title-in.is-a {
+  color: var(--mw-mag);
+  animation: mw-glitch-a 2.2s 1.2s steps(1, end) infinite;
+}
+
+.mw-title-in.is-b {
+  color: var(--mw-cyan);
+  animation: mw-glitch-b 2.2s 1.2s steps(1, end) infinite;
+}
+
+.mw-word {
+  display: flex;
+}
+
+.mw-word + .mw-word {
+  font-size: 0.84em;
+}
+
+.mw-ch {
+  position: relative;
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(-0.5em) scale(2.4);
+  animation: mw-slam 0.42s calc(0.3s + var(--i) * 0.055s) cubic-bezier(0.2, 1.4, 0.4, 1) forwards;
+}
+
+.is-ghost .mw-ch {
+  /* Same box as .mw-ch-fill so the split lines up with the chrome letters. */
+  padding: 0.2em 0.015em 0.04em;
+  margin: -0.2em 0 -0.04em;
+}
+
+.mw-ch-fill,
+.mw-ch::before,
+.mw-ch::after,
+.mw-ch-fill::after {
+  padding: 0.2em 0.015em 0.04em;
+}
+
+.mw-ch-fill {
+  position: relative;
+  display: block;
+  margin: -0.2em 0 -0.04em;
+  /* Chrome with an acid horizon line: the Pragmatic-style rendered metal, recoloured. */
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #f6ffd8 22%,
+    #d2ff52 40%,
+    #7fd800 49%,
+    #255b00 51%,
+    #6fe000 56%,
+    #c8ff3c 74%,
+    #f4ffc2 90%,
+    #ffffff 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-stroke: 0.018em rgb(250 255 225 / 0.95);
+}
+
+/* Thick outline + extrusion + toxic glow, under the fill. */
+.mw-ch::before {
+  content: attr(data-ch);
+  position: absolute;
+  inset: -0.2em 0 -0.04em;
+  color: #16052a;
+  -webkit-text-stroke: 0.17em #16052a;
+  filter: drop-shadow(0 0.07em 0 #3c0c78) drop-shadow(0 0.12em 0 #0a0212)
+    drop-shadow(0 0 0.16em rgb(155 43 255 / 0.95));
+}
+
+.is-ghost .mw-ch::before {
+  content: none;
+}
+
+/* Static specular cap on the upper half. */
+.mw-ch::after {
+  content: attr(data-ch);
+  position: absolute;
+  inset: -0.2em 0 -0.04em;
+  background: linear-gradient(
+    180deg,
+    transparent 18%,
+    rgb(255 255 255 / 0.95) 26%,
+    rgb(255 255 255 / 0.15) 46%,
+    transparent 48%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.is-ghost .mw-ch::after {
+  content: none;
+}
+
+/* Glint sweeping letter by letter (staggered opacity = a shine pass across the word). */
+.mw-ch-fill::after {
+  content: attr(data-ch);
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 32%,
+    rgb(255 255 255 / 0.95) 47%,
+    rgb(255 240 255 / 0.6) 53%,
+    transparent 64%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-stroke: 0;
+  opacity: 0;
+  animation: mw-glint 2.6s calc(1.4s + var(--i) * 0.06s) ease-in-out infinite;
+}
+
+/* ---------- amount: chrome-bezel licence plate ---------- */
+.mw-amt {
+  position: relative;
+  margin-top: clamp(6px, 1.6vh, 16px);
+  opacity: 0;
+  transform: scale(0.6);
+  animation:
+    mw-pop 0.5s 0.75s cubic-bezier(0.2, 1.3, 0.4, 1) forwards,
+    mw-swell 3.6s 1.25s ease-in-out forwards;
+}
+
+.mw.is-done .mw-amt {
+  animation: mw-final 0.45s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+}
+
+.mw-plate {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  padding: 4px;
+  border-radius: 10px;
+  /* bezel */
+  background: linear-gradient(180deg, #ffffff, #9a93a8 30%, #f2eefa 52%, #5f5870 78%, #c9c2d6);
+  box-shadow:
+    0 0 0 2px #16052a,
+    0 0 0 4px rgb(184 255 31 / 0.85),
+    0 0 26px 4px rgb(184 255 31 / 0.4),
+    0 0 60px rgb(155 43 255 / 0.5),
+    0 14px 30px rgb(0 0 0 / 0.7);
+}
+
+.mw-plate-eu {
+  display: grid;
+  align-content: end;
+  justify-items: center;
+  gap: 2px;
+  width: clamp(26px, 7vw, 40px);
+  padding: 4px 0 5px;
+  border-radius: 6px 0 0 6px;
+  background: linear-gradient(180deg, #2a5cff, #0a35b8 60%, #082a8f);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35);
+  font: 700 clamp(0.7rem, 2.6vw, 1rem) / 1 var(--font-sans);
+  color: #fff;
+}
+
+.mw-plate-stars {
+  width: 80%;
+  aspect-ratio: 1;
+  background: url("/massive/eu-stars.svg") center / contain no-repeat;
+}
+
+.mw-amt-val {
+  display: block;
+  min-width: 8ch;
+  padding: clamp(4px, 1vh, 10px) clamp(14px, 4vw, 30px);
+  border-radius: 0 6px 6px 0;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0) 45%),
+    linear-gradient(180deg, #f7f5fb, #dcd7e6 70%, #c6c0d2);
+  box-shadow:
+    inset 0 0 0 2px #16052a,
+    inset 0 3px 6px rgb(0 0 0 / 0.25);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2rem, min(10vw, 8.6vh), 4.4rem);
+  line-height: 1.12;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: #120a1e;
+  /* embossed plate digits */
+  text-shadow:
+    0 1px 0 #ffffff,
+    0 -1px 0 rgb(0 0 0 / 0.35),
+    0 2px 2px rgb(0 0 0 / 0.25);
+}
+
+.mw-plate-shine {
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: 0;
+  width: 26%;
+  background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.85) 50%, transparent);
+  mix-blend-mode: soft-light;
+  transform: translateX(-120%) skewX(-18deg);
+  animation: mw-sweep 2.4s 1.3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ---------- ticket-machine LCD with the multiplier ---------- */
+.mw-x {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 14px 5px 6px;
+  border-radius: 4px;
+  background:
+    repeating-linear-gradient(180deg, rgb(0 0 0 / 0.28) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 140% at 50% 0%, #1d3608, #071003 70%);
+  box-shadow:
+    inset 0 0 0 1px rgb(184 255 31 / 0.4),
+    inset 0 6px 12px rgb(0 0 0 / 0.6),
+    0 0 0 3px #1b1624,
+    0 0 0 4px rgb(255 255 255 / 0.12);
+  font-family: var(--font-mono);
+  font-size: clamp(0.78rem, 3vw, 1rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #a6e86a;
+  text-shadow: 0 0 6px rgb(184 255 31 / 0.6);
+  opacity: 0;
+  animation: mw-rise 0.4s 1s ease-out forwards;
+}
+
+.mw-x b {
+  color: #eaffb6;
+  font-size: 1.2em;
+}
+
+.mw-x-tag {
+  padding: 2px 6px;
+  border-radius: 2px;
+  background: var(--mw-tox);
+  color: #fff;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-shadow: none;
+  box-shadow: 0 0 10px rgb(155 43 255 / 0.7);
+}
+
+/* ---------- parking ticket + BEZ DANE stamp ---------- */
+.mw-ticket {
+  position: relative;
+  margin-top: clamp(2px, 1vh, 10px);
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 10px 18px 12px;
+  background:
+    radial-gradient(circle at 50% 0, transparent 3px, #f3efe6 3.5px) 0 0 / 12px 100% repeat-x,
+    linear-gradient(180deg, #f6f2ea, #e2dccf);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.15),
+    0 10px 24px rgb(0 0 0 / 0.6),
+    0 0 30px rgb(155 43 255 / 0.35);
+  color: #2b2433;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(26px) rotate(-1.5deg);
+}
+
+.mw-ticket::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--mw-tox), var(--mw-mag), var(--mw-acid));
+}
+
+.mw-ticket-head {
+  font-family: var(--font-mono);
+  font-size: clamp(0.5rem, 2vw, 0.64rem);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #4b4256;
+}
+
+.mw.is-done .mw-ticket {
+  animation: mw-ticket 0.36s ease-out forwards;
+}
+
+.mw-stamp {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  padding: 5px 12px 4px;
+  border: 3px solid #8a12e6;
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 0 2px #f6f2ea,
+    inset 0 0 0 3.5px #8a12e6;
+  color: #8a12e6;
+  font-family: var(--font-display);
+  line-height: 1;
+  opacity: 0;
+  transform: rotate(-7deg) scale(2.6);
+  mix-blend-mode: multiply;
+}
+
+.mw-stamp span {
+  font-size: clamp(1rem, 4.6vw, 1.7rem);
+  letter-spacing: 0.1em;
+}
+
+.mw-stamp small {
+  margin-top: 3px;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: clamp(0.5rem, 1.9vw, 0.66rem);
+  letter-spacing: 0.04em;
+}
+
+.mw.is-done .mw-stamp {
+  animation: mw-stamp 0.3s 0.32s cubic-bezier(0.5, 1.6, 0.5, 1) forwards;
+}
+
+.mw-hint {
+  margin: clamp(6px, 1.6vh, 16px) 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgb(231 220 255 / 0.7);
+  opacity: 0;
+  animation: mw-fade 0.4s 1.4s ease-out forwards;
+}
+
+/* ---------- particles: € coins, PARKVOLT cans, parking tickets, neon shards ---------- */
+.mw-fx {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.mw-bit {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  animation: mw-burst var(--t) var(--d) cubic-bezier(0.18, 0.7, 0.4, 1) infinite;
+}
+
+.mw-bit b {
+  display: block;
+  transform: scale(var(--s));
+}
+
+.mw-bit.is-coin b {
+  width: 34px;
+  height: 34px;
+  margin: -17px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, #ffffff 0 10%, transparent 12%),
+    radial-gradient(circle, #e8ff7a 0 50%, #4f9a00 52% 60%, #f2ffb8 62% 72%, #2d6000 74%);
+  box-shadow:
+    inset 0 -3px 0 rgb(20 50 0 / 0.5),
+    0 0 10px rgb(184 255 31 / 0.6);
+  animation: mw-flip 0.7s linear infinite;
+}
+
+.mw-bit.is-coin b::after {
+  content: "€";
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font: 800 17px/1 var(--font-sans);
+  color: #2a5200;
+}
+
+.mw-bit.is-can b {
+  width: 30px;
+  height: 46px;
+  margin: -23px -15px;
+  background: url("/symbols/can-t4.webp") center / contain no-repeat;
+}
+
+.mw-bit.is-ticket b {
+  width: 26px;
+  height: 38px;
+  margin: -19px -13px;
+  border-radius: 2px;
+  background:
+    linear-gradient(90deg, var(--mw-tox), var(--mw-mag)) 0 0 / 100% 5px no-repeat,
+    repeating-linear-gradient(180deg, transparent 0 5px, rgb(40 30 50 / 0.35) 5px 6px) 4px 20px /
+      18px 14px no-repeat,
+    linear-gradient(180deg, #fbf8f1, #e6e0d2);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+}
+
+.mw-bit.is-ticket b::after {
+  content: "P";
+  position: absolute;
+  left: 50%;
+  top: 7px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  display: grid;
+  place-items: center;
+  border-radius: 2px;
+  background: #0b47c9;
+  font: 800 9px/1 var(--font-sans);
+  color: #fff;
+}
+
+.mw-bit.is-shard b {
+  width: 22px;
+  height: 30px;
+  margin: -15px -11px;
+  background: linear-gradient(160deg, #f4ffc2, var(--mw-acid) 40%, var(--mw-tox) 100%);
+  clip-path: polygon(50% 0, 100% 78%, 30% 100%);
+  filter: drop-shadow(0 0 4px rgb(184 255 31 / 0.8));
+}
+
+.mw-bit:nth-child(3n).is-shard b {
+  background: linear-gradient(160deg, #ffe0f4, var(--mw-mag) 45%, var(--mw-tox-2));
+}
+
+/* ---------- keyframes ---------- */
+@keyframes mw-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes mw-pulse {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(560%);
+  }
+}
+
+@keyframes mw-scroll {
+  to {
+    transform: translateX(-400px);
+  }
+}
+
+@keyframes mw-bloom {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes mw-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.7;
+  }
+}
+
+@keyframes mw-eq {
+  from {
+    transform: scaleY(0.22);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes mw-spec-a {
+  0% {
+    transform: scaleY(1.45);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+@keyframes mw-spec-b {
+  0% {
+    transform: scaleY(1.45);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes mw-tint-a {
+  0% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes mw-tint-b {
+  0% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes mw-shake-a {
+  0% {
+    transform: translate(0, 7px) scale(1.035);
+  }
+  20% {
+    transform: translate(-6px, -3px) rotate(-0.6deg);
+  }
+  40% {
+    transform: translate(5px, 2px) rotate(0.5deg);
+  }
+  60% {
+    transform: translate(-3px, -1px);
+  }
+  80% {
+    transform: translate(2px, 1px);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes mw-shake-b {
+  0% {
+    transform: translate(0, 7px) scale(1.035);
+  }
+  20% {
+    transform: translate(6px, -3px) rotate(0.6deg);
+  }
+  40% {
+    transform: translate(-5px, 2px) rotate(-0.5deg);
+  }
+  60% {
+    transform: translate(3px, -1px);
+  }
+  80% {
+    transform: translate(-2px, 1px);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes mw-shake-drop {
+  0% {
+    transform: translate(0, 14px) scale(1.07);
+  }
+  12% {
+    transform: translate(-10px, -6px) rotate(-1deg) scale(1.02);
+  }
+  26% {
+    transform: translate(9px, 4px) rotate(0.9deg);
+  }
+  40% {
+    transform: translate(-6px, -3px) rotate(-0.4deg);
+  }
+  56% {
+    transform: translate(4px, 2px);
+  }
+  74% {
+    transform: translate(-2px, -1px);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes mw-tv-on {
+  0% {
+    opacity: 0;
+    transform: scale(1.3, 0.008);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.05, 0.02);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mw-sig {
+  0% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes mw-blink {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes mw-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mw-slam {
+  0% {
+    opacity: 0;
+    transform: translateY(-0.5em) scale(2.4);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* LFO wobble: squash / stretch / skew at a riddim 1/8 (≈ 140 BPM). */
+@keyframes mw-wub {
+  from {
+    transform: scale(1.045, 0.93) skewX(-5deg);
+  }
+  to {
+    transform: scale(0.975, 1.05) skewX(3deg);
+  }
+}
+@keyframes mw-wub-soft {
+  from {
+    transform: scale(1.02, 0.975) skewX(-2deg);
+  }
+  to {
+    transform: scale(0.99, 1.02) skewX(1.5deg);
+  }
+}
+
+/* RGB split: rests slightly offset, jumps on short glitch bursts. */
+@keyframes mw-glitch-a {
+  0% {
+    transform: translate(-0.035em, 0.01em);
+  }
+  62% {
+    transform: translate(-0.1em, -0.02em) skewX(8deg);
+  }
+  66% {
+    transform: translate(0.06em, 0.03em);
+  }
+  70% {
+    transform: translate(-0.035em, 0.01em);
+  }
+  88% {
+    transform: translate(-0.08em, 0) scaleY(1.06);
+  }
+  91% {
+    transform: translate(-0.035em, 0.01em);
+  }
+}
+@keyframes mw-glitch-b {
+  0% {
+    transform: translate(0.035em, -0.01em);
+  }
+  62% {
+    transform: translate(0.1em, 0.02em) skewX(-8deg);
+  }
+  66% {
+    transform: translate(-0.06em, -0.03em);
+  }
+  70% {
+    transform: translate(0.035em, -0.01em);
+  }
+  88% {
+    transform: translate(0.08em, 0) scaleY(0.95);
+  }
+  91% {
+    transform: translate(0.035em, -0.01em);
+  }
+}
+
+@keyframes mw-glint {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  20% {
+    opacity: 0;
+  }
+}
+
+@keyframes mw-sweep {
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  45%,
+  100% {
+    transform: translateX(520%) skewX(-18deg);
+  }
+}
+
+@keyframes mw-pop {
+  to {
+    opacity: 1;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes mw-swell {
+  from {
+    opacity: 1;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes mw-final {
+  0% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+  45% {
+    transform: scale(1.16);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.07);
+  }
+}
+
+@keyframes mw-lift {
+  to {
+    transform: rotate(-78deg);
+  }
+}
+
+@keyframes mw-ticket {
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(-1.5deg);
+  }
+}
+
+@keyframes mw-stamp {
+  0% {
+    opacity: 0;
+    transform: rotate(-7deg) scale(2.6);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(-7deg) scale(1);
+  }
+}
+
+@keyframes mw-burst {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  8% {
+    opacity: 1;
+  }
+  38% {
+    transform: translate(calc(var(--dx) * 0.8), var(--dy)) rotate(calc(var(--rot) * 0.4));
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), calc(var(--dy) + var(--fall))) rotate(var(--rot));
+  }
+}
+
+@keyframes mw-flip {
+  0%,
+  100% {
+    transform: scale(var(--s)) scaleX(1);
+  }
+  50% {
+    transform: scale(var(--s)) scaleX(0.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mw *,
+  .mw *::before,
+  .mw *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .mw-rays,
+  .mw-glow,
+  .mw-fibre,
+  .mw-spec,
+  .mw-wave,
+  .mw-gate,
+  .mw-kicker,
+  .mw-ch,
+  .mw-amt,
+  .mw-x,
+  .mw-ticket,
+  .mw-hint,
+  .mw-sig i {
+    opacity: 1;
+    transform: none;
+  }
+  .mw-fibre i::after,
+  .mw-flash {
+    opacity: 0;
+  }
+  .mw-amt {
+    transform: scale(1.04);
+  }
+  .mw-ticket {
+    transform: rotate(-1.5deg);
+  }
+  .mw-gate-arm {
+    transform: rotate(-78deg);
+  }
+  .mw-stamp {
+    opacity: 1;
+    transform: rotate(-7deg);
+  }
+  .mw-spec-in {
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    padding: 0 6px;
+    transform-origin: 50% 100%;
+  }
+
+  .mw-spec i {
+    transform: scaleY(0.6);
+  }
+  .mw-fx {
+    display: none;
+  }
+  .mw-back {
+    animation: mw-fade 0.2s ease-out both !important;
+  }
+}

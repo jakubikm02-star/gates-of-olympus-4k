@@ -92,7 +92,9 @@ export interface TaxFly {
   delta: number;
 }
 
-export type WinBanner = "win" | "big" | "mega" | "epic" | "max" | "fs" | "fsTotal" | "pool" | null;
+export type WinBanner = "win" | "big" | "mega" | "epic" | "massive" | "max" | "fs" | "fsTotal" | "pool" | null;
+/** MASÍVNA VÝHRA stays up this long unless tapped (count-up ~4.2 s + hold). */
+const MASSIVE_HOLD_MS = 7600;
 
 export interface BannerMeta {
   spins: number;
@@ -182,6 +184,8 @@ export function useSlotGame() {
   const [seqMult, setSeqMult] = useState(0);
   const [banner, setBanner] = useState<WinBanner>(null);
   const [bannerAmount, setBannerAmount] = useState(0);
+  /** Win in bet multiples for the banner on screen (MASÍVNA VÝHRA shows it). */
+  const [bannerX, setBannerX] = useState(0);
   const [bannerMeta, setBannerMeta] = useState<BannerMeta | null>(null);
   const [pickOpen, setPickOpen] = useState(false);
   const [pickTiles, setPickTiles] = useState<PickTile[]>([]);
@@ -2014,6 +2018,7 @@ export function useSlotGame() {
       const x = lastPaidXRef.current;
       let kind: WinBanner = null;
       if (hitMax) kind = "max";
+      else if (x >= WIN_POP_X.massive) kind = "massive";
       else if (x >= WIN_POP_X.epic) kind = "epic";
       else if (x >= WIN_POP_X.mega) kind = "mega";
       else if (x >= WIN_POP_X.big) kind = "big";
@@ -2139,14 +2144,16 @@ export function useSlotGame() {
         bannerOpen.current = true;
         setBanner(kind);
         setBannerAmount(cash);
+        setBannerX(x);
         if (kind === "max") sfx.playMaxWin();
+        else if (kind === "massive") sfx.playMassiveWin();
         else sfx.playBigWin();
         setPhase(kind === "max" ? "max" : "big");
         const halt =
           autoRef.current &&
           autoHaltRef.current &&
-          (kind === "big" || kind === "mega" || kind === "epic" || kind === "max");
-        await waitForBanner(halt ? "click" : 2800);
+          (kind === "big" || kind === "mega" || kind === "epic" || kind === "massive" || kind === "max");
+        await waitForBanner(halt ? "click" : kind === "massive" ? MASSIVE_HOLD_MS : 2800);
       }
 
       setWinMask(null);
@@ -2309,6 +2316,19 @@ export function useSlotGame() {
         globalMultRef.current = 0;
         setDisplayWin(featureTotal);
         setSpinWin(featureTotal);
+        const featureX = betNow > 0 ? featureTotal / betNow : 0;
+        // 4KA TV pops no per-spin banners, so a massive bonus is announced once, at the end, before the summary.
+        const massive = featureX >= WIN_POP_X.massive;
+        if (massive) {
+          bannerOpen.current = true;
+          setBanner("massive");
+          setBannerAmount(featureTotal);
+          setBannerX(featureX);
+          setPhase("big");
+          setTopLine("MASÍVNA VÝHRA");
+          sfx.playMassiveWin();
+          await waitForBanner(autoRef.current && autoHaltRef.current ? "click" : MASSIVE_HOLD_MS);
+        }
         setBannerMeta({
           spins: sess.played,
           extra: sess.extra,
@@ -2321,7 +2341,8 @@ export function useSlotGame() {
         setPhase(hitCap ? "max" : "big");
         setTopLine("4KA TV SKONČILA");
         setMessage(featureTotal > 0 ? `VÝHRA ${formatMoney(featureTotal)}` : "4KA TV SKONČILA");
-        if (featureTotal > 0 || hitCap) sfx.playBigWin();
+        if (massive) sfx.playPayout();
+        else if (featureTotal > 0 || hitCap) sfx.playBigWin();
         else sfx.playPayout();
         sfx.stopLiveBed();
         const escrow = Boolean(duelRef.current && duelRef.current.phase !== "done");
@@ -2901,6 +2922,7 @@ export function useSlotGame() {
     seqMult,
     banner,
     bannerAmount,
+    bannerX,
     bannerMeta,
     closeBanner,
     pickOpen,

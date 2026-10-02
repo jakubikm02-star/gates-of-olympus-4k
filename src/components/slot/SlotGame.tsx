@@ -26,6 +26,7 @@ import { BonusIcon, BonusNote, BonusPill, LegCounters, TicketGoals } from "./Tic
 import { ticketBonus } from "@/lib/slot/ticket-bonus";
 import { DuelSheet, DuelBar, DuelLink } from "./DuelSheet";
 import { Settings } from "./Settings";
+import { MassiveWin } from "./MassiveWin";
 import { Leaderboard, NickAsk } from "./Leaderboard";
 import { HEAT_MAX } from "@/lib/slot/heat";
 import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
@@ -88,6 +89,7 @@ function HandBolt({ strike }: { strike: { r: number; c: number } | null }) {
 
 const BANNER_COPY: Record<string, string> = {
   max: "MAX WIN 5000×",
+  massive: "MASÍVNA VÝHRA",
   epic: "SUPER MEGA WIN",
   mega: "MEGA WIN",
   big: "BIG WIN",
@@ -854,7 +856,10 @@ export function SlotGame() {
           </button>
         </div>
       ) : null}
-      {g.banner && (
+      {g.banner === "massive" ? (
+        <MassiveWin key={`${g.bannerAmount}-${g.bannerX}`} amount={g.bannerAmount} x={g.bannerX} onClose={g.closeBanner} />
+      ) : null}
+      {g.banner && g.banner !== "massive" && (
         <div className="banner" onClick={g.closeBanner} role="presentation">
           <div className={`banner-card ${g.banner}`} role="dialog" aria-label="Výhra">
             <header className="wb-title">

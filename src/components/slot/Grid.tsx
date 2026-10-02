@@ -35,7 +35,7 @@ interface Props {
   activeWindow?: number;
   windowPhase?: "travel" | "hover" | "land" | "reveal";
   chaseTarget?: PayId | null;
-  /** ZÁSAH result on screen: cells with chaseTarget wear the green lock-on frame, the rest dim. */
+  /** ZÁSAH result on screen: cells with chaseTarget get a soft green tint, the rest dim slightly. */
   aimOn?: boolean;
   /** Symbol Finančná správa holds this ZÁSAH. Those cells wear the FS seal. */
   fsSym?: FsSymId | null;
@@ -131,12 +131,7 @@ function CellView({
       {!cell.gone && win && <span className="win-fx" aria-hidden="true" />}
       {hot && <span className="orb-strike" aria-hidden="true" />}
       {aim === "on" && !cell.gone && (
-        <span className="aim-lock" aria-hidden="true">
-          <b className="al-tl" />
-          <b className="al-tr" />
-          <b className="al-bl" />
-          <b className="al-br" />
-        </span>
+        <span className="aim-lock" aria-hidden="true" />
       )}
       {popping && win && (
         <span className="pop-burst" aria-hidden="true">
