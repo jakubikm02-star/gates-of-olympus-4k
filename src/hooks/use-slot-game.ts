@@ -43,7 +43,8 @@ import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from 
 import { emptyBoard, isEligibleBet, ticketResolve, TIER_BY_ID, type BoardSnap, type JackpotHit, type TierId } from "@/lib/slot/jackpot";
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
 import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDesk, ticketProfit, type DeskDay } from "@/lib/slot/desk-api";
-import { putBoard, readBestMark, readNick, saveNick, skipNick, winHow, writeBestHow } from "@/lib/slot/board-api";
+import { putBoard, readBestMark, readBestRecipe, readNick, saveNick, skipNick, winHow, writeBestHow, writeBestRecipe } from "@/lib/slot/board-api";
+import { emptyTally, mergeTally, notePays, topCans, topPays, type SeqTally, type WinRecipe } from "@/lib/slot/win-recipe";
 import { HEAT_MAX, heatFromWin } from "@/lib/slot/heat";
 import { ZASAH, modMul, rollTarget, rollWindows, tickMod, windowCount, type ChaseMod, type ChaseModKind, type ChaseOutcome, type ChaseState, type HackWindow } from "@/lib/slot/zasah";
 import { BUILD_ID, dropStaleCaches, hardReload, releaseMatches } from "@/lib/slot/release";
@@ -299,6 +300,12 @@ export function useSlotGame() {
   const mineRef = useRef<DeskDay>(emptyDesk());
   const bestHowRef = useRef("");
   const bestStakeRef = useRef(0);
+  const bestRecipeRef = useRef<WinRecipe | null>(null);
+  /** What the last runSequence paid with (symbols, cans, scatters). */
+  const lastTallyRef = useRef<SeqTally>(emptyTally());
+  /** Free-spin feature total, folded spin by spin. */
+  const fsTallyRef = useRef<SeqTally>(emptyTally());
+  const fsAnteRef = useRef(false);
   const heatRef = useRef(0);
   const [heat, setHeat] = useState(0);
   const klientiRef = useRef(0);
@@ -461,6 +468,7 @@ export function useSlotGame() {
     const mark = readBestMark(mineDay.day);
     bestHowRef.current = mark.how;
     bestStakeRef.current = mark.stake;
+    bestRecipeRef.current = readBestRecipe(mineDay.day);
     setNick(readNick());
     setMine(mineDay);
     saveSnapRef.current = {
@@ -492,17 +500,22 @@ export function useSlotGame() {
     writeLocal(next);
   }, []);
 
-  const bumpToday = useCallback((wager: number, win: number, how = "", maxStake = 0) => {
+  const bumpToday = useCallback((wager: number, win: number, how = "", maxStake = 0, recipe: WinRecipe | null = null) => {
     const day = deskToday();
     const prevBest = mineRef.current.day === day ? mineRef.current.best : 0;
     if (mineRef.current.day !== day) {
       bestHowRef.current = "";
       bestStakeRef.current = 0;
+      bestRecipeRef.current = null;
     }
     if (win > prevBest && how) {
       bestHowRef.current = how;
       bestStakeRef.current = maxStake;
       writeBestHow(day, how, maxStake);
+    }
+    if (win > prevBest && win > 0) {
+      bestRecipeRef.current = recipe;
+      writeBestRecipe(day, recipe);
     }
     const nextMine = bumpLocalDesk(mineRef.current, wager, win);
     mineRef.current = nextMine;
@@ -518,6 +531,7 @@ export function useSlotGame() {
         nextMine.best,
         bestHowRef.current,
         bestStakeRef.current,
+        bestRecipeRef.current,
       ).catch(() => {});
     }
   }, []);
@@ -1071,7 +1085,7 @@ export function useSlotGame() {
   }, []);
 
   const payPoolHit = useCallback(
-    async (board: BoardSnap, how = "") => {
+    async (board: BoardSnap, how = "", recipe: WinRecipe | null = null) => {
       const credit = board.credit > 0 ? board.credit : 0;
       const jackpots = board.hits;
       const main = jackpots[0] ?? {
@@ -1094,7 +1108,7 @@ export function useSlotGame() {
       setSpinWin((w) => +(w + payout).toFixed(2));
       setBalance((b) => +(b + payout).toFixed(2));
       setBestWin((w) => Math.max(w, payout));
-      bumpToday(0, payout, how, BETS[betIndexRef.current] ?? 0);
+      bumpToday(0, payout, how, BETS[betIndexRef.current] ?? 0, recipe);
       noteHeat(payout, BETS[betIndexRef.current] ?? 0);
       setSpinTape((t) => [{ label: shown.name, amount: formatMoney(payout) }, ...t].slice(0, 8));
       if (autoRef.current && !duelRef.current) {
@@ -1128,7 +1142,7 @@ export function useSlotGame() {
       try {
         const claimed = await withRetry(() => postParkClaim(tier, playerIdRef.current));
         applyBoard(claimed);
-        await payPoolHit(claimed, `LÍSTOK ${TICKETS[tier].name}`);
+        await payPoolHit(claimed, `LÍSTOK ${TICKETS[tier].name}`, { v: 1, mode: "ticket", pays: [], ticket: tier });
       } catch {
         /* keep lock off */
       }
@@ -1503,6 +1517,7 @@ export function useSlotGame() {
       let pdfHit = false;
       let clusterCount = 0;
       const payHits = new Set<PayId>();
+      const tally = emptyTally();
       const fsNow = isFree || inFsRef.current;
       if (!fsNow && scatterPeak >= FS_TRIGGER_SCATTERS) pendingFs = true;
       const DEAD = ["RAMPA STOJÍ", "VALCE SPALI", "NIČ. ZNOVA.", "POKUTA BEZ LÍSTKA", "ZÓNA TICHÁ"];
@@ -1516,6 +1531,7 @@ export function useSlotGame() {
         for (const w of ev.wins) {
           if (w.payId !== "scatter") payHits.add(w.payId);
         }
+        notePays(tally, ev.wins);
         if (ev.wins.some((w) => w.payId === "pdf" && w.count >= 8)) pdfHit = true;
 
         if (ev.scatterCount > landedScatters) {
@@ -1676,6 +1692,10 @@ export function useSlotGame() {
       const orbSum = orbs.reduce((s, o) => s + o.mult, 0);
       const willThrow = sequenceX > 0 && orbSum > 0;
       let applied = 1;
+      tally.scatters = scatterPeak;
+      tally.tumbles = tumbleN;
+      if (willThrow) tally.cans = orbs.map((o) => o.mult);
+      lastTallyRef.current = tally;
 
       if (willThrow) {
         setPhase("mult");
@@ -1926,7 +1946,21 @@ export function useSlotGame() {
                 pays: [...payHits].slice(0, 2).map((id) => payName(id)),
               })
             : "";
-        bumpToday(cost, opts?.buy ? 0 : cash, how, bet);
+        const recipe: WinRecipe | null =
+          cash > 0 && !opts?.buy
+            ? {
+                v: 1,
+                mode: chasing ? "zasah" : "base",
+                pays: topPays(tally),
+                cans: willThrow ? topCans(tally.cans) : undefined,
+                mult: willThrow && applied > 1 ? applied : undefined,
+                scatters: scatterPeak >= 3 ? scatterPeak : undefined,
+                tumbles: tumbleN > 0 ? tumbleN : undefined,
+                ante: anteRef.current || undefined,
+                mod: chasing ? ZASAH.BOOST : mul !== 1 ? mul : undefined,
+              }
+            : null;
+        bumpToday(cost, opts?.buy ? 0 : cash, how, currentBet, recipe);
       }
 
       if (!jpShowRef.current) setPots(boardRef.current.pots);
@@ -2007,7 +2041,12 @@ export function useSlotGame() {
       if (w === d.you && pot > 0) {
         const mine = Math.round(d.seats[d.you].score);
         const other = Math.round(d.seats[d.you === 0 ? 1 : 0].score);
-        bumpToday(0, pot, winHow({ mode: "DUEL", duel: `${mine} vs ${other}` }), BETS[betIndexRef.current] ?? 0);
+        bumpToday(0, pot, winHow({ mode: "DUEL", duel: `${mine} vs ${other}` }), BETS[betIndexRef.current] ?? 0, {
+          v: 1,
+          mode: "duel",
+          pays: [],
+          vs: [mine, other],
+        });
       }
     }
     const link = duelLinkRef.current;
@@ -2058,6 +2097,7 @@ export function useSlotGame() {
           setFsLeft(sess.left);
           persistNow();
           const inner = await runSequence({ free: true });
+          mergeTally(fsTallyRef.current, lastTallyRef.current);
           sess.left -= 1;
           sess.played += 1;
           setFsLeft(sess.left);
@@ -2131,6 +2171,18 @@ export function useSlotGame() {
               mult: sess.peak,
             }),
             betNow,
+            {
+              v: 1,
+              mode: sess.bought ? "buy" : "fs",
+              pays: topPays(fsTallyRef.current),
+              cans: topCans(fsTallyRef.current.cans),
+              mult: sess.peak > 1 ? sess.peak : undefined,
+              scatters: fsTallyRef.current.scatters >= 3 ? fsTallyRef.current.scatters : undefined,
+              spins: sess.played || undefined,
+              extra: sess.extra || undefined,
+              ante: (!sess.bought && fsAnteRef.current) || undefined,
+              mod: mul !== 1 ? mul : undefined,
+            },
           );
         }
         roundCashRef.current = featureTotal;
@@ -2308,6 +2360,9 @@ export function useSlotGame() {
 
       if (r === "fs") {
         await wait(300);
+        fsTallyRef.current = { ...emptyTally(), scatters: triggerScatterRef.current };
+        mergeTally(fsTallyRef.current, lastTallyRef.current);
+        fsAnteRef.current = Boolean(anteRef.current && !opts?.buy);
         fsSessionRef.current = {
           left: fsCount,
           total: fsCount,
@@ -2717,6 +2772,7 @@ export function useSlotGame() {
             mineNow.best,
             bestHowRef.current,
             bestStakeRef.current,
+            bestRecipeRef.current,
           ).catch(() => {});
         }
       }
