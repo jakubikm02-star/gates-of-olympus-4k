@@ -156,7 +156,7 @@ describe("rank stake + perk", () => {
     assert.equal(top.total, kredit.total);
     assert.equal(perkOf("nekonecno").jackTicket, 1);
     assert.equal(perkOf("sloboda").streakHold, true);
-    assert.equal(perkOf("smart").anteMul, 1.22);
+    assert.equal(perkOf("smart").anteMul, 1.1);
     assert.equal(perkOf("optika").deadRebate, 0.03);
     assert.equal(perkOf("nekonecno").deadRebate, 0.05);
     assert.equal(perkOf("nekonecno").stickyOrbs, false);

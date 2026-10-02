@@ -151,7 +151,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             Lístok vo 4KA TV smie padnúť, ceremónia ide až po jej konci. Banner je{" "}
             <code>1-FTTB · 1 742,20</code> — žiadny WinBox, žiadny terminál.
           </li>
-          <li>Ante zdvojnásobí 4KA TV, nie šancu lístka. Od SMART stojí 1,22× namiesto 1,25×. Buy je vždy 79×. Pity je IDLE meter, nikdy jackpot.</li>
+          <li>Ante zdvojnásobí 4KA TV, nie šancu lístka. Stojí 1,13×, od SMART 1,10×. Buy je vždy 79×. Pity je IDLE meter, nikdy jackpot.</li>
           <li>
             KONTROLA má vlastný PITY meter na každú stávku (100). Iba mŕtvy spin (+2) a 3 / 4 scattere
             (+30). Po spustení bar padne na 0. Kúpiť sa nedá.
@@ -179,7 +179,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
           <li>
             Rovnaký tvar ako Gates of Olympus: RTP okolo {(MATH_NOTE.rtp * 100).toFixed(1)} %, hit{" "}
             {(MATH_NOTE.hit * 100).toFixed(1)} %, kúpa je tá istá 4KA TV. 4KA TV 1/{MATH_NOTE.bonusEvery}, kúpa za 79×
-            vracia asi {(MATH_NOTE.buyEv * 100).toFixed(1)}×. High-vol demo, nie certifikát 96.50 %.
+            vracia asi {(MATH_NOTE.buyEv * 100).toFixed(0)} % ceny. High-vol demo, nie certifikát 96.50 %.
           </li>
         </ul>
         <details className="math-box">

@@ -3,7 +3,7 @@ export const MASTER_RP = 300;
 export const PROMO_BUFFER = 40;
 export const WIN_RP_CAP = 200;
 
-const ANTE_BASE = 1.25;
+const ANTE_BASE = 1.13;
 const BUY_BASE = 79;
 const FS_BASE = 15;
 const BASE_HIT = 0.284;
@@ -269,13 +269,13 @@ export const RANK_PERKS: RankPerk[] = [
   },
   {
     id: "smart",
-    title: "Ante 1,22×",
-    detail: "Ante 1,22×. Na kontrole vidíš cenu jedného lístka do 0,20×.",
+    title: "Ante 1,10×",
+    detail: "Ante 1,10×. Na kontrole vidíš cenu jedného lístka do 0,20×.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
     dripX: 0,
-    anteMul: 1.22,
+    anteMul: 1.1,
     fsExtra: 0,
     buyOff: 0,
     deadRebate: 0,
@@ -287,12 +287,12 @@ export const RANK_PERKS: RankPerk[] = [
   {
     id: "telka",
     title: "Hold + ante",
-    detail: "Ante 1,22× a hold série. Na kontrole vidíš lístok do 0,40×.",
+    detail: "Ante 1,10× a hold série. Na kontrole vidíš lístok do 0,40×.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
     dripX: 0,
-    anteMul: 1.22,
+    anteMul: 1.1,
     fsExtra: 0,
     buyOff: 0,
     deadRebate: 0,
@@ -309,7 +309,7 @@ export const RANK_PERKS: RankPerk[] = [
     jackTicket: 1,
     streakHold: true,
     dripX: 0,
-    anteMul: 1.22,
+    anteMul: 1.1,
     fsExtra: 0,
     buyOff: 0,
     deadRebate: 0.03,
@@ -326,7 +326,7 @@ export const RANK_PERKS: RankPerk[] = [
     jackTicket: 1,
     streakHold: true,
     dripX: 0.5,
-    anteMul: 1.22,
+    anteMul: 1.1,
     fsExtra: 1,
     buyOff: 0,
     deadRebate: 0.03,
@@ -343,7 +343,7 @@ export const RANK_PERKS: RankPerk[] = [
     jackTicket: 1,
     streakHold: true,
     dripX: 1,
-    anteMul: 1.22,
+    anteMul: 1.1,
     fsExtra: 1,
     buyOff: 0,
     deadRebate: 0.03,
@@ -360,7 +360,7 @@ export const RANK_PERKS: RankPerk[] = [
     jackTicket: 1,
     streakHold: true,
     dripX: 2,
-    anteMul: 1.22,
+    anteMul: 1.1,
     fsExtra: 2,
     buyOff: 0,
     deadRebate: 0.05,
@@ -501,7 +501,7 @@ export const RANK_REWARDS = [
   { id: "tumble", title: "Cluster pop", detail: "Dva a viac pop v jednom spine: +2 až +8 RP." },
   { id: "banner", title: "BIG / MEGA / EPIC / MAX", detail: "Popup: +4 / +8 / +12 / +18." },
   { id: "bonus", title: "4KA TV", detail: "4KA TV total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Buy je vždy 79×. 4KA TV je 15, od DUO 16, v NEKONEČNO 17. Kúpa sa ráta voči cene, prehra berie entry ako mŕtve spiny (max 1 divízia)." },
-  { id: "rank", title: "Aktívna liga", detail: "Vyšší rank berie viac RP za mŕtvy spin. Ante 1,22× od SMART, cashback so stropom od OPTIKA, +1 a +2 točenia v 4KA TV. Liga nenásobí výhru a nelacní buy." },
+  { id: "rank", title: "Aktívna liga", detail: "Vyšší rank berie viac RP za mŕtvy spin. Ante 1,10× od SMART, cashback so stropom od OPTIKA, +1 a +2 točenia v 4KA TV. Liga nenásobí výhru a nelacní buy." },
   { id: "reload", title: "Exekúcia", detail: "Pod minimálnou stávkou dobitie vráti rank na KREDIT IV. RP, štít, séria, hlásenie a daň sa vynulujú. Sezónne maximum, klienti, štatistiky a tikety ostanú. Kredit je znova 5 000." },
   { id: "week", title: "Týždenný drop", detail: "Raz za 7 dní klesáš o jednu divíziu, nie o celú skupinu. Dlhšia pauza zoberie najviac jednu skupinu. Štít týždeň nechytá." },
 ] as const;
