@@ -140,26 +140,26 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             Must-hit: keď meter prekročí skrytý prah, tá farba je do 15 spinov, 16. spin ju donúti. 4-FTTB 70 / 15 / 15. Čo sa nerozdá ďalším hráčom, ostane v pote. Nový pot sa nedopĺňa z výhry.
           </li>
           <li>
-            4 a viac scatterov kdekoľvek na obrazovke — aj počas tumble — spustí free spiny. 4 sú 15 točení, každý ďalší scatter pridá 4.
-            Scatter ostane na poli, kým bonus nezačne. 4ka TV trigger bije lístok: ceremónia čaká.
+            4 a viac scatterov kdekoľvek na obrazovke — aj počas tumble — spustí 4KA TV. 4 sú 15 točení, každý ďalší scatter pridá 4.
+            Scatter ostane na poli, kým 4KA TV nezačne. 4KA TV trigger bije lístok: ceremónia čaká.
           </li>
           <li>Výherné symboly zmiznú, nové spadnú zhora (tumble). Plechovky, scatter aj lístok tumble prežijú.</li>
           <li>Násobiče nepadajú z valca ako RJ45. Rampa ich pustí ako energy plechovky. 15 hodnôt, sčítajú sa (50+100=150, nie 5 000). Aktivujú sa až na konci reťaze, a len ak bola výhra. 2–5 sú asi 72 % plechoviek, priemer ~7×.</li>
           <li>Base: súčet plechoviek × celá tumble sekvencia, potom reset. Vo FS sa plechovka pripočíta do Mbps len na výhernom spine a najprv sa sčíta (50+5=55), potom sa sekvencia zapíše ako 55× tumble. Výhra bez novej plechovky je samotný tumble — uložený Mbps sa na ňu nepúšťa. Bez výhry ostanú na mieste a nič sa nestane.</li>
-          <li>4 scattere = 15 voľných točení. Každý ďalší scatter na otvorení pridá 4, takže 6 scatterov začína na 23. V bonuse 3+ scattere = +5. Výplata scatteru je 3× / 5× / 100×.</li>
+          <li>4 scattere = 15 voľných točení. Každý ďalší scatter na otvorení pridá 4, takže 6 scatterov začína na 23. V 4KA TV 3+ scattere = +5. Výplata scatteru je 3× / 5× / 100×.</li>
           <li>
-            Lístok vo feature smie padnúť, ceremónia ide až po SIEŤ SPADLA. Banner je{" "}
+            Lístok vo 4KA TV smie padnúť, ceremónia ide až po jej konci. Banner je{" "}
             <code>1-FTTB · 1 742,20</code> — žiadny WinBox, žiadny terminál.
           </li>
-          <li>Ante zdvojnásobí 4ka TV, nie šancu lístka. Od SMART stojí 1,22× namiesto 1,25×. Buy je vždy 79×. Pity je IDLE meter, nikdy jackpot.</li>
+          <li>Ante zdvojnásobí 4KA TV, nie šancu lístka. Od SMART stojí 1,22× namiesto 1,25×. Buy je vždy 79×. Pity je IDLE meter, nikdy jackpot.</li>
           <li>
             KONTROLA má vlastný PITY meter na každú stávku (100). Iba mŕtvy spin (+2) a 3 / 4 scattere
             (+30). Po spustení bar padne na 0. Kúpiť sa nedá.
           </li>
           <li>
             Od kreditu 100 € tikety. Dokopy je súčet, nemusí ísť po sebe. Po sebe sú len REŤAZ
-            (mŕtvy spin radu vynuluje) a SUCHO (výhra tiket hneď končí). LIVE sa plní len v PARKNET.
-            Kúpený PARKNET je POHOTOVOSŤ. Duel online točíte naraz, live skóre. Víťaz berie výhry oboch.
+            (mŕtvy spin radu vynuluje) a SUCHO (výhra tiket hneď končí). Plní sa len v 4KA TV.
+            Kúpená 4KA TV je POHOTOVOSŤ. Duel online točíte naraz, priebežné skóre. Víťaz berie výhry oboch.
           </li>
           <li>
             Kredit, pity aj rank sa ukladajú v tomto prehliadači. Pod minimálnou stávkou je EXEKÚCIA: rank spadne na KREDIT IV, kredit je znova 5 000. Sezónne maximum ostane.
@@ -170,15 +170,15 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
           </li>
           <li>
             Win popup ako na Olympuse: BIG WIN od 20× stávky, MEGA WIN od 35×, SUPER MEGA WIN od 50×.
-            MAX WIN 5000× ukončí feature.
+            MAX WIN 5000× ukončí 4KA TV.
           </li>
           <li>
             Kúpa voľných točení = 79× základná stávka na každom ranku. Ante sa na kúpu nevzťahuje.
-            Do ranku sa kúpa ráta ako 79 točení. Max 5000× je strop celej feature — potom FEATURE TERMINATED.
+            Do ranku sa kúpa ráta ako 79 točení. Max 5000× je strop celej 4KA TV — potom 4KA TV UKONČENÁ.
           </li>
           <li>
             Rovnaký tvar ako Gates of Olympus: RTP okolo {(MATH_NOTE.rtp * 100).toFixed(1)} %, hit{" "}
-            {(MATH_NOTE.hit * 100).toFixed(1)} %, PARKNET aj kúpa sú tá istá feature. Bonus 1/{MATH_NOTE.bonusEvery}, kúpa za 79×
+            {(MATH_NOTE.hit * 100).toFixed(1)} %, kúpa je tá istá 4KA TV. 4KA TV 1/{MATH_NOTE.bonusEvery}, kúpa za 79×
             vracia asi {(MATH_NOTE.buyEv * 100).toFixed(1)}×. High-vol demo, nie certifikát 96.50 %.
           </li>
         </ul>
@@ -186,7 +186,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
           <summary>MATH</summary>
           <p>
             {MATH_NOTE.spins.toLocaleString("sk-SK")} paid spinov, rovnaký engine ako hra. Hit rate{" "}
-            {(MATH_NOTE.hit * 100).toFixed(2)} %. Bonus každých {MATH_NOTE.bonusEvery} točení, s ante 1/
+            {(MATH_NOTE.hit * 100).toFixed(2)} %. 4KA TV každých {MATH_NOTE.bonusEvery} točení, s ante 1/
             {MATH_NOTE.anteBonusEvery}. Buy EV {MATH_NOTE.buyEv.toFixed(3)} (79× stávka, ante off). Max 5000×{" "}
             {MATH_NOTE.maxEvery ? `~1/${MATH_NOTE.maxEvery}` : "v tejto vzorke 0×"}.
           </p>

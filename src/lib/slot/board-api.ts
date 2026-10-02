@@ -30,7 +30,7 @@ export function winHow(opts: {
 }): string {
   if (opts.mode === "LÍSTOK") return `LÍSTOK ${opts.ticket ?? ""}`.trim().slice(0, 80);
   if (opts.mode === "DUEL") return ["DUEL", opts.duel].filter(Boolean).join(" · ").slice(0, 80);
-  const bits: string[] = [opts.mode === "BASE" ? "BASE" : "PARKNET"];
+  const bits: string[] = [opts.mode === "BASE" ? "BASE" : "4KA TV"];
   if (opts.mode === "BASE") {
     for (const name of (opts.pays ?? []).slice(0, 2)) bits.push(name);
     if ((opts.pops ?? 0) > 0 && bits.length < 4) bits.push(`${opts.pops} pop`);
@@ -38,7 +38,7 @@ export function winHow(opts: {
     if ((opts.signal ?? 0) > 1) bits.push(`SIGNÁL ${Math.round(opts.signal!)}×`);
     if ((opts.pdf ?? 0) > 0 && bits.length < 4) bits.push(`${opts.pdf}× PDF`);
     if ((opts.mult ?? 0) > 1 && bits.length < 4) bits.push(`${Math.round(opts.mult!)}×`);
-    if ((opts.spins ?? 0) > 0 && bits.length < 4) bits.push(`${opts.spins} FS`);
+    if ((opts.spins ?? 0) > 0 && bits.length < 4) bits.push(`${opts.spins} točení`);
   }
   return bits.slice(0, 4).join(" · ").slice(0, 80);
 }

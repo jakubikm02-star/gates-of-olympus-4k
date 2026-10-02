@@ -116,7 +116,7 @@ export const PAY_SYMBOLS: readonly PaySymbol[] = [
 
 export const SCATTER = {
   id: "scatter" as const,
-  name: "4ka TV",
+  name: "4KA TV",
   src: "/symbols/tv4ka.png",
   /** 4 / 5 / 6 scatters, as a multiple of bet. */
   pays: [3, 5, 100] as const,

@@ -320,8 +320,8 @@ export const RANK_PERKS: RankPerk[] = [
   },
   {
     id: "duo",
-    title: "LIVE 16",
-    detail: "LIVE 16, buy 79×, postup +0,5×. Na kontrole vidíš lístok do 0,80×.",
+    title: "4KA TV 16",
+    detail: "4KA TV 16, buy 79×, postup +0,5×. Na kontrole vidíš lístok do 0,80×.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
@@ -337,8 +337,8 @@ export const RANK_PERKS: RankPerk[] = [
   },
   {
     id: "fiveg",
-    title: "LIVE 16",
-    detail: "LIVE 16, buy 79×, postup +1×. Na kontrole vidíš cenu do 1×.",
+    title: "4KA TV 16",
+    detail: "4KA TV 16, buy 79×, postup +1×. Na kontrole vidíš cenu do 1×.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
@@ -354,8 +354,8 @@ export const RANK_PERKS: RankPerk[] = [
   },
   {
     id: "nekonecno",
-    title: "LIVE 17",
-    detail: "LIVE 17, buy 79×, 5 % späť so stropom. Na kontrole vidíš dve ceny, najviac 1× a 0,80×. Druhá plechovka len v 20 %.",
+    title: "4KA TV 17",
+    detail: "4KA TV 17, buy 79×, 5 % späť so stropom. Na kontrole vidíš dve ceny, najviac 1× a 0,80×. Druhá plechovka len v 20 %.",
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
@@ -500,8 +500,8 @@ export const RANK_REWARDS = [
   { id: "streak", title: "Séria výhier", detail: "Séria, tumble a banner sa násobia sumou. Mŕtvy spin zhodí sériu na 0 — od SLOBODY jeden hold." },
   { id: "tumble", title: "Cluster pop", detail: "Dva a viac pop v jednom spine: +2 až +8 RP." },
   { id: "banner", title: "BIG / MEGA / EPIC / MAX", detail: "Popup: +4 / +8 / +12 / +18." },
-  { id: "bonus", title: "Bonusy", detail: "FS total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Buy je vždy 79×. LIVE je 15, od DUO 16, v NEKONEČNO 17. Kúpa sa ráta voči cene, prehra berie entry ako mŕtve spiny (max 1 divízia)." },
-  { id: "rank", title: "Aktívna liga", detail: "Vyšší rank berie viac RP za mŕtvy spin. Ante 1,22× od SMART, cashback so stropom od OPTIKA, +1 a +2 točenia v LIVE. Liga nenásobí výhru a nelacní buy." },
+  { id: "bonus", title: "4KA TV", detail: "4KA TV total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Buy je vždy 79×. 4KA TV je 15, od DUO 16, v NEKONEČNO 17. Kúpa sa ráta voči cene, prehra berie entry ako mŕtve spiny (max 1 divízia)." },
+  { id: "rank", title: "Aktívna liga", detail: "Vyšší rank berie viac RP za mŕtvy spin. Ante 1,22× od SMART, cashback so stropom od OPTIKA, +1 a +2 točenia v 4KA TV. Liga nenásobí výhru a nelacní buy." },
   { id: "reload", title: "Exekúcia", detail: "Pod minimálnou stávkou dobitie vráti rank na KREDIT IV. RP, štít, séria, hlásenie a daň sa vynulujú. Sezónne maximum, klienti, štatistiky a tikety ostanú. Kredit je znova 5 000." },
   { id: "week", title: "Týždenný drop", detail: "Raz za 7 dní klesáš o jednu divíziu, nie o celú skupinu. Dlhšia pauza zoberie najviac jednu skupinu. Štít týždeň nechytá." },
 ] as const;
@@ -622,7 +622,7 @@ export function rankBits(b: RankBreakdown): string[] {
   if (b.fromStreak) bits.push(`séria +${b.fromStreak}`);
   if (b.fromTumble) bits.push(`pop +${b.fromTumble}`);
   if (b.fromBanner) bits.push(`banner +${b.fromBanner}`);
-  if (b.fromBonus) bits.push(`bonus +${b.fromBonus}`);
+  if (b.fromBonus) bits.push(`4KA TV +${b.fromBonus}`);
   if (b.fromBuy) bits.push(`kúpa ${b.fromBuy}`);
   if (b.fromReload) bits.push(`bankrot ${b.fromReload}`);
   return bits;

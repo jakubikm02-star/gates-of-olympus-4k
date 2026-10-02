@@ -65,10 +65,10 @@ const TEMPLATES: {
   { id: "zber", titles: ["ZBER", "OBCHÔDZKA", "DENNÁ DÁVKA"], kind: "wins", scope: "base", need: [14, 22], until: [65, 65], line: "výherných spinov dokopy" },
   { id: "balik", titles: ["CLUSTER POP", "REŤAZ POP", "DVA A VIAC"], kind: "chain", scope: "base", need: [4, 7], until: [60, 100], line: "spinov s 2+ pop dokopy" },
   { id: "pada", titles: ["SÚČET POP", "POP", "POP DOLE"], kind: "tumbles", scope: "base", need: [20, 30], until: [70, 70], line: "pop dokopy" },
-  { id: "siet", titles: ["SIEŤ", "PARKNET", "4ka TV", "ŠTYRI TELEVÍZORY"], kind: "live", scope: "base", need: [1, 1], until: [50, 720], line: "spustiť PARKNET / 4ka TV" },
-  { id: "signal", titles: ["TACHYKARDIA", "TEP 180", "PULZ PLECHOVIEK"], kind: "signal", scope: "live", need: [10, 51], until: [30, 30], line: "z násobičov dokopy v LIVE" },
+  { id: "siet", titles: ["SIEŤ", "ANTÉNA", "4KA TV", "ŠTYRI TELEVÍZORY"], kind: "live", scope: "base", need: [1, 1], until: [50, 720], line: "spustiť 4KA TV" },
+  { id: "signal", titles: ["TACHYKARDIA", "TEP 180", "PULZ PLECHOVIEK"], kind: "signal", scope: "live", need: [10, 51], until: [30, 30], line: "z násobičov dokopy v 4KA TV" },
   { id: "retaz", titles: ["REŤAZ", "TRI V RADE", "BEZ PRESTÁVKY"], kind: "wins", scope: "base", need: [3, 3], until: [15, 110], line: "výhier po sebe, mŕtvy vynuluje" },
-  { id: "plechovky", titles: ["PLECHOVKY", "RAMPA HUČÍ", "PLECH NA PLECH"], kind: "tumbles", scope: "live", need: [3, 9], until: [25, 30], line: "plechoviek dokopy v LIVE" },
+  { id: "plechovky", titles: ["PLECHOVKY", "RAMPA HUČÍ", "PLECH NA PLECH"], kind: "tumbles", scope: "live", need: [3, 9], until: [25, 30], line: "plechoviek dokopy v 4KA TV" },
   { id: "pot", titles: ["POT", "SIVÝ LÍSTOK", "ULICA PADÁ"], kind: "ticket", scope: "base", need: [1, 1], until: [30, 50], line: "sivý lístok 1-FTTB" },
   { id: "sucho", titles: ["SUCHO", "TICHÁ ZÓNA", "RAMPA STOJÍ"], kind: "deads", scope: "base", need: [1, 3], until: [10, 15], line: "mŕtvych spinov po sebe, výhra končí" },
   { id: "vynos", titles: ["VÝNOS", "PDF 8+", "PAPIER PLATÍ"], kind: "pdf", scope: "base", need: [1, 1], until: [50, 180], line: "PDF aspoň 8 na jednom spine" },
@@ -93,7 +93,7 @@ const TEMPLATES: {
     until: [20, 20],
     line: "nevýherných symbolu dokopy",
   },
-  { id: "noc", titles: ["POHOTOVOSŤ", "SLUŽBA POHOTOVOSŤ", "VÝJAZD PO KÚPE"], kind: "buy", scope: "live", need: [2, 6], until: [25, 30], line: "výher dokopy v kúpenom PARKNET" },
+  { id: "noc", titles: ["POHOTOVOSŤ", "SLUŽBA POHOTOVOSŤ", "VÝJAZD PO KÚPE"], kind: "buy", scope: "live", need: [2, 6], until: [25, 30], line: "výher dokopy v kúpenej 4KA TV" },
   { id: "hydra", titles: ["HYDRA", "DVA ZNAKY", "DVOJITÝ VÝJAZD"], kind: "hydra", scope: "base", need: [1, 3], until: [50, 80], line: "výhier dvoch znakov dokopy" },
   {
     id: "odpis",
@@ -178,7 +178,7 @@ export function jobClock(job: JobCard, inLive = false): string {
     Boolean(job.kindB) &&
     (job.scope === "live" || job.kind === "buy") &&
     (job.scopeB === "live" || job.kindB === "buy");
-  if ((job.scope === "live" || bothLive) && job.spun === 0 && !inLive) return "ČAKÁ NA PARKNET";
+  if ((job.scope === "live" || bothLive) && job.spun === 0 && !inLive) return "ČAKÁ NA 4KA TV";
   const left = jobLeft(job);
   if (left <= 0) return "NEÚSPEŠNÝ TIKET";
   if (left === 1) return "posledné točenie";
@@ -211,8 +211,8 @@ export function jobMeter(job: JobCard): string {
 }
 
 export function jobScopeLabel(job: JobCard): string {
-  if (job.scope === "live") return job.kind === "buy" ? "KÚPA LIVE" : "PARKNET LIVE";
-  if (job.scope === "any") return "BASE + LIVE";
+  if (job.scope === "live") return job.kind === "buy" ? "KÚPA 4KA TV" : "4KA TV";
+  if (job.scope === "any") return "BASE + 4KA TV";
   return "BASE GAME";
 }
 
@@ -446,7 +446,7 @@ function makeJob(
         : t.kind === "symbol" && payId
           ? `výhier ${payName(payId)} dokopy`
           : t.line;
-  const tag = t.scope === "live" ? " · LIVE" : t.scope === "any" ? " · BASE+LIVE" : "";
+  const tag = t.scope === "live" ? " · 4KA TV" : t.scope === "any" ? " · BASE+4KA TV" : "";
   const goal =
     t.kind === "cash"
       ? `Nazbieraj ${formatMoney(needNow)} € vo výhrach do ${limit} ${spinWord(limit)}`

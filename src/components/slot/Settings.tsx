@@ -12,7 +12,7 @@ const SOUND_CUES: { id: string; name: string; loop?: boolean; when: string }[] =
   { id: "land3", name: "Dopad 3", when: "Náhodne jeden z troch, keď stĺpec zastane." },
   { id: "scatter", name: "Scatter", when: "1. a 2. scatter pri dopade alebo v páde." },
   { id: "harp", name: "Harfa", when: "3. scatter. Spolu s ním ide aj Zber." },
-  { id: "thunder", name: "Hrom", when: "4. scatter, hod plechoviek, +5 FS, ohlásenie free spinov a neúspešný tiket." },
+  { id: "thunder", name: "Hrom", when: "4. scatter, hod plechoviek, +5 točení, ohlásenie 4KA TV a neúspešný tiket." },
   { id: "anticipate", name: "Napätie", loop: true, when: "Base, keď sú 2+ scattere a valce ešte idú." },
   { id: "coin", name: "Minca", when: "Výhra v sekvencii pod 5×." },
   { id: "ticketOk", name: "Úspešný tiket", when: "Splnený kontrakt. Zber, reťaz a ostatné úlohy." },
@@ -25,12 +25,12 @@ const SOUND_CUES: { id: string; name: string; loop?: boolean; when: string }[] =
   { id: "electric", name: "Elektrika", when: "Spolu s Rampou pri plechovke po páde." },
   { id: "collect", name: "Zber", when: "Výhra lístka (pot) a tretí scatter." },
   { id: "payout", name: "Výplata", when: "Výhra sa pripíše na kredit v base, mimo duelu." },
-  { id: "fsStart", name: "Štart feature", when: "Začiatok PARKNET / 4ka TV." },
-  { id: "bed", name: "Podklad feature", loop: true, when: "Počas celej feature. Naskočí na náhodnom mieste skladby. Súbor do 50 MB." },
+  { id: "fsStart", name: "Štart 4KA TV", when: "Začiatok 4KA TV." },
+  { id: "bed", name: "Podklad 4KA TV", loop: true, when: "Počas celej 4KA TV. Naskočí na náhodnom mieste skladby. Súbor do 50 MB." },
   { id: "zasah", name: "Podklad zásahu", loop: true, when: "Počas ZÁSAHU. Naskočí na náhodnom mieste skladby. Súbor do 50 MB." },
   { id: "kontrola", name: "Kontrola", when: "Štart KONTROLA." },
-  { id: "tableA", name: "Big win A", when: "Náhodne A alebo B: BIG od 20×, MEGA od 35×, SUPER MEGA od 50×, aj koniec feature s výhrou. MAX 5000× hrá to isté." },
-  { id: "tableB", name: "Big win B", when: "Náhodne A alebo B pri veľkej výhre a na konci feature." },
+  { id: "tableA", name: "Big win A", when: "Náhodne A alebo B: BIG od 20×, MEGA od 35×, SUPER MEGA od 50×, aj koniec 4KA TV s výhrou. MAX 5000× hrá to isté." },
+  { id: "tableB", name: "Big win B", when: "Náhodne A alebo B pri veľkej výhre a na konci 4KA TV." },
 ];
 
 function ContractNames({ password }: { password: string }) {

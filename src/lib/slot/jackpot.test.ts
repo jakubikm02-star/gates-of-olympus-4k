@@ -370,7 +370,7 @@ describe("míňať", () => {
       else assert.ok(j.need >= 1 && j.need <= j.limit);
       assert.equal(jobLeft(j), j.limit);
       const clock = jobClock(j);
-      assert.ok(clock === `ešte ${j.limit} ${spinWord(j.limit)}` || clock === "ČAKÁ NA PARKNET");
+      assert.ok(clock === `ešte ${j.limit} ${spinWord(j.limit)}` || clock === "ČAKÁ NA 4KA TV");
     }
     s = 99;
     const other = dealJobs(rng, 200, 1);

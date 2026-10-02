@@ -45,7 +45,7 @@ import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinRes
 import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDesk, ticketProfit, type DeskDay } from "@/lib/slot/desk-api";
 import { putBoard, readBestMark, readNick, saveNick, skipNick, winHow, writeBestHow } from "@/lib/slot/board-api";
 import { HEAT_MAX, heatFromWin } from "@/lib/slot/heat";
-import { ZASAH, modMul, rollTarget, rollWindows, tickMod, windowCount, type ChaseMod, type ChaseOutcome, type ChaseState, type HackWindow } from "@/lib/slot/zasah";
+import { ZASAH, modMul, rollTarget, rollWindows, tickMod, windowCount, type ChaseMod, type ChaseModKind, type ChaseOutcome, type ChaseState, type HackWindow } from "@/lib/slot/zasah";
 import { BUILD_ID, dropStaleCaches, hardReload, releaseMatches } from "@/lib/slot/release";
 import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, duelPot, duelCreditDelta, forfeitDuel, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
 import { duelForfeit, duelLeave, duelTick } from "@/lib/slot/duel-api";
@@ -79,6 +79,14 @@ type Phase =
   | "pick"
   | "big"
   | "max";
+
+/** Modifier step shown on the win meter: gross → net with a chip. */
+export interface TaxFly {
+  kind: ChaseModKind;
+  gross: number;
+  net: number;
+  delta: number;
+}
 
 export type WinBanner = "win" | "big" | "mega" | "epic" | "max" | "fs" | "fsTotal" | "pool" | null;
 
@@ -178,6 +186,7 @@ export function useSlotGame() {
   const [pickTotalX, setPickTotalX] = useState(0);
   const [pickKillId, setPickKillId] = useState<number | null>(null);
   const [pickPicks, setPickPicks] = useState(0);
+  const [pickClear, setPickClear] = useState(false);
   const [pityByBet, setPityByBet] = useState<PityMap>({});
   const [pityDelta, setPityDelta] = useState(0);
   const [rp, setRp] = useState(0);
@@ -268,6 +277,7 @@ export function useSlotGame() {
   const pickOpenRef = useRef(false);
   const pickEndedRef = useRef(false);
   const pickTotalXRef = useRef(0);
+  const pickClearRef = useRef(false);
   const pickTilesRef = useRef<PickTile[]>([]);
   const pickRevealedRef = useRef<boolean[]>([]);
   const pityByBetRef = useRef<PityMap>({});
@@ -302,7 +312,7 @@ export function useSlotGame() {
   const [windowPhase, setWindowPhase] = useState<"travel" | "hover" | "land" | "reveal">("reveal");
   const [chaseCard, setChaseCard] = useState<null | { outcome: ChaseOutcome; line: string; rp: number }>(null);
   const chaseCardRef = useRef(chaseCard);
-  const [taxFly, setTaxFly] = useState(0);
+  const [taxFly, setTaxFly] = useState<TaxFly | null>(null);
   const [taxKey, setTaxKey] = useState(0);
   const staleRef = useRef(false);
   const [stale, setStale] = useState(false);
@@ -1185,7 +1195,7 @@ export function useSlotGame() {
     setLcdFlash({ job: burned, verdict: "fail" });
     setTicketSeal({ job: burned, verdict: "fail" });
     stampDailyJob(burned, "fail");
-    setTopLine("NEÚSPEŠNÝ TIKET · MÁLO KREDITU NA PARKNET");
+    setTopLine("NEÚSPEŠNÝ TIKET · MÁLO KREDITU NA 4KA TV");
     sfx.playThunder();
   }, [stampDailyJob, noteTicket]);
 
@@ -1229,8 +1239,18 @@ export function useSlotGame() {
     } else {
       pickTotalXRef.current = +(pickTotalXRef.current + tile.payX).toFixed(4);
       setPickRevealed(nextRev);
+      const cleared = pickTilesRef.current.every((t, i) => t.kind === "odtah" || nextRev[i]);
+      if (cleared) {
+        pickTotalXRef.current = +(pickTotalXRef.current * 2).toFixed(4);
+        pickEndedRef.current = true;
+        pickClearRef.current = true;
+        setPickClear(true);
+        sfx.playTicketOk();
+        window.setTimeout(() => setPickEnded(true), 640);
+      } else {
+        sfx.playCollect();
+      }
       setPickTotalX(pickTotalXRef.current);
-      sfx.playCollect();
     }
   }, []);
 
@@ -1255,6 +1275,8 @@ export function useSlotGame() {
     setPickEnded(false);
     setPickKillId(null);
     setPickPicks(0);
+    pickClearRef.current = false;
+    setPickClear(false);
     setPickOpen(true);
     setPhase("pick");
     setTopLine("ZAPARKOVALI STE NESPRÁVNE");
@@ -1298,7 +1320,9 @@ export function useSlotGame() {
     setPickOpen(false);
     setPhase("idle");
     setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
-    setMessage(cash > 0 ? `KONTROLA ${formatMoney(cash)}` : "Odťah bez pokuty");
+    setMessage(
+      pickClearRef.current ? `Zaplatil si všetko parkovné · ${formatMoney(cash)}` : cash > 0 ? `KONTROLA ${formatMoney(cash)}` : "Odťah bez pokuty",
+    );
   }, [waitForPick, pushRank, noteResult, noteHeat]);
 
   const runSequence = useCallback(
@@ -1504,14 +1528,14 @@ export function useSlotGame() {
 
         if (!fsNow && scatterPeak >= FS_TRIGGER_SCATTERS) {
           pendingFs = true;
-          setTopLine(`${scatterPeak}× SCATTER — FREE SPINS`);
+          setTopLine(`${scatterPeak}× 4KA TV`);
         } else if (fsNow && scatterPeak >= FS_RETRIGGER_SCATTERS && !retriggered) {
           retriggered = true;
           extraFsRef.current = FS_RETRIGGER;
           sfx.playThunder();
           setShake(true);
           window.setTimeout(() => setShake(false), 520);
-          setTopLine(`+${FS_RETRIGGER} FREE SPINS`);
+          setTopLine(`+${FS_RETRIGGER} 4KA TV`);
         }
 
         const sPay = scatterPay(ev.scatterCount);
@@ -1707,9 +1731,8 @@ export function useSlotGame() {
       const cash0 = +(paidX * currentBet).toFixed(2);
       const mul = !chasing && !isFree && !opts?.buy && !duelRef.current ? modMul(modRef.current) : 1;
       const cash = +(cash0 * mul).toFixed(2);
-      const taxCut = +(Math.max(0, cash0 - cash)).toFixed(2);
-      setTaxFly(taxCut);
-      if (taxCut > 0) setTaxKey((k) => k + 1);
+      const taxDelta = +(cash - cash0).toFixed(2);
+      setTaxFly(null);
       if (pendingFs) fsSessionRef.current.modMul = opts?.buy ? 1 : mul;
       let chaseEnded = false;
       if (chasing && chaseRef.current) {
@@ -1771,8 +1794,19 @@ export function useSlotGame() {
         setChaseMod(nextMod);
       }
       if (cash > 0 && !chaseEnded) noteHeat(cash, currentBet, Boolean(isFree || opts?.buy || pendingFs || inFsRef.current));
+      if (!isFree && cash0 > 0 && Math.abs(taxDelta) >= 0.01) {
+        // Gross first, then the modifier chip, then the meter glides to the net amount.
+        setSpinWin(cash0);
+        setDisplayWin(cash0);
+        await wait(dur(520), abort.current);
+        setTaxKey((k) => k + 1);
+        setTaxFly({ kind: taxDelta < 0 ? "danUrad" : "bezDane", gross: cash0, net: cash, delta: taxDelta });
+        sfx.playMult();
+        await wait(dur(260), abort.current);
+      }
       setSpinWin(cash);
       if (!isFree) setDisplayWin(cash);
+      if (Math.abs(taxDelta) >= 0.01 && !isFree && cash0 > 0) await wait(dur(900), abort.current);
 
       lastPaidXRef.current = currentBet > 0 ? cash / currentBet : 0;
       if (!isFree) roundCashRef.current = cash;
@@ -1927,7 +1961,7 @@ export function useSlotGame() {
       } else {
         setTopLine(
           isFree || inFsRef.current
-            ? "3× 4ka TV OPÄŤ SPUSTÍ FEATURE"
+            ? "3× 4KA TV PRIDÁ TOČENIA"
             : "SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE",
         );
         setMessage(cash > 0 ? "" : pendingPick ? "KONTROLA" : isFree ? "" : DEAD[Math.floor(Math.random() * DEAD.length)]);
@@ -2006,6 +2040,7 @@ export function useSlotGame() {
       abort.current.aborted = false;
       roundCashRef.current = 0;
       if (!opts?.buy && !opts?.resumeFs && !inFsRef.current) setDisplayWin(0);
+      setTaxFly(null);
 
       try {
 
@@ -2078,8 +2113,8 @@ export function useSlotGame() {
         setBanner("fsTotal");
         setBannerAmount(featureTotal);
         setPhase(hitCap ? "max" : "big");
-        setTopLine("SIEŤ SPADLA");
-        setMessage(featureTotal > 0 ? `VÝHRA ${formatMoney(featureTotal)}` : "SIEŤ SPADLA");
+        setTopLine("4KA TV SKONČILA");
+        setMessage(featureTotal > 0 ? `VÝHRA ${formatMoney(featureTotal)}` : "4KA TV SKONČILA");
         if (featureTotal > 0 || hitCap) sfx.playBigWin();
         else sfx.playPayout();
         sfx.stopLiveBed();
@@ -2221,7 +2256,7 @@ export function useSlotGame() {
         setFsTotal(sess.total);
         setDisplayWin(+(sess.triggerCash + sess.cash).toFixed(2));
         setMessage(freeSpinsLabel(sess.left));
-        setTopLine(`PARKNET LIVE · ${sess.left}`);
+        setTopLine(`4KA TV · ${sess.left}`);
         persistNow();
         sfx.startLiveBed();
         const hitCap = await playFsSpins();
@@ -2246,7 +2281,7 @@ export function useSlotGame() {
           autoRef.current = false;
           setAutoOn(false);
           setAutoLeft(0);
-          setAutoReason("AUTO STOP · FREE SPINS — nespúšťa sa po bonuse");
+          setAutoReason("AUTO STOP · 4KA TV");
         } else if (r === "pick") {
           autoRef.current = false;
           setAutoOn(false);
@@ -2298,7 +2333,7 @@ export function useSlotGame() {
         bannerOpen.current = true;
         setBanner("fs");
         setBannerAmount(fsCount);
-        setTopLine(`GRATULUJEME · ${fsCount} VOLNÝCH TOČENÍ`);
+        setTopLine(`GRATULUJEME · 4KA TV · ${fsCount}`);
         await waitForBanner();
         await wait(200);
 
@@ -2613,6 +2648,7 @@ export function useSlotGame() {
     pickTiles,
     pickRevealed,
     pickEnded,
+    pickClear,
     pickTotalX,
     pickKillId,
     pickPicks,
@@ -2781,8 +2817,8 @@ export function useSlotGame() {
       if (chaseRef.current) return "Počas ZÁSAHU zamknuté";
       if (duelRef.current) return "Už beží duel.";
       if (inFsRef.current) {
-        setTopLine("DOTOČ PARKNET, POTOM DUEL");
-        return "Dotoč PARKNET, potom duel.";
+        setTopLine("DOTOČ 4KA TV, POTOM DUEL");
+        return "Dotoč 4KA TV, potom duel.";
       }
       const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
       const spins = need > 0 ? Math.round(need) : 10;
@@ -2811,8 +2847,8 @@ export function useSlotGame() {
       if (chaseRef.current) return "Počas ZÁSAHU zamknuté";
       if (duelRef.current) return "Už beží duel.";
       if (inFsRef.current) {
-        setTopLine("DOTOČ PARKNET, POTOM DUEL");
-        return "Dotoč PARKNET, potom duel.";
+        setTopLine("DOTOČ 4KA TV, POTOM DUEL");
+        return "Dotoč 4KA TV, potom duel.";
       }
       const room = code.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 4);
       if (room.length < 4) return "Kód má 4 znaky.";
@@ -2923,7 +2959,7 @@ export function useSlotGame() {
     beginDuel: (mode: DuelMode, a: string, b: string, betAmt?: number, need = 10, anteOn = false) => {
       if (chaseRef.current) return "Počas ZÁSAHU zamknuté";
       if (busyRef.current) return "Počkaj, kým dotočí.";
-      if (inFsRef.current) return "Dotoč PARKNET, potom duel.";
+      if (inFsRef.current) return "Dotoč 4KA TV, potom duel.";
       if (duelRef.current) return "Už beží duel.";
       const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
       const spins = need > 0 ? Math.round(need) : 10;

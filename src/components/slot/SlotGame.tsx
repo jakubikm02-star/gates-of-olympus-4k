@@ -82,8 +82,8 @@ const BANNER_COPY: Record<string, string> = {
   epic: "SUPER MEGA WIN",
   mega: "MEGA WIN",
   big: "BIG WIN",
-  fs: "GRATULUJEME · 15 VOLNÝCH TOČENÍ",
-  fsTotal: "SIEŤ SPADLA",
+  fs: "4KA TV",
+  fsTotal: "4KA TV SKONČILA",
   pool: "JACKPOT",
   win: "WIN",
 };
@@ -177,7 +177,7 @@ export function SlotGame() {
     g.ticketLock;
   const winLine =
     g.inFs
-      ? "PARKNET LIVE"
+      ? "4KA TV"
       : spinning && g.displayWin <= 0 && !g.payHint
         ? g.message === "TOČÍ SA..."
           ? "TOČÍ SA..."
@@ -240,8 +240,8 @@ export function SlotGame() {
           <RankBadge stand={g.rank} perkTitle={g.perk.title} plain onOpen={() => g.setRankOpen(true)} />
           <div className="head-center">
             <div className="logo-plate compact">
-              <span className="logo-kicker">{g.inFs ? "PARKNET" : "PORTS of"}</span>
-              <span className="logo-main">{g.inFs ? "LIVE" : "PARKIZMUS"}</span>
+              <span className="logo-kicker">{g.inFs ? "4KA" : "PORTS of"}</span>
+              <span className="logo-main">{g.inFs ? "TV" : "PARKIZMUS"}</span>
             </div>
           </div>
           <div className="head-end">
@@ -251,7 +251,7 @@ export function SlotGame() {
               aria-label="Park jackpoty · dnešný desk"
               onClick={() => setDeskOpen(true)}
             >
-              <span className="jp-mark">{g.inFs ? "PARKNET" : "PARKIZMUS"}</span>
+              <span className="jp-mark">{g.inFs ? "4KA TV" : "PARKIZMUS"}</span>
               {(["stat", "kraj", "okres", "ulica"] as const).map((id) => {
                 const t = g.pots[id];
                 const def = TIER_BY_ID[id];
@@ -289,7 +289,7 @@ export function SlotGame() {
               onClick={() => void g.buyBonus()}
               disabled={!g.canBuy}
             >
-              <em>KÚPIŤ PARKNET</em>
+              <em>KÚPIŤ 4KA TV</em>
               <strong>{formatMoney(g.bet * g.buyX)}</strong>
             </button>
             <button
@@ -300,7 +300,7 @@ export function SlotGame() {
             >
               <em>ANTE BET</em>
               <strong>{g.perk.anteMul.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}×</strong>
-              {g.ante ? <span className="ante-pool">4ka TV ×2</span> : null}
+              {g.ante ? <span className="ante-pool">4KA TV ×2</span> : null}
               <span className={`ante-switch ${g.ante ? "on" : ""}`}>{g.ante ? "ON" : "OFF"}</span>
             </button>
             <ol className="win-log" aria-label="História výhier">
@@ -338,7 +338,7 @@ export function SlotGame() {
                     <b>{g.globalMult || 0}×</b>
                   </div>
                   <div className="fs-left">
-                    PARKNET
+                    4KA TV
                     <strong>
                       {g.fsLeft}/{g.fsTotal || 15}
                     </strong>
@@ -585,7 +585,16 @@ export function SlotGame() {
             <p className={`win-line ${g.displayWin > 0 ? "has-win" : ""}`}>
               {g.displayWin > 0 ? (
                 <>
-                  VÝHRA <CountUp value={g.displayWin} />
+                  VÝHRA <CountUp value={g.displayWin} glide={Boolean(g.taxFly)} ms={g.taxFly ? 850 : undefined} />
+                  {g.taxFly ? (
+                    <em key={g.taxKey} className={`tax-fly ${g.taxFly.kind === "danUrad" ? "is-tax" : "is-free"}`}>
+                      {g.taxFly.kind === "danUrad" ? "−23 % daňový úrad" : "+23 % bez dane"}
+                      <small>
+                        {g.taxFly.delta < 0 ? "−" : "+"}
+                        {formatMoney(Math.abs(g.taxFly.delta))}
+                      </small>
+                    </em>
+                  ) : null}
                 </>
               ) : g.payHint ? (
                 "VÝHRA"
@@ -723,6 +732,7 @@ export function SlotGame() {
           bet={g.bet}
           killId={g.pickKillId}
           picks={g.pickPicks}
+          cleared={g.pickClear}
           peekIds={
             g.duel && g.duel.phase !== "done" ? [] : rankPeekIds(g.pickTiles, g.perk.peekCap, g.perk.peekCount)
           }
@@ -759,8 +769,8 @@ export function SlotGame() {
         </button>
       )}
       {g.buyAsk && (
-        <div className="buy-ask" role="dialog" aria-label="Kúpiť free spins">
-          <p>KÚPIŤ PARKNET LIVE</p>
+        <div className="buy-ask" role="dialog" aria-label="Kúpiť 4KA TV">
+          <p>KÚPIŤ 4KA TV</p>
           <strong>{formatMoney(g.bet * g.buyX)}</strong>
           <div className="buy-ask-btns">
             <button type="button" className="buy-x" onClick={g.cancelBuy} aria-label="Zrušiť">
@@ -811,11 +821,6 @@ export function SlotGame() {
       {g.chaseMod ? (
         <div className={`mod-badge ${g.chaseMod.kind === "bezDane" ? "is-free" : "is-tax"}`}>
           {g.chaseMod.kind === "bezDane" ? "BEZ DANE" : "DAŇOVÝ ÚRAD"} · {g.chaseMod.left}
-          {g.taxFly > 0 && g.chaseMod.kind === "danUrad" ? (
-            <em key={g.taxKey} className="tax-fly">
-              −23 % · −{formatMoney(g.taxFly)}
-            </em>
-          ) : null}
         </div>
       ) : null}
       {jobOpen && (liveJob || seal) ? (
@@ -888,7 +893,7 @@ export function SlotGame() {
                     {g.bannerMeta?.terminated && (
                       <tr className="err">
                         <td>status</td>
-                        <td>FEATURE TERMINATED</td>
+                        <td>4KA TV UKONČENÁ</td>
                       </tr>
                     )}
                     <tr className="total">
@@ -904,14 +909,14 @@ export function SlotGame() {
                   credit-out: <CountUp value={g.bannerAmount} />
                 </p>
               )}
-              {g.banner === "max" && <p className="wb-err">status: FEATURE TERMINATED</p>}
+              {g.banner === "max" && <p className="wb-err">status: 4KA TV UKONČENÁ</p>}
               {g.banner !== "max" && g.banner !== "fs" && g.banner !== "fsTotal" && (
                 <p className="wb-line dim">status: ok</p>
               )}
               <p className="wb-line">
                 [admin@parkizmus] {'>'}{" "}
                 <span className="wb-hint">
-                  {g.banner === "fsTotal" ? "ťukni — SIEŤ SPADLA ostane kým neklikneš" : "ťukni sem"}
+                  {g.banner === "fsTotal" ? "ťukni — 4KA TV ostane, kým neklikneš" : "ťukni sem"}
                 </span>
                 <span className="wb-caret" aria-hidden="true" />
               </p>

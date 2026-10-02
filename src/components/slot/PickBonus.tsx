@@ -29,12 +29,13 @@ interface Props {
   bet: number;
   killId: number | null;
   picks: number;
+  cleared?: boolean;
   peekIds?: number[];
   onPick: (id: number) => void;
   onDone: () => void;
 }
 
-export function PickBonus({ tiles, revealed, ended, totalX, bet, killId, picks, peekIds = [], onPick, onDone }: Props) {
+export function PickBonus({ tiles, revealed, ended, totalX, bet, killId, picks, cleared = false, peekIds = [], onPick, onDone }: Props) {
   const [tab, setTab] = useState<"map" | "tickets">("map");
   const cash = +(totalX * bet).toFixed(2);
   const left = tiles.filter((t) => !revealed[t.id]).length;
@@ -47,7 +48,13 @@ export function PickBonus({ tiles, revealed, ended, totalX, bet, killId, picks, 
           <div className="pk-fine-sheet">
             <img src="/art/paas-letak.webp" alt="Zaparkovali ste nesprávne" />
             <div className="pk-fine-stamp" aria-live="assertive">
-              {cash > 0 ? (
+              {cleared ? (
+                <>
+                  <em>PARKOVNÉ</em>
+                  <b>{eur(cash)}</b>
+                  <span>Zaplatil si všetko parkovné · 2×</span>
+                </>
+              ) : cash > 0 ? (
                 <>
                   <em>POKUTA</em>
                   <b>{eur(cash)}</b>
@@ -63,7 +70,7 @@ export function PickBonus({ tiles, revealed, ended, totalX, bet, killId, picks, 
             </div>
           </div>
           <button type="button" className="pk-outline pk-done pk-fine-go" onClick={onDone}>
-            PRIJÍMAM POKUTU
+            {cleared ? "HOTOVO" : "PRIJÍMAM POKUTU"}
           </button>
         </div>
       </div>
