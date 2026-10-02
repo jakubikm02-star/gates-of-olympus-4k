@@ -48,7 +48,8 @@ test("dealt dual OTRS: base goal first, own base spins + 4KA TV rounds; other OT
       split += 1;
       assert.equal(dualBonusLeg(c), "B", "base goal is leg A");
       assert.ok(jobSplit(c));
-      assert.equal(c.tries, DUAL_TRIES[c.floor][c.templateB!]);
+      const [lo, hi] = DUAL_TRIES[c.floor][c.templateB!]!;
+      assert.ok(c.tries! >= lo && c.tries! <= hi, `tries ${c.tries} in ${lo}–${hi}`);
       assert.equal(c.triesUsed, 0);
       assert.equal(c.limit % 5, 0);
       assert.match(c.detail, / v hre \+ \d kol[oá] 4KA TV$/);

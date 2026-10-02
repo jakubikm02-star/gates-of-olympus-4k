@@ -389,10 +389,10 @@ function winAsk(p: number, floor: JobFloor): number {
 }
 
 /** Winning-symbol ticket: one credit per spin the symbol pays. */
-export function winCollectPlan(id: PayId, floor: JobFloor): { need: number; limit: number } {
+export function winCollectPlan(id: PayId, floor: JobFloor, ask?: number): { need: number; limit: number } {
   const p = WIN_RATE[id] ?? 0.02;
   const target = COLLECT_TARGET[floor];
-  let k = winAsk(p, floor);
+  let k = ask != null ? Math.max(1, Math.round(ask)) : winAsk(p, floor);
   let limit = 120;
   const fit = (ask: number) => {
     for (let n = 20; n <= 120; n += 5) {
@@ -410,12 +410,12 @@ export function winCollectPlan(id: PayId, floor: JobFloor): { need: number; limi
 }
 
 /** Non-winning cells. Need is the floor's quantile of the sum over a fixed window. */
-export function missCollectPlan(id: PayId, floor: JobFloor): { need: number; limit: number } {
+export function missCollectPlan(id: PayId, floor: JobFloor, window?: number, z?: number): { need: number; limit: number } {
   const cell = MISS_CELL[id] ?? { mean: 2.7, sd: 1.7 };
-  const limit = MISS_WINDOW[floor];
+  const limit = window ?? MISS_WINDOW[floor];
   const mean = limit * cell.mean;
   const sd = cell.sd * Math.sqrt(limit);
-  const need = Math.max(8, Math.round(mean + NORM_Z[floor] * sd));
+  const need = Math.max(8, Math.round(mean + (z ?? NORM_Z[floor]) * sd));
   return { need: Math.min(need, limit * 12), limit };
 }
 
@@ -442,11 +442,109 @@ function snapFive(n: number): number {
   return Math.max(5, Math.round(n / 5) * 5);
 }
 
-/** lacna → low need / long clock; draha → high need / short clock. */
-function rollBand(band: [number, number], rng: () => number, bias: number): number {
-  if (band[0] === band[1]) return band[0];
-  const t = Math.min(1, Math.max(0, bias + rngRange(rng, -0.18, 0.18)));
-  return Math.round(band[0] + t * (band[1] - band[0]));
+/** Inclusive from–to range. Every per-ticket number is drawn from one of these. */
+export type Span = readonly [number, number];
+
+/**
+ * Generator ranges (od–do) per template and floor. `need` = goal count, `window` = spins (multiples of 5).
+ * Both are drawn independently and uniformly, so every ticket is a different combination.
+ * Tuned on the real engine (/workspace/ticket-ranges/sim) to keep each template's clear rate.
+ * need [0, 0] = goal derived from a rate (nevyherne, hydra, odpis) via JOB_KNOBS. For vyherne `need` only clamps the asked count.
+ */
+export const JOB_RANGES: Record<string, Record<JobFloor, { need: Span; window: Span }>> = {
+  zber: { lacna: { need: [12, 19], window: [60, 75] }, stred: { need: [14, 22], window: [50, 85] }, draha: { need: [17, 25], window: [55, 75] } },
+  balik: { lacna: { need: [3, 6], window: [75, 110] }, stred: { need: [4, 7], window: [60, 100] }, draha: { need: [5, 8], window: [45, 90] } },
+  pada: { lacna: { need: [18, 26], window: [60, 85] }, stred: { need: [21, 28], window: [60, 80] }, draha: { need: [24, 33], window: [60, 80] } },
+  siet: { lacna: { need: [1, 1], window: [440, 715] }, stred: { need: [1, 1], window: [250, 515] }, draha: { need: [1, 1], window: [45, 315] } },
+  signal: { lacna: { need: [10, 27], window: [20, 45] }, stred: { need: [24, 43], window: [20, 30] }, draha: { need: [38, 58], window: [25, 45] } },
+  retaz: { lacna: { need: [3, 3], window: [70, 115] }, stred: { need: [3, 3], window: [35, 95] }, draha: { need: [3, 3], window: [10, 60] } },
+  plechovky: { lacna: { need: [3, 6], window: [25, 40] }, stred: { need: [4, 8], window: [25, 30] }, draha: { need: [7, 10], window: [25, 30] } },
+  pot: { lacna: { need: [1, 1], window: [35, 55] }, stred: { need: [1, 1], window: [30, 50] }, draha: { need: [1, 1], window: [25, 45] } },
+  sucho: { lacna: { need: [1, 2], window: [10, 20] }, stred: { need: [1, 3], window: [10, 20] }, draha: { need: [2, 3], window: [10, 20] } },
+  vynos: { lacna: { need: [1, 1], window: [120, 200] }, stred: { need: [1, 1], window: [85, 145] }, draha: { need: [1, 1], window: [50, 105] } },
+  duo: { lacna: { need: [3, 6], window: [65, 110] }, stred: { need: [4, 7], window: [60, 90] }, draha: { need: [5, 8], window: [45, 75] } },
+  vyherne: { lacna: { need: [1, 3], window: [20, 150] }, stred: { need: [1, 4], window: [20, 150] }, draha: { need: [1, 5], window: [20, 150] } },
+  nevyherne: { lacna: { need: [0, 0], window: [15, 25] }, stred: { need: [0, 0], window: [25, 35] }, draha: { need: [0, 0], window: [35, 55] } },
+  noc: { lacna: { need: [2, 4], window: [25, 35] }, stred: { need: [3, 5], window: [25, 35] }, draha: { need: [4, 7], window: [25, 30] } },
+  hydra: { lacna: { need: [0, 0], window: [65, 85] }, stred: { need: [0, 0], window: [55, 75] }, draha: { need: [0, 0], window: [45, 65] } },
+  odpis: { lacna: { need: [0, 0], window: [15, 25] }, stred: { need: [0, 0], window: [25, 40] }, draha: { need: [0, 0], window: [40, 55] } },
+};
+
+/**
+ * Knobs for goals derived from rates (od–do as well):
+ * - vyherne: `ask` = shift of the asked win count around the floor default, `fit` = factor on the fitted window,
+ * - nevyherne: `z` = quantile of the non-winning sum over the drawn window (higher = harder),
+ * - hydra: `hard` = difficulty fed to symbolNeed, `rareMin` = shortest window when a symbol is rare,
+ * - odpis: `rate` = € goal as share of (bet × window).
+ */
+export const JOB_KNOBS = {
+  vyherne: { ask: { lacna: [-1, 1], stred: [-1, 1], draha: [-1, 1] }, fit: { lacna: [0.85, 1.2], stred: [0.85, 1.2], draha: [0.8, 1.15] } },
+  nevyherne: { z: { lacna: [-1.09, -0.59], stred: [-0.46, 0.04], draha: [0.11, 0.61] } },
+  hydra: { hard: { lacna: [0.05, 0.35], stred: [0.35, 0.65], draha: [0.65, 0.95] }, rareMin: [65, 75] },
+  odpis: { rate: { lacna: [0.21, 0.27], stred: [0.4, 0.52], draha: [0.58, 0.76] } },
+} as const satisfies {
+  vyherne: { ask: Record<JobFloor, Span>; fit: Record<JobFloor, Span> };
+  nevyherne: { z: Record<JobFloor, Span> };
+  hydra: { hard: Record<JobFloor, Span>; rareMin: Span };
+  odpis: { rate: Record<JobFloor, Span> };
+};
+
+/** Pay-side ranges: OTRS legs and the 4th mystery card get a bonus factor, combos a spin-window mix. */
+export const PAY_RANGES = {
+  /** Mystery single (4th card). Was 1.15. */
+  mystery: [1.1, 1.2] as Span,
+  /** Each OTRS leg. Was 1.35. */
+  otrs: [1.3, 1.4] as Span,
+  /** ± share of payout that follows the drawn difficulty (0 = easiest end, 1 = hardest). */
+  tilt: 0.3,
+  /**
+   * Difficulty that pays exactly the band. Below 0.5 because cleared tickets lean to the easy end:
+   * set so a cleared ticket pays on average what it did before (payout per € unchanged).
+   */
+  center: {
+    single: { lacna: 0.47, stred: 0.45, draha: 0.42 },
+    combo: { lacna: 0.49, stred: 0.49, draha: 0.48 },
+    dual: { lacna: 0.48, stred: 0.46, draha: 0.44 },
+  } as Record<"single" | "combo" | "dual", Record<JobFloor, number>>,
+};
+
+/** Two-goal OTRS (not dual): window = longer + shorter × mix. Rare goals capped first. */
+export const COMBO_RANGES = {
+  same: { lacna: [0.45, 0.65], stred: [0.48, 0.68], draha: [0.52, 0.72] } as Record<JobFloor, Span>,
+  cross: { lacna: [0.7, 0.9], stred: [0.73, 0.93], draha: [0.77, 0.97] } as Record<JobFloor, Span>,
+  rareCap: { siet: [90, 110], vynos: [80, 100], pot: [50, 60], signal: [35, 45] } as Record<string, Span>,
+};
+
+/** Uniform draw from a range. `hard` = 0 at the easy end, 1 at the hard end. */
+interface Drawn {
+  v: number;
+  hard: number;
+}
+
+function drawReal(rng: () => number, s: Span, hardHigh = true): Drawn {
+  const u = s[0] === s[1] ? 0.5 : rng();
+  return { v: s[0] + u * (s[1] - s[0]), hard: s[0] === s[1] ? 0.5 : hardHigh ? u : 1 - u };
+}
+
+function drawInt(rng: () => number, s: Span, hardHigh = true): Drawn {
+  if (s[0] >= s[1]) return { v: s[0], hard: 0.5 };
+  const n = s[1] - s[0] + 1;
+  const i = Math.min(n - 1, Math.floor(rng() * n));
+  const u = i / (n - 1);
+  return { v: s[0] + i, hard: hardHigh ? u : 1 - u };
+}
+
+/** Spin window in steps of 5. Longer = easier. */
+function drawWindow(rng: () => number, s: Span): Drawn {
+  const d = drawInt(rng, [Math.round(s[0] / 5), Math.round(s[1] / 5)], false);
+  return { v: Math.max(5, d.v * 5), hard: d.hard };
+}
+
+/** Payout factor from the drawn difficulty (0 easiest … 1 hardest): 1 at the floor's center, ±tilt/2 around it. */
+export function payTilt(hards: number[], floor: JobFloor, kind: "single" | "combo" | "dual" = "single"): number {
+  if (!hards.length) return 1;
+  const d = hards.reduce((a, b) => a + b, 0) / hards.length;
+  return 1 + PAY_RANGES.tilt * (d - PAY_RANGES.center[kind][floor]);
 }
 
 function makeJob(
@@ -462,13 +560,13 @@ function makeJob(
   const f = FLOOR_PCT[floor];
   const stake = mixJobStake(credit, b, floor, rng);
   const payMul = rngRange(rng, f.payX[0], f.payX[1]) * extraPay;
-  const payout = Math.max(roundStake(stake * payMul), roundStake(stake * 1.4 * extraPay));
-  const hard = floor === "lacna" ? 0.2 : floor === "draha" ? 0.8 : 0.5;
-  const need = t.need[0] === t.need[1] ? t.need[0] : Math.max(t.need[0], Math.min(t.need[1], rollBand(t.need, rng, hard)));
-  const rawUntil = t.until[0] === t.until[1] ? t.until[0] : rollBand(t.until, rng, 1 - hard);
+  const range = JOB_RANGES[t.id]?.[floor] ?? { need: t.need, window: t.until };
+  const hards: number[] = [];
+  const needD = drawInt(rng, range.need);
+  const winD = drawWindow(rng, range.window);
+  const need = needD.v;
   const slack = t.kind === "buy" || t.scope === "live" ? 3 : 8;
-  let limit = snapFive(Math.max(need + slack, rawUntil));
-  if (limit < need) limit = snapFive(need + 5);
+  let limit = snapFive(Math.max(need + slack, winD.v));
   const title = pickOne(titleOver.get(t.id) ?? t.titles, rng);
   let payId = t.payIds?.length ? pickOne(t.payIds, rng) : undefined;
   let payIdB: PayId | undefined;
@@ -476,40 +574,49 @@ function makeJob(
   let haveB: number | undefined;
   let needNow = need;
   if (t.kind === "symbol" && payId) {
-    const plan = winCollectPlan(payId, floor);
+    // Asked wins drawn around the floor default, window re-fitted to it and stretched by a drawn factor.
+    const kn = JOB_KNOBS.vyherne;
+    const shift = drawInt(rng, kn.ask[floor]);
+    const fit = drawReal(rng, kn.fit[floor], false);
+    const r = JOB_RANGES.vyherne[floor];
+    const ask = Math.max(r.need[0], Math.min(r.need[1], winAsk(WIN_RATE[payId] ?? 0.02, floor) + shift.v));
+    const plan = winCollectPlan(payId, floor, ask);
+    needNow = plan.need;
+    limit = Math.max(r.window[0], Math.min(r.window[1], snapFive(plan.limit * fit.v)));
+    hards.push(fit.hard);
+  } else if (t.kind === "collect" && payId) {
+    const z = drawReal(rng, JOB_KNOBS.nevyherne.z[floor]);
+    const plan = missCollectPlan(payId, floor, winD.v, z.v);
     needNow = plan.need;
     limit = plan.limit;
-  }
-  if (t.kind === "collect" && payId) {
-    const plan = missCollectPlan(payId, floor);
-    needNow = plan.need;
-    limit = plan.limit;
-  }
-  if (t.kind === "hydra") {
+    hards.push(z.hard);
+  } else if (t.kind === "hydra") {
     const ids = PAY_SYMBOLS.map((s) => s.id);
     const first = pickOne(ids, rng);
     const rest = ids.filter((id) => id !== first);
     const second = pickOne(rest, rng);
     payId = first;
     payIdB = second;
+    const hard = drawReal(rng, JOB_KNOBS.hydra.hard[floor]);
     const rare = Math.min(PAY_HIT[first], PAY_HIT[second]) < 0.03;
-    if (rare) limit = snapFive(Math.max(limit, 70));
-    const split = hydraSplit(first, second, limit, hard);
+    limit = winD.v;
+    if (rare) limit = snapFive(Math.max(limit, drawInt(rng, JOB_KNOBS.hydra.rareMin).v));
+    const split = hydraSplit(first, second, limit, hard.v);
     needNow = split.needA;
     needB = split.needB;
     haveB = 0;
+    hards.push(hard.hard);
+  } else if (t.kind === "cash") {
+    const rate = drawReal(rng, JOB_KNOBS.odpis.rate[floor]);
+    limit = winD.v;
+    needNow = Math.max(roundStake(b * 3), roundStake(b * limit * rate.v));
+    hards.push(rate.hard);
+  } else {
+    if (range.need[0] !== range.need[1]) hards.push(needD.hard);
+    if (range.window[0] !== range.window[1] && t.kind !== "deads") hards.push(winD.hard);
   }
-  if (t.kind === "cash") {
-    const window: Record<JobFloor, [number, number]> = {
-      lacna: [15, 25],
-      stred: [25, 40],
-      draha: [40, 55],
-    };
-    // Stake-fraction of the window. Tuned to the skewed base-win distribution: lacná ~80 %, stred ~58 %, drahá ~38 %.
-    const rate: Record<JobFloor, number> = { lacna: 0.22, stred: 0.46, draha: 0.67 };
-    limit = snapFive(rollBand(window[floor], rng, hard));
-    needNow = Math.max(roundStake(b * 3), roundStake(b * limit * rate[floor]));
-  }
+  const payout = Math.max(roundStake(stake * payMul * payTilt(hards, floor)), roundStake(stake * 1.4 * extraPay));
+  const plainPay = Math.max(stake * payMul, stake * 1.4 * extraPay);
   const line =
     t.kind === "hydra" && payId && payIdB && needB
       ? `${payName(payId)} ${needNow}× + ${payName(payIdB)} ${needB}× výhier dokopy`
@@ -525,7 +632,7 @@ function makeJob(
       : t.kind === "hydra"
         ? line
         : `${needNow}× ${line}`;
-  return {
+  const card: JobCard = {
     id: `${t.id}-${floor}-${mystery ? "rnd" : "pick"}-${Math.floor(rng() * 1e6)}`,
     floor,
     template: t.id,
@@ -547,7 +654,12 @@ function makeJob(
     needB,
     haveB,
   };
+  legMeta.set(card, { hards, plainPay });
+  return card;
 }
+
+/** Drawn difficulty and untilted payout of a dealt goal, so OTRS can tilt the whole ticket once. */
+const legMeta = new WeakMap<JobCard, { hards: number[]; plainPay: number }>();
 
 const OTRS_SKIP = new Set(["sucho", "hydra", "retaz"]);
 
@@ -558,16 +670,23 @@ function otrsLine(job: JobCard): string {
   return `${job.need}× ${job.goal?.replace(/^\d+× /, "") ?? ""}`.replace(/\s+·.*/, "");
 }
 
-function comboSpinLimit(a: JobCard, b: JobCard): number {
-  const rareCap: Record<string, number> = { siet: 100, vynos: 90, pot: 55, signal: 40 };
+function comboSpinLimit(a: JobCard, b: JobCard, floor: JobFloor, rng: () => number): { limit: number; hard: number[] } {
+  const hard: number[] = [];
   const leg = (job: JobCard) => {
-    const cap = rareCap[job.template];
-    return cap ? Math.min(job.limit, cap) : job.limit;
+    const span = COMBO_RANGES.rareCap[job.template];
+    if (!span) return job.limit;
+    const cap = drawWindow(rng, span);
+    hard.push(cap.hard);
+    return Math.min(job.limit, cap.v);
   };
-  const longer = Math.max(leg(a), leg(b));
-  const shorter = Math.min(leg(a), leg(b));
+  const la = leg(a);
+  const lb = leg(b);
+  const longer = Math.max(la, lb);
+  const shorter = Math.min(la, lb);
   const same = (a.scope ?? "base") === (b.scope ?? "base");
-  return snapFive(longer + Math.round(shorter * (same ? 0.55 : 0.8)));
+  const mix = drawReal(rng, (same ? COMBO_RANGES.same : COMBO_RANGES.cross)[floor], false);
+  hard.push(mix.hard);
+  return { limit: snapFive(longer + Math.round(shorter * mix.v)), hard };
 }
 
 function makeOtrs(rng: () => number, credit: number, bet: number): JobCard {
@@ -579,25 +698,32 @@ function makeOtrs(rng: () => number, credit: number, bet: number): JobCard {
     pool.filter((t) => t.id !== firstT.id),
     rng,
   );
-  let first = makeJob(firstT, floor, credit, bet, rng, 1.35, true);
-  let second = makeJob(secondT, floor, credit, bet, rng, 1.35, true);
+  let first = makeJob(firstT, floor, credit, bet, rng, drawReal(rng, PAY_RANGES.otrs).v, true);
+  let second = makeJob(secondT, floor, credit, bet, rng, drawReal(rng, PAY_RANGES.otrs).v, true);
   if (second.kind === "cash" && first.kind !== "cash") {
     const swap = first;
     first = second;
     second = swap;
   }
-  // Dual (base goal + 4KA TV goal): base goal first, each goal gets its own budget. No extra rng draws.
+  // Dual (base goal + 4KA TV goal): base goal first, each goal gets its own budget.
   const split = dualBonusLeg({ kind: first.kind, scope: first.scope, kindB: second.kind, scopeB: second.scope }) != null;
   if (split && legIsBonus(first.kind, first.scope)) {
     const swap = first;
     first = second;
     second = swap;
   }
-  const budget = split ? dualBudget(first, second, floor) : null;
-  const limit = budget ? budget.spins : comboSpinLimit(first, second);
+  const budget = split ? dualBudget(first, second, floor, rng) : null;
+  const combo = budget ? null : comboSpinLimit(first, second, floor, rng);
+  const limit = budget ? budget.spins : combo!.limit;
   const goal = `${otrsLine(first)} + ${otrsLine(second)}`;
   const stake = Math.max(first.stake, second.stake);
-  const payout = Math.max(roundStake(stake * 1.7), Math.max(first.payout, second.payout));
+  // One tilt for the whole ticket: both goals' draws plus the shared budget draws, on the untilted leg payout.
+  const mA = legMeta.get(first);
+  const mB = legMeta.get(second);
+  const hards = [...(mA?.hards ?? []), ...(mB?.hards ?? []), ...(budget ? budget.hard : combo!.hard)];
+  const plain = Math.max(mA?.plainPay ?? first.payout, mB?.plainPay ?? second.payout);
+  const tilt = payTilt(hards, floor, budget ? "dual" : "combo");
+  const payout = Math.max(roundStake(stake * 1.7), roundStake(plain * tilt));
   return {
     ...first,
     id: `otrs-${floor}-${Math.floor(rng() * 1e6)}`,
@@ -629,29 +755,41 @@ function makeOtrs(rng: () => number, credit: number, bet: number): JobCard {
 }
 
 /**
- * Split dual budgets, tuned on the real engine (sim/dual-sim.ts): clear rate of the whole ticket
- * lands on the floor target (lacná ~80 %, stred ~58 %, drahá ~38 %) like every other ticket.
- * M = 4KA TV rounds for the bonus goal (per floor and template). N = base spins for the base goal:
- * the base goal's own tuned window (rare goals capped as in comboSpinLimit) × floor factor.
+ * Split dual budgets (od–do), tuned on the real engine (/workspace/ticket-ranges/sim): the whole ticket clears
+ * about as often as the old shared-clock dual did (lacná ~69 %, stred ~48 %, drahá ~26 %).
+ * M = 4KA TV rounds for the bonus goal, drawn per floor and template.
+ * N = base spins: the base goal's own window (rare goals capped by a drawn cap) × a drawn factor.
  */
-export const DUAL_TRIES: Record<JobFloor, Record<string, number>> = {
-  lacna: { noc: 2, signal: 3, plechovky: 3 },
-  stred: { noc: 2, signal: 3, plechovky: 3 },
-  draha: { noc: 2, signal: 3, plechovky: 3 },
+export const DUAL_TRIES: Record<JobFloor, Record<string, Span>> = {
+  lacna: { noc: [1, 3], signal: [2, 4], plechovky: [2, 4] },
+  stred: { noc: [1, 3], signal: [2, 4], plechovky: [2, 4] },
+  draha: { noc: [1, 3], signal: [2, 4], plechovky: [2, 4] },
 };
-export const DUAL_BASE_X: Record<JobFloor, Record<string, number>> = {
-  lacna: { noc: 1.15, signal: 1.25, plechovky: 1.25 },
-  stred: { noc: 1.05, signal: 1.1, plechovky: 1.1 },
-  draha: { noc: 1.05, signal: 1.15, plechovky: 1.15 },
+export const DUAL_BASE_X: Record<JobFloor, Record<string, Span>> = {
+  lacna: { noc: [0.9, 1.2], signal: [0.95, 1.25], plechovky: [1.0, 1.3] },
+  stred: { noc: [0.85, 1.16], signal: [0.91, 1.23], plechovky: [0.9, 1.22] },
+  draha: { noc: [0.82, 1.14], signal: [0.91, 1.24], plechovky: [0.87, 1.2] },
 };
-const DUAL_RARE_CAP: Record<string, number> = { siet: 100, vynos: 90, pot: 55 };
+export const DUAL_RARE_CAP: Record<string, Span> = { siet: [90, 110], vynos: [80, 100], pot: [50, 60] };
 
-export function dualBudget(base: JobCard, bonus: JobCard, floor: JobFloor): { spins: number; tries: number } {
-  const cap = DUAL_RARE_CAP[base.template];
-  const window = cap ? Math.min(base.limit, cap) : base.limit;
-  const spins = Math.min(400, snapFive(window * (DUAL_BASE_X[floor][bonus.template] ?? 1.1)));
-  const tries = DUAL_TRIES[floor][bonus.template] ?? 3;
-  return { spins, tries };
+export function dualBudget(
+  base: JobCard,
+  bonus: JobCard,
+  floor: JobFloor,
+  rng: () => number,
+): { spins: number; tries: number; hard: number[] } {
+  const hard: number[] = [];
+  const capSpan = DUAL_RARE_CAP[base.template];
+  let window = base.limit;
+  if (capSpan) {
+    const cap = drawWindow(rng, capSpan);
+    hard.push(cap.hard);
+    window = Math.min(window, cap.v);
+  }
+  const x = drawReal(rng, DUAL_BASE_X[floor][bonus.template] ?? [0.85, 1.15], false);
+  const m = drawInt(rng, DUAL_TRIES[floor][bonus.template] ?? [2, 4], false);
+  hard.push(x.hard, m.hard);
+  return { spins: Math.min(400, snapFive(window * x.v)), tries: m.v, hard };
 }
 
 /** Test/sim hook: deal one OTRS card the same way dealJobs does. */
@@ -678,7 +816,7 @@ export function dealJobs(rng: () => number, credit: number, bet: number): JobCar
   const bonus =
     rng() < 0.25
       ? makeOtrs(rng, credit, bet)
-      : makeJob(pickOne(TEMPLATES, rng), bonusFloor, credit, bet, rng, 1.15, true);
+      : makeJob(pickOne(TEMPLATES, rng), bonusFloor, credit, bet, rng, drawReal(rng, PAY_RANGES.mystery).v, true);
   return [...three, bonus];
 }
 
