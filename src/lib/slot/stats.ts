@@ -58,6 +58,10 @@ export type StatEvent =
       pays: { id: PayId; count: number }[];
       scatters: number;
       nearMiss: boolean;
+      /** Anticipation this spin by streak level: 1 = normal, 2 = anticipation 2, 3 = anticipation 3. */
+      anti?: 1 | 2 | 3;
+      /** The anticipated spin triggered 4KA TV. */
+      antiFs?: boolean;
       taxDelta: number;
       hitMax: boolean;
       turbo: boolean;
@@ -160,6 +164,7 @@ const REC_KEYS = ["win.cash", "win.x", "fs.best", "buy.best", "pick.best", "tick
 
 const C_PREFIXES = [
   "spins",
+  "anti",
   "fs.",
   "ante.",
   "wagered",
@@ -567,6 +572,11 @@ export function applyStat(s: PlayerStats, ev: StatEvent, now = Date.now()): Play
       if (ev.orbBoostExtra && ev.orbBoostExtra > 0) bump(c, "orb.extra", ev.orbBoostExtra);
       if (ev.applied > 0) bump(c, "signal", ev.orbSum || ev.applied);
       if (ev.nearMiss) bump(c, "near");
+      if (ev.anti) {
+        bump(c, "anti");
+        if (ev.anti > 1) bump(c, `anti.${ev.anti}`);
+        if (ev.antiFs) bump(c, ev.anti > 1 ? `anti.${ev.anti}.fs` : "anti.fs");
+      }
       if (ev.ticketLand) bump(c, "park.land");
 
       if (ev.taxDelta < 0) {

@@ -57,6 +57,7 @@ import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDes
 import { putBoard, readBestMark, readBestRecipe, readNick, saveNick, skipNick, winHow, writeBestHow, writeBestRecipe } from "@/lib/slot/board-api";
 import { emptyTally, mergeTally, notePays, recipeTumbles, topCans, topPays, type SeqTally, type WinRecipe } from "@/lib/slot/win-recipe";
 import { HEAT_MAX, heatFromWin } from "@/lib/slot/heat";
+import { antiAfterSpin, antiCue, antiLevel, antiStreak, type AntiCue } from "@/lib/slot/anticipation";
 import { ZASAH, applyMod, fsSpinX, fsZasahArmed, roundModScope, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, stepMod, windowCount, type ChaseMod, type ModScope, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
 import { BUILD_ID, dropStaleCaches, hardReload, releaseMatches } from "@/lib/slot/release";
 import {
@@ -464,6 +465,8 @@ export function useSlotGame() {
   });
   /** The last runSequence was a ZÁSAH spin (decides a 4KA TV it triggers). */
   const lastChasingRef = useRef(false);
+  /** Anticipations in a row without a 4KA TV (lib/slot/anticipation). Saved with the player. */
+  const antiStreakRef = useRef(0);
   const [fsZasah, setFsZasah] = useState(false);
   const resumeOnce = useRef(false);
 
@@ -539,6 +542,7 @@ export function useSlotGame() {
       zasah: Boolean(s.fsZasah && s.inFs),
     };
     setFsZasah(Boolean(s.fsZasah && s.inFs));
+    antiStreakRef.current = antiStreak(s.antiStreak);
     const loadedRaw = s.job ? { ...s.job, lockBet: s.job.lockBet || BETS[s.betIndex] } : null;
     const loaded =
       loadedRaw?.seal && !(s.inFs && s.fsLeft > 0)
@@ -611,6 +615,7 @@ export function useSlotGame() {
       fsModMul: fsSessionRef.current.modMul,
       fsTaxDelta: fsSessionRef.current.taxDelta,
       fsZasah: fsSessionRef.current.zasah,
+      antiStreak: antiStreakRef.current,
     };
     if (dead) writeLocal(saveSnapRef.current);
   }, []);
@@ -708,6 +713,7 @@ export function useSlotGame() {
       fsModMul: fsSessionRef.current.modMul,
       fsTaxDelta: fsSessionRef.current.taxDelta,
       fsZasah: fsSessionRef.current.zasah,
+      antiStreak: antiStreakRef.current,
       duelDeposit: depositRef.current,
       updatedAt: Date.now(),
     };
@@ -931,6 +937,7 @@ export function useSlotGame() {
       fsModMul: fsSessionRef.current.modMul,
       fsTaxDelta: fsSessionRef.current.taxDelta,
       fsZasah: fsSessionRef.current.zasah,
+      antiStreak: antiStreakRef.current,
       duelDeposit: depositRef.current,
     };
     saveSnapRef.current = payload;
@@ -2025,6 +2032,8 @@ export function useSlotGame() {
 
       let pendingFs = false;
       let pendingPick = false;
+      /** Sound slot of this spin's anticipation (one per spin, base only); null = no tease sound. */
+      let antiPlayed: AntiCue | null = null;
       let pityAdd = 0;
       let tMark = STOPS[0];
       for (let c = 1; c < 6; c++) {
@@ -2034,7 +2043,10 @@ export function useSlotGame() {
           setReelFast(true);
           if (!inBonus) {
             sfx.setSpinEnergy(0.08);
-            sfx.startAnticipate();
+            if (!antiPlayed) {
+              antiPlayed = antiCue(antiStreakRef.current);
+              sfx.startAnticipate(antiPlayed);
+            }
           }
         }
         const tease = scatterBlocked ? 0 : landedScatters >= 3 ? 900 : landedScatters >= 2 ? 720 : 0;
@@ -2235,6 +2247,8 @@ export function useSlotGame() {
 
       if (!fsNow && !scatterBlocked && scatterPeak >= FS_TRIGGER_SCATTERS) pendingFs = true;
       if (pendingFs) triggerScatterRef.current = scatterPeak;
+      // Anticipation 2/3 streak: every base spin that teased and gave no 4KA TV counts, any trigger resets.
+      if (!fsNow) antiStreakRef.current = antiAfterSpin(antiStreakRef.current, { anticipated: antiPlayed != null, bonus: pendingFs });
       if (fsNow && scatterPeak >= FS_RETRIGGER_SCATTERS && !retriggered) {
         retriggered = true;
         extraFsRef.current = FS_RETRIGGER;
@@ -2571,6 +2585,8 @@ export function useSlotGame() {
           t: "spin",
           cost,
           bet: currentBet,
+          anti: antiPlayed ? antiLevel(antiPlayed) : undefined,
+          antiFs: antiPlayed ? pendingFs : undefined,
           ante: anteRef.current && !opts?.buy,
           chase: Boolean(chasing),
           buy: Boolean(opts?.buy),

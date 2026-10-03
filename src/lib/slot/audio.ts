@@ -22,6 +22,7 @@
  */
 
 import { VIZ } from "./bed-viz";
+import { antiFallback, type AntiCue } from "./anticipation";
 import {
   CUE_LEVEL_MAX,
   MASTER_KEY,
@@ -100,6 +101,10 @@ const FILES: Record<string, string> = {
   kontrola: "/sfx/kontrola.mp3?v=ignition1",
   fsStart: "/sfx/fs-start.mp3?v=build1",
   anticipate: "/sfx/bonus-loop.mp3?v=4ka1",
+  /** Anticipation 2 (5th–9th tease in a row without a bonus) and 3 (10th+). Empty until the admin uploads;
+   *  an empty slot falls back anticipation3 → anticipation2 → anticipate (lib/slot/anticipation antiFallback). */
+  anticipation2: "",
+  anticipation3: "",
   can: "/sfx/can-open.mp3?v=open2",
   bed: "/sfx/fs-bed.mp3?v=moon2",
   zasah: "/sfx/fs-bed.mp3?v=zasah1",
@@ -1136,12 +1141,19 @@ export function playScatter(n = 1): void {
   if (n >= 4) playThunder();
 }
 
-export function startAnticipate(): void {
-  withCue("anticipate", () => {
+/**
+ * Tease loop while reels still run with 2+ scatters. `cue` picks the slot (lib/slot/anticipation antiCue); an empty
+ * anticipation3 / anticipation2 falls back down the chain and then plays on the slider of the slot that sounds.
+ * Returns the slot that actually plays (null if nothing started, e.g. already running or no audio).
+ */
+export function startAnticipate(cue: AntiCue = "anticipate"): AntiCue | null {
+  if (!ctx || !sfx || anticipateNodes) return null;
+  const key = antiFallback(cue, ownCue);
+  withCue(key, () => {
     if (!ctx || !sfx || anticipateNodes) return;
     duckMusic(0.16);
     const t = ctx.currentTime;
-    const bed = playBuf("anticipate", { gain: 0.01, loop: true, rate: 1 });
+    const bed = playBuf(key, { gain: 0.01, loop: true, rate: 1 });
     if (bed) {
       bed.gain.gain.setValueAtTime(0.01, t);
       bed.gain.gain.linearRampToValueAtTime(0.78, t + 0.18);
@@ -1164,6 +1176,7 @@ export function startAnticipate(): void {
       };
     }
   });
+  return anticipateNodes ? key : null;
 }
 
 export function stopAnticipate(): void {
@@ -1515,8 +1528,10 @@ export function previewCue(key: string): boolean {
     return true;
   }
   if (MUSIC_KEYS.has(key)) return previewLoopEl(key);
-  const loop = key === "spin" || key === "anticipate";
-  const handle = withCue(key, () => playBuf(key, { gain: 0.85, loop }));
+  const loop = key === "spin" || key === "anticipate" || key === "anticipation2" || key === "anticipation3";
+  // An empty anticipation 2 / 3 previews what the game plays instead (the fallback chain, on that slot's slider).
+  const src = key === "anticipation2" || key === "anticipation3" ? antiFallback(key, ownCue) : key;
+  const handle = withCue(src, () => playBuf(src, { gain: 0.85, loop }));
   if (!handle) {
     void loadBank();
     return false;

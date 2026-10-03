@@ -203,6 +203,9 @@ export function StatsSheet({
           <Row name="Výhry s plechovkou" value={num(cget(s, "orb.win"))} />
           <Row name="Výhra z plechoviek navyše" value={money(cget(s, "orb.extra"))} />
           <Row name="Takmer výhra (7/8)" value={num(cget(s, "near"))} />
+          <Row name="Napätie (2+ scattere)" value={`${num(cget(s, "anti"))} · 4KA TV ${num(cget(s, "anti.fs") + cget(s, "anti.2.fs") + cget(s, "anti.3.fs"))}`} />
+          <Row name="Napätie 2 (5.–9. bez bonusu)" value={`${num(cget(s, "anti.2"))} · 4KA TV ${num(cget(s, "anti.2.fs"))}`} />
+          <Row name="Napätie 3 (10.+ bez bonusu)" value={`${num(cget(s, "anti.3"))} · 4KA TV ${num(cget(s, "anti.3.fs"))}`} />
           <Row name="Cashback mŕtvych spinov" value={money(cget(s, "cashback"))} />
           <Row name="Rank drop (postup)" value={money(cget(s, "rank.drip"))} />
           <Row name="Séria výhier — aktuálna" value={num(winStreak)} />

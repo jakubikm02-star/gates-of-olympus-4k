@@ -46,6 +46,8 @@ const SOUND_CUES: { id: string; name: string; loop?: boolean; when?: string; hea
   { id: "harp", name: "Harfa", when: "3. scatter. Spolu s ním ide aj Zber." },
   { id: "thunder", name: "Hrom", when: "4. scatter, hod plechoviek, +5 točení, ohlásenie 4KA TV a neúspešný tiket." },
   { id: "anticipate", name: "Napätie", loop: true, when: "Base, keď sú 2+ scattere a valce ešte idú." },
+  { id: "anticipation2", name: "Napätie 2", loop: true, when: "Čo robí: napätie (2+ scattere, valce ešte idú) 5. až 9. raz za sebou bez 4KA TV. Keď padne bonus, počíta sa znova od 1. Odporúčanie: silnejšia slučka než Napätie. Kým nenahráš vlastný, hrá sa Napätie." },
+  { id: "anticipation3", name: "Napätie 3", loop: true, when: "Čo robí: napätie od 10. razu za sebou bez 4KA TV, pri každom ďalšom, kým nepadne bonus. Odporúčanie: najdramatickejšia slučka. Kým nenahráš vlastný, hrá sa Napätie 2, a keď nie je ani ten, Napätie." },
   { id: "coin", name: "Minca", when: "Výhra v sekvencii pod 5×." },
   { id: "ticketOk", name: "Úspešný tiket", when: "Splnený kontrakt. Zber, reťaz a ostatné úlohy." },
   { id: "win", name: "Výhra", when: "Výhra v sekvencii od 5× do 20×." },

@@ -5,6 +5,7 @@ import type { PityMap } from "./pick-bonus";
 import type { TierId } from "./jackpot";
 import { type JobCard, type JobFloor } from "./spend.ts";
 import { sanitizeDeposit, type DuelDeposit } from "./duel-deposit.ts";
+import { antiStreak } from "./anticipation.ts";
 
 export const SAVE_KEY = "parkizmus-v1";
 const LEGACY_KEYS = ["olympus4k-v1"];
@@ -64,6 +65,8 @@ export interface PlayerSave {
   fsTaxDelta: number;
   /** The running 4KA TV was triggered by a ZÁSAH spin: its free-spin wins pay ×2. */
   fsZasah: boolean;
+  /** Anticipations in a row without a 4KA TV trigger (anticipation 2 from ANTI2_AFTER on). */
+  antiStreak: number;
   /** Duel entry deposit paid and not settled yet (kaucia). Settled on boot if the page went away. */
   duelDeposit?: DuelDeposit | null;
 }
@@ -122,6 +125,7 @@ export function emptyPlayerSave(): PlayerSave {
     fsModMul: 1,
     fsTaxDelta: 0,
     fsZasah: false,
+    antiStreak: 0,
     duelDeposit: null,
   };
 }
@@ -328,6 +332,7 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.fsModMul = mul === 1.23 || mul === 0.77 ? mul : 1;
   s.fsTaxDelta = num(r.fsTaxDelta, 0, -1_000_000_000, 1_000_000_000);
   s.fsZasah = bool(r.fsZasah, false);
+  s.antiStreak = antiStreak(r.antiStreak);
   s.duelDeposit = sanitizeDeposit(r.duelDeposit);
   if (!s.inFs || s.fsLeft <= 0) {
     s.inFs = false;
