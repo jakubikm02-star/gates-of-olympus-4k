@@ -216,6 +216,39 @@ export async function duelForfeit(
   });
 }
 
+/** PostgREST filter of the conditional forfeit (see duelForfeitIf). */
+export function forfeitQuery(code: string, out: "host" | "guest", need: number, by: "self" | "peer"): string {
+  const n = Math.max(1, Math.floor(need));
+  let q = `duel_rooms?code=eq.${encodeURIComponent(code)}&phase=eq.play&or=(host_have.lt.${n},guest_have.lt.${n})`;
+  if (by === "peer") q += `&${out === "host" ? "host_have" : "guest_have"}=lt.${n}`;
+  return q;
+}
+
+/**
+ * Conditional forfeit: the row only moves to `<out>_out` while it is still in play and not both seats
+ * have finished (and, when forfeiting the peer, while the peer has not finished). Returns true when this
+ * call made the transition, so a forfeit and a normal finish can never both be paid.
+ */
+export async function duelForfeitIf(
+  code: string,
+  out: "host" | "guest",
+  need: number,
+  by: "self" | "peer",
+  final?: { have: number; score: number },
+): Promise<boolean> {
+  const n = Math.max(1, Math.floor(need));
+  const patch: Record<string, unknown> = {
+    phase: out === "host" ? "host_out" : "guest_out",
+    updated_at: new Date().toISOString(),
+  };
+  if (final && by === "self") {
+    patch[out === "host" ? "host_have" : "guest_have"] = final.have;
+    patch[out === "host" ? "host_score" : "guest_score"] = final.score;
+  }
+  const rows = await rest(forfeitQuery(code, out, n, by), { method: "PATCH", body: JSON.stringify(patch) });
+  return rows.length > 0;
+}
+
 export async function duelLeave(code: string, role: "host" | "guest"): Promise<void> {
   try {
     if (role === "host") {

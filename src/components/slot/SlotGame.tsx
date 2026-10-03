@@ -357,7 +357,7 @@ export function SlotGame() {
           </aside>
 
           <section className="board-wrap">
-            {g.duel && g.duel.phase === "play" ? <DuelBar duel={g.duel} onForfeit={g.foldDuel} /> : null}
+            {g.duel && g.duel.phase === "play" ? <DuelBar duel={g.duel} onForfeit={g.foldDuel} canFold={g.canFold} /> : null}
             <div className="board-stage">
             <div className="board-stage-inner">
             <div className="board-meter">
@@ -826,7 +826,7 @@ export function SlotGame() {
           })()}
         </aside>
       ) : null}
-      {g.chaseMod ? (
+      {g.chaseMod && !(g.duel && g.duel.phase !== "done") ? (
         <div className={`mod-badge ${g.chaseMod.kind === "bezDane" ? "is-free" : "is-tax"}`}>
           {g.chaseMod.kind === "bezDane" ? "BEZ DANE" : "DAŇOVÝ ÚNIK"} · {g.chaseMod.left}
         </div>
@@ -1085,7 +1085,7 @@ export function SlotGame() {
           onForfeit={g.noteForfeit}
           onPeerNet={g.notePeerNet}
           onEnd={g.endDuel}
-          inFs={g.inFs}
+          inFs={g.inFs || g.busy}
         />
       ) : null}
       {g.jpHit && (

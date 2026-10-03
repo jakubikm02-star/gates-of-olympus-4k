@@ -182,3 +182,82 @@ export function duelLeft(d: Duel): number {
 export function duelMineDone(d: Duel): boolean {
   return d.seats[d.you].have >= d.need;
 }
+
+/** Server view of a room, enough to reconcile a local duel (subset of DuelSnap). */
+export interface DuelRoomView {
+  forfeit: 0 | 1 | null;
+  hostHave: number;
+  hostScore: number;
+  guestHave: number;
+  guestScore: number;
+}
+
+/**
+ * Bring a local online duel in line with the room row. A forfeit recorded on the server wins over
+ * a local finish (the row is the single place both clients write to), otherwise the peer seat is
+ * refreshed from the row. Hot-seat duels are returned unchanged.
+ */
+export function reconcileDuel(d: Duel, room: DuelRoomView): Duel {
+  if (d.kind !== "online") return d;
+  const peer: 0 | 1 = d.you === 0 ? 1 : 0;
+  const peerHave = peer === 0 ? room.hostHave : room.guestHave;
+  const peerScore = peer === 0 ? room.hostScore : room.guestScore;
+  const seats: [DuelSeat, DuelSeat] = [{ ...d.seats[0] }, { ...d.seats[1] }];
+  seats[peer] = { ...seats[peer], have: Math.max(seats[peer].have, peerHave), score: peerScore };
+  const synced: Duel = { ...d, seats };
+  if (room.forfeit != null) return forfeitDuel({ ...synced, phase: "play", forfeit: null }, room.forfeit);
+  if (d.forfeit != null) return synced;
+  const done = seats[0].have >= d.need && seats[1].have >= d.need;
+  return { ...synced, phase: done ? "done" : d.phase === "done" ? "play" : d.phase, held: 0 };
+}
+
+/** One id per duel and seat, so a duel is credited at most once per player. */
+export function duelSettleKey(d: Duel, startedAt: number): string {
+  return `${d.kind}:${d.room ?? "local"}:${d.you}:${startedAt}`;
+}
+
+/** Result of a finished duel from the `you` seat (hot-seat: seat 0 = HRÁČ 1). */
+export function duelOutcome(d: Duel): {
+  result: "win" | "loss" | "draw";
+  forfeit: "me" | "peer" | null;
+  pot: number;
+  credit: number;
+} {
+  const pot = duelPot(d);
+  const forfeit = d.forfeit == null ? null : d.forfeit === d.you ? "me" : "peer";
+  const w = d.forfeit != null ? (d.forfeit === 0 ? 1 : 0) : duelWinner(d);
+  const result = w === null ? "draw" : w === d.you ? "win" : "loss";
+  // Hot-seat: one wallet, the whole bank comes back to it whoever wins.
+  const credit = d.kind === "hotseat" ? pot : duelCreditDelta(d, d.you);
+  return { result, forfeit, pot, credit };
+}
+
+/** The idle timer: blanks 1..limit-1 score a 0 spin, the limit-th blank forfeits. */
+export function blankStep(blanks: number, limit = 3): { blanks: number; forfeit: boolean } {
+  const next = Math.max(0, blanks) + 1;
+  return { blanks: next, forfeit: next >= limit };
+}
+
+/** Peer liveness: the 90 s no-progress clock only runs while the peer is idle (not busy in a round/banner). */
+export function peerFrozen(opts: {
+  now: number;
+  idleSince: number;
+  peerBusy: boolean;
+  mine: number;
+  theirs: number;
+  need: number;
+  limitMs?: number;
+}): boolean {
+  if (opts.peerBusy) return false;
+  if (opts.theirs >= opts.need) return false;
+  if (!(opts.mine > opts.theirs)) return false;
+  if (!(opts.idleSince > 0)) return false;
+  return opts.now - opts.idleSince > (opts.limitMs ?? 90_000);
+}
+
+/** How long a win banner stays inside a duel round. Never "wait for a tap": a duel round must not stall. */
+export function duelBannerMs(kind: string | null | undefined): number {
+  if (kind === "massive" || kind === "max") return 6000;
+  if (kind === "fsTotal") return 4000;
+  return 2800;
+}

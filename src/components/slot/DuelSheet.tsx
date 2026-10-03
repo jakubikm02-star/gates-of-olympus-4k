@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { formatMoney } from "@/lib/slot/format";
-import { duelCreate, duelForfeit, duelJoin, duelLeave, duelPoll, duelStart, duelTick, type DuelSnap } from "@/lib/slot/duel-api";
+import { duelCreate, duelForfeitIf, duelJoin, duelLeave, duelPoll, duelStart, duelTick, type DuelSnap } from "@/lib/slot/duel-api";
 import {
   canDuelSpin,
   duelCreditDelta,
   duelPot,
   duelView,
   duelWinner,
+  peerFrozen,
   type Duel,
   type DuelLink,
   type DuelMode,
@@ -73,6 +74,7 @@ export function DuelLink({
   link: DuelLink;
   duel: Duel | null;
   bet: number;
+  /** This seat is busy (spin, 4KA TV, banner, KONTROLA): sent as the `net` heartbeat flag. */
   inFs: boolean;
   onPeerName: (name: string) => void;
   onGo: (peerName: string, bet: number, mode: DuelMode, need: number, ante: boolean) => void;
@@ -176,24 +178,31 @@ export function DuelLink({
             const peerSeen = link.role === "host" ? snap.guestSeen : snap.hostSeen;
             onPeerNetRef.current(peerNet);
             if (snap.phase === "play" && playSince.current === 0) playSince.current = Date.now();
-            if (theirs !== peerHave.current) {
+            // The no-progress clock restarts on every peer spin and stays at zero while the peer is busy
+            // (spin, 4KA TV, a banner still open): modal time never counts toward the 90 s.
+            if (theirs !== peerHave.current || peerNet) {
               peerHave.current = theirs;
               peerAt.current = Date.now();
             }
             const lastBeat = peerSeen > playSince.current ? peerSeen : playSince.current;
             const seenAge = playSince.current ? Date.now() - lastBeat : 0;
-            const silent = snap.phase === "play" && seenAge > 45_000;
+            const silent = snap.phase === "play" && theirs < snap.need && seenAge > 45_000;
             const frozen =
               snap.phase === "play" &&
-              !peerNet &&
-              mine > theirs &&
-              peerAt.current > 0 &&
-              Date.now() - peerAt.current > 90_000;
+              peerFrozen({ now: Date.now(), idleSince: peerAt.current, peerBusy: peerNet, mine, theirs, need: snap.need });
             if ((silent || frozen) && !gaveUp.current) {
               const who: 0 | 1 = link.role === "host" ? 1 : 0;
-              void duelForfeit(link.room, link.role === "host" ? "guest" : "host").catch(() => {});
               gaveUp.current = true;
-              onForfeitRef.current(who);
+              // Only a forfeit this client actually wrote (peer still short of its spins) is settled locally.
+              void duelForfeitIf(link.room, link.role === "host" ? "guest" : "host", snap.need, "peer")
+                .then((ok) => {
+                  if (stop) return;
+                  if (ok) onForfeitRef.current(who);
+                  else gaveUp.current = false;
+                })
+                .catch(() => {
+                  gaveUp.current = false;
+                });
             }
             onTickRef.current(theirs, theirScore);
           }
@@ -525,7 +534,7 @@ export function DuelSheet({
   );
 }
 
-export function DuelBar({ duel, onForfeit }: { duel: Duel; onForfeit?: () => void }) {
+export function DuelBar({ duel, onForfeit, canFold = true }: { duel: Duel; onForfeit?: () => void; canFold?: boolean }) {
   const view = duelView(duel);
   const wait = view.waiting || (duel.kind === "online" && !canDuelSpin(duel) && duel.phase === "play");
   const nextPeer = Math.min(duel.need, duel.seats[duel.you === 0 ? 1 : 0].have);
@@ -545,7 +554,7 @@ export function DuelBar({ duel, onForfeit }: { duel: Duel; onForfeit?: () => voi
         </i>
         {caption}
         {onForfeit && duel.phase === "play" ? (
-          <button type="button" className="duel-fold" onClick={onForfeit}>
+          <button type="button" className="duel-fold" onClick={onForfeit} disabled={!canFold} title={canFold ? undefined : "VZDAŤ až po dotočení"}>
             VZDAŤ
           </button>
         ) : null}
