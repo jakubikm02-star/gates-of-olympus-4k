@@ -448,6 +448,7 @@ export function SlotGame() {
               landing={g.phase === "landing"}
               popping={g.phase === "pop"}
               stoppedCols={g.stoppedCols}
+              onReelSettled={g.onReelSettled}
               anticipate={g.anticipate}
               activatingMult={g.activatingMult}
               struckUids={g.struckUids}

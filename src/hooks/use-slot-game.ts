@@ -57,6 +57,7 @@ import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDes
 import { putBoard, readBestMark, readBestRecipe, readNick, saveNick, skipNick, winHow, writeBestHow, writeBestRecipe } from "@/lib/slot/board-api";
 import { emptyTally, mergeTally, notePays, recipeTumbles, topCans, topPays, type SeqTally, type WinRecipe } from "@/lib/slot/win-recipe";
 import { HEAT_MAX, heatFromWin } from "@/lib/slot/heat";
+import { ReelScatterTracker, SETTLE_TIMEOUT_MS, cascadeCue, thirdScatterCue, type LandCue } from "@/lib/slot/scatter-sfx";
 import { antiAfterSpin, antiCue, antiLevel, antiStreak, type AntiCue } from "@/lib/slot/anticipation";
 import { ZASAH, applyMod, fsSpinX, fsZasahArmed, roundModScope, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, stepMod, windowCount, type ChaseMod, type ModScope, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
 import { BUILD_ID, dropStaleCaches, hardReload, releaseMatches } from "@/lib/slot/release";
@@ -467,6 +468,23 @@ export function useSlotGame() {
   const lastChasingRef = useRef(false);
   /** Anticipations in a row without a 4KA TV (lib/slot/anticipation). Saved with the player. */
   const antiStreakRef = useRef(0);
+  /** Scatter land sounds of the running spin (reels report via onReelSettled). */
+  const reelSfxRef = useRef<{ id: number; tracker: ReelScatterTracker; settled: Promise<void>; done: () => void } | null>(null);
+  const reelSfxSeq = useRef(0);
+  const playLandCue = useCallback((cue: LandCue | null) => {
+    if (!cue) return;
+    cue.steps.forEach((st, i) => sfx.playScatterLand(st.n, st.delayMs, cue.thunder && i === cue.steps.length - 1));
+  }, []);
+  /** Grid: reel `c` visually stopped. Plays its scatters' land sounds (once per reel, in stop order). */
+  const onReelSettled = useCallback(
+    (c: number) => {
+      const live = reelSfxRef.current;
+      if (!live) return;
+      playLandCue(live.tracker.reel(c));
+      if (live.tracker.settled) live.done();
+    },
+    [playLandCue],
+  );
   const [fsZasah, setFsZasah] = useState(false);
   const resumeOnce = useRef(false);
 
@@ -1986,6 +2004,8 @@ export function useSlotGame() {
           : Promise.resolve(null);
 
       const spunAt = performance.now();
+      reelSfxRef.current?.done();
+      reelSfxRef.current = null;
       setStoppedCols(0);
       setAnticipate(false);
       setHoldGrid(cloneGrid(gridRef.current));
@@ -2020,6 +2040,14 @@ export function useSlotGame() {
         chaseRef.current = aimed;
         setChase(aimed);
       }
+      {
+        // Scatter land sounds follow the reels as the grid shows them stopping (onReelSettled), not this loop.
+        let done = () => {};
+        const settled = new Promise<void>((resolve) => {
+          done = resolve;
+        });
+        reelSfxRef.current = { id: ++reelSfxSeq.current, tracker: new ReelScatterTracker(next), settled, done };
+      }
       setGrid(next);
       setPhase("landing");
       setStoppedCols(1);
@@ -2028,7 +2056,6 @@ export function useSlotGame() {
       sfx.playLand(0);
 
       let landedScatters = next.reduce((n, row) => n + (row[0].kind === "scatter" ? 1 : 0), 0);
-      if (landedScatters > 0) sfx.playScatter(landedScatters);
 
       let pendingFs = false;
       let pendingPick = false;
@@ -2056,10 +2083,7 @@ export function useSlotGame() {
         sfx.setSpinEnergy(landedScatters >= 2 && !scatterBlocked && !(isFree || inFsRef.current) ? 0.08 : 1 - (c + 1) / 6);
         sfx.playLand(c);
         const colN = next.reduce((n, row) => n + (row[c].kind === "scatter" ? 1 : 0), 0);
-        if (colN > 0) {
-          landedScatters += colN;
-          sfx.playScatter(landedScatters);
-        }
+        if (colN > 0) landedScatters += colN;
       }
       sfx.stopSpin();
       setSpinPace(null);
@@ -2124,7 +2148,7 @@ export function useSlotGame() {
         if (ev.wins.some((w) => w.payId === "pdf" && w.count >= 8)) pdfHit = true;
 
         if (ev.scatterCount > landedScatters) {
-          sfx.playScatter(ev.scatterCount);
+          // Sound already played when the drop landed (cascadeCue below); here only the shake.
           landedScatters = ev.scatterCount;
           if (ev.scatterCount >= 3) {
             setShake(true);
@@ -2221,6 +2245,7 @@ export function useSlotGame() {
         setClusterPay(null);
         setPayHint(null);
         await wait(dur(50), abort.current);
+        const scattersBefore = countScatters(board);
         board = tumble(board, tumbleMask, rng, fillAnte, fsNow);
         const more = zeusDropCount(rng, isFree || inFsRef.current, true);
         const inDuel = Boolean(duelRef.current && duelRef.current.phase !== "done");
@@ -2238,6 +2263,8 @@ export function useSlotGame() {
         setGrid(cloneGrid(board));
         tumbleN += 1;
         await wait(280);
+        // Refill drop (cell-drop, 280 ms) just landed: scatters that dropped in sound now.
+        playLandCue(cascadeCue(scattersBefore, countScatters(board)));
         setThrowBolt(false);
         setGrid((g) =>
           g.map((row) => row.map((c) => (c.fall || c.gone ? { ...c, fall: 0, gone: false } : c))),
@@ -2247,6 +2274,16 @@ export function useSlotGame() {
 
       if (!fsNow && !scatterBlocked && scatterPeak >= FS_TRIGGER_SCATTERS) pendingFs = true;
       if (pendingFs) triggerScatterRef.current = scatterPeak;
+      // Third scatter: the board has settled (all reels stopped, no more tumbles) with exactly 3 scatters.
+      // Waits for the last reel to stop on screen, so it never runs ahead of the 3rd scatter's land sound.
+      if (thirdScatterCue(countScatters(board))) {
+        const live = reelSfxRef.current;
+        const id = live?.id;
+        const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, SETTLE_TIMEOUT_MS));
+        void Promise.race([live?.settled ?? Promise.resolve(), timeout]).then(() => {
+          if (reelSfxRef.current?.id === id) sfx.playThirdScatter();
+        });
+      }
       // Anticipation 2/3 streak: every base spin that teased and gave no 4KA TV counts, any trigger resets.
       if (!fsNow) antiStreakRef.current = antiAfterSpin(antiStreakRef.current, { anticipated: antiPlayed != null, bonus: pendingFs });
       if (fsNow && scatterPeak >= FS_RETRIGGER_SCATTERS && !retriggered) {
@@ -2902,7 +2939,8 @@ export function useSlotGame() {
             setFsLeft(sess.left);
             setFsTotal(sess.total);
             setMessage(`+${freeSpinsLabel(add)}`);
-            sfx.playScatter(4);
+            // +5 announcement: thunder + Zber (no harp: harp is the exact-3 settle cue, already played if it was 3).
+            sfx.playRetrigger();
             persistNow();
             await wait(dur(720), abort.current);
           }
@@ -3823,6 +3861,7 @@ export function useSlotGame() {
     spinStrips,
     winTier,
     anticipate,
+    onReelSettled,
     activatingMult,
     struckUids,
     strike,

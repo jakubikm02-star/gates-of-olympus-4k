@@ -1135,10 +1135,28 @@ export function playZap(): void {
   }
 }
 
-export function playScatter(n = 1): void {
-  playBuf(n >= 3 ? "harp" : "scatter", { gain: 0.45 + n * 0.08, rate: 0.92 + n * 0.04 });
-  if (n >= 3) playBuf("collect", { gain: 0.55 });
-  if (n >= 4) playThunder();
+/**
+ * Land sound of the n-th scatter on the board (every scatter, from the first). Called when it really lands
+ * (reel stopped / cascade drop ended, see lib/slot/scatter-sfx). `delayMs` spaces scatters landing together.
+ * `thunder`: this land brought the board to 4+ scatters.
+ */
+export function playScatterLand(n: number, delayMs = 0, thunder = false): void {
+  const play = () => playBuf("scatter", { gain: 0.45 + n * 0.08, rate: 0.92 + n * 0.04 });
+  if (delayMs > 0) window.setTimeout(play, delayMs);
+  else play();
+  if (thunder) playThunder();
+}
+
+/** +5 4KA TV announcement (retrigger): the old cue minus the harp (harp is only the exact-3 settle cue now). */
+export function playRetrigger(): void {
+  playBuf("collect", { gain: 0.55 });
+  playThunder();
+}
+
+/** Third scatter: the settled final board has exactly 3 scatters (never on 4+). Harp + Zber, as the old 3rd-land cue. */
+export function playThirdScatter(): void {
+  playBuf("harp", { gain: 0.45 + 3 * 0.08, rate: 0.92 + 3 * 0.04 });
+  playBuf("collect", { gain: 0.55 });
 }
 
 /**

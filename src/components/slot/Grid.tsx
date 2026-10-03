@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { emptySettle, settleReports, type SettleState } from "@/lib/slot/scatter-sfx";
 import { COLS, ROWS, symbolSrc, ticketArt, canTier, FS_SYMBOL, PAY_SYMBOLS, TICKETS, type Cell, type PayId } from "@/lib/slot/symbols";
 import { isFsCell, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
 import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
@@ -41,6 +42,11 @@ interface Props {
   fsSym?: FsSymId | null;
   /** Rank cabinet layer (MachineFrame), painted in the bezel only. */
   frame?: import("react").ReactNode;
+  /**
+   * A reel visually stopped during a spin: its travel/brake animation ended (or, without travel, the hook
+   * stopped it). Once per reel per spin, in stop order. Drives the scatter land sound.
+   */
+  onReelSettled?: (c: number) => void;
 }
 
 /** Reel strips and the board read the swapped symbol from here, so every CellView agrees. */
@@ -279,6 +285,7 @@ export function SlotGrid({
   aimOn = false,
   fsSym = null,
   frame = null,
+  onReelSettled,
 }: Props) {
   const [, names] = useState(0);
   useEffect(() => subscribeTicketNames(() => names((n) => n + 1)), []);
@@ -295,6 +302,20 @@ export function SlotGrid({
     setLanded(Array(COLS).fill(false));
   }
   const frozen = cache.current && cache.current.token === token ? cache.current : null;
+  // Reel settle report (scatter land sound): a column must be seen spinning in this spin, then settled.
+  const settledCols = Array.from({ length: COLS }, (_, c) => {
+    const pending = cascading && c >= stoppedCols;
+    const travel = !reduced && Boolean(frozen && frozen.strips[c]?.length >= ROWS && !landed[c]);
+    return !pending && !travel;
+  });
+  const settleRef = useRef<SettleState>(emptySettle());
+  const onSettledRef = useRef(onReelSettled);
+  onSettledRef.current = onReelSettled;
+  const settledKey = settledCols.map((v) => (v ? 1 : 0)).join("");
+  useLayoutEffect(() => {
+    const done = settleReports(settleRef.current, token, settledKey.split("").map((v) => v === "1"));
+    for (const c of done) onSettledRef.current?.(c);
+  }, [token, settledKey]);
   const windowRef = useRef<HTMLDivElement>(null);
   const colsRef = useRef<(DriverCol | null)[]>(Array(COLS).fill(null));
   const binds = useRef(
