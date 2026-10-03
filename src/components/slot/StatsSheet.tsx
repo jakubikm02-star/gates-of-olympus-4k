@@ -278,6 +278,7 @@ export function StatsSheet({
           <Row name="4KA TV spustené prirodzene" value={num(natural)} />
           <Row name="4KA TV z ANTE" value={num(cget(s, "fs.ante"))} />
           <Row name="4KA TV kúpené" value={num(bought)} />
+          <Row name="4KA TV v ZÁSAHU (×2)" value={`${num(cget(s, "fs.zasah"))} · ${money(cget(s, "fs.zasah.paid"))}`} />
           <Row name="Minuté na kúpy" value={money(cget(s, "buy.spent"))} />
           <Row
             name="Návratnosť kúpy"
@@ -401,6 +402,9 @@ export function StatsSheet({
           <Row name="Vyhrané / prehrané / remízy" value={`${num(cget(s, "duel.win"))} / ${num(cget(s, "duel.loss"))} / ${num(cget(s, "duel.draw"))}`} />
           <Row name="Vzdania (ja / súper)" value={`${num(cget(s, "duel.forfeit.me"))} / ${num(cget(s, "duel.forfeit.peer"))}`} />
           <Row name="Bank z duelov" value={money(cget(s, "duel.pot"))} />
+          <Row name="Kaucia zaplatená" value={`${money(cget(s, "duel.dep.paid"))} (${num(cget(s, "duel.dep.paid.n"))}×)`} />
+          <Row name="Kaucia vrátená" value={`${money(cget(s, "duel.dep.returned"))} (${num(cget(s, "duel.dep.returned.n"))}×)`} />
+          <Row name="Kaucia prepadnutá" value={`${money(cget(s, "duel.dep.burned"))} (${num(cget(s, "duel.dep.burned.n"))}×)`} />
           <Row name="Prepadnuté ťahy (20 s)" value={num(cget(s, "blank"))} />
         </>
       );

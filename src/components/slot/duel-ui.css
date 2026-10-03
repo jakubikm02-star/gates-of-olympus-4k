@@ -1,0 +1,561 @@
+/* Duel UI (setup card, lobby, live panel, result) + the ×2 ZÁSAH badge of 4KA TV.
+   Kept in its own file so it does not collide with intro / background work in styles.css.
+   Seat colours: p1 = gold (host / HRÁČ 1), p2 = cyan (guest / HRÁČ 2), everywhere. */
+
+.duel-card,
+.duel-panel {
+  --p1: var(--color-gold, #f0c419);
+  --p1-glow: rgb(240 196 25 / 0.55);
+  --p2: var(--color-bolt, #3ec6e0);
+  --p2-glow: rgb(62 198 224 / 0.55);
+}
+
+/* —— cards (setup, lobby, result) —— */
+.modal-card.duel-card {
+  border: 1px solid rgb(240 196 25 / 0.38);
+  background:
+    radial-gradient(120% 60% at 0% 0%, rgb(240 196 25 / 0.1), transparent 60%),
+    radial-gradient(120% 60% at 100% 100%, rgb(62 198 224 / 0.1), transparent 60%),
+    linear-gradient(180deg, #151b22, #0d1116);
+  box-shadow:
+    0 24px 60px rgb(0 0 0 / 0.55),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
+.duel-card .modal-head h2 {
+  font-family: var(--font-display);
+  letter-spacing: 0.18em;
+  background: linear-gradient(90deg, var(--p1), #fff 50%, var(--p2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.duel-kicker {
+  margin: 4px 0 10px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+}
+
+.duel-seg {
+  display: grid !important;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px !important;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgb(0 0 0 / 0.35);
+  border: 1px solid rgb(255 255 255 / 0.06);
+}
+
+.duel-seg .chip-btn {
+  min-height: 34px;
+  border-radius: 9px;
+}
+
+.duel-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 6px;
+  margin: 10px 0 8px;
+}
+
+.duel-facts > div {
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.04);
+  border: 1px solid rgb(255 255 255 / 0.07);
+  min-width: 0;
+}
+
+.duel-facts dt {
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.duel-facts dd {
+  margin: 2px 0 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 1.2rem;
+}
+
+.duel-facts .is-deposit {
+  border-color: rgb(240 196 25 / 0.45);
+  background: rgb(240 196 25 / 0.08);
+}
+
+.duel-facts .is-deposit dd {
+  color: var(--color-gold-2, #ffe56a);
+}
+
+.duel-rule {
+  margin: 0 0 10px;
+  font-size: 0.66rem;
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+
+.duel-status {
+  margin: 8px 0 4px;
+  font-size: 0.78rem;
+  color: #dfe6ec;
+}
+
+.duel-status.is-err {
+  color: #ff8a7a;
+}
+
+.duel-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.duel-actions .duel-go {
+  margin: 0;
+}
+
+.duel-leave {
+  min-height: 46px;
+}
+
+.duel-lobby .duel-code {
+  margin: 0 0 10px;
+  padding: 10px 0;
+  border-radius: 12px;
+  border: 1px dashed rgb(240 196 25 / 0.45);
+  background: rgb(0 0 0 / 0.3);
+  text-shadow: 0 0 18px rgb(240 196 25 / 0.45);
+}
+
+/* —— seats + pips (shared) —— */
+.duel-seats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.duel-seat {
+  --c: var(--p1);
+  --g: var(--p1-glow);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: "name track score" "status status status";
+  align-items: center;
+  gap: 2px 10px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--c) 14%, transparent), rgb(255 255 255 / 0.02) 70%);
+  border: 1px solid color-mix(in srgb, var(--c) 30%, transparent);
+  border-left: 3px solid var(--c);
+}
+
+.duel-seat.p2 {
+  --c: var(--p2);
+  --g: var(--p2-glow);
+}
+
+.duel-seat.is-win {
+  box-shadow: 0 0 0 1px var(--c), 0 0 22px var(--g);
+}
+
+.duel-seat-name {
+  grid-area: name;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.duel-seat-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.duel-chip {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: 0 0 8px var(--g);
+}
+
+.duel-you,
+.duel-crown {
+  flex: none;
+  padding: 1px 5px;
+  border-radius: 999px;
+  font-size: 0.52rem;
+  letter-spacing: 0.14em;
+  background: var(--c);
+  color: #0b0d10;
+}
+
+.duel-crown {
+  background: #fff;
+}
+
+.duel-seat-track {
+  grid-area: track;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.duel-seat-count {
+  min-width: 2.6em;
+  text-align: right;
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted);
+}
+
+.duel-seat-score {
+  grid-area: score;
+  min-width: 4.2em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--c);
+  font-size: 0.9rem;
+}
+
+.duel-seat-status {
+  grid-area: status;
+  font-style: normal;
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  color: var(--color-muted);
+}
+
+.duel-seat-status.is-busy {
+  color: var(--c);
+  animation: duel-blink 1.1s ease-in-out infinite;
+}
+
+.duel-pips {
+  --c: inherit;
+  display: inline-grid;
+  grid-auto-flow: column;
+  gap: 3px;
+}
+
+.duel-pips.is-dense {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(10, auto);
+  gap: 2px 3px;
+}
+
+.duel-pips i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.14);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+
+.duel-pips.is-dense i {
+  width: 6px;
+  height: 6px;
+}
+
+.duel-seat .duel-pips i.on {
+  background: var(--c);
+  box-shadow: 0 0 6px var(--g);
+}
+
+.duel-seat .duel-pips i.now {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--c);
+  animation: duel-blink 1.1s ease-in-out infinite;
+}
+
+.duel-facts .duel-pips i {
+  background: rgb(255 255 255 / 0.22);
+}
+
+@keyframes duel-blink {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .duel-seat-status.is-busy,
+  .duel-seat .duel-pips i.now {
+    animation: none;
+  }
+}
+
+/* —— live panel —— */
+.duel-bar.duel-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: min(100%, 560px);
+  min-height: 0;
+  margin: 0 auto 6px;
+  padding: 6px 8px 7px;
+  border-radius: 12px;
+  border: 1px solid rgb(240 196 25 / 0.35);
+  background:
+    linear-gradient(180deg, rgb(21 27 34 / 0.96), rgb(10 13 17 / 0.96));
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.45);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.duel-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.duel-panel-title {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.22em;
+  background: linear-gradient(90deg, var(--p1), var(--p2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.duel-panel-left {
+  flex: 1;
+  min-width: 0;
+  color: #dfe6ec;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.duel-panel.is-wait .duel-panel-left {
+  color: var(--color-gold-2, #ffe56a);
+}
+
+.duel-panel-deposit {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgb(240 196 25 / 0.5);
+  color: var(--color-gold-2, #ffe56a);
+  font-variant-numeric: tabular-nums;
+}
+
+.duel-panel .duel-seats {
+  gap: 4px;
+}
+
+.duel-panel .duel-seat {
+  padding: 4px 8px;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-areas: "name track score status";
+  gap: 2px 8px;
+}
+
+.duel-panel .duel-seat-status {
+  min-width: 6.6em;
+  text-align: right;
+}
+
+.duel-panel .duel-fold {
+  flex: none;
+  align-self: center;
+  margin: 0;
+  padding: 3px 12px;
+  border-radius: 999px;
+  border: 1px solid rgb(224 112 112 / 0.5);
+  background: rgb(224 112 112 / 0.08);
+  color: #f08a8a;
+  font: inherit;
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+}
+
+.duel-panel .duel-fold:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Desktop side column: a vertical card under the win log, away from the jackpot strip. */
+.duel-panel.is-card {
+  width: 100%;
+  margin: 0;
+  padding: 8px;
+}
+
+.duel-panel.is-card .duel-panel-head {
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.duel-panel.is-card .duel-panel-left {
+  flex-basis: 100%;
+  order: 3;
+  white-space: normal;
+}
+
+.duel-panel.is-card .duel-seat {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "name name" "track score" "status status";
+  padding: 6px 7px;
+}
+
+.duel-panel.is-card .duel-seat-track {
+  justify-content: space-between;
+}
+
+.duel-panel.is-card .duel-seat-status {
+  text-align: left;
+}
+
+.duel-panel.is-card .duel-pips {
+  gap: 3px;
+}
+
+.duel-panel.is-card .duel-pips.is-dense i {
+  width: 6px;
+  height: 6px;
+}
+
+/* Phones: compact rows (name over status, pips + score on the right), VZDAŤ in the header. */
+@media (max-width: 720px) {
+  .duel-bar.duel-panel.is-bar {
+    gap: 4px;
+    padding: 5px 6px 6px;
+  }
+  .duel-panel.is-bar .duel-seat {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "name track score" "status track score";
+    gap: 0 8px;
+    padding: 3px 8px;
+  }
+  .duel-panel.is-bar .duel-seat-status {
+    text-align: left;
+    min-width: 0;
+    font-size: 0.5rem;
+  }
+  .duel-panel.is-bar .duel-seat-count {
+    display: none;
+  }
+  .duel-panel.is-bar .duel-fold {
+    padding: 2px 9px;
+  }
+}
+
+/* —— result —— */
+.duel-verdict {
+  margin: 6px 0 10px;
+  font-family: var(--font-display);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.duel-slam.win-p1 {
+  border-color: rgb(240 196 25 / 0.75);
+}
+
+.duel-slam.win-p2 {
+  border-color: rgb(62 198 224 / 0.75);
+}
+
+.duel-slam .duel-take {
+  margin: 12px 0 4px;
+}
+
+.duel-deposit-note {
+  margin: 0 0 10px;
+  text-align: center;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: #9fe3b0;
+}
+
+.duel-deposit-note.is-burn {
+  color: #ff8a7a;
+}
+
+/* —— 4KA TV started in ZÁSAH: ×2 badge —— */
+.fs-zasah-x2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: linear-gradient(180deg, #e24a12, #8f2408);
+  box-shadow: 0 0 14px rgb(226 74 18 / 0.6);
+  white-space: nowrap;
+}
+
+.fs-zasah-x2 span {
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+}
+
+.wb-zasah,
+.wb-table tr.wb-zasah td {
+  color: #ff9a6a;
+  font-weight: 700;
+}
+
+.duel-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.duel-bar.duel-panel > .duel-seats,
+.duel-bar.duel-panel > .duel-panel-head {
+  align-self: stretch;
+  width: 100%;
+}
+
+/* The old bar styled every <em> inside .duel-bar as a centered flex column. */
+.duel-bar.duel-panel em.duel-seat-status {
+  display: block;
+  align-items: initial;
+}
+
+.duel-bar.duel-panel .duel-seat-status {
+  text-align: left;
+}
+
+@media (min-width: 721px) {
+  .duel-bar.duel-panel.is-bar .duel-seat-status {
+    text-align: right;
+  }
+}
+
+/* Side card is narrow: the pips carry the count, the header carries what is left. */
+.duel-panel.is-card .duel-seat-count {
+  display: none;
+}

@@ -31,6 +31,8 @@ export const Route = createRootRoute({
       { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.webmanifest" },
+      // Intro first paint: garage before the symbol set (the intro hero <img fetchPriority="high"> preloads itself).
+      { rel: "preload", as: "image", href: "/art/parking-bg.webp", type: "image/webp", fetchPriority: "high" },
       { rel: "preload", as: "image", href: "/symbols/rj45.png" },
       { rel: "preload", as: "image", href: "/symbols/router.png?v=3" },
       { rel: "preload", as: "image", href: "/symbols/hap.png" },
@@ -43,7 +45,6 @@ export const Route = createRootRoute({
       { rel: "preload", as: "image", href: "/symbols/tv4ka.png" },
       { rel: "preload", as: "image", href: "/symbols/can-t1.webp" },
       { rel: "preload", as: "image", href: "/art/paas-idle.png?v=3" },
-      { rel: "preload", as: "image", href: "/art/parking-bg.jpg" },
     ],
   }),
   component: () => (

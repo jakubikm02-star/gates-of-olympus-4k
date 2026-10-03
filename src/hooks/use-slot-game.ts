@@ -57,9 +57,23 @@ import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDes
 import { putBoard, readBestMark, readBestRecipe, readNick, saveNick, skipNick, winHow, writeBestHow, writeBestRecipe } from "@/lib/slot/board-api";
 import { emptyTally, mergeTally, notePays, recipeTumbles, topCans, topPays, type SeqTally, type WinRecipe } from "@/lib/slot/win-recipe";
 import { HEAT_MAX, heatFromWin } from "@/lib/slot/heat";
-import { ZASAH, applyMod, roundModScope, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, stepMod, windowCount, type ChaseMod, type ModScope, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
+import { ZASAH, applyMod, fsSpinX, fsZasahArmed, roundModScope, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, stepMod, windowCount, type ChaseMod, type ModScope, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
 import { BUILD_ID, dropStaleCaches, hardReload, releaseMatches } from "@/lib/slot/release";
-import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, forfeitDuel, reconcileDuel, duelSettleKey, duelOutcome, blankStep, duelBannerMs, duelHoldsReload, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
+import {
+  DUEL_DEPOSIT_MULT,
+  bootDepositReason,
+  canAffordDuel,
+  depositTotal,
+  forfeitReason,
+  newDeposit,
+  settleOnce,
+  takeAppReloadMarker,
+  writeAppReloadMarker,
+  type DepositReason,
+  type DepositSettlement,
+  type DuelDeposit,
+} from "@/lib/slot/duel-deposit";
+import { abortDuel, startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, forfeitDuel, reconcileDuel, duelSettleKey, duelOutcome, blankStep, duelBannerMs, duelHoldsReload, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
 import { duelForfeitIf, duelLeave, duelPoll, duelTick, type DuelSnap } from "@/lib/slot/duel-api";
 import {
   canSpend,
@@ -108,6 +122,8 @@ export interface BannerMeta {
   extra: number;
   peakMult: number;
   terminated: boolean;
+  /** 4KA TV triggered in ZÁSAH: wins were paid ×2. */
+  zasah?: boolean;
 }
 
 function readLocal(): PlayerSave | null {
@@ -316,6 +332,14 @@ export function useSlotGame() {
   const [duelPeer, setDuelPeer] = useState("");
   const pendingPeerTick = useRef<{ have: number; score: number } | null>(null);
   const duelSettled = useRef(false);
+  /** Kaucia: the deposit paid on duel entry and not settled yet (mirrored in the local save). */
+  const depositRef = useRef<DuelDeposit | null>(null);
+  const [duelDeposit, setDuelDepositState] = useState<DuelDeposit | null>(null);
+  const [depositNote, setDepositNote] = useState<DepositSettlement | null>(null);
+  /** How my own seat went out, as far as this client knows (the room may say "timeout" instead). */
+  const forfeitCauseRef = useRef<"fold" | "idle" | null>(null);
+  /** Why the game aborted the running duel (room vanished, both seats dropped). */
+  const abortReasonRef = useRef<DepositReason>("roomFailure");
   const duelBlanks = useRef(0);
   const settleGen = useRef(0);
   const duelFastRef = useRef(false);
@@ -435,7 +459,12 @@ export function useSlotGame() {
     modMul: 1,
     /** Sum of the per-free-spin BEZ DANE / DAŇOVÝ ÚNIK deltas (display at the end of the bonus). */
     taxDelta: 0,
+    /** Triggered by a ZÁSAH spin: free-spin wins pay ×2 (fsSpinX). */
+    zasah: false,
   });
+  /** The last runSequence was a ZÁSAH spin (decides a 4KA TV it triggers). */
+  const lastChasingRef = useRef(false);
+  const [fsZasah, setFsZasah] = useState(false);
   const resumeOnce = useRef(false);
 
   const applySave = useCallback((s: PlayerSave) => {
@@ -507,7 +536,9 @@ export function useSlotGame() {
       triggerCash: s.fsTriggerCash ?? 0,
       modMul: s.fsModMul || 1,
       taxDelta: s.fsTaxDelta ?? 0,
+      zasah: Boolean(s.fsZasah && s.inFs),
     };
+    setFsZasah(Boolean(s.fsZasah && s.inFs));
     const loadedRaw = s.job ? { ...s.job, lockBet: s.job.lockBet || BETS[s.betIndex] } : null;
     const loaded =
       loadedRaw?.seal && !(s.inFs && s.fsLeft > 0)
@@ -579,6 +610,7 @@ export function useSlotGame() {
       chaseModLeft: modRef.current?.left ?? 0,
       fsModMul: fsSessionRef.current.modMul,
       fsTaxDelta: fsSessionRef.current.taxDelta,
+      fsZasah: fsSessionRef.current.zasah,
     };
     if (dead) writeLocal(saveSnapRef.current);
   }, []);
@@ -675,6 +707,8 @@ export function useSlotGame() {
       chaseModLeft: modRef.current?.left ?? 0,
       fsModMul: fsSessionRef.current.modMul,
       fsTaxDelta: fsSessionRef.current.taxDelta,
+      fsZasah: fsSessionRef.current.zasah,
+      duelDeposit: depositRef.current,
       updatedAt: Date.now(),
     };
     saveSnapRef.current = next;
@@ -720,6 +754,66 @@ export function useSlotGame() {
     sfx.playClick();
   }, []);
 
+  const setDeposit = useCallback((d: DuelDeposit | null) => {
+    depositRef.current = d;
+    setDuelDepositState(d);
+  }, []);
+
+  const reportDeposit = useCallback(
+    (st: DepositSettlement, toast: boolean) => {
+      if (st.refund > 0) noteStat({ t: "duelDeposit", phase: "returned", amount: st.refund, reason: st.reason });
+      if (st.burned > 0) noteStat({ t: "duelDeposit", phase: "burned", amount: st.burned, reason: st.reason });
+      setDepositNote(st);
+      if (!toast) return;
+      if (st.burned > 0 && st.refund > 0) setJobToast(`KAUCIA −${formatMoney(st.burned)} · SPÄŤ +${formatMoney(st.refund)}`);
+      else if (st.burned > 0) setJobToast(`KAUCIA PREPADLA −${formatMoney(st.burned)}`);
+      else if (st.refund > 0) setJobToast(`KAUCIA SPÄŤ +${formatMoney(st.refund)}`);
+    },
+    [noteStat],
+  );
+
+  /** Pay the duel entry deposit: balance and the pending deposit hit the local save in one write. */
+  const payDeposit = useCallback(
+    (dep: DuelDeposit) => {
+      const total = depositTotal(dep);
+      balanceRef.current = +Math.max(0, balanceRef.current - total).toFixed(2);
+      setBalance((b) => +Math.max(0, b - total).toFixed(2));
+      setDeposit(dep);
+      setDepositNote(null);
+      persistNow();
+      noteStat({ t: "duelDeposit", phase: "paid", amount: total });
+    },
+    [persistNow, noteStat, setDeposit],
+  );
+
+  /** Settle the pending deposit exactly once (refund or burn by reason). */
+  const settleDeposit = useCallback(
+    (reason: DepositReason, opts?: { burnSeat?: 0 | 1; toast?: boolean }) => {
+      const res = settleOnce(depositRef.current, reason, { burnSeat: opts?.burnSeat });
+      const st = res.settlement;
+      if (!st) return null;
+      setDeposit(null);
+      if (st.refund > 0) {
+        balanceRef.current = +(balanceRef.current + st.refund).toFixed(2);
+        setBalance((b) => +(b + st.refund).toFixed(2));
+      }
+      persistNow();
+      reportDeposit(st, opts?.toast !== false);
+      return st;
+    },
+    [persistNow, reportDeposit, setDeposit],
+  );
+
+  const patchDeposit = useCallback(
+    (patch: Partial<DuelDeposit>) => {
+      const cur = depositRef.current;
+      if (!cur) return;
+      setDeposit({ ...cur, ...patch });
+      persistNow();
+    },
+    [persistNow, setDeposit],
+  );
+
   const closeStats = useCallback(() => {
     setStatsOpen(false);
     flushStats(false);
@@ -758,12 +852,29 @@ export function useSlotGame() {
   }, [noteStat]);
 
   useEffect(() => {
-    const cached = readLocal();
+    let cached = readLocal();
+    // Kaucia left pending by the previous page: settle it once, before anything else is saved.
+    const marker = takeAppReloadMarker();
+    let bootDeposit: DepositSettlement | null = null;
+    if (cached?.duelDeposit) {
+      const reason = bootDepositReason(cached.duelDeposit, marker, Date.now());
+      bootDeposit = reason ? settleOnce(cached.duelDeposit, reason).settlement : null;
+      cached = {
+        ...cached,
+        balance: +(cached.balance + (bootDeposit?.refund ?? 0)).toFixed(2),
+        duelDeposit: null,
+      };
+    }
+    depositRef.current = null;
     if (cached) applySave(cached);
     readySave.current = true;
+    if (bootDeposit) {
+      flushSave();
+      reportDeposit(bootDeposit, true);
+    }
     runWeeklyDecay();
     setHydrated(true);
-  }, [applySave, runWeeklyDecay]);
+  }, [applySave, runWeeklyDecay, flushSave, reportDeposit]);
 
   useEffect(() => {
     if (!hydrated || !readySave.current) return;
@@ -819,6 +930,8 @@ export function useSlotGame() {
       chaseModLeft: modRef.current?.left ?? 0,
       fsModMul: fsSessionRef.current.modMul,
       fsTaxDelta: fsSessionRef.current.taxDelta,
+      fsZasah: fsSessionRef.current.zasah,
+      duelDeposit: depositRef.current,
     };
     saveSnapRef.current = payload;
     writeLocal(payload);
@@ -849,6 +962,8 @@ export function useSlotGame() {
         setStale(true);
         noteStat({ t: "ui", what: "build" });
         await dropStaleCaches();
+        // App-initiated: a deposit still pending at the next boot is refunded, not burned.
+        writeAppReloadMarker("version");
         hardReload();
       } catch {
         /* a dropped network does not kill the current build */
@@ -1794,6 +1909,7 @@ export function useSlotGame() {
       const isFree = !!opts?.free;
       const chasing =
         !isFree && !opts?.buy && !duelRef.current && (chaseRef.current != null || armChase(currentStake));
+      if (!isFree) lastChasingRef.current = Boolean(chasing);
       let cost = opts?.buy ? +(currentBet * buyXOf(perk.id)).toFixed(2) : isFree ? 0 : currentStake;
       if (chasing) cost = +(currentStake * ZASAH.COST_X).toFixed(2);
 
@@ -2208,12 +2324,11 @@ export function useSlotGame() {
 
       let paidX = sequenceX * applied;
       if (chasing) paidX *= ZASAH.BOOST;
-      let hitMax = false;
-      const remain = MAX_WIN_X - featureXRef.current;
-      if (paidX >= remain) {
-        paidX = Math.max(0, remain);
-        hitMax = true;
-      }
+      // 4KA TV triggered in ZÁSAH: ×2 on every free-spin win, before the MAX WIN cap and before the tax period.
+      const zasahFs = isFree && fsSessionRef.current.zasah && !roundEscrowRef.current;
+      const capped = fsSpinX(paidX, zasahFs, MAX_WIN_X - featureXRef.current);
+      paidX = capped.paidX;
+      const hitMax = capped.hitMax;
       featureXRef.current += paidX;
       const cash0 = +(paidX * currentBet).toFixed(2);
       // Tax period (BEZ DANE +23 % / DAŇOVÝ ÚNIK −23 %): every paid, bought and free spin pays with it and
@@ -2603,7 +2718,22 @@ export function useSlotGame() {
       kind: d.kind,
       blanks: duelBlankTotal.current || undefined,
     });
-  }, [bumpToday, noteStat]);
+    // Kaucia: the game ending normally or failing returns it, my own leaving burns it.
+    if (d.aborted) settleDeposit(abortReasonRef.current, { toast: false });
+    else if (d.forfeit == null) settleDeposit("finish", { toast: false });
+    else if (d.kind === "hotseat") {
+      settleDeposit(forfeitCauseRef.current === "idle" ? "idle" : "forfeit", { burnSeat: d.forfeit, toast: false });
+    } else {
+      settleDeposit(
+        forfeitReason({
+          mine: d.forfeit === d.you,
+          cause: forfeitCauseRef.current ?? "timeout",
+          netFault: depositRef.current?.netFault,
+        }),
+        { toast: false },
+      );
+    }
+  }, [bumpToday, noteStat, settleDeposit]);
 
   const settleDuel = useCallback((d: Duel) => {
     if (d.phase !== "done" || duelSettled.current) return;
@@ -2616,6 +2746,8 @@ export function useSlotGame() {
     if (d.kind === "online" && link) {
       const gen = settleGen.current;
       settlingRef.current = true;
+      // A reload while the final write is in flight must not burn the deposit of a finished duel.
+      if (d.forfeit == null) patchDeposit({ finished: true });
       // Final write first. The row it returns decides: a forfeit already recorded there wins over this
       // local finish, so a finish and a forfeit can never both be paid.
       // Never wait forever for the row: after 8 s the local result is paid (as before this check existed).
@@ -2642,7 +2774,7 @@ export function useSlotGame() {
       return;
     }
     payDuel(d);
-  }, [payDuel]);
+  }, [payDuel, patchDeposit]);
 
   /** A round, 4KA TV, KONTROLA or a banner is still running: VZDAŤ waits (a forfeit must not keep a running win). */
   const roundRunning = () =>
@@ -2652,8 +2784,9 @@ export function useSlotGame() {
    * Forfeit my seat. Online the room row moves to `<me>_out` only while nobody has finished; if that
    * conditional write does not land, the row (finish or the opponent's forfeit) decides instead.
    */
-  const forfeitSelf = useCallback((cur: Duel) => {
+  const forfeitSelf = useCallback((cur: Duel, cause: "fold" | "idle" = "fold") => {
     if (cur.phase !== "play" || duelSettled.current || foldingRef.current) return;
+    forfeitCauseRef.current = cause;
     const who: 0 | 1 = cur.kind === "online" ? cur.you : cur.turn;
     const link = duelLinkRef.current;
     const local = () => {
@@ -2822,6 +2955,7 @@ export function useSlotGame() {
           extra: sess.extra,
           peakMult: sess.peak,
           terminated: hitCap,
+          zasah: sess.zasah || undefined,
         });
         bannerOpen.current = true;
         setBanner("fsTotal");
@@ -2875,6 +3009,7 @@ export function useSlotGame() {
           gross: sess.cash,
           ms: Math.max(0, Date.now() - (fsStartedAtRef.current || Date.now())),
           empty: featureTotal <= 0,
+          zasah: sess.zasah || undefined,
           recipe: {
             v: 1,
             mode: sess.bought ? "buy" : "fs",
@@ -2904,7 +3039,9 @@ export function useSlotGame() {
           triggerCash: 0,
           modMul: 1,
           taxDelta: 0,
+          zasah: false,
         };
+        setFsZasah(false);
         persistNow();
         await waitForBanner(escrow ? duelBannerMs("fsTotal") : "click");
         setBannerMeta(null);
@@ -3111,6 +3248,11 @@ export function useSlotGame() {
         // tumbles = cascades during the free spins only, not the trigger spin
         fsTallyRef.current.tumbles = 0;
         fsAnteRef.current = Boolean(anteRef.current && !opts?.buy);
+        const zasahFs = fsZasahArmed({
+          triggerChasing: lastChasingRef.current,
+          bought: Boolean(opts?.buy),
+          duel: Boolean(roundEscrowRef.current || duelRef.current),
+        });
         fsSessionRef.current = {
           left: fsCount,
           total: fsCount,
@@ -3123,7 +3265,9 @@ export function useSlotGame() {
           // The tax period now pays per free spin (see runSequence), never as one end multiplier.
           modMul: 1,
           taxDelta: 0,
+          zasah: zasahFs,
         };
+        setFsZasah(zasahFs);
         setInFs(true);
         inFsRef.current = true;
         setPhase("fs");
@@ -3140,6 +3284,7 @@ export function useSlotGame() {
           ante: Boolean(fsAnteRef.current),
           scatters: triggerScatterRef.current,
           spins: fsCount,
+          zasah: zasahFs || undefined,
         });
         if (r === "fs") noteStat({ t: "ui", what: "autoStop", why: "fs" });
         persistNow();
@@ -3197,6 +3342,11 @@ export function useSlotGame() {
         if (next.phase === "done") settleDuel(next);
       }
     } catch {
+      // The app failed inside a duel round: the player is not to blame, the deposit comes back.
+      if (roundEscrowRef.current && depositRef.current?.started) {
+        settleDeposit("appError", { toast: false });
+        setJobToast("CHYBA HRY · KAUCIA SPÄŤ");
+      }
       sfx.stopLiveBed();
       sfx.stopSpin();
       sfx.stopAnticipate();
@@ -3214,7 +3364,7 @@ export function useSlotGame() {
       abort.current.aborted = false;
     }
   },
-    [dur, runSequence, waitForBanner, runPick, pushRank, noteResult, persistNow, runTicket, settleJob, settleDuel, bumpToday],
+    [dur, runSequence, waitForBanner, runPick, pushRank, noteResult, persistNow, runTicket, settleJob, settleDuel, bumpToday, settleDeposit],
   );
 
   useEffect(() => {
@@ -3443,6 +3593,22 @@ export function useSlotGame() {
     return () => window.removeEventListener("keydown", onKey);
   }, [started, playRound, stopReels, closeBanner, finishPick, closeFsReveal]);
 
+  /** A deposit left pending with no duel or lobby around it (should not happen): refund it before a new one. */
+  const clearStaleDeposit = () => {
+    const d = depositRef.current;
+    if (d) settleDeposit(d.started ? "roomFailure" : "notStarted", { toast: false });
+  };
+
+  // Crash marker: an uncaught error during a running duel makes the next (user) reload count as the
+  // app's fault (refund) for APP_RELOAD_FRESH_MS.
+  useEffect(() => {
+    const onError = () => {
+      if (depositRef.current?.started) writeAppReloadMarker("crash");
+    };
+    window.addEventListener("error", onError);
+    return () => window.removeEventListener("error", onError);
+  }, []);
+
   const duelSpinOpen = Boolean(
     duel && duel.kind === "online" && duel.phase === "play" && !busy && !inFs && canDuelSpin(duel),
   );
@@ -3457,7 +3623,7 @@ export function useSlotGame() {
       duelBlanks.current = step.blanks;
       duelBlankTotal.current += 1;
       if (step.forfeit) {
-        forfeitSelf(cur);
+        forfeitSelf(cur, "idle");
         return;
       }
       const betNow = BETS[betIndexRef.current];
@@ -3511,6 +3677,7 @@ export function useSlotGame() {
     displayWin,
     baseWin,
     fsLeft,
+    fsZasah,
     fsTotal,
     inFs,
     globalMult,
@@ -3716,6 +3883,9 @@ export function useSlotGame() {
     duelLink,
     duelPeer,
     setDuelPeer,
+    duelDeposit,
+    depositNote,
+    depositMult: DUEL_DEPOSIT_MULT,
     hostDuel: (mode: DuelMode, name: string, betAmt?: number, need = 10, anteOn = false) => {
       if (chaseRef.current || chaseCardRef.current) return "Počas ZÁSAHU zamknuté";
       if (busyRef.current) return "Počkaj, kým dotočí.";
@@ -3728,13 +3898,16 @@ export function useSlotGame() {
       }
       const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
       const spins = need > 0 ? Math.round(need) : 10;
-      if (balanceRef.current < +(stake * spins * 1.2).toFixed(2)) return "Málo kreditu.";
       const i = BETS.reduce((best, v, idx) => (Math.abs(v - stake) < Math.abs(BETS[best] - stake) ? idx : best), 0);
+      // Stakes reserve + kaucia (DUEL_DEPOSIT_MULT x bet).
+      if (!canAffordDuel(balanceRef.current, { bet: BETS[i], need: spins })) return "Málo kreditu na stávky + kauciu.";
       setBetIndex(i);
       betIndexRef.current = i;
       setAnte(anteOn);
       anteRef.current = anteOn;
       const room = makeRoomCode();
+      clearStaleDeposit();
+      payDeposit(newDeposit({ kind: "online", room, bet: BETS[i], now: Date.now() }));
       setDuelLink({
         room,
         role: "host",
@@ -3763,8 +3936,10 @@ export function useSlotGame() {
       if (room.length < 4) return "Kód má 4 znaky.";
       const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
       const spins = need > 0 ? Math.round(need) : 10;
-      if (balanceRef.current < +(stake * spins * 1.2).toFixed(2)) return "Málo kreditu.";
       const i = BETS.reduce((best, v, idx) => (Math.abs(v - stake) < Math.abs(BETS[best] - stake) ? idx : best), 0);
+      if (!canAffordDuel(balanceRef.current, { bet: BETS[i], need: spins })) return "Málo kreditu na stávky + kauciu.";
+      clearStaleDeposit();
+      payDeposit(newDeposit({ kind: "online", room, bet: BETS[i], now: Date.now() }));
       setBetIndex(i);
       betIndexRef.current = i;
       setAnte(anteOn);
@@ -3813,6 +3988,9 @@ export function useSlotGame() {
       duelBlankTotal.current = 0;
       duelStartedAtRef.current = Date.now();
       duelPaidRef.current = false;
+      forfeitCauseRef.current = null;
+      abortReasonRef.current = "roomFailure";
+      if (depositRef.current && depositRef.current.room === link.room) patchDeposit({ started: true });
       duelRef.current = next;
       setDuel(next);
       setDuelOpen(false);
@@ -3852,6 +4030,31 @@ export function useSlotGame() {
       setDuel(next);
       settleDuel(next);
     },
+    /**
+     * DuelLink: the room vanished mid-duel ("gone"), polls/writes kept failing ("net"), or this client
+     * came back from a long absence to a peer that is silent too ("both").
+     */
+    noteRoomFail: (kind: "gone" | "net" | "both") => {
+      const cur = duelRef.current;
+      if (kind === "net") {
+        if (depositRef.current?.started && !depositRef.current.netFault) patchDeposit({ netFault: true });
+        return;
+      }
+      if (!cur || cur.kind !== "online" || cur.phase !== "play" || duelSettled.current) return;
+      if (kind === "gone" && roundRunning()) return;
+      abortReasonRef.current = kind === "both" ? "bothDropped" : "roomFailure";
+      // The game failed, not a player: each seat keeps its own stack, the deposit comes back.
+      duelSettled.current = true;
+      autoRef.current = false;
+      setAutoOn(false);
+      setAutoLeft(0);
+      setAutoReason(null);
+      const next = abortDuel(cur);
+      duelRef.current = next;
+      setDuel(next);
+      setTopLine(kind === "both" ? "OBAJA VYPADLI · DUEL ZRUŠENÝ · KAUCIA SPÄŤ" : "MIESTNOSŤ ZMIZLA · DUEL ZRUŠENÝ · KAUCIA SPÄŤ");
+      payDuel(next);
+    },
     foldDuel: () => {
       const cur = duelRef.current;
       if (!cur || cur.phase !== "play") return;
@@ -3871,14 +4074,19 @@ export function useSlotGame() {
       if (duelRef.current) return "Už beží duel.";
       const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
       const spins = need > 0 ? Math.round(need) : 10;
-      // Hot-seat: both seats spin from this one wallet while the winnings sit in the duel bank.
-      if (balanceRef.current < +(stake * spins * 1.2 * 2).toFixed(2)) return "Málo kreditu.";
       const i = BETS.reduce((best, v, idx) => (Math.abs(v - stake) < Math.abs(BETS[best] - stake) ? idx : best), 0);
+      // Hot-seat: both seats spin from this one wallet while the winnings sit in the duel bank;
+      // both seats also pay their kaucia from it.
+      if (!canAffordDuel(balanceRef.current, { bet: BETS[i], need: spins, seats: 2 })) return "Málo kreditu na stávky + kauciu.";
       setBetIndex(i);
       betIndexRef.current = i;
       setAnte(anteOn);
       anteRef.current = anteOn;
       const next = startDuel({ mode, a, b, bet: BETS[i], need: spins });
+      clearStaleDeposit();
+      payDeposit(newDeposit({ kind: "hotseat", bet: BETS[i], now: Date.now() }));
+      forfeitCauseRef.current = null;
+      abortReasonRef.current = "roomFailure";
       duelSettled.current = false;
       duelBlanks.current = 0;
       duelBlankTotal.current = 0;
@@ -3912,6 +4120,10 @@ export function useSlotGame() {
         return;
       }
       if (link && !cur) void duelLeave(link.room, link.role).catch(() => {});
+      // Kaucia: a lobby that never became a duel returns it; a finished duel whose payout is still in
+      // flight is settled by payDuel, anything else left pending here is refunded as a game failure.
+      if (!cur) settleDeposit(depositRef.current?.started ? "roomFailure" : "notStarted");
+      else if (cur.phase === "done" && !settlingRef.current) settleDeposit(cur.aborted ? "roomFailure" : "finish");
       settleGen.current += 1;
       duelSettled.current = false;
       duelBlanks.current = 0;

@@ -223,3 +223,29 @@ export function readChaseFields(raw: Record<string, unknown>): {
     chaseFsSym: fsSym,
   };
 }
+
+/** 4KA TV triggered by a ZÁSAH spin: every free-spin win of that bonus pays this many times. */
+export const ZASAH_FS_MUL = 2;
+
+/**
+ * Whether a 4KA TV starting now is a ZÁSAH bonus (×2): the spin that triggered it was a ZÁSAH spin.
+ * Never for a bought bonus and never in a duel (ZÁSAH does not run there anyway).
+ */
+export function fsZasahArmed(r: { triggerChasing: boolean; bought: boolean; duel: boolean }): boolean {
+  return r.triggerChasing && !r.bought && !r.duel;
+}
+
+/**
+ * One free spin's payout in bet multiples. Order (fixed, tested):
+ * gross X (clusters × Mbps) → ×2 ZÁSAH → MAX WIN cap → tax period ±23 % (applyMod, on the capped amount).
+ * The ×2 is applied once per free spin; the trigger spin keeps its own ZÁSAH BOOST 1.15 instead.
+ */
+export function fsSpinX(x: number, zasah: boolean, remainX: number): { paidX: number; hitMax: boolean } {
+  let paidX = Math.max(0, x) * (zasah ? ZASAH_FS_MUL : 1);
+  let hitMax = false;
+  if (paidX >= remainX) {
+    paidX = Math.max(0, remainX);
+    hitMax = true;
+  }
+  return { paidX, hitMax };
+}

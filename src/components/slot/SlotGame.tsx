@@ -20,6 +20,7 @@ import { Paytable } from "./Paytable";
 import { PickBonus } from "./PickBonus";
 import { CountUp } from "./CountUp";
 import { RankBadge } from "./RankBadge";
+import { BootScreen } from "./BootScreen";
 import { MachineFrame } from "./MachineFrame";
 import { RankPanel } from "./RankPanel";
 import { RankToast } from "./RankToast";
@@ -34,6 +35,8 @@ import { Leaderboard, NickAsk } from "./Leaderboard";
 import { StatsSheet } from "./StatsSheet";
 import { HEAT_MAX } from "@/lib/slot/heat";
 import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
+import { depositTotal, writeAppReloadMarker } from "@/lib/slot/duel-deposit";
+import "./duel-ui.css";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
 
@@ -226,43 +229,34 @@ export function SlotGame() {
           <div>
             <b>NOVÁ VERZIA</b>
             <span>Táto hra už neplatí. Načítavam posledný deploy.</span>
-            <button type="button" onClick={() => window.location.reload()}>
+            <button
+              type="button"
+              onClick={() => {
+                // App-initiated reload (new build): a pending duel kaucia is refunded on the next boot.
+                writeAppReloadMarker("version");
+                window.location.reload();
+              }}
+            >
               OBNOVIŤ
             </button>
           </div>
         </div>
       ) : null}
+      <div className="stage-bg" aria-hidden="true" />
       <div className="stage-glow" />
       <div className="park-lines" aria-hidden="true" />
       {g.chase ? <PoliceSmog danger={g.chase.tension === "danger"} full={g.chase.strikes >= 2} reduced={reducedMotion} /> : null}
       {g.strike ? <HandBolt key={`${g.strike.r}-${g.strike.c}`} strike={g.strike} /> : null}
 
       {!g.started && (
-        <div className={`boot ${g.bootReady ? "is-ready" : ""}`}>
-          <img src="/art/paas-idle.png?v=3" alt="" className="boot-ramp" />
-          <div className="boot-card">
-            <div className="logo-plate">
-              <span className="logo-kicker">PORTS of</span>
-              <span className="logo-main">PARKIZMUS</span>
-              <span className="logo-sub">ZÓNA · LÍSTOK · RAMPA · POKUTA</span>
-            </div>
-            <p className="boot-max">
-              WIN UP TO <b>5000×</b>
-            </p>
-            <p className="boot-copy">6×5 v nočnej garáži. Násobiče, parkovné a liga ostanú v tomto prehliadači.</p>
-            <div className="boot-rank">
-              <span className="boot-rank-kicker">LIGA 4KY</span>
-              <RankBadge stand={g.rank} streak={g.winStreak} parts={g.rankParts} perkTitle={g.perk.title} onOpen={() => g.setRankOpen(true)} />
-            </div>
-            <p className="boot-pct">{g.bootReady ? "PRIPRAVENÉ" : `NAČÍTAVAM ${g.bootPct}%`}</p>
-            <div className="boot-load" aria-hidden="true">
-              <i style={{ width: `${g.bootReady ? 100 : g.bootPct}%` }} />
-            </div>
-            <button type="button" className="cta" disabled={!g.bootReady || g.booting} onClick={() => void g.start()}>
-              {g.booting ? "ZVUK…" : "HRAŤ"}
-            </button>
-          </div>
-        </div>
+        <BootScreen
+          ready={g.bootReady}
+          pct={g.bootPct}
+          booting={g.booting}
+          rank={g.rank}
+          onStart={() => void g.start()}
+          onRank={() => g.setRankOpen(true)}
+        />
       )}
 
       <div className="table">
@@ -354,10 +348,16 @@ export function SlotGame() {
                 ));
               })()}
             </ol>
+            {/* Desktop: the duel panel lives in the side column, never under the jackpot strip at the top. */}
+            {g.duel && g.duel.phase === "play" && shell === "pc" ? (
+              <DuelBar duel={g.duel} onForfeit={g.foldDuel} canFold={g.canFold} deposit={depositTotal(g.duelDeposit)} variant="card" />
+            ) : null}
           </aside>
 
           <section className="board-wrap">
-            {g.duel && g.duel.phase === "play" ? <DuelBar duel={g.duel} onForfeit={g.foldDuel} canFold={g.canFold} /> : null}
+            {g.duel && g.duel.phase === "play" && shell !== "pc" ? (
+              <DuelBar duel={g.duel} onForfeit={g.foldDuel} canFold={g.canFold} deposit={depositTotal(g.duelDeposit)} />
+            ) : null}
             <div className="board-stage">
             <div className="board-stage-inner">
             <div className="board-meter">
@@ -373,6 +373,11 @@ export function SlotGame() {
                       {g.fsLeft}/{g.fsTotal || 15}
                     </strong>
                   </div>
+                  {g.fsZasah ? (
+                    <div className="fs-zasah-x2" title="4KA TV spustená počas ZÁSAHU: všetky výhry ×2">
+                      ×2 <span>ZÁSAH</span>
+                    </div>
+                  ) : null}
                   <div className={`fs-heat ${g.chase ? "is-chase" : ""}`} aria-label={g.chase ? `Zásah ${Math.min(g.chase.total, g.chase.spin + 1)} z ${g.chase.total}` : `Hlásenie ${g.heat}`}>
                     <span>{g.chase ? "ZÁSAH" : "HLÁSENIE"}</span>
                     <i
@@ -899,6 +904,7 @@ export function SlotGame() {
                   ? `GRATULUJEME · ${g.bannerAmount || 15} VOLNÝCH TOČENÍ`
                   : (BANNER_COPY[g.banner] ?? "WIN")}
               </p>
+              {g.banner === "fs" && g.fsZasah ? <p className="wb-line wb-zasah">×2 ZÁSAH · všetky výhry v tejto 4KA TV dvojnásobné</p> : null}
               {g.banner === "fs" ? (
                 <p className="wb-amt">free-spins: {g.bannerAmount || 15}</p>
               ) : g.banner === "fsTotal" ? (
@@ -916,6 +922,12 @@ export function SlotGame() {
                       <td>peak-mult</td>
                       <td>{g.bannerMeta?.peakMult ?? 0}X</td>
                     </tr>
+                    {g.bannerMeta?.zasah ? (
+                      <tr className="wb-zasah">
+                        <td>zásah</td>
+                        <td>×2 ZÁSAH</td>
+                      </tr>
+                    ) : null}
                     {g.bannerMeta?.terminated && (
                       <tr className="err">
                         <td>status</td>
@@ -1072,6 +1084,7 @@ export function SlotGame() {
         onJoin={g.joinDuel}
         onSwap={g.swapDuel}
         onEnd={g.endDuel}
+        depositNote={g.depositNote}
       />
       {g.duelLink ? (
         <DuelLink
@@ -1085,6 +1098,8 @@ export function SlotGame() {
           onForfeit={g.noteForfeit}
           onPeerNet={g.notePeerNet}
           onEnd={g.endDuel}
+          onRoomFail={g.noteRoomFail}
+          peerName={g.duelPeer}
           inFs={g.inFs || g.busy}
         />
       ) : null}

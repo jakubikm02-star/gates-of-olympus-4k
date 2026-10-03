@@ -198,7 +198,7 @@ export const ALL_ART: readonly string[] = [
   "/art/paas-anti.png?v=4",
   "/art/paas-bolt.png?v=4",
   "/art/paas-win.png?v=4",
-  "/art/parking-bg.jpg",
+  "/art/parking-bg.webp",
 ];
 
 /** Official Olympus pool. Cans ADD into SIGNÁL; they never multiply each other. */

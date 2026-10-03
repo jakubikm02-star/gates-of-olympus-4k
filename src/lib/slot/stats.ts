@@ -9,6 +9,7 @@ import type { JobCard, JobFloor } from "./spend.ts";
 import type { TierId } from "./jackpot.ts";
 import type { RankBreakdown, RankEvent } from "./ranks.ts";
 import type { DuelKind } from "./duel.ts";
+import type { DepositReason } from "./duel-deposit.ts";
 
 export const STATS_KEY = "parkizmus-stats-v1";
 export const STATS_BACKUP_KEY = "parkizmus-stats-backup";
@@ -76,7 +77,7 @@ export type StatEvent =
       recipe?: WinRecipe | null;
       stopReels?: boolean;
     }
-  | { t: "fsStart"; bought: boolean; ante: boolean; scatters: number; spins: number }
+  | { t: "fsStart"; bought: boolean; ante: boolean; scatters: number; spins: number; zasah?: boolean }
   | {
       t: "fsEnd";
       total: number;
@@ -92,6 +93,8 @@ export type StatEvent =
       recipe?: WinRecipe | null;
       empty?: boolean;
       resumed?: boolean;
+      /** 4KA TV triggered in ZÁSAH (free-spin wins ×2). */
+      zasah?: boolean;
     }
   | { t: "pick"; cash: number; safes: number; clear: boolean; fines: number; odtah?: boolean }
   | { t: "chaseStart"; fsSym: FsSymId }
@@ -122,6 +125,8 @@ export type StatEvent =
       kind: DuelKind;
       blanks?: number;
     }
+  /** Duel entry deposit (kaucia): paid on entry, then returned or burned once. */
+  | { t: "duelDeposit"; phase: "paid" | "returned" | "burned"; amount: number; reason?: DepositReason }
   | { t: "session"; phase: "start" | "hide" | "show"; pwa: boolean }
   | {
       t: "ui";
@@ -585,6 +590,7 @@ export function applyStat(s: PlayerStats, ev: StatEvent, now = Date.now()): Play
         if (ev.ante) bump(c, "fs.ante");
       }
       setFirst(first, "fs.first", now);
+      if (ev.zasah) bump(c, "fs.zasah");
       if (ev.scatters >= 4) bump(c, `scatter.${Math.min(6, ev.scatters)}`);
       run.fsDry = 0;
       break;
@@ -596,6 +602,7 @@ export function applyStat(s: PlayerStats, ev: StatEvent, now = Date.now()): Play
       }
       bump(c, "fs.sessions");
       bump(c, "fs.paid", ev.total);
+      if (ev.zasah) bump(c, "fs.zasah.paid", ev.total);
       bump(c, "paid", ev.total);
       bump(c, "fsMs", ev.ms);
       if (ev.extra > 0) {
@@ -775,6 +782,13 @@ export function applyStat(s: PlayerStats, ev: StatEvent, now = Date.now()): Play
         setFirst(first, "duel.win", now);
       }
       if (ev.blanks) bump(c, "blank", ev.blanks);
+      break;
+    }
+    case "duelDeposit": {
+      const amt = Number.isFinite(ev.amount) ? Math.max(0, +ev.amount.toFixed(2)) : 0;
+      bump(c, `duel.dep.${ev.phase}`, amt);
+      bump(c, `duel.dep.${ev.phase}.n`);
+      if (ev.phase !== "paid" && ev.reason) bump(c, `duel.dep.why.${ev.reason}`);
       break;
     }
     case "session": {

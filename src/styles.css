@@ -2,6 +2,7 @@
 @import "tailwindcss";
 @import "./rank-frames.css";
 @import "./machine-frames.css";
+@import "./boot-screen.css";
 
 @theme {
   --font-display: "Oswald", "Arial Narrow", sans-serif;
@@ -66,8 +67,11 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgb(8 10 12 / 0.16) 0%, rgb(8 10 12 / 0.22) 62%, rgb(6 8 10 / 0.48) 100%),
-    url("/art/parking-bg.jpg") center / cover no-repeat;
+    /* Garage behind the machine (restored; dropped by accident in 69129c1). Dim + vignette keep the
+       reels and HUD readable; the v7 4KA TV fog/visualizer layers sit above this at z -1. */
+    radial-gradient(120% 92% at 50% 44%, transparent 48%, rgb(0 0 0 / 0.58) 100%),
+    linear-gradient(180deg, rgb(8 10 12 / 0.34) 0%, rgb(8 10 12 / 0.24) 40%, rgb(8 10 12 / 0.3) 70%, rgb(6 8 10 / 0.66) 100%),
+    url("/art/parking-bg.webp") center / cover no-repeat;
   transform: scale(1.02);
   z-index: -2;
   filter: saturate(1.05) contrast(1.04) brightness(0.96);
@@ -3389,128 +3393,6 @@
   border: 0;
 }
 
-.boot {
-  position: absolute;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  padding:
-    max(12px, env(safe-area-inset-top))
-    16px
-    max(16px, env(safe-area-inset-bottom));
-  overflow: hidden;
-  background:
-    linear-gradient(180deg, rgb(5 8 12 / 0.15) 0%, rgb(5 8 12 / 0.28) 38%, rgb(5 8 12 / 0.92) 72%, #07090b 100%),
-    url("/art/parking-bg.jpg") center 20% / cover no-repeat;
-}
-
-.boot::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 18%;
-  width: min(520px, 90vw);
-  height: min(520px, 70dvh);
-  transform: translateX(-50%);
-  background: radial-gradient(ellipse at center, rgb(62 198 224 / 0.22), transparent 68%);
-  z-index: 0;
-  pointer-events: none;
-}
-
-.boot-zeus,
-.boot-ramp {
-  position: absolute;
-  left: 50%;
-  bottom: 22%;
-  height: min(58dvh, 640px);
-  width: auto;
-  max-width: min(72vw, 440px);
-  transform: translateX(-50%);
-  object-fit: contain;
-  object-position: center bottom;
-  filter: drop-shadow(0 22px 28px rgb(0 0 0 / 0.55));
-  pointer-events: none;
-  z-index: 1;
-}
-
-.boot-card {
-  text-align: center;
-  width: min(440px, 100%);
-  z-index: 2;
-  position: relative;
-  margin: 0;
-  padding: 16px 16px 14px;
-  background: linear-gradient(180deg, rgb(7 9 11 / 0.05), rgb(7 9 11 / 0.9) 26%);
-  border: 1px solid rgb(240 196 25 / 0.32);
-  border-radius: 18px;
-  box-shadow: 0 18px 40px rgb(0 0 0 / 0.5);
-}
-
-.boot-max {
-  margin: 10px 0 0;
-  font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  font-size: 0.72rem;
-  color: #f0c419;
-  text-shadow: 0 2px 0 #1a1400;
-}
-
-.boot-max b {
-  display: block;
-  margin-top: 2px;
-  font-size: clamp(1.8rem, 8vw, 2.6rem);
-  letter-spacing: 0.08em;
-  line-height: 0.95;
-}
-
-.boot-pct {
-  margin: 4px 0 6px;
-  font-size: 0.68rem;
-  letter-spacing: 0.16em;
-  color: #9fdfff;
-}
-
-.boot-load {
-  height: 6px;
-  margin: 0 12px 12px;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.12);
-  overflow: hidden;
-}
-
-.boot-load i {
-  display: block;
-  height: 100%;
-  width: 0;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #3ec6e0, #ffe56a);
-  transition: width 0.2s linear;
-}
-
-.boot.is-ready .boot-load i {
-  box-shadow: 0 0 12px rgb(240 196 25 / 0.65);
-}
-
-.boot-copy {
-  margin: 8px 10px 2px;
-  color: #c9d3dc;
-  font-size: 0.78rem;
-  line-height: 1.35;
-}
-
-.boot-card .logo-main {
-  font-size: clamp(2.05rem, 7vw, 3.35rem);
-  letter-spacing: 0.05em;
-}
-
-.boot-card .logo-kicker {
-  font-size: 0.95rem;
-}
-
 .cta {
   min-width: 200px;
   height: 56px;
@@ -5132,25 +5014,6 @@
     width: 100%;
     text-align: center;
   }
-  .boot-zeus,
-  .boot-ramp {
-    opacity: 1;
-    right: auto;
-    left: 50%;
-    bottom: 30%;
-    height: min(46dvh, 460px);
-    max-width: 78vw;
-    transform: translateX(-50%);
-    pointer-events: none;
-  }
-  .boot-card {
-    margin-right: 0;
-    width: 100%;
-    padding-top: 12px;
-  }
-  .boot-card .logo-main {
-    font-size: clamp(1.7rem, 9vw, 2.4rem);
-  }
 }
 
 .table-head {
@@ -5425,21 +5288,6 @@
 .head-spacer {
   display: block;
   min-width: 0;
-}
-
-.boot-rank {
-  margin: 0 0 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.boot-rank-kicker {
-  font-family: var(--font-display);
-  font-size: 0.68rem;
-  letter-spacing: 0.2em;
-  color: var(--color-bolt);
 }
 
 .rank-chip em {
@@ -6438,7 +6286,7 @@ html:-webkit-full-screen {
   gap: 12px;
   background:
     linear-gradient(180deg, rgb(7 9 11 / 0.82), rgb(7 9 11 / 0.92)),
-    url("/art/parking-bg.jpg") center / cover no-repeat;
+    url("/art/parking-bg.webp") center / cover no-repeat;
   color: #f3f4f6;
   text-align: center;
   padding: 24px;

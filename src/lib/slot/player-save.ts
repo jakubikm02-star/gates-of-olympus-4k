@@ -4,6 +4,7 @@ import { readChaseFields } from "./zasah.ts";
 import type { PityMap } from "./pick-bonus";
 import type { TierId } from "./jackpot";
 import { type JobCard, type JobFloor } from "./spend.ts";
+import { sanitizeDeposit, type DuelDeposit } from "./duel-deposit.ts";
 
 export const SAVE_KEY = "parkizmus-v1";
 const LEGACY_KEYS = ["olympus4k-v1"];
@@ -61,6 +62,10 @@ export interface PlayerSave {
   fsModMul: number;
   /** Display only: summed BEZ DANE / DAŇOVÝ ÚNIK deltas of the running 4KA TV (already inside fsCash). */
   fsTaxDelta: number;
+  /** The running 4KA TV was triggered by a ZÁSAH spin: its free-spin wins pay ×2. */
+  fsZasah: boolean;
+  /** Duel entry deposit paid and not settled yet (kaucia). Settled on boot if the page went away. */
+  duelDeposit?: DuelDeposit | null;
 }
 
 export function emptyPlayerSave(): PlayerSave {
@@ -116,6 +121,8 @@ export function emptyPlayerSave(): PlayerSave {
     chaseModLeft: 0,
     fsModMul: 1,
     fsTaxDelta: 0,
+    fsZasah: false,
+    duelDeposit: null,
   };
 }
 
@@ -320,10 +327,13 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   const mul = num(r.fsModMul, 1);
   s.fsModMul = mul === 1.23 || mul === 0.77 ? mul : 1;
   s.fsTaxDelta = num(r.fsTaxDelta, 0, -1_000_000_000, 1_000_000_000);
+  s.fsZasah = bool(r.fsZasah, false);
+  s.duelDeposit = sanitizeDeposit(r.duelDeposit);
   if (!s.inFs || s.fsLeft <= 0) {
     s.inFs = false;
     s.fsLeft = 0;
     s.pendingLiveTicket = null;
+    s.fsZasah = false;
   }
   return s;
 }

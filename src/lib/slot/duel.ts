@@ -25,6 +25,8 @@ export interface Duel {
   forfeit: 0 | 1 | null;
   /** Opponent is inside PARKNET on the current spin. */
   peerNet?: boolean;
+  /** The game (not a player) ended the duel early, e.g. the room vanished: each seat keeps its own stack. */
+  aborted?: boolean;
 }
 
 export interface DuelLink {
@@ -143,6 +145,7 @@ export function duelPot(d: Duel): number {
 
 /** Wins were not paid into credit. Winner takes both. Tie returns each their own. Forfeit gives the pot to the other seat. */
 export function duelCreditDelta(d: Duel, seat: 0 | 1): number {
+  if (d.aborted) return d.seats[seat].score;
   if (d.forfeit != null) return seat === d.forfeit ? 0 : duelPot(d);
   const w = duelWinner(d);
   if (w === null) return d.seats[seat].score;
@@ -225,7 +228,7 @@ export function duelOutcome(d: Duel): {
 } {
   const pot = duelPot(d);
   const forfeit = d.forfeit == null ? null : d.forfeit === d.you ? "me" : "peer";
-  const w = d.forfeit != null ? (d.forfeit === 0 ? 1 : 0) : duelWinner(d);
+  const w = d.aborted ? null : d.forfeit != null ? (d.forfeit === 0 ? 1 : 0) : duelWinner(d);
   const result = w === null ? "draw" : w === d.you ? "win" : "loss";
   // Hot-seat: one wallet, the whole bank comes back to it whoever wins.
   const credit = d.kind === "hotseat" ? pot : duelCreditDelta(d, d.you);
@@ -272,4 +275,10 @@ export function duelHoldsReload(s: { duel: Duel | null; lobby: boolean; paid: bo
   if (s.lobby) return true;
   if (!s.duel) return false;
   return !(s.duel.phase === "done" && s.paid);
+}
+
+/** The game failed (not a player): end the duel, each seat keeps its own stack (like a tie). */
+export function abortDuel(d: Duel): Duel {
+  if (d.phase === "done") return d;
+  return { ...d, phase: "done", held: 0, forfeit: null, peerNet: false, aborted: true };
 }

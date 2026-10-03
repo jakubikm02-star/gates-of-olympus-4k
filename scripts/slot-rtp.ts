@@ -1,7 +1,7 @@
 import { ANTE_COST, BUY_COST_X, FS_RETRIGGER, FS_SPINS, MAX_WIN_X } from "../src/lib/slot/symbols.ts";
 import { createRng, resolvePaidSpin, type PaidSpin } from "../src/lib/slot/engine.ts";
 import { heatFromWin } from "../src/lib/slot/heat.ts";
-import { ZASAH, modMul, rollTarget, rollWindows, stepMod, tickMod, windowCount, type ChaseMod, type ChaseState } from "../src/lib/slot/zasah.ts";
+import { ZASAH, ZASAH_FS_MUL, modMul, rollTarget, rollWindows, stepMod, tickMod, windowCount, type ChaseMod, type ChaseState } from "../src/lib/slot/zasah.ts";
 
 function playFeature(
   rng: () => number,
@@ -146,6 +146,8 @@ const noZasah = process.argv.includes("--no-zasah");
 /** --tax=v3: old rule (period only on base spins, triggered bonus × the trigger spin's mod, free spins don't count). Default v4. */
 const taxRule = process.argv.find((a) => a.startsWith("--tax="))?.slice("--tax=".length) === "v3" ? "v3" : "v4";
 const n = Number(process.argv.find((a) => /^\d+$/.test(a)) ?? 40000);
+/** 4KA TV triggered by a ZÁSAH spin pays its free spins ×2 (game default). --no-zasah-x2 = old behaviour. */
+const zasahX2 = !process.argv.includes("--no-zasah-x2");
 function zasahRun(spins: number, seed = 5) {
   const rng = createRng(seed);
   let stakeOut = 0;
@@ -196,7 +198,8 @@ function zasahRun(spins: number, seed = 5) {
         penalty += Math.max(0, Math.max(0, feat.paid - spin.paidX) - extra);
       } else {
         // v4: every free spin pays with the period as it stands and counts it down.
-        playFeature(rng, spin, (fsX) => {
+        playFeature(rng, spin, (raw) => {
+          const fsX = chasing && zasahX2 ? raw * ZASAH_FS_MUL : raw;
           const step = stepMod(mod, "fs");
           mod = step.next;
           const got = fsX * step.mul;
@@ -239,6 +242,7 @@ function zasahRun(spins: number, seed = 5) {
     rtpPenalty: +(penalty / stakeOut).toFixed(4),
     rtpWithZasah: +(paid / stakeOut).toFixed(4),
     taxRule,
+    zasahX2,
   };
 }
 
