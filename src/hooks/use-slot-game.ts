@@ -57,9 +57,9 @@ import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDes
 import { putBoard, readBestMark, readBestRecipe, readNick, saveNick, skipNick, winHow, writeBestHow, writeBestRecipe } from "@/lib/slot/board-api";
 import { emptyTally, mergeTally, notePays, recipeTumbles, topCans, topPays, type SeqTally, type WinRecipe } from "@/lib/slot/win-recipe";
 import { HEAT_MAX, heatFromWin } from "@/lib/slot/heat";
-import { ZASAH, applyMod, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, stepMod, windowCount, type ChaseMod, type ModScope, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
+import { ZASAH, applyMod, roundModScope, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, stepMod, windowCount, type ChaseMod, type ModScope, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
 import { BUILD_ID, dropStaleCaches, hardReload, releaseMatches } from "@/lib/slot/release";
-import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, forfeitDuel, reconcileDuel, duelSettleKey, duelOutcome, blankStep, duelBannerMs, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
+import { startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, forfeitDuel, reconcileDuel, duelSettleKey, duelOutcome, blankStep, duelBannerMs, duelHoldsReload, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
 import { duelForfeitIf, duelLeave, duelPoll, duelTick, type DuelSnap } from "@/lib/slot/duel-api";
 import {
   canSpend,
@@ -327,6 +327,13 @@ export function useSlotGame() {
   /** Duels already credited on this device (duel + seat + start), so a duel never pays twice. */
   const settledKeysRef = useRef<Set<string>>(new Set());
   const foldingRef = useRef(false);
+  /** The current duel was credited on this device (gate for the deferred new-build reload). */
+  const duelPaidRef = useRef(false);
+  /** A new build was found while a duel held the reload: re-check right after the duel is paid / closed. */
+  const reloadDeferredRef = useRef(false);
+  const checkReleaseRef = useRef<() => void>(() => {});
+  /** An online duel result is being confirmed with the room row (credit not yet applied). */
+  const settlingRef = useRef(false);
   const duelBlankTotal = useRef(0);
   const autoFloorRef = useRef(0);
   const bannerWait = useRef<(() => void) | null>(null);
@@ -825,6 +832,19 @@ export function useSlotGame() {
         const ok = await releaseMatches();
         if (ok || stop || staleRef.current) return;
         if (busyRef.current || chaseRef.current || chaseCardRef.current) return;
+        if (
+          duelHoldsReload({
+            duel: duelRef.current,
+            lobby: Boolean(duelLinkRef.current && !duelRef.current),
+            paid: duelPaidRef.current,
+            roundRunning: busyRef.current || inFsRef.current || fsSessionRef.current.left > 0 || settlingRef.current,
+          })
+        ) {
+          // Reload after the duel: it is not saved, a reload now would forfeit it.
+          reloadDeferredRef.current = true;
+          return;
+        }
+        reloadDeferredRef.current = false;
         staleRef.current = true;
         setStale(true);
         noteStat({ t: "ui", what: "build" });
@@ -834,6 +854,7 @@ export function useSlotGame() {
         /* a dropped network does not kill the current build */
       }
     };
+    checkReleaseRef.current = () => void check();
     void check();
     const id = window.setInterval(() => void check(), 20000);
     const onShow = () => {
@@ -2199,7 +2220,7 @@ export function useSlotGame() {
       // counts it down; ZÁSAH and duel spins do not. A bonus resumed from an old save (modMul ≠ 1) keeps the
       // old rule: its free spins neither pay with nor count the period, the end multiplier does.
       const legacyFs = isFree && fsSessionRef.current.modMul !== 1;
-      const modScope: ModScope = chasing ? "chase" : roundEscrowRef.current ? "duel" : isFree ? "fs" : opts?.buy ? "buy" : "base";
+      const modScope: ModScope = roundModScope({ chasing, duel: roundEscrowRef.current, free: isFree, buy: Boolean(opts?.buy) });
       const { net: cash, delta: taxDelta } = legacyFs ? { net: cash0, delta: 0 } : applyMod(cash0, modRef.current, modScope);
       const mul = legacyFs ? 1 : stepMod(modRef.current, modScope).mul;
       if (isFree) lastTaxDeltaRef.current = taxDelta;
@@ -2540,6 +2561,13 @@ export function useSlotGame() {
     const key = duelSettleKey(d, duelStartedAtRef.current);
     if (settledKeysRef.current.has(key)) return;
     settledKeysRef.current.add(key);
+    // "Paid" only after the credit had time to render and be saved (persist effect), never mid-update.
+    const startedAt = duelStartedAtRef.current;
+    window.setTimeout(() => {
+      if (duelStartedAtRef.current === startedAt) duelPaidRef.current = true;
+    }, 1500);
+    // A new build waited for this duel: reload once the credit is saved and the result was on screen.
+    if (reloadDeferredRef.current) window.setTimeout(() => checkReleaseRef.current(), 4000);
     const out = duelOutcome(d);
     if (out.credit > 0) setBalance((b) => +(b + out.credit).toFixed(2));
     const pot = out.pot;
@@ -2587,13 +2615,19 @@ export function useSlotGame() {
     const link = duelLinkRef.current;
     if (d.kind === "online" && link) {
       const gen = settleGen.current;
+      settlingRef.current = true;
       // Final write first. The row it returns decides: a forfeit already recorded there wins over this
       // local finish, so a finish and a forfeit can never both be paid.
-      void duelTick(link.room, link.role, d.seats[d.you].have, d.seats[d.you].score, {
-        name: link.name,
-        ante: Boolean(link.ante),
-        net: false,
-      })
+      // Never wait forever for the row: after 8 s the local result is paid (as before this check existed).
+      const timeout = new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error("timeout")), 8000));
+      void Promise.race([
+        duelTick(link.room, link.role, d.seats[d.you].have, d.seats[d.you].score, {
+          name: link.name,
+          ante: Boolean(link.ante),
+          net: false,
+        }),
+        timeout,
+      ])
         .then((snap) => reconcileDuel(d, snap))
         .catch(() => d)
         .then((synced) => {
@@ -2602,6 +2636,7 @@ export function useSlotGame() {
             duelRef.current = final;
             setDuel(final);
           }
+          settlingRef.current = false;
           payDuel(final);
         });
       return;
@@ -3682,7 +3717,7 @@ export function useSlotGame() {
     duelPeer,
     setDuelPeer,
     hostDuel: (mode: DuelMode, name: string, betAmt?: number, need = 10, anteOn = false) => {
-      if (chaseRef.current) return "Počas ZÁSAHU zamknuté";
+      if (chaseRef.current || chaseCardRef.current) return "Počas ZÁSAHU zamknuté";
       if (busyRef.current) return "Počkaj, kým dotočí.";
       if (autoRef.current) return "Najprv vypni AUTO.";
       if (jobRef.current) return "Najprv dokonči tiket (OTRS).";
@@ -3715,7 +3750,7 @@ export function useSlotGame() {
       return "";
     },
     joinDuel: (mode: DuelMode, name: string, code: string, betAmt?: number, need = 10, anteOn = false) => {
-      if (chaseRef.current) return "Počas ZÁSAHU zamknuté";
+      if (chaseRef.current || chaseCardRef.current) return "Počas ZÁSAHU zamknuté";
       if (busyRef.current) return "Počkaj, kým dotočí.";
       if (autoRef.current) return "Najprv vypni AUTO.";
       if (jobRef.current) return "Najprv dokonči tiket (OTRS).";
@@ -3777,6 +3812,7 @@ export function useSlotGame() {
       duelBlanks.current = 0;
       duelBlankTotal.current = 0;
       duelStartedAtRef.current = Date.now();
+      duelPaidRef.current = false;
       duelRef.current = next;
       setDuel(next);
       setDuelOpen(false);
@@ -3827,7 +3863,7 @@ export function useSlotGame() {
     },
     canFold: Boolean(duel && duel.phase === "play" && !busy && !inFs && !pickOpen && !banner),
     beginDuel: (mode: DuelMode, a: string, b: string, betAmt?: number, need = 10, anteOn = false) => {
-      if (chaseRef.current) return "Počas ZÁSAHU zamknuté";
+      if (chaseRef.current || chaseCardRef.current) return "Počas ZÁSAHU zamknuté";
       if (busyRef.current) return "Počkaj, kým dotočí.";
       if (autoRef.current) return "Najprv vypni AUTO.";
       if (jobRef.current) return "Najprv dokonči tiket (OTRS).";
@@ -3847,6 +3883,7 @@ export function useSlotGame() {
       duelBlanks.current = 0;
       duelBlankTotal.current = 0;
       duelStartedAtRef.current = Date.now();
+      duelPaidRef.current = false;
       duelRef.current = next;
       setDuel(next);
       setDuelOpen(false);
@@ -3886,6 +3923,7 @@ export function useSlotGame() {
       setDuelOpen(false);
       setAutoReason(null);
       setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
+      if (reloadDeferredRef.current) window.setTimeout(() => checkReleaseRef.current(), 800);
     },
   };
 }

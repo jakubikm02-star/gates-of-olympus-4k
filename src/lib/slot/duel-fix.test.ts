@@ -130,3 +130,31 @@ describe("duel fix: clocks", () => {
     }
   });
 });
+
+describe("duel fix: tax scope and reload gate", () => {
+  it("a duel round (also its free spins) never pays or counts the ±23 % period", async () => {
+    const { roundModScope, applyMod, stepMod } = await import("./zasah.ts");
+    const free = roundModScope({ chasing: false, duel: true, free: true, buy: false });
+    assert.equal(free, "duel");
+    assert.equal(roundModScope({ chasing: false, duel: true, free: false, buy: false }), "duel");
+    assert.equal(roundModScope({ chasing: true, duel: false, free: false, buy: false }), "chase");
+    assert.equal(roundModScope({ chasing: false, duel: false, free: true, buy: false }), "fs");
+    assert.equal(roundModScope({ chasing: false, duel: false, free: false, buy: true }), "buy");
+    assert.equal(roundModScope({ chasing: false, duel: false, free: false, buy: false }), "base");
+    const unik = { kind: "danUrad" as const, left: 5 };
+    assert.deepEqual(applyMod(10, unik, free), { net: 10, delta: 0 });
+    assert.deepEqual(stepMod(unik, free).next, unik);
+  });
+
+  it("new-build reload waits for lobby, a running round and an unpaid duel", async () => {
+    const { duelHoldsReload } = await import("./duel.ts");
+    const play = online(0);
+    const done = forfeitDuel(online(0), 1);
+    assert.equal(duelHoldsReload({ duel: null, lobby: false, paid: false, roundRunning: false }), false);
+    assert.equal(duelHoldsReload({ duel: null, lobby: true, paid: false, roundRunning: false }), true);
+    assert.equal(duelHoldsReload({ duel: null, lobby: false, paid: false, roundRunning: true }), true);
+    assert.equal(duelHoldsReload({ duel: play, lobby: false, paid: false, roundRunning: false }), true);
+    assert.equal(duelHoldsReload({ duel: done, lobby: false, paid: false, roundRunning: false }), true);
+    assert.equal(duelHoldsReload({ duel: done, lobby: false, paid: true, roundRunning: false }), false);
+  });
+});

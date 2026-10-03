@@ -261,3 +261,15 @@ export function duelBannerMs(kind: string | null | undefined): number {
   if (kind === "fsTotal") return 4000;
   return 2800;
 }
+
+/**
+ * The new-build reload must wait for a duel: the duel is not saved, so a reload mid-duel loses the held-back
+ * wins and ends in a forfeit. It is held while a duel round runs, while the lobby is open, and until a started
+ * duel is finished and paid out on this device.
+ */
+export function duelHoldsReload(s: { duel: Duel | null; lobby: boolean; paid: boolean; roundRunning: boolean }): boolean {
+  if (s.roundRunning) return true;
+  if (s.lobby) return true;
+  if (!s.duel) return false;
+  return !(s.duel.phase === "done" && s.paid);
+}

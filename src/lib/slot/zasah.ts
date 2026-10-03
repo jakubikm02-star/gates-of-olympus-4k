@@ -162,6 +162,15 @@ export function tickMod(m: ChaseMod | null): ChaseMod | null {
  */
 export type ModScope = "base" | "fs" | "buy" | "pick" | "chase" | "duel";
 
+/** Scope of one spin. Order matters: ZÁSAH first, then a duel round (also its free spins), then fs / buy / base. */
+export function roundModScope(r: { chasing: boolean; duel: boolean; free: boolean; buy: boolean }): ModScope {
+  if (r.chasing) return "chase";
+  if (r.duel) return "duel";
+  if (r.free) return "fs";
+  if (r.buy) return "buy";
+  return "base";
+}
+
 /** The ±23 % hits every payout while the period runs, except ZÁSAH chase spins and duel spins. */
 export function modApplies(scope: ModScope): boolean {
   return scope !== "chase" && scope !== "duel";

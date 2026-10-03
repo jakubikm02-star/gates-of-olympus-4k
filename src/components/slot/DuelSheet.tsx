@@ -29,6 +29,9 @@ interface Props {
   onEnd: () => void;
 }
 
+/** No heartbeat from the peer for this long while it still owes spins: the peer is out. */
+const PEER_SILENT_MS = 90_000;
+
 function stepBet(value: number, dir: -1 | 1): number {
   const i = BETS.reduce((best, v, idx) => (Math.abs(v - value) < Math.abs(BETS[best] - value) ? idx : best), 0);
   return BETS[Math.min(BETS.length - 1, Math.max(0, i + dir))] ?? value;
@@ -186,7 +189,8 @@ export function DuelLink({
             }
             const lastBeat = peerSeen > playSince.current ? peerSeen : playSince.current;
             const seenAge = playSince.current ? Date.now() - lastBeat : 0;
-            const silent = snap.phase === "play" && theirs < snap.need && seenAge > 45_000;
+            // 90 s (was 45 s): a phone that locks or switches apps for a moment pauses JS and the heartbeat.
+            const silent = snap.phase === "play" && theirs < snap.need && seenAge > PEER_SILENT_MS;
             const frozen =
               snap.phase === "play" &&
               peerFrozen({ now: Date.now(), idleSince: peerAt.current, peerBusy: peerNet, mine, theirs, need: snap.need });
@@ -237,7 +241,15 @@ export function DuelLink({
     send();
     if (duel.phase !== "play") return;
     const id = window.setInterval(send, 1500);
-    return () => window.clearInterval(id);
+    // Back from the background: beat at once instead of waiting for the next interval.
+    const onShow = () => {
+      if (document.visibilityState === "visible") send();
+    };
+    document.addEventListener("visibilitychange", onShow);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onShow);
+    };
   }, [duel, link.room, link.role, link.name, link.ante]);
 
   const launch = () => {
