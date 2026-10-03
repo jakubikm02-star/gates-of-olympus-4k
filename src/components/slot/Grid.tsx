@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { createContext, memo, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { reportSpinFrames } from "@/lib/slot/perf-guard";
 import { emptySettle, settleReports, type SettleState } from "@/lib/slot/scatter-sfx";
 import { COLS, ROWS, symbolSrc, ticketArt, canTier, FS_SYMBOL, PAY_SYMBOLS, TICKETS, type Cell, type PayId } from "@/lib/slot/symbols";
 import { isFsCell, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
@@ -52,7 +53,11 @@ interface Props {
 /** Reel strips and the board read the swapped symbol from here, so every CellView agrees. */
 const FsSymContext = createContext<FsSymId | null>(null);
 
-function CellView({
+/**
+ * Memoized: the board re-renders on every hook state change (column stops, pots, toasts), often while
+ * the reels run. Unchanged cells (most of the ~300 in the travel strips) must not re-render then.
+ */
+const CellView = memo(function CellView({
   cell,
   r,
   c,
@@ -149,7 +154,7 @@ function CellView({
       )}
     </div>
   );
-}
+});
 
 function symbolAt(filler: Cell[], oldCol: Cell[], index: number): Cell {
   const n = filler.length;
@@ -157,6 +162,9 @@ function symbolAt(filler: Cell[], oldCol: Cell[], index: number): Cell {
   if (index >= oldStart && index < oldStart + oldCol.length) return oldCol[index - oldStart];
   return filler[((index % n) + n) % n];
 }
+
+/** Longest frame step the landing ease may take (ms ≈ 20 fps); longer gaps stall the clock. */
+const LAND_STEP_MAX = 50;
 
 type DriverCol = {
   el: HTMLDivElement | null;
@@ -166,7 +174,7 @@ type DriverCol = {
   stop: boolean;
   finals: Cell[] | null;
   ms: number;
-  land: { t0: number; from: number; linearPx: number; v: number; easeMs: number } | null;
+  land: { t0: number; prev: number; from: number; linearPx: number; v: number; easeMs: number } | null;
   onDone: () => void;
   setCells: (cells: Cell[]) => void;
   filler: Cell[];
@@ -228,6 +236,7 @@ function TravelColumn({
     const node = stripRef.current;
     if (!node || col.mode !== "arm" || !col.land) return;
     col.land.t0 = performance.now();
+    col.land.prev = col.land.t0;
     col.mode = "land";
     col.y = col.land.from;
     node.style.transform = `translate3d(0,${col.y}px,0)`;
@@ -346,9 +355,23 @@ export function SlotGrid({
       return y;
     };
 
+    // Frame-interval sample for the perf guard (raw, uncapped), reported once per spin.
+    let frameSum = 0;
+    let frameN = 0;
+    const report = () => {
+      if (frameN > 0) reportSpinFrames(frameSum / frameN, frameN);
+      frameSum = 0;
+      frameN = 0;
+    };
+
     const tick = (now: number) => {
-      const dt = Math.min(32, now - last);
+      const raw = now - last;
+      const dt = Math.min(32, raw);
       last = now;
+      if (primed && raw > 0 && raw < 1000) {
+        frameSum += raw;
+        frameN++;
+      }
       const cols = colsRef.current;
       if (!primed) {
         const sample = cols.find((c) => c?.el)?.el?.firstElementChild as HTMLElement | undefined;
@@ -400,6 +423,7 @@ export function SlotGrid({
             const from = -((ROWS + lead) * h + frac * h);
             col.land = {
               t0: now,
+              prev: now,
               from,
               linearPx: Math.max(0, -from - brakePx),
               v,
@@ -413,6 +437,11 @@ export function SlotGrid({
           place(col, y);
         } else if (col.mode === "land" && col.land) {
           const plan = col.land;
+          // A long frame (GC, React commit, thermal throttling) must not teleport the strip: past
+          // LAND_STEP_MAX the landing clock stalls instead, so the reel slows for a frame, never skips.
+          const gap = now - plan.prev;
+          if (gap > LAND_STEP_MAX) plan.t0 += gap - LAND_STEP_MAX;
+          plan.prev = now;
           const elapsed = now - plan.t0;
           const linearMs = plan.v > 0 ? plan.linearPx / plan.v : 0;
           let ny: number;
@@ -432,10 +461,14 @@ export function SlotGrid({
         }
       }
       if (alive) raf = requestAnimationFrame(tick);
+      else report();
     };
 
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      report();
+    };
   }, [token, reduced]);
 
   return (

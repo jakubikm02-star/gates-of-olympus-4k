@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from "react";
+import { isPerfLite, subscribePerfLite } from "@/lib/slot/perf-guard";
 import { Volume2, VolumeX, Info, RefreshCw, Menu, Settings as SettingsIcon, Trophy, BarChart3 } from "lucide-react";
 import { START_BALANCE, BETS, PAY_SYMBOLS, FS_SYMBOL, canSrc, canTier } from "@/lib/slot/symbols";
 import { fsSymName, fsSymSrc, type FsSymId } from "@/lib/slot/zasah";
@@ -195,6 +196,8 @@ export function SlotGame() {
   const spinning = g.phase === "spinning" || g.phase === "landing";
   const aim = useChaseAim(g.chase, g.phase === "spinning");
   const god = g.throwBolt ? "bolt" : g.anticipate ? "anti" : spinning ? "run" : g.inFs || g.winTier || g.displayWin > 0 ? "win" : "idle";
+  // Slow / hot phone (perf-guard): heavy decorative effects off, see .stage.perf-lite in styles.css.
+  const perfLite = useSyncExternalStore(subscribePerfLite, isPerfLite, () => false);
   const resolving =
     spinning ||
     g.phase === "eval" ||
@@ -222,7 +225,7 @@ export function SlotGame() {
 
   return (
     <div
-      className={`stage shell-${shell} rk-${g.rank.id} ${g.rankFlash?.event === "up" ? "is-rank-up" : ""} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.chase ? "in-chase" : ""} ${g.chase?.tension === "danger" ? "chase-danger" : ""} ${g.chase?.tension === "close" ? "chase-close" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""} ${g.exekucia ? "is-exekucia" : ""}`}
+      className={`stage shell-${shell} rk-${g.rank.id} ${g.rankFlash?.event === "up" ? "is-rank-up" : ""} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.chase ? "in-chase" : ""} ${g.chase?.tension === "danger" ? "chase-danger" : ""} ${g.chase?.tension === "close" ? "chase-close" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""} ${g.exekucia ? "is-exekucia" : ""}${perfLite ? " perf-lite" : ""}`}
     >
       {g.stale ? (
         <div className="release-lock" role="alertdialog" aria-label="Nová verzia">

@@ -10617,3 +10617,33 @@ html:-webkit-full-screen {
   color: #ffd2bf;
   border-color: #e24a12;
 }
+
+
+/* ── perf-lite (lib/slot/perf-guard): the reels ran below ~38 fps for several spins in a row ──
+   Only decoration goes: the reel-window edge mask on wide screens (phones already drop it),
+   the idle per-column filter layers (anticipation keeps its glow), main-thread glow animations (box-shadow keyframes repaint every frame,
+   even when idle), the win-log blur and the police beams. Gameplay visuals stay. */
+.stage.perf-lite .reel-window.is-spinning,
+.stage.perf-lite .reel-window.is-landing {
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.stage.perf-lite .reel-col:not(.is-anticipate) {
+  filter: none;
+  transition: none;
+}
+
+.stage.perf-lite .jp-stack:not(.is-hit),
+.stage.perf-lite .pool-led:not(.is-hit):not(.is-hot) {
+  animation: none;
+}
+
+.stage.perf-lite .win-log {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.stage.perf-lite .police-smog .ps-beam {
+  display: none;
+}

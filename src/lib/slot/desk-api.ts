@@ -19,8 +19,26 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+// One formatter for the module: constructing a time-zone DateTimeFormat is the expensive part, and
+// deskToday runs on renders and on every spin.
+let dayFmt: Intl.DateTimeFormat | null = null;
+
+/** Same counter values: a poll that changed nothing must not re-render the whole machine. */
+export function sameDesk(a: DeskDay, b: DeskDay): boolean {
+  return (
+    a.day === b.day &&
+    a.wagered === b.wagered &&
+    a.wins === b.wins &&
+    a.paid === b.paid &&
+    a.best === b.best &&
+    a.ticketWon === b.ticketWon &&
+    a.ticketLost === b.ticketLost
+  );
+}
+
 export function deskToday(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Bratislava" }).format(new Date());
+  dayFmt ??= new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Bratislava" });
+  return dayFmt.format(new Date());
 }
 
 function parse(raw: unknown): DeskDay {

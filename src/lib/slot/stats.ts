@@ -404,8 +404,11 @@ function setRec(rec: Record<string, WinRecipe | null>, k: string, recipe: WinRec
   rec[k] = recipe;
 }
 
+// Building an Intl.DateTimeFormat with a time zone costs far more than formatting; applyStat runs several times a spin.
+let partsFmt: Intl.DateTimeFormat | null = null;
+
 function bratislavaParts(ms: number): { hour: number; weekday: number; day: string } {
-  const fmt = new Intl.DateTimeFormat("en-CA", {
+  const fmt = (partsFmt ??= new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Bratislava",
     year: "numeric",
     month: "2-digit",
@@ -413,7 +416,7 @@ function bratislavaParts(ms: number): { hour: number; weekday: number; day: stri
     hour: "2-digit",
     hour12: false,
     weekday: "short",
-  });
+  }));
   const parts = fmt.formatToParts(new Date(ms));
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
   const day = `${get("year")}-${get("month")}-${get("day")}`;

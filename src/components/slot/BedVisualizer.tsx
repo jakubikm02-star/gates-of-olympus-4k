@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { isPerfLite } from "@/lib/slot/perf-guard";
 import { bedAnalyser, bedLatency } from "@/lib/slot/audio";
 import {
   BassNorm,
@@ -743,7 +744,7 @@ export function BedVisualizer({ muted, reduced }: Props) {
         shakeX = (rnd() * 2 - 1) * shake;
         shakeY = (rnd() * 2 - 1) * shake;
       } else shakeX = shakeY = 0;
-      if (slowShare > 0.6) lowQ = true;
+      if (slowShare > 0.6 || isPerfLite()) lowQ = true;
       else if (slowShare < 0.3) lowQ = false;
       const starsN = lowQ ? STARS >> 1 : geo?.small ? 60 : STARS;
       const push = (dt / 1000) * (10 + (190 * env + 260 * punch) * live);

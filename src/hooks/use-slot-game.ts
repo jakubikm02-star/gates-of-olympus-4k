@@ -53,7 +53,7 @@ import {
 import { pullAndMergeStats, statsPut } from "@/lib/slot/stats-api";
 import { emptyBoard, isEligibleBet, ticketResolve, TIER_BY_ID, type BoardSnap, type JackpotHit, type TierId } from "@/lib/slot/jackpot";
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
-import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDesk, ticketProfit, type DeskDay } from "@/lib/slot/desk-api";
+import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDesk, sameDesk, ticketProfit, type DeskDay } from "@/lib/slot/desk-api";
 import { putBoard, readBestMark, readBestRecipe, readNick, saveNick, skipNick, winHow, writeBestHow, writeBestRecipe } from "@/lib/slot/board-api";
 import { emptyTally, mergeTally, notePays, recipeTumbles, topCans, topPays, type SeqTally, type WinRecipe } from "@/lib/slot/win-recipe";
 import { HEAT_MAX, heatFromWin } from "@/lib/slot/heat";
@@ -196,6 +196,20 @@ function afterPaint(): Promise<void> {
   });
 }
 
+/**
+ * A ref's initial value is evaluated on every render even though only the first one is used. Some of
+ * these initialisers are not free (readStats parses the localStorage stats JSON, emptyDesk builds an
+ * Intl.DateTimeFormat), and this hook renders ~20× per spin, so build them once.
+ */
+/** Pot polls (every 2.5 s) mostly return the same numbers. */
+function samePots(a: unknown, b: unknown): boolean {
+  return a === b || JSON.stringify(a) === JSON.stringify(b);
+}
+
+function useOnce<T>(init: () => T): T {
+  return useState(init)[0];
+}
+
 export function useSlotGame() {
   const [started, setStarted] = useState(false);
   const [bootReady, setBootReady] = useState(false);
@@ -211,7 +225,7 @@ export function useSlotGame() {
   const [bestWin, setBestWin] = useState(0);
   const [grid, setGrid] = useState<Cell[][]>(() => emptyGrid());
   const [holdGrid, setHoldGrid] = useState<Cell[][] | null>(null);
-  const gridRef = useRef<Cell[][]>(emptyGrid());
+  const gridRef = useRef<Cell[][]>(useOnce(emptyGrid));
   const [reelFast, setReelFast] = useState(false);
   const [spinPace, setSpinPace] = useState<"up" | "full" | null>(null);
   const [cam, setCam] = useState<"stop" | "scatter" | "tumble" | null>(null);
@@ -304,7 +318,7 @@ export function useSlotGame() {
   const [topLine, setTopLine] = useState("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
 
   const abort = useRef({ aborted: false, skip: false });
-  const statsRef = useRef<PlayerStats>(readStats());
+  const statsRef = useRef<PlayerStats>(useOnce(readStats));
   const statsDirtyRef = useRef(false);
   const statsOpenRef = useRef(false);
   const statsLastWriteRef = useRef(0);
@@ -381,7 +395,7 @@ export function useSlotGame() {
   const rankRef = useRef({ rp: 0, peak: 0, shield: false });
   const streakRef = useRef(0);
   const holdUsedRef = useRef(false);
-  const boardRef = useRef<BoardSnap>(emptyBoard());
+  const boardRef = useRef<BoardSnap>(useOnce(emptyBoard));
   const playerIdRef = useRef("");
   const reserveLocalRef = useRef(0);
   const reloadStreakRef = useRef(0);
@@ -389,16 +403,18 @@ export function useSlotGame() {
   const lastDecayAtRef = useRef(0);
   const [reloadStreak, setReloadStreak] = useState(0);
   const [weekDue, setWeekDue] = useState(0);
-  const [desk, setDesk] = useState<DeskDay>(emptyDesk);
+  const [desk, setDeskState] = useState<DeskDay>(emptyDesk);
+  /** Polled every 4 s: keep the old object when nothing changed, so React bails out of the render. */
+  const setDesk = useCallback((d: DeskDay) => setDeskState((prev) => (sameDesk(prev, d) ? prev : d)), []);
   const [mine, setMine] = useState<DeskDay>(emptyDesk);
-  const mineRef = useRef<DeskDay>(emptyDesk());
+  const mineRef = useRef<DeskDay>(useOnce(() => emptyDesk()));
   const bestHowRef = useRef("");
   const bestStakeRef = useRef(0);
   const bestRecipeRef = useRef<WinRecipe | null>(null);
   /** What the last runSequence paid with (symbols, cans, scatters). */
-  const lastTallyRef = useRef<SeqTally>(emptyTally());
+  const lastTallyRef = useRef<SeqTally>(useOnce(emptyTally));
   /** Free-spin feature total, folded spin by spin. */
-  const fsTallyRef = useRef<SeqTally>(emptyTally());
+  const fsTallyRef = useRef<SeqTally>(useOnce(emptyTally));
   const fsAnteRef = useRef(false);
   const heatRef = useRef(0);
   const [heat, setHeat] = useState(0);
@@ -446,7 +462,7 @@ export function useSlotGame() {
   const buyX = buyXOf(rankId);
   const pity = readPity(pityByBet, bet);
 
-  const saveSnapRef = useRef<PlayerSave>(emptyPlayerSave());
+  const saveSnapRef = useRef<PlayerSave>(useOnce(emptyPlayerSave));
   const readySave = useRef(false);
   const fsSessionRef = useRef({
     left: 0,
@@ -1028,7 +1044,7 @@ export function useSlotGame() {
 
   const applyBoard = useCallback((s: BoardSnap) => {
     boardRef.current = s;
-    if (!busyRef.current && !jpShowRef.current) setPots(s.pots);
+    if (!busyRef.current && !jpShowRef.current) setPots((prev) => (samePots(prev, s.pots) ? prev : s.pots));
   }, []);
 
   useEffect(() => {
@@ -1051,6 +1067,8 @@ export function useSlotGame() {
     };
     const id = window.setInterval(tick, 2500);
     const deskId = window.setInterval(() => {
+      // Not while the reels run: a counter change would re-render the board mid-spin.
+      if (busyRef.current) return;
       void fetchDesk()
         .then(setDesk)
         .catch(() => {});

@@ -835,6 +835,27 @@ export function duckMusic(amount: number): void {
   music.gain.setTargetAtTime(muted ? 0 : 0.14 * a, ctx.currentTime, 0.08);
 }
 
+/**
+ * Detach a finished one-shot voice from the graph. Chrome collects ended sources on its own, but
+ * WebKit (iOS Safari) keeps connected nodes processing until they are disconnected, so a long
+ * session would pile hundreds of dead voices (source → panner → gain) onto the mix bus.
+ */
+function releaseOnEnd(src: AudioScheduledSourceNode, ...chain: AudioNode[]): void {
+  src.addEventListener(
+    "ended",
+    () => {
+      for (const n of [src, ...chain]) {
+        try {
+          n.disconnect();
+        } catch {
+          /* already */
+        }
+      }
+    },
+    { once: true },
+  );
+}
+
 function playBlob(
   name: string,
   opts: { gain?: number; rate?: number; pan?: number; loop?: boolean; when?: number },
@@ -903,6 +924,7 @@ function playBuf(
   g.connect(bus ?? sfx);
   // Visualizer reads the voice gain, i.e. before the per-sound and master volume.
   const tapped = VIZ_KEYS.has(name) && tapNode(g);
+  releaseOnEnd(src, p, g);
   src.start(t);
   if (!opts.loop) src.stop(t + b.duration / (opts.rate ?? 1) + 0.02);
   const handle = {
@@ -950,6 +972,7 @@ function tone(type: OscillatorType, freq: number, duration: number, peak = 0.1, 
   p.pan.setValueAtTime(Math.max(-1, Math.min(1, pan)), t);
   o.connect(p);
   p.connect(g);
+  releaseOnEnd(o, p, g);
   o.start(t);
   o.stop(t + duration + 0.03);
 }
@@ -976,6 +999,7 @@ function noise(kind: "white" | "brown", duration: number, peak: number, hp = 200
   f1.connect(f2);
   f2.connect(p);
   p.connect(g);
+  releaseOnEnd(src, f1, f2, p, g);
   src.start(t);
   src.stop(t + duration + 0.03);
 }
@@ -1021,6 +1045,7 @@ export function startSpin(): void {
     src.connect(bp);
     bp.connect(g);
     g.connect(synthOut() ?? sfx);
+    releaseOnEnd(src, bp, g);
     src.start();
     spinNodes = {
       gain: g,
@@ -1333,6 +1358,13 @@ function startCueLoop(key: string): void {
       } catch {
         /* already */
       }
+      // The element is dropped; its MediaElementSource would otherwise stay wired to the bus for
+      // the rest of the session (one more per bed ↔ zásah switch).
+      try {
+        elSources.get(el)?.disconnect();
+      } catch {
+        /* not connected */
+      }
     },
   };
 }
@@ -1493,6 +1525,9 @@ function synthHeartbeat(): void {
     g.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.14);
     osc.connect(g);
     g.connect(synthOut() ?? sfx);
+    releaseOnEnd(osc, g);
+    // Keep only the voices still to play: a long ZÁSAH chase beats every 850 ms.
+    osc.addEventListener("ended", () => (heartNodes = heartNodes.filter((n) => n !== osc)), { once: true });
     osc.start(now + delay);
     osc.stop(now + delay + 0.16);
     heartNodes.push(osc);
