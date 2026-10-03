@@ -23,6 +23,7 @@
 
 import { VIZ } from "./bed-viz";
 import { antiFallback, type AntiCue } from "./anticipation";
+import { CUE_WAIT_MS, cueRoute } from "./cue-ready";
 import {
   CUE_LEVEL_MAX,
   MASTER_KEY,
@@ -131,6 +132,24 @@ const previewUrl: Record<string, string> = {};
 const stored: Record<string, { bytes: ArrayBuffer; type: string }> = {};
 const listeners = new Set<() => void>();
 let io: Promise<void> = Promise.resolve();
+/** Slots the server lists an upload for (sfx_keys), known before their bytes arrive. */
+const remoteKeys = new Set<string>();
+/** decodeAudioData in flight per slot (one per stored upload). */
+const decoding: Partial<Record<string, Promise<void>>> = {};
+/** Slots whose stored upload Web Audio could not decode (played through an <audio> element instead). */
+const decodeFailed = new Set<string>();
+/** Resolves once the short (non-music) uploads are on the device, or the hydrate gave up. */
+let shortResolve: () => void = () => {};
+const shortGate = new Promise<void>((resolve) => {
+  shortResolve = resolve;
+});
+let shortSettled = false;
+/** sfx_keys answered (remoteKeys is the full list from now on). */
+let keysKnown = false;
+function shortDone(): void {
+  shortSettled = true;
+  shortResolve();
+}
 
 function queue(task: () => Promise<void>): Promise<void> {
   const run = io.then(task, task);
@@ -266,6 +285,8 @@ async function pullRemote(musicOnly = false): Promise<void> {
   if (!list.ok) return;
   const rows = (await list.json()) as { key?: string; mime?: string }[];
   if (!Array.isArray(rows)) return;
+  for (const row of rows) if (row.key && row.key in FILES) remoteKeys.add(row.key);
+  keysKnown = true;
   const pull = async (row: { key?: string; mime?: string }, low: boolean) => {
     const key = row.key || "";
     if (!(key in FILES) || custom.has(key)) return;
@@ -276,8 +297,12 @@ async function pullRemote(musicOnly = false): Promise<void> {
     const bytes = b64.length > 512 * 1024 ? await b64ToBytesYield(b64) : b64ToBytes(b64);
     const type = sniffMime(bytes, row.mime || "");
     stored[key] = { bytes, type };
+    delete decoding[key];
+    decodeFailed.delete(key);
     custom.add(key);
     rememberPreview(key, bytes, type);
+    // Decode a short cue as soon as it is here (if audio is unlocked), not after the music beds downloaded.
+    if (ctx && !MUSIC_KEYS.has(key)) void decodeCustom(key);
   };
   // Short cues first, together. The big music beds after them, one at a time, at low priority, so they do not
   // saturate a phone link while the player is already spinning. Music is not part of boot: a 19 MB atob
@@ -301,6 +326,7 @@ function hydrateCustoms(): Promise<void> {
     } catch {
       /* originals stay */
     }
+    shortDone();
     hydrated = true;
     emitSfx();
   });
@@ -323,14 +349,36 @@ function ensureMusic(): Promise<void> {
   return musicPromise;
 }
 
-async function decodeCustom(key: string): Promise<void> {
+/**
+ * Short uploads are usable once this resolves: sfx_keys listed and every non-music cue pulled. The music
+ * beds (tens of MB of base64) keep downloading behind it; ensureMusic() waits for those, never boot.
+ */
+function shortHydrate(): Promise<void> {
+  void hydrateCustoms();
+  return shortGate;
+}
+
+function decodeCustom(key: string): Promise<void> {
   const row = stored[key];
-  if (!ctx || !row) return;
-  try {
-    bufs[key] = await ctx.decodeAudioData(row.bytes.slice(0));
-  } catch {
-    delete bufs[key];
-  }
+  if (!ctx || !row) return Promise.resolve();
+  const running = decoding[key];
+  if (running) return running;
+  const ac = ctx;
+  const p = (async () => {
+    try {
+      const buf = await ac.decodeAudioData(row.bytes.slice(0));
+      // A newer upload / reset replaced the bytes meanwhile: drop this result.
+      if (stored[key] !== row) return;
+      bufs[key] = buf;
+      decodeFailed.delete(key);
+    } catch {
+      if (stored[key] !== row) return;
+      delete bufs[key];
+      decodeFailed.add(key);
+    }
+  })();
+  decoding[key] = p;
+  return p;
 }
 
 if (typeof window !== "undefined") void hydrateCustoms();
@@ -639,9 +687,19 @@ export function unlockAudio(): void {
     whiteBuf = makeNoise(ctx, 1.4, "white");
     brownBuf = makeNoise(ctx, 1.6, "brown");
     void loadBank();
-    void hydrateCustoms().then(() => applyCustoms());
+    // Uploads that arrived before the context existed decode now; the rest decode as they arrive (pullRemote).
+    void applyCustoms();
+    void shortHydrate().then(() => applyCustoms());
   }
   if (ctx.state === "suspended") void ctx.resume();
+}
+
+/** A one-shot fired mid-sequence (no tap): wake a context the OS suspended (Samsung Internet PWA, iOS). */
+function wake(): void {
+  if (!ctx || muted) return;
+  if (ctx.state === "running") return;
+  if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+  void Promise.resolve(ctx.resume()).catch(() => {});
 }
 
 const pending: Partial<Record<string, Promise<void>>> = {};
@@ -678,10 +736,14 @@ async function applyCustoms(): Promise<void> {
 function loadBank(): Promise<void> {
   if (!ctx) return Promise.resolve();
   if (!bankAll) {
-    bankAll = hydrateCustoms()
-      .then(() => Promise.all(Object.keys(FILES).map((key) => loadOne(key))))
-      .then(() => applyCustoms())
-      .then(() => undefined);
+    // Short cues as soon as the short uploads are known (not after the music beds), the beds after the full hydrate.
+    const short = shortHydrate()
+      .then(() => Promise.all(Object.keys(FILES).filter((key) => !MUSIC_KEYS.has(key)).map((key) => loadOne(key))))
+      .then(() => applyCustoms());
+    const beds = hydrateCustoms().then(() =>
+      Promise.all(Object.keys(FILES).filter((key) => MUSIC_KEYS.has(key)).map((key) => loadOne(key))),
+    );
+    bankAll = Promise.all([short, beds]).then(() => undefined);
   }
   return bankAll;
 }
@@ -741,6 +803,9 @@ export async function replaceCue(key: string, file: File, password: string): Pro
   }
   await hydrateCustoms();
   stored[key] = { bytes, type };
+  delete decoding[key];
+  decodeFailed.delete(key);
+  remoteKeys.add(key);
   custom.add(key);
   if (probe) bufs[key] = probe;
   else if (!MUSIC_KEYS.has(key)) await decodeCustom(key);
@@ -761,6 +826,9 @@ export async function resetCue(key: string, password: string): Promise<string | 
   }
   await hydrateCustoms();
   custom.delete(key);
+  remoteKeys.delete(key);
+  decodeFailed.delete(key);
+  delete decoding[key];
   if (previewUrl[key]) URL.revokeObjectURL(previewUrl[key]);
   delete previewUrl[key];
   delete stored[key];
@@ -782,7 +850,10 @@ export async function resetCues(password: string): Promise<string | null> {
   await hydrateCustoms();
   const keys = [...custom];
   custom.clear();
+  remoteKeys.clear();
+  decodeFailed.clear();
   for (const key of keys) {
+    delete decoding[key];
     if (previewUrl[key]) URL.revokeObjectURL(previewUrl[key]);
     delete previewUrl[key];
     delete stored[key];
@@ -798,7 +869,7 @@ export async function resetCues(password: string): Promise<string | null> {
 /** Resolves once the reel-loop sample is decoded. Other cues keep loading behind it. */
 export function whenSpinReady(): Promise<void> {
   unlockAudio();
-  return hydrateCustoms()
+  return shortHydrate()
     .then(() => (custom.has("spin") ? decodeCustom("spin") : loadOne("spin")))
     .then(() => undefined);
 }
@@ -868,7 +939,13 @@ function playBlob(
   el.preservesPitch = false;
   el.playbackRate = opts.rate ?? 1;
   el.preload = "auto";
-  const node = ctx.createMediaElementSource(el);
+  let node: MediaElementAudioSourceNode;
+  try {
+    node = ctx.createMediaElementSource(el);
+  } catch {
+    // Never throw into the spin sequence: a sound is optional.
+    return null;
+  }
   elSources.set(el, node);
   const g = ctx.createGain();
   const t = opts.when ?? ctx.currentTime;
@@ -1150,14 +1227,64 @@ export function playPop(): void {
   });
 }
 
+/**
+ * One-shot that waits (≤ CUE_WAIT_MS) for an upload still downloading / decoding instead of silently
+ * playing something else or nothing (lib/slot/cue-ready cueRoute). `fallback` runs when the upload is not
+ * usable in time and no built-in buffer is decoded.
+ */
+function playSoon(
+  name: string,
+  opts: { gain?: number; rate?: number; pan?: number },
+  fallback?: () => void,
+): void {
+  if (!ctx || !sfx) return;
+  const owner = scope;
+  const asked = performance.now();
+  const run = (fn: () => void) => (owner ? withCue(owner, fn) : fn());
+  const attempt = (final: boolean, seen?: Promise<void>) => {
+    if (custom.has(name) && !bufs[name] && !decoding[name] && !decodeFailed.has(name)) void decodeCustom(name);
+    const how = cueRoute({
+      decoded: Boolean(bufs[name]),
+      // Until the short uploads are in, an upload may still be on its way (or not even listed yet).
+      remote: !shortSettled && (!keysKnown || remoteKeys.has(name)),
+      stored: custom.has(name),
+      failed: decodeFailed.has(name),
+      loading: !custom.has(name) && Boolean(pending[name]) && !bufs[name],
+      waitedMs: final ? Number.POSITIVE_INFINITY : performance.now() - asked,
+      maxWaitMs: CUE_WAIT_MS,
+    });
+    if (how === "wait") {
+      const ready = custom.has(name) ? decoding[name] : shortSettled ? pending[name] : shortGate;
+      // Nothing to wait on, or the thing we waited on already settled without a buffer: stop waiting.
+      if (!ready || ready === seen) {
+        attempt(true);
+        return;
+      }
+      const left = Math.max(0, CUE_WAIT_MS - (performance.now() - asked));
+      const timeout = new Promise<boolean>((resolve) => window.setTimeout(() => resolve(true), left));
+      void Promise.race([ready.then(() => false), timeout]).then((timedOut) => attempt(timedOut, ready));
+      return;
+    }
+    run(() => {
+      if (how === "buffer" || how === "element") {
+        if (playBuf(name, opts)) return;
+      }
+      fallback?.();
+    });
+  };
+  attempt(false);
+}
+
+/** Rampa: every can drop (after the reels stop and after a tumble, lib/slot/cue-ready canEventCue), with Elektrika. */
 export function playZap(): void {
-  playBuf("electric", { gain: 0.7, rate: 1.05 });
-  if (!playBuf("zap", { gain: 0.8 })) {
+  wake();
+  playSoon("electric", { gain: 0.7, rate: 1.05 });
+  playSoon("zap", { gain: 0.8 }, () =>
     withCue("zap", () => {
       noise("white", 0.08, 0.2, 1800, 9000);
       tone("sawtooth", 520, 0.1, 0.06, 70);
-    });
-  }
+    }),
+  );
 }
 
 /**

@@ -57,6 +57,7 @@ import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDes
 import { putBoard, readBestMark, readBestRecipe, readNick, saveNick, skipNick, winHow, writeBestHow, writeBestRecipe } from "@/lib/slot/board-api";
 import { emptyTally, mergeTally, notePays, recipeTumbles, topCans, topPays, type SeqTally, type WinRecipe } from "@/lib/slot/win-recipe";
 import { HEAT_MAX, heatFromWin } from "@/lib/slot/heat";
+import { canEventCue, type CanEvent } from "@/lib/slot/cue-ready";
 import { ReelScatterTracker, SETTLE_TIMEOUT_MS, cascadeCue, thirdScatterCue, type LandCue } from "@/lib/slot/scatter-sfx";
 import { antiAfterSpin, antiCue, antiLevel, antiStreak, type AntiCue } from "@/lib/slot/anticipation";
 import { ZASAH, applyMod, fsSpinX, fsZasahArmed, roundModScope, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, stepMod, windowCount, type ChaseMod, type ModScope, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
@@ -183,6 +184,12 @@ function settleWithin<T>(p: Promise<T>, ms: number): Promise<T | null> {
 }
 
 /** Two frames so the spin strip is on screen before the stop clock starts. */
+/** Can drop / throw sound (lib/slot/cue-ready canEventCue): every drop is the Rampa slot, the throw is Hrom. */
+function playCanCue(event: CanEvent): void {
+  if (canEventCue(event) === "zap") sfx.playZap();
+  else sfx.playThunder();
+}
+
 function afterPaint(): Promise<void> {
   return new Promise((resolve) => {
     let done = false;
@@ -1031,7 +1038,7 @@ export function useSlotGame() {
       noteStat({
         t: "session",
         phase: typeof document !== "undefined" && document.visibilityState === "hidden" ? "hide" : "show",
-        pwa: false,
+        pwa: typeof window !== "undefined" && !!window.matchMedia?.("(display-mode: standalone)").matches,
       });
     };
     window.addEventListener("pagehide", onHide);
@@ -2128,7 +2135,7 @@ export function useSlotGame() {
       if (landN > 0) {
         setPhase("mult");
         setThrowBolt(true);
-        sfx.playThunder();
+        playCanCue("land");
         setTopLine("RAMPA PÚŠŤA NÁSOBIČE");
         const dropped = zeusDrop(board, rng, landN, isFree || inFsRef.current);
         board = dropped.grid;
@@ -2271,7 +2278,7 @@ export function useSlotGame() {
         const moreN = more > 0 ? more + bonusCan : 0;
         if (moreN > 0) {
           setThrowBolt(true);
-          sfx.playZap();
+          playCanCue("tumble");
           const dropped = zeusDrop(board, rng, moreN, isFree || inFsRef.current);
           board = dropped.grid;
           sfx.playMult();
@@ -2352,7 +2359,7 @@ export function useSlotGame() {
         setPhase("mult");
         setActivatingMult(true);
         setThrowBolt(true);
-        sfx.playThunder();
+        playCanCue("activate");
         await wait(dur(200), abort.current);
         for (const orb of orbs) {
           setStrike({ r: orb.r, c: orb.c });

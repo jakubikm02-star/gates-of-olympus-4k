@@ -28,6 +28,23 @@ import {
 } from "@/lib/slot/audio";
 import { contractCatalog } from "@/lib/slot/spend";
 import { saveContractTitles, subscribeContracts } from "@/lib/slot/job-titles";
+import { hudState, makeTapCounter, setHudEnabled } from "@/lib/slot/debug-hud";
+import { BUILD_ID } from "@/lib/slot/release";
+
+/** Build label; five quick taps toggle the hidden debug HUD. */
+function BuildTag() {
+  const tap = useRef(makeTapCounter());
+  return (
+    <p
+      className="build-tag"
+      onClick={() => {
+        if (tap.current()) setHudEnabled(!hudState().enabled);
+      }}
+    >
+      verzia {BUILD_ID.slice(0, 10)}
+    </p>
+  );
+}
 import { adminOk } from "@/lib/slot/ticket-names";
 import {
   clearStats,
@@ -44,7 +61,7 @@ const SOUND_CUES: { id: string; name: string; loop?: boolean; when?: string; hea
   { id: "land3", name: "Dopad 3", when: "Náhodne jeden z troch, keď stĺpec zastane." },
   { id: "scatter", name: "Scatter", when: "Každý scatter od prvého: keď zastane jeho valec, alebo keď dopadne v páde." },
   { id: "harp", name: "Harfa", when: "Po dopade všetkých valcov a pádoch ostali presne 3 scattere (pri 4+ nehrá). Spolu s ňou ide aj Zber." },
-  { id: "thunder", name: "Hrom", when: "4. scatter, hod plechoviek, +5 točení, ohlásenie 4KA TV a neúspešný tiket." },
+  { id: "thunder", name: "Hrom", when: "4. scatter, hod plechoviek do Mbps (aktivácia), +5 točení, ohlásenie 4KA TV a neúspešný tiket." },
   { id: "anticipate", name: "Napätie", loop: true, when: "Base, keď sú 2+ scattere a valce ešte idú." },
   { id: "anticipation2", name: "Napätie 2", loop: true, when: "Čo robí: napätie (2+ scattere, valce ešte idú) 5. až 9. raz za sebou bez 4KA TV. Keď padne bonus, počíta sa znova od 1. Odporúčanie: silnejšia slučka než Napätie. Kým nenahráš vlastný, hrá sa Napätie." },
   { id: "anticipation3", name: "Napätie 3", loop: true, when: "Čo robí: napätie od 10. razu za sebou bez 4KA TV, pri každom ďalšom, kým nepadne bonus. Odporúčanie: najdramatickejšia slučka. Kým nenahráš vlastný, hrá sa Napätie 2, a keď nie je ani ten, Napätie." },
@@ -55,8 +72,8 @@ const SOUND_CUES: { id: string; name: string; loop?: boolean; when?: string; hea
   { id: "pop", name: "Cluster tumble", when: "Výherné symboly zmiznú pred pádom." },
   { id: "tumble", name: "Pád", when: "Nové symboly padnú. Ďalší pád je o niečo vyšší." },
   { id: "can", name: "Plechovka", when: "Dopad plechovky a jej započítanie do výhry." },
-  { id: "zap", name: "Rampa", when: "Plechovka po páde. Spolu s ňou ide aj Elektrika." },
-  { id: "electric", name: "Elektrika", when: "Spolu s Rampou pri plechovke po páde." },
+  { id: "zap", name: "Rampa", when: "Každé pustenie plechoviek rampou: po zastavení valcov aj po páde. Spolu s ňou ide aj Elektrika." },
+  { id: "electric", name: "Elektrika", when: "Spolu s Rampou pri každom pustení plechoviek." },
   { id: "collect", name: "Zber", when: "Výhra lístka (pot), presne 3 scattere po dopade a +5 točení." },
   { id: "payout", name: "Výplata", when: "Výhra sa pripíše na kredit v base, mimo duelu." },
   { id: "fsStart", name: "Štart 4KA TV", when: "Začiatok 4KA TV." },
@@ -527,6 +544,7 @@ export function Settings({
             </button>
           </form>
         )}
+        <BuildTag />
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { createContext, memo, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { noteReelSpin } from "@/lib/slot/debug-hud";
 import { reportSpinFrames } from "@/lib/slot/perf-guard";
 import { emptySettle, settleReports, type SettleState } from "@/lib/slot/scatter-sfx";
 import { COLS, ROWS, symbolSrc, ticketArt, canTier, FS_SYMBOL, PAY_SYMBOLS, TICKETS, type Cell, type PayId } from "@/lib/slot/symbols";
@@ -163,8 +164,13 @@ function symbolAt(filler: Cell[], oldCol: Cell[], index: number): Cell {
   return filler[((index % n) + n) % n];
 }
 
-/** Longest frame step the landing ease may take (ms ≈ 20 fps); longer gaps stall the clock. */
-const LAND_STEP_MAX = 50;
+/**
+ * Longest frame step the reels may take (ms ≈ 10 fps); longer gaps stall the clock.
+ * This must stay well above a throttled display's frame (30 Hz battery saver = 33 ms, uneven
+ * 16/50 ms pacing on a power-capped WebAPK): a lower cap (it was 32 ms spin / 50 ms landing)
+ * drops real time on every long frame, so the reel visibly slows and surges frame to frame.
+ */
+const STEP_MAX = 100;
 
 type DriverCol = {
   el: HTMLDivElement | null;
@@ -356,21 +362,38 @@ export function SlotGrid({
     };
 
     // Frame-interval sample for the perf guard (raw, uncapped), reported once per spin.
+    const t0 = performance.now();
     let frameSum = 0;
     let frameN = 0;
+    let frameMax = 0;
+    let cellsRun = 0;
+    let spinMs = 0;
     const report = () => {
-      if (frameN > 0) reportSpinFrames(frameSum / frameN, frameN);
+      if (frameN > 0) {
+        reportSpinFrames(frameSum / frameN, frameN);
+        noteReelSpin({
+          frames: frameN,
+          meanFrameMs: frameSum / frameN,
+          maxFrameMs: frameMax,
+          cellsPerSec: spinMs > 0 ? (cellsRun * 1000) / spinMs : 0,
+          reelMs: performance.now() - t0,
+        });
+      }
       frameSum = 0;
       frameN = 0;
+      frameMax = 0;
+      cellsRun = 0;
+      spinMs = 0;
     };
 
     const tick = (now: number) => {
       const raw = now - last;
-      const dt = Math.min(32, raw);
+      const dt = Math.min(STEP_MAX, Math.max(0, raw));
       last = now;
       if (primed && raw > 0 && raw < 1000) {
         frameSum += raw;
         frameN++;
+        if (raw > frameMax) frameMax = raw;
       }
       const cols = colsRef.current;
       if (!primed) {
@@ -401,6 +424,8 @@ export function SlotGrid({
         }
       }
       scroll += (h / Math.max(16, ms)) * dt;
+      cellsRun += dt / Math.max(16, ms);
+      spinMs += dt;
 
       let alive = false;
       for (const col of cols) {
@@ -438,9 +463,9 @@ export function SlotGrid({
         } else if (col.mode === "land" && col.land) {
           const plan = col.land;
           // A long frame (GC, React commit, thermal throttling) must not teleport the strip: past
-          // LAND_STEP_MAX the landing clock stalls instead, so the reel slows for a frame, never skips.
+          // STEP_MAX the landing clock stalls instead, so the reel slows for a frame, never skips.
           const gap = now - plan.prev;
-          if (gap > LAND_STEP_MAX) plan.t0 += gap - LAND_STEP_MAX;
+          if (gap > STEP_MAX) plan.t0 += gap - STEP_MAX;
           plan.prev = now;
           const elapsed = now - plan.t0;
           const linearMs = plan.v > 0 ? plan.linearPx / plan.v : 0;

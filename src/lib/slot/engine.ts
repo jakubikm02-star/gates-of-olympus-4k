@@ -522,6 +522,9 @@ export function resolvePaidSpin(
   };
 }
 
+/** A frame gap longer than this is a frozen main thread, not a slow display. */
+export const STALL_GAP_MS = 150;
+
 export function wait(ms: number, signal?: { aborted?: boolean; skip?: boolean }): Promise<void> {
   if (ms <= 0) return Promise.resolve();
   return new Promise((resolve) => {
@@ -536,6 +539,7 @@ export function wait(ms: number, signal?: { aborted?: boolean; skip?: boolean })
     const limit = () => (signal?.skip || signal?.aborted ? Math.min(ms, 40) : ms);
     let start = performance.now();
     let forgiven = false;
+    let prev = start;
     const arm = (left: number) => {
       window.clearTimeout(timer);
       timer = window.setTimeout(finish, Math.max(16, left) + 48);
@@ -554,15 +558,21 @@ export function wait(ms: number, signal?: { aborted?: boolean; skip?: boolean })
       }
       const elapsed = now - start;
       const need = limit();
+      const gap = now - prev;
+      prev = now;
       // A frozen main thread is not reel time — the strips would jump. Grant the duration once.
-      if (!forgiven && elapsed > need + 48) {
+      // Only a real stall counts: on a 20–30 Hz (battery saver / throttled PWA) display an
+      // ordinary 50 ms frame can land 48 ms past `need` and used to restart the whole wait.
+      if (!forgiven && gap > STALL_GAP_MS && elapsed > need + 48) {
         forgiven = true;
         start = now;
         arm(need);
         requestAnimationFrame(tick);
         return;
       }
-      if (elapsed >= need) {
+      // Ending on the frame nearest to `need` (not the first one after it) keeps the average
+      // wait on time at any refresh rate; at 30 Hz the old rule added ~17 ms to every wait.
+      if (elapsed + Math.min(gap, 50) / 2 >= need) {
         finish();
         return;
       }

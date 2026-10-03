@@ -31,6 +31,7 @@ import { BonusIcon, BonusNote, BonusPill, LegCounters, TicketGoals } from "./Tic
 import { ticketBonus } from "@/lib/slot/ticket-bonus";
 import { DuelSheet, DuelBar, DuelLink } from "./DuelSheet";
 import { Settings } from "./Settings";
+import { DebugOverlay } from "./DebugOverlay";
 import { MassiveWin } from "./MassiveWin";
 import { Leaderboard, NickAsk } from "./Leaderboard";
 import { StatsSheet } from "./StatsSheet";
@@ -1051,6 +1052,7 @@ export function SlotGame() {
 
       <Paytable open={g.paytableOpen} onClose={() => g.setPaytableOpen(false)} bet={g.bet} desk={g.desk} mine={g.mine} />
       <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} playerId={g.deviceId} />
+      <DebugOverlay busy={g.busy} perfLite={perfLite} reduced={reducedMotion} />
       <Leaderboard open={boardOpen} nick={g.nick} deviceId={g.deviceId} onClose={() => setBoardOpen(false)} onSave={g.setNickName} />
       <StatsSheet
         open={g.statsOpen}
