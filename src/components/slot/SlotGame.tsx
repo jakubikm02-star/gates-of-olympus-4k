@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
-import { Volume2, VolumeX, Info, RefreshCw, Menu, Settings as SettingsIcon, Trophy } from "lucide-react";
+import { Volume2, VolumeX, Info, RefreshCw, Menu, Settings as SettingsIcon, Trophy, BarChart3 } from "lucide-react";
 import { START_BALANCE, BETS, PAY_SYMBOLS, FS_SYMBOL, canSrc, canTier } from "@/lib/slot/symbols";
 import { fsSymName, fsSymSrc, type FsSymId } from "@/lib/slot/zasah";
 import { FsReveal } from "./FsReveal";
@@ -31,6 +31,7 @@ import { DuelSheet, DuelBar, DuelLink } from "./DuelSheet";
 import { Settings } from "./Settings";
 import { MassiveWin } from "./MassiveWin";
 import { Leaderboard, NickAsk } from "./Leaderboard";
+import { StatsSheet } from "./StatsSheet";
 import { HEAT_MAX } from "@/lib/slot/heat";
 import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
 
@@ -569,6 +570,14 @@ export function SlotGame() {
             </button>
             <button
               type="button"
+              className="icon-btn is-gear"
+              onClick={() => g.openStats()}
+              aria-label="Štatistiky"
+            >
+              <BarChart3 size={15} />
+            </button>
+            <button
+              type="button"
               className="icon-btn"
               onClick={g.toggleMute}
               aria-label={g.muted ? "Zapnúť zvuk" : "Stlmiť"}
@@ -1025,8 +1034,19 @@ export function SlotGame() {
       )}
 
       <Paytable open={g.paytableOpen} onClose={() => g.setPaytableOpen(false)} bet={g.bet} desk={g.desk} mine={g.mine} />
-      <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} playerId={g.deviceId} />
       <Leaderboard open={boardOpen} nick={g.nick} deviceId={g.deviceId} onClose={() => setBoardOpen(false)} onSave={g.setNickName} />
+      <StatsSheet
+        open={g.statsOpen}
+        onClose={g.closeStats}
+        stats={g.stats}
+        nick={g.nick}
+        rp={g.rank.rp}
+        balance={g.balance}
+        winStreak={g.winStreak}
+        playerId={g.deviceId}
+        onStatsChange={g.setStats}
+      />
       {g.nickAsk ? <NickAsk onSave={g.setNickName} onSkip={g.dismissNick} /> : null}
       <SpendSheet
         open={g.spendOpen}
@@ -1084,7 +1104,7 @@ export function SlotGame() {
           {g.jobToast}
         </div>
       )}
-      <RankPanel
+      <RankPanel onOpenStats={g.openStats}
         open={g.rankOpen}
         onClose={() => g.setRankOpen(false)}
         stand={g.rank}

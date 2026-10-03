@@ -22,9 +22,10 @@ interface Props {
   streak?: number;
   weekDue?: number;
   weekTarget?: Standing;
+  onOpenStats?: () => void;
 }
 
-export function RankPanel({ open, onClose, stand, peak, shield, streak = 0, weekDue = 0, weekTarget }: Props) {
+export function RankPanel({ open, onClose, stand, peak, shield, streak = 0, weekDue = 0, weekTarget, onOpenStats }: Props) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -168,6 +169,18 @@ export function RankPanel({ open, onClose, stand, peak, shield, streak = 0, week
             );
           })}
         </ol>
+        {onOpenStats ? (
+          <button
+            type="button"
+            className="rank-stats-link"
+            onClick={() => {
+              onClose();
+              onOpenStats();
+            }}
+          >
+            ŠTATISTIKY · sezónne maximum a doživotné čísla
+          </button>
+        ) : null}
         <p className="rank-credits">Kenney.nl · game-icons.net · ambientCG · Wenrexa</p>
       </div>
     </div>

@@ -42,6 +42,15 @@ import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision,
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
+import {
+  applyStat,
+  isStatsBackupEnabled,
+  readStats,
+  writeStats,
+  type PlayerStats,
+  type StatEvent,
+} from "@/lib/slot/stats";
+import { pullAndMergeStats, statsPut } from "@/lib/slot/stats-api";
 import { emptyBoard, isEligibleBet, ticketResolve, TIER_BY_ID, type BoardSnap, type JackpotHit, type TierId } from "@/lib/slot/jackpot";
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
 import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDesk, ticketProfit, type DeskDay } from "@/lib/slot/desk-api";
@@ -259,6 +268,8 @@ export function useSlotGame() {
   const [throwBolt, setThrowBolt] = useState(false);
   const [shake, setShake] = useState(false);
   const [paytableOpen, setPaytableOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [statsSnap, setStatsSnap] = useState<PlayerStats>(() => readStats());
   const [buyAsk, setBuyAsk] = useState(false);
   const [message, setMessage] = useState("8+ rovnakých symbolov kdekoľvek vyhráva");
   const [stoppedCols, setStoppedCols] = useState(6);
@@ -275,6 +286,13 @@ export function useSlotGame() {
   const [topLine, setTopLine] = useState("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
 
   const abort = useRef({ aborted: false, skip: false });
+  const statsRef = useRef<PlayerStats>(readStats());
+  const statsDirtyRef = useRef(false);
+  const statsOpenRef = useRef(false);
+  const statsLastWriteRef = useRef(0);
+  const statsSyncTimer = useRef<number | null>(null);
+  const chaseArmedAtRef = useRef(0);
+  const fsStartedAtRef = useRef(0);
   const turboRef = useRef(turbo);
   const quickRef = useRef(quick);
   const anteRef = useRef(ante);
@@ -372,6 +390,7 @@ export function useSlotGame() {
   balanceRef.current = balance;
   betIndexRef.current = betIndex;
   autoRef.current = autoOn;
+  statsOpenRef.current = statsOpen;
   autoHaltRef.current = autoHalt;
   busyRef.current = busy;
   gridRef.current = grid;
@@ -647,6 +666,50 @@ export function useSlotGame() {
     writeLocal(next);
   }, []);
 
+  const flushStats = useCallback((keepalive = false) => {
+    writeStats(statsRef.current);
+    statsLastWriteRef.current = Date.now();
+    setStatsSnap(statsRef.current);
+    if (!statsDirtyRef.current) return;
+    if (!isStatsBackupEnabled()) return;
+    const id = playerIdRef.current;
+    if (!id || id.length < 8) return;
+    statsDirtyRef.current = false;
+    void statsPut(id, statsRef.current, keepalive).catch(() => {
+      statsDirtyRef.current = true;
+    });
+  }, []);
+
+  const noteStat = useCallback((ev: StatEvent) => {
+    const next = applyStat(statsRef.current, ev);
+    statsRef.current = next;
+    statsDirtyRef.current = true;
+    const now = Date.now();
+    if (now - statsLastWriteRef.current >= 1000) {
+      writeStats(next);
+      statsLastWriteRef.current = now;
+      setStatsSnap(next);
+    }
+    if (statsSyncTimer.current == null && isStatsBackupEnabled()) {
+      statsSyncTimer.current = window.setTimeout(() => {
+        statsSyncTimer.current = null;
+        flushStats(false);
+      }, 30_000);
+    }
+  }, [flushStats]);
+
+  const openStats = useCallback(() => {
+    if (busyRef.current || inFsRef.current || chaseRef.current) return;
+    setStatsSnap(statsRef.current);
+    setStatsOpen(true);
+    sfx.playClick();
+  }, []);
+
+  const closeStats = useCallback(() => {
+    setStatsOpen(false);
+    flushStats(false);
+  }, [flushStats]);
+
   const runWeeklyDecay = useCallback(() => {
     const now = Date.now();
     const res = applyWeeklyDecay(rankRef.current.rp, lastDecayAtRef.current, now);
@@ -668,9 +731,16 @@ export function useSlotGame() {
         ? `TÝŽDENNÝ DROP · ${res.drops} skupiny · ${res.after.name}`
         : `TÝŽDENNÝ DROP · ${res.before.name} → ${res.after.name}`,
     );
+    noteStat({
+      t: "rank",
+      applied: res.rp - res.before.rp,
+      event: "week",
+      after: res.after.id,
+      weekDrops: res.drops,
+    });
     sfx.playThunder();
     return true;
-  }, []);
+  }, [noteStat]);
 
   useEffect(() => {
     const cached = readLocal();
@@ -749,6 +819,7 @@ export function useSlotGame() {
         if (busyRef.current || chaseRef.current || chaseCardRef.current) return;
         staleRef.current = true;
         setStale(true);
+        noteStat({ t: "ui", what: "build" });
         await dropStaleCaches();
         hardReload();
       } catch {
@@ -769,14 +840,22 @@ export function useSlotGame() {
   }, []);
 
   useEffect(() => {
-    const onHide = () => persistNow();
+    const onHide = () => {
+      persistNow();
+      flushStats(true);
+      noteStat({
+        t: "session",
+        phase: typeof document !== "undefined" && document.visibilityState === "hidden" ? "hide" : "show",
+        pwa: false,
+      });
+    };
     window.addEventListener("pagehide", onHide);
     document.addEventListener("visibilitychange", onHide);
     return () => {
       window.removeEventListener("pagehide", onHide);
       document.removeEventListener("visibilitychange", onHide);
     };
-  }, [persistNow]);
+  }, [persistNow, flushStats, noteStat]);
 
   const applyBoard = useCallback((s: BoardSnap) => {
     boardRef.current = s;
@@ -888,8 +967,20 @@ export function useSlotGame() {
       setPhase(inFsRef.current && fsSessionRef.current.left > 0 ? "fs" : "idle");
       setBooting(false);
       bootingRef.current = false;
+      const pwa =
+        typeof window !== "undefined" &&
+        (window.matchMedia("(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)").matches ||
+          Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone));
+      noteStat({ t: "session", phase: "start", pwa });
+      if (isStatsBackupEnabled() && playerIdRef.current) {
+        void pullAndMergeStats(playerIdRef.current, statsRef.current).then((m) => {
+          statsRef.current = m;
+          writeStats(m);
+          setStatsSnap(m);
+        });
+      }
     }
-  }, [muted]);
+  }, [muted, noteStat]);
 
   useEffect(() => {
     let cancel = false;
@@ -912,6 +1003,7 @@ export function useSlotGame() {
 
   const toggleMute = useCallback(() => {
     sfx.unlockAudio();
+    noteStat({ t: "ui", what: "mute" });
     setMuted((m) => {
       const n = !m;
       sfx.setMuted(n);
@@ -1007,8 +1099,9 @@ export function useSlotGame() {
     setSpinTape((t) => [{ label: "EXEKÚCIA", amount: "KREDIT IV" }, ...t].slice(0, 8));
     setTopLine("EXEKÚCIA · KREDIT IV");
     setMessage(`Kredit ${START_BALANCE}`);
+    noteStat({ t: "bust", rpLost: before.rp });
     sfx.playThunder();
-  }, [bustOpen]);
+  }, [bustOpen, noteStat]);
 
   useEffect(() => {
     if (!exekucia) return;
@@ -1026,16 +1119,26 @@ export function useSlotGame() {
     setRankDelta(res.applied);
     setRankTick((n) => n + 1);
     setRankParts(parts ?? null);
+    let dripAmt = 0;
     if (res.event === "up") {
       const perk = perkOf(res.after.id);
       if (perk.dripX > 0) {
         const drip = +(BETS[betIndexRef.current] * perk.dripX).toFixed(2);
         if (drip > 0 && !busyRef.current) {
+          dripAmt = drip;
           setBalance((b) => +(b + drip).toFixed(2));
           setSpinTape((t) => [{ label: "RANK DROP", amount: formatMoney(drip) }, ...t].slice(0, 8));
         }
       }
     }
+    noteStat({
+      t: "rank",
+      applied: res.applied,
+      event: res.event,
+      after: res.after.id,
+      parts: parts ?? null,
+      drip: dripAmt || undefined,
+    });
     const event = res.event ?? (res.applied > 0 ? "gain" : res.applied < 0 ? "loss" : null);
     if (event) {
       const flash: RankFlash = {
@@ -1047,7 +1150,7 @@ export function useSlotGame() {
       };
       setRankFlash(flash);
     }
-  }, []);
+  }, [noteStat]);
 
   const noteResult = useCallback((paid: boolean) => {
     const perk = perkOf(standing(rankRef.current.rp).id);
@@ -1056,6 +1159,34 @@ export function useSlotGame() {
       holdUsedRef.current = false;
     } else if (perk.streakHold && streakRef.current >= 2 && !holdUsedRef.current) {
       holdUsedRef.current = true;
+      // hold counted on dead spin via spin.holdKeep when wired; streak hold itself is a save perk use
+      statsRef.current = applyStat(statsRef.current, {
+        t: "spin",
+        cost: 0,
+        bet: BETS[betIndexRef.current] || 0,
+        ante: false,
+        chase: false,
+        buy: false,
+        free: false,
+        cash: 0,
+        cash0: 0,
+        x: 0,
+        tumbles: 0,
+        clusters: 0,
+        orbs: [],
+        orbSum: 0,
+        applied: 0,
+        pays: [],
+        scatters: 0,
+        nearMiss: false,
+        taxDelta: 0,
+        hitMax: false,
+        turbo: false,
+        quick: false,
+        auto: false,
+        holdKeep: true,
+      });
+      statsDirtyRef.current = true;
     } else {
       streakRef.current = 0;
       holdUsedRef.current = false;
@@ -1091,9 +1222,10 @@ export function useSlotGame() {
     setBanner(null);
     const done = bannerWait.current;
     bannerWait.current = null;
+    noteStat({ t: "ui", what: "skipBanner" });
     sfx.playClick();
     done?.();
-  }, []);
+  }, [noteStat]);
 
   const armChase = useCallback((stake: number): boolean => {
     if (chaseRef.current || heatRef.current < HEAT_MAX) return false;
@@ -1114,9 +1246,12 @@ export function useSlotGame() {
     setAutoReason("AUTO STOP · ZÁSAH");
     setTopLine("ZÁSAH · 10 SPINOV");
     setMessage("ZÁSAH");
+    chaseArmedAtRef.current = Date.now();
+    noteStat({ t: "chaseStart", fsSym: next.fsSym ?? "rj45" });
+    noteStat({ t: "ui", what: "autoStop", why: "zasah" });
     sfx.playSiren();
     return true;
-  }, []);
+  }, [noteStat]);
 
   const closeFsReveal = useCallback(() => {
     const done = fsRevealWait.current;
@@ -1150,6 +1285,9 @@ export function useSlotGame() {
   }, []);
 
   const endChase = useCallback((outcome: ChaseOutcome, betNow: number) => {
+    const lived = chaseRef.current;
+    const spinsDone = lived ? lived.spin + 1 : 10;
+    const strikesDone = lived?.strikes ?? 0;
     chaseRef.current = null;
     setChase(null);
     setActiveWindow(-1);
@@ -1184,8 +1322,18 @@ export function useSlotGame() {
     setChaseCard(card);
     setTopLine(line);
     setMessage(line);
+    noteStat({
+      t: "chaseEnd",
+      outcome,
+      spins: spinsDone,
+      strikes: strikesDone,
+      ms: Math.max(0, Date.now() - (chaseArmedAtRef.current || Date.now())),
+    });
+    if (outcome === "escape" || outcome === "neutral") {
+      noteStat({ t: "klienti", n: Math.max(1, Math.round(betNow * (outcome === "escape" ? 4 : 1))) });
+    }
     persistNow();
-  }, [persistNow, pushRank]);
+  }, [persistNow, pushRank, noteStat]);
 
   const waitForBanner = useCallback((hold: number | "click" = 2800) => {
     return new Promise<void>((resolve) => {
@@ -1227,12 +1375,17 @@ export function useSlotGame() {
       setBestWin((w) => Math.max(w, payout));
       bumpToday(0, payout, how, BETS[betIndexRef.current] ?? 0, recipe);
       noteHeat(payout, BETS[betIndexRef.current] ?? 0);
+      for (const h of jackpots) {
+        noteStat({ t: "jackpot", tier: h.id, payout: h.payout, poolBefore: h.poolBefore || poolBefore, credit: 0 });
+      }
+      if (credit > 0) noteStat({ t: "jackpot", tier: main.id, payout: credit, poolBefore, credit });
       setSpinTape((t) => [{ label: shown.name, amount: formatMoney(payout) }, ...t].slice(0, 8));
       if (autoRef.current && !duelRef.current) {
         autoRef.current = false;
         setAutoOn(false);
         setAutoLeft(0);
         setAutoReason("AUTO STOP · JACKPOT");
+        noteStat({ t: "ui", what: "autoStop", why: "jackpot" });
       }
       setPhase("max");
       setTopLine(
@@ -1247,7 +1400,7 @@ export function useSlotGame() {
         setPots(board.pots);
       }
     },
-    [bumpToday, noteHeat],
+    [bumpToday, noteHeat, noteStat],
   );
 
   const runTicket = useCallback(
@@ -1300,6 +1453,22 @@ export function useSlotGame() {
       setTicketSeal({ job: next, verdict: "ok" });
       setTicketFx({ id: Date.now(), kind: "payout", job: next });
       stampDailyJob(next, "ok");
+      noteStat({
+        t: "job",
+        phase: "ok",
+        card: {
+          floor: next.floor,
+          kind: next.kind,
+          stake: next.stake,
+          payout: next.payout,
+          spun: next.spun,
+          limit: next.limit,
+          mystery: next.mystery,
+          kindB: next.kindB,
+          tries: next.tries,
+          triesUsed: next.triesUsed,
+        },
+      });
       sfx.playTicketOk();
     } else if (st === "fail") {
       jobRef.current = null;
@@ -1312,12 +1481,29 @@ export function useSlotGame() {
       setLcdFlash({ job: next, verdict: "fail" });
       setTicketSeal({ job: next, verdict: "fail" });
       stampDailyJob(next, "fail");
+      noteStat({
+        t: "job",
+        phase: "fail",
+        card: {
+          floor: next.floor,
+          kind: next.kind,
+          stake: next.stake,
+          payout: next.payout,
+          spun: next.spun,
+          limit: next.limit,
+          mystery: next.mystery,
+          kindB: next.kindB,
+          tries: next.tries,
+          triesUsed: next.triesUsed,
+        },
+        reason: "clock",
+      });
       sfx.playThunder();
     } else {
       jobRef.current = next;
       setJob(next);
     }
-  }, [pushRank, stampDailyJob, noteTicket, noteHeat]);
+  }, [pushRank, stampDailyJob, noteTicket, noteHeat, noteStat]);
 
   const failParknetJob = useCallback((cur: JobCard, line = "NEÚSPEŠNÝ TIKET · MÁLO KREDITU NA 4KA TV") => {
     const burned = { ...cur, seal: false, spun: cur.limit };
@@ -1332,8 +1518,25 @@ export function useSlotGame() {
     setTicketSeal({ job: burned, verdict: "fail" });
     stampDailyJob(burned, "fail");
     setTopLine(line);
+    noteStat({
+      t: "job",
+      phase: "fail",
+      card: {
+        floor: burned.floor,
+        kind: burned.kind,
+        stake: burned.stake,
+        payout: burned.payout,
+        spun: burned.spun,
+        limit: burned.limit,
+        mystery: burned.mystery,
+        kindB: burned.kindB,
+        tries: burned.tries,
+        triesUsed: burned.triesUsed,
+      },
+      reason: "parknet",
+    });
     sfx.playThunder();
-  }, [stampDailyJob, noteTicket]);
+  }, [stampDailyJob, noteTicket, noteStat]);
 
   /** ZÁSAH that can no longer be paid ends quietly: no outcome, no RP, no klienti. */
   const voidChase = useCallback(() => {
@@ -1347,8 +1550,9 @@ export function useSlotGame() {
     setTopLine("ZÁSAH UKONČENÝ · MÁLO KREDITU");
     setMessage("ZÁSAH ukončený bez trestu");
     setJobToast("ZÁSAH UKONČENÝ · MÁLO KREDITU");
+    noteStat({ t: "chaseEnd", outcome: "void", spins: 0, strikes: 0, ms: Math.max(0, Date.now() - (chaseArmedAtRef.current || Date.now())) });
     persistNow();
-  }, [persistNow]);
+  }, [persistNow, noteStat]);
 
   /**
    * Way out between spins. Never touches pays or odds: it only turns ante off, lowers the bet to what the
@@ -1541,7 +1745,17 @@ export function useSlotGame() {
     setMessage(
       pickClearRef.current ? `Zaplatil si všetko parkovné · ${formatMoney(cash)}` : cash > 0 ? `KONTROLA ${formatMoney(cash)}` : "Odťah bez pokuty",
     );
-  }, [waitForPick, pushRank, noteResult, noteHeat]);
+    const safes = pickTilesRef.current.filter((tile, i) => pickRevealedRef.current[i] && tile.kind !== "odtah").length;
+    const fines = pickTilesRef.current.filter((tile, i) => pickRevealedRef.current[i] && tile.kind === "pokuta").length;
+    noteStat({
+      t: "pick",
+      cash,
+      safes,
+      clear: pickClearRef.current,
+      fines,
+      odtah: cash <= 0 && !pickClearRef.current,
+    });
+  }, [waitForPick, pushRank, noteResult, noteHeat, noteStat]);
 
   const runSequence = useCallback(
     async (opts?: { buy?: boolean; free?: boolean }): Promise<"fs" | "ok" | "max" | "pick" | "skip"> => {
@@ -1557,6 +1771,7 @@ export function useSlotGame() {
       if (!isFree && balanceRef.current < cost) {
         skipDuelTick.current = true;
         setMessage("Nedostatok kreditu — doplň demo zostatok");
+        noteStat({ t: "ui", what: "skipCredit" });
         return "skip";
       }
       skipDuelTick.current = false;
@@ -2005,6 +2220,7 @@ export function useSlotGame() {
           if (reduced || abort.current.skip) {
             setWindowPhase("reveal");
             reveal();
+            noteStat({ t: "chaseWindow", result: w.result, lock: Boolean(w.lock) });
             continue;
           }
           setWindowPhase("travel");
@@ -2016,6 +2232,7 @@ export function useSlotGame() {
           reveal();
           if (w.result === "hit") sfx.playHack();
           else if (w.result === "fs") sfx.playStrike();
+          noteStat({ t: "chaseWindow", result: w.result, lock: Boolean(w.lock) });
           // Land holds long enough for the corner snap and the FS seal stamp.
           await wait(dur(260 * slow), abort.current);
           setWindowPhase("reveal");
@@ -2145,6 +2362,7 @@ export function useSlotGame() {
       const gate = ticketResolve(pendingFs, isFree, landed?.ticket ?? null);
       if (gate === "stash" && landed) {
         pendingLiveTicketRef.current = pendingLiveTicketRef.current ?? landed.ticket;
+        noteStat({ t: "jackpot", tier: landed.ticket, payout: 0, poolBefore: 0, credit: 0, stash: true });
       } else if (gate === "claim" && landed) {
         await runTicket(landed.ticket);
       }
@@ -2196,6 +2414,61 @@ export function useSlotGame() {
               }
             : null;
         bumpToday(cost, opts?.buy ? 0 : cash, how, currentBet, recipe);
+      }
+
+      {
+        const payList = topPays(tally).map((pay) => ({ id: pay.id, count: pay.n }));
+        const baseCash = +(sequenceX * currentBet).toFixed(2);
+        const boosted = willThrow ? +(sequenceX * applied * currentBet).toFixed(2) : baseCash;
+        noteStat({
+          t: "spin",
+          cost,
+          bet: currentBet,
+          ante: anteRef.current && !opts?.buy,
+          chase: Boolean(chasing),
+          buy: Boolean(opts?.buy),
+          free: Boolean(isFree),
+          cash: opts?.buy ? 0 : cash,
+          cash0,
+          x,
+          tumbles: tumbleN,
+          clusters: clusterCount,
+          orbs: orbs.map((o) => o.mult),
+          orbSum,
+          applied,
+          pays: payList.length ? payList : [...payHits].map((id) => ({ id, count: 8 })),
+          scatters: scatterPeak,
+          nearMiss: cash0 <= 0 && Boolean(evaluate(board).nearMiss),
+          taxDelta,
+          hitMax,
+          turbo: turboRef.current,
+          quick: quickRef.current,
+          auto: Boolean(autoRef.current),
+          pdfHit,
+          willThrow,
+          orbBoostExtra: willThrow ? Math.max(0, boosted - baseCash) : 0,
+          ticketLand: Boolean(landed),
+          chain: tumbleN >= 2,
+          escrow,
+          holdKeep: false,
+          danUrad: modRef.current?.kind === "danUrad",
+          bezDane: modRef.current?.kind === "bezDane",
+          rankId: standing(rankRef.current.rp).id,
+          recipe:
+            cash > 0 && !opts?.buy
+              ? {
+                  v: 1 as const,
+                  mode: chasing ? ("zasah" as const) : isFree ? ("fs" as const) : ("base" as const),
+                  pays: topPays(tally),
+                  cans: willThrow ? topCans(tally.cans) : undefined,
+                  mult: willThrow && applied > 1 ? applied : undefined,
+                  scatters: scatterPeak >= 3 ? scatterPeak : undefined,
+                  tumbles: tumbleN > 0 ? tumbleN : undefined,
+                  ante: anteRef.current || undefined,
+                }
+              : null,
+        });
+        noteStat({ t: "balance", value: balanceRef.current });
       }
 
       if (!jpShowRef.current) setPots(boardRef.current.pots);
@@ -2464,6 +2737,33 @@ export function useSlotGame() {
           );
         }
         roundCashRef.current = featureTotal;
+        noteStat({
+          t: "fsEnd",
+          total: fsPaid,
+          trigger: sess.triggerCash,
+          played: sess.played,
+          extra: sess.extra,
+          peak: sess.peak,
+          bought: sess.bought,
+          buyCost: sess.bought ? +(betNow * buyXOf(standing(rankRef.current.rp).id)).toFixed(2) : 0,
+          modMul: mul,
+          gross: sess.cash,
+          ms: Math.max(0, Date.now() - (fsStartedAtRef.current || Date.now())),
+          empty: featureTotal <= 0,
+          recipe: {
+            v: 1,
+            mode: sess.bought ? "buy" : "fs",
+            pays: topPays(fsTallyRef.current),
+            cans: topCans(fsTallyRef.current.cans),
+            mult: sess.peak > 1 ? sess.peak : undefined,
+            scatters: fsTallyRef.current.scatters >= 3 ? fsTallyRef.current.scatters : undefined,
+            tumbles: recipeTumbles(fsTallyRef.current.tumbles),
+            spins: sess.played || undefined,
+            extra: sess.extra || undefined,
+            ante: (!sess.bought && fsAnteRef.current) || undefined,
+            mod: mul !== 1 ? mul : undefined,
+          },
+        });
         const bought = sess.bought;
         const peak = sess.peak;
         const extra = sess.extra;
@@ -2589,6 +2889,23 @@ export function useSlotGame() {
         setDisplayWin(+(sess.triggerCash + sess.cash).toFixed(2));
         setMessage(freeSpinsLabel(sess.left));
         setTopLine(`4KA TV · ${sess.left}`);
+        fsStartedAtRef.current = Date.now();
+        noteStat({ t: "fsStart", bought: sess.bought, ante: false, scatters: 4, spins: sess.left });
+        // mark resume on next fsEnd via empty flag unused — bump resume counter
+        noteStat({
+          t: "fsEnd",
+          total: 0,
+          trigger: 0,
+          played: 0,
+          extra: 0,
+          peak: 0,
+          bought: false,
+          buyCost: 0,
+          modMul: 1,
+          gross: 0,
+          ms: 0,
+          resumed: true,
+        });
         persistNow();
         sfx.startLiveBed();
         const hitCap = await playFsSpins();
@@ -2624,21 +2941,25 @@ export function useSlotGame() {
           setAutoOn(false);
           setAutoLeft(0);
           setAutoReason("AUTO STOP · 4KA TV");
+          noteStat({ t: "ui", what: "autoStop", why: "fs" });
         } else if (r === "pick") {
           autoRef.current = false;
           setAutoOn(false);
           setAutoLeft(0);
           setAutoReason("AUTO STOP · KONTROLA");
+          noteStat({ t: "ui", what: "autoStop", why: "pick" });
         } else if (lastPaidXRef.current >= 20) {
           autoRef.current = false;
           setAutoOn(false);
           setAutoLeft(0);
           setAutoReason("AUTO STOP · BIG WIN");
+          noteStat({ t: "ui", what: "autoStop", why: "big" });
         } else if (balanceRef.current <= autoFloorRef.current) {
           autoRef.current = false;
           setAutoOn(false);
           setAutoLeft(0);
           setAutoReason("AUTO STOP · 50% KREDIT");
+          noteStat({ t: "ui", what: "autoStop", why: "credit" });
         }
       } else if (autoRef.current && r === "pick") {
         autoRef.current = false;
@@ -2676,6 +2997,15 @@ export function useSlotGame() {
         setFsLeft(fsCount);
         setFsTotal(fsCount);
         setMessage(freeSpinsLabel(fsCount));
+        fsStartedAtRef.current = Date.now();
+        noteStat({
+          t: "fsStart",
+          bought: Boolean(opts?.buy),
+          ante: Boolean(fsAnteRef.current),
+          scatters: triggerScatterRef.current,
+          spins: fsCount,
+        });
+        if (r === "fs") noteStat({ t: "ui", what: "autoStop", why: "fs" });
         persistNow();
         sfx.playFsStart();
         sfx.startLiveBed();
@@ -2748,10 +3078,11 @@ export function useSlotGame() {
   }, [started, hydrated, playRound]);
 
   const stopReels = useCallback(() => {
+    noteStat({ t: "ui", what: "stopReels" });
     abort.current.skip = true;
     setReelFast(true);
     sfx.stopAnticipate();
-  }, []);
+  }, [noteStat]);
 
   const spin = useCallback(async () => {
     if (!started || staleRef.current) return;
@@ -2832,6 +3163,22 @@ export function useSlotGame() {
     }
     const betNow = BETS[betIndexRef.current];
     const taken = { ...card, lockBet: card.lockBet || betNow };
+    noteStat({
+      t: "job",
+      phase: "take",
+      card: {
+        floor: taken.floor,
+        kind: taken.kind,
+        stake: taken.stake,
+        payout: taken.payout,
+        spun: taken.spun,
+        limit: taken.limit,
+        mystery: taken.mystery,
+        kindB: taken.kindB,
+        tries: taken.tries,
+        triesUsed: taken.triesUsed,
+      },
+    });
     {
       // After paying the ticket there must be credit for at least one spin at the locked bet
       // (a buy ticket: for the buy). Otherwise it would be dead on arrival.
@@ -2906,6 +3253,10 @@ export function useSlotGame() {
       if (e.code !== "Space" && e.code !== "Enter" && e.code !== "Escape") return;
       e.preventDefault();
       if (!started) return;
+      if (statsOpenRef.current) {
+        if (e.code === "Escape") setStatsOpen(false);
+        return;
+      }
       if (pickOpenRef.current) {
         if (pickEndedRef.current && (e.code === "Space" || e.code === "Enter")) finishPick();
         return;
@@ -3124,6 +3475,15 @@ export function useSlotGame() {
     shake,
     paytableOpen,
     setPaytableOpen,
+    statsOpen,
+    stats: statsSnap,
+    openStats,
+    closeStats,
+    setStats: (s: PlayerStats) => {
+      statsRef.current = s;
+      writeStats(s);
+      setStatsSnap(s);
+    },
     message,
     stoppedCols,
     reelFast,

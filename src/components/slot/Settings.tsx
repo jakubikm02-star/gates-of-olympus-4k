@@ -29,6 +29,12 @@ import {
 import { contractCatalog } from "@/lib/slot/spend";
 import { saveContractTitles, subscribeContracts } from "@/lib/slot/job-titles";
 import { adminOk } from "@/lib/slot/ticket-names";
+import {
+  clearStats,
+  isStatsBackupEnabled,
+  setStatsBackupEnabled,
+} from "@/lib/slot/stats";
+import { statsDrop } from "@/lib/slot/stats-api";
 
 const SOUND_CUES: { id: string; name: string; loop?: boolean; when?: string; head?: boolean }[] = [
   { id: "click", name: "Klik", when: "Tlačidlá, stávka, ante, menu." },
@@ -414,10 +420,19 @@ function VolumeSave({ password }: { password: string }) {
   );
 }
 
-export function Settings({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function Settings({
+  open,
+  onClose,
+  playerId = "",
+}: {
+  open: boolean;
+  onClose: () => void;
+  playerId?: string;
+}) {
   const [pass, setPass] = useState("");
   const [gate, setGate] = useState("");
   const [busy, setBusy] = useState(false);
+  const [backup, setBackup] = useState(() => isStatsBackupEnabled());
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -449,6 +464,35 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
             ×
           </button>
         </header>
+        <div className="settings-privacy">
+          <p className="sound-note">
+            Osobné štatistiky sú doživotné (prežijú EXEKÚCIU) a predvolene len na tomto zariadení.
+            Cloudová záloha je vypnutá, kým ju nezapneš. Ukladajú sa herné udalosti a časy — nie IP, poloha ani nick.
+          </p>
+          <label className="st-toggle" style={{ display: "flex", gap: 10, alignItems: "center", margin: "8px 0" }}>
+            <input
+              type="checkbox"
+              checked={backup}
+              onChange={() => {
+                const next = !backup;
+                setBackup(next);
+                setStatsBackupEnabled(next);
+                if (!next && playerId) void statsDrop(playerId).catch(() => {});
+              }}
+            />
+            <span>Zálohovať štatistiky (cloud)</span>
+          </label>
+          <button
+            type="button"
+            className="sound-reset"
+            onClick={() => {
+              if (!confirm("Vymazať lokálne štatistiky?")) return;
+              clearStats();
+            }}
+          >
+            Vymazať lokálne štatistiky
+          </button>
+        </div>
         {gate && gate !== "bad" && gate !== "down" ? (
           <>
             <VolumeControl />
