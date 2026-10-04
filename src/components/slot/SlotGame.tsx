@@ -566,7 +566,7 @@ export function SlotGame() {
               type="button"
               className="icon-btn"
               onClick={() => g.setPaytableOpen(true)}
-              aria-label="Tabuľka"
+              aria-label="Pravidlá"
             >
               <Info size={16} />
             </button>

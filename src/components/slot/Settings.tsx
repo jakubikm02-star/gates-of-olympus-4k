@@ -1,3 +1,4 @@
+import { setZboxHelpOff, zboxHelpOff } from "@/lib/slot/zbox-help";
 import "./volume.css";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
@@ -606,6 +607,7 @@ export function Settings({
   const [gate, setGate] = useState("");
   const [busy, setBusy] = useState(false);
   const [backup, setBackup] = useState(() => isStatsBackupEnabled());
+  const [zboxHelp, setZboxHelp] = useState(() => !zboxHelpOff());
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -614,6 +616,9 @@ export function Settings({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+  useEffect(() => {
+    if (open) setZboxHelp(!zboxHelpOff());
+  }, [open]);
   useEffect(() => {
     if (open) return;
     setPass("");
@@ -654,6 +659,18 @@ export function Settings({
               }}
             />
             <span>Zálohovať štatistiky (cloud)</span>
+          </label>
+          <label className="st-toggle" style={{ display: "flex", gap: 10, alignItems: "center", margin: "8px 0" }}>
+            <input
+              type="checkbox"
+              checked={zboxHelp}
+              onChange={() => {
+                const next = !zboxHelp;
+                setZboxHelp(next);
+                setZboxHelpOff(!next);
+              }}
+            />
+            <span>Vysvetlenie Ž-BOXu (pravidlá na začiatku a tipy v prvých kolách)</span>
           </label>
           <button
             type="button"

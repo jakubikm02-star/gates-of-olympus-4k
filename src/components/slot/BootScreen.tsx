@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { BarChart3, Check, ChevronRight, Play, Siren, Sparkles, Swords, Ticket } from "lucide-react";
 import type { Standing } from "@/lib/slot/ranks";
 import { WIN_POP_X } from "@/lib/slot/symbols";
+import { POOL_ELIGIBLE_BET } from "@/lib/slot/jackpot";
 import { RankFrame } from "./RankFrame";
 
 /**
@@ -20,10 +21,10 @@ interface Feat {
 const FEATS: readonly Feat[] = [
   { id: "tv", title: "4KA TV", sub: "Voľné točenia od 15 FS", icon: <img src="/symbols/tv4ka.png" alt="" decoding="async" /> },
   { id: "zasah", title: "ZÁSAH", sub: "Finančná správa ide po tebe", icon: <Siren size={20} strokeWidth={2.2} /> },
-  { id: "kontrola", title: "KONTROLA", sub: "Lístky na mape · pity bar", icon: <img src="/symbols/park.svg" alt="" decoding="async" /> },
-  { id: "jp", title: "JACKPOTY", sub: "4 poty FTTB cez lístok", icon: <img src="/symbols/fttb-stat.png?v=fttb3" alt="" decoding="async" /> },
+  { id: "kontrola", title: "KONTROLA", sub: "Bonus bar · KONTROLA alebo Ž-BOX", icon: <img src="/symbols/park.svg" alt="" decoding="async" /> },
+  { id: "jp", title: "JACKPOTY", sub: `4 poty FTTB cez lístok · od stávky ${POOL_ELIGIBLE_BET}`, icon: <img src="/symbols/fttb-stat.png?v=fttb3" alt="" decoding="async" /> },
   { id: "tikety", title: "TIKETY", sub: "Úlohy pri akomkoľvek kredite", icon: <Ticket size={20} strokeWidth={2.2} /> },
-  { id: "duel", title: "DUEL", sub: "Online 1 v 1 · víťaz berie oboje", icon: <Swords size={20} strokeWidth={2.2} /> },
+  { id: "duel", title: "DUEL", sub: "1 v 1 pri stole aj online · víťaz berie oboje", icon: <Swords size={20} strokeWidth={2.2} /> },
   { id: "massive", title: "MASÍVNA VÝHRA", sub: `Ceremónia od ${WIN_POP_X.massive}× stávky`, icon: <Sparkles size={20} strokeWidth={2.2} /> },
   { id: "stats", title: "ŠTATISTIKY", sub: "Celá tvoja história hry", icon: <BarChart3 size={20} strokeWidth={2.2} /> },
 ];

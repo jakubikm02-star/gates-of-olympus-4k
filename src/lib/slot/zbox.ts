@@ -7,6 +7,11 @@
  *   compartment's size tier). Any new parcel → windows back to 3, none → one window off (NEDORUČENÉ).
  * - Kuriérsky príplatok: with P_CAN per round a can (2/3/5×) lands on the roof. Cans add up (2+3 = 5) and
  *   multiply the parcel sum at the end. A can does not touch the windows.
+ * - Special parcels (modifiers, Money-Train style): a hit is a special with P_MOD (ZBOX_MODS weights). It has its
+ *   own tier value and acts on landing — KURIÉR ×2 on 2–4 parcels, ZBERNÝ KURIÉR adds every other value to
+ *   itself (the others keep theirs), DOBIERKA adds its value to every parcel, PRESMEROVANIE +1 window, EXPRES adds its value to every
+ *   parcel after each later round (persistent), SKLADOVÉ POPLATKY −10 % on every other parcel (gag).
+ *   Specials are processed in compartment order (the order the UI sweep tests the doors).
  * - Full wall (all 12): ×2 (VŠETKO DORUČENÉ). Cap ZBOX_CAP_X × bet.
  * - The whole run is decided up front by playZbox(rng) — the same createRng() the game deals KONTROLA with —
  *   the UI only animates the script. Deterministic per seed.
@@ -53,7 +58,9 @@ export const ZBOX_CAP_X = 30;
 export const ZBOX_FULL_MUL = 2;
 
 /** Chance per empty compartment per round that a parcel lands (tuned, scripts/zbox-ev.ts). */
-export const P_PARCEL = 0.0333;
+export const P_PARCEL = 0.0284;
+/** Chance that a hit is a special parcel (modifier). */
+export const P_MOD = 0.12;
 /** Chance per round that a Kuriérsky príplatok can lands on the roof. */
 export const P_CAN = 0.05;
 export const CAN_TABLE: readonly { x: number; w: number }[] = [
@@ -100,12 +107,12 @@ export const ZBOX_TIERS: Record<ZSize, readonly ZTierRow[]> = {
 export const ZBOX_VIP: Record<string, readonly number[]> = {
   kredit: [],
   sloboda: [],
-  smart: [0.32],
-  telka: [0.43],
-  optika: [0.48],
-  duo: [0.65],
-  fiveg: [0.76],
-  nekonecno: [0.71, 0.71],
+  smart: [0.3],
+  telka: [0.4],
+  optika: [0.46],
+  duo: [0.62],
+  fiveg: [0.73],
+  nekonecno: [0.68, 0.68],
 };
 
 export function zboxVipOf(rankId: string | undefined): readonly number[] {
@@ -118,11 +125,38 @@ export interface ZParcel {
   what: string;
   /** Rank priority parcel. */
   vip?: boolean;
+  /** Special parcel (modifier). */
+  mod?: ZMod;
+}
+
+/** Special parcels (modifiers). */
+export type ZMod = "kurier" | "zberny" | "dobierka" | "presmer" | "expres" | "sklad";
+
+export const ZBOX_MODS: readonly { mod: ZMod; w: number; name: string; line: string }[] = [
+  { mod: "kurier", w: 30, name: "KURIÉR", line: "×2 na 2–4 iné balíky v stene" },
+  { mod: "dobierka", w: 25, name: "DOBIERKA", line: "pridá svoju hodnotu každému inému balíku" },
+  { mod: "presmer", w: 20, name: "PRESMEROVANIE", line: "okná sa tentoraz doplnia na 4 namiesto 3" },
+  { mod: "zberny", w: 8, name: "ZBERNÝ KURIÉR", line: "pripočíta si hodnotu všetkých ostatných balíkov" },
+  { mod: "expres", w: 7, name: "EXPRES", line: "po každom ďalšom kole pridá svoju hodnotu všetkým ostatným" },
+  { mod: "sklad", w: 10, name: "SKLADOVÉ POPLATKY", line: "−10 % z každého iného balíka (najmenej 0,05× stávky)" },
+];
+
+/** One modifier action: the special in compartment `by` sets these compartments to new values (× bet). */
+export interface ZFx {
+  by: number;
+  mod: ZMod;
+  set: { id: number; x: number }[];
+  /** PRESMEROVANIE: windows after the action. */
+  windows?: number;
+  /** EXPRES acting at the end of a later round. */
+  tick?: boolean;
 }
 
 export interface ZRound {
-  /** Parcels that landed this round (empty = NEDORUČENÉ). */
+  /** Parcels that landed this round (empty = NEDORUČENÉ), in compartment order. */
   parcels: ZParcel[];
+  /** Modifier actions this round, in order (landing actions, then EXPRES ticks). */
+  fx: ZFx[];
   /** Can that landed on the roof this round (0 = none). */
   can: number;
   /** Windows after this round. */
@@ -131,6 +165,8 @@ export interface ZRound {
 
 export interface ZPlay {
   start: ZParcel[];
+  /** Final value of every compartment after all modifiers (0 = empty). */
+  vals: number[];
   rounds: ZRound[];
   cans: number[];
   /** Sum of the cans (0 = no can, the parcels pay ×1). */
@@ -164,56 +200,109 @@ export interface ZOpts {
   vip?: readonly number[];
   p?: number;
   q?: number;
+  /** Override P_MOD (tests, tuning). */
+  m?: number;
 }
 
 /** The whole Ž-BOX run, decided up front. Same rng → same run. */
 export function playZbox(rng: () => number, opts: ZOpts = {}): ZPlay {
   const p = opts.p ?? P_PARCEL;
   const q = opts.q ?? P_CAN;
+  const pm = opts.m ?? P_MOD;
   const filled: (ZParcel | null)[] = ZBOX_LAYOUT.map(() => null);
+  const vals: number[] = ZBOX_LAYOUT.map(() => 0);
   const emptyIds = () => filled.flatMap((c, i) => (c ? [] : [i]));
   const drop = (id: number): ZParcel => {
     const row = pick(rng, ZBOX_TIERS[ZBOX_LAYOUT[id].size]);
     return { id, x: row.x, what: row.what };
   };
+  const put = (parcel: ZParcel) => {
+    filled[parcel.id] = parcel;
+    vals[parcel.id] = parcel.x;
+  };
   const start: ZParcel[] = [];
   for (let k = 0; k < ZBOX_START; k++) {
     const free = emptyIds();
     const id = free[Math.floor(rng() * free.length)];
-    const parcel = drop(id);
-    filled[id] = parcel;
-    start.push(parcel);
+    put(drop(id));
+    start.push(filled[id]!);
   }
   for (const x of opts.vip ?? []) {
     const free = emptyIds();
     if (!free.length) break;
     const id = free[Math.floor(rng() * free.length)];
-    const parcel: ZParcel = { id, x, what: "Prioritná zásielka", vip: true };
-    filled[id] = parcel;
-    start.push(parcel);
+    put({ id, x, what: "Prioritná zásielka", vip: true });
+    start.push(filled[id]!);
   }
+  const others = (self: number) => filled.flatMap((c, i) => (c && i !== self ? [i] : []));
   const rounds: ZRound[] = [];
   const cans: number[] = [];
+  const expres: number[] = [];
   let windows = ZBOX_WINDOWS;
   while (windows > 0 && filled.some((c) => !c)) {
     const parcels: ZParcel[] = [];
+    const fx: ZFx[] = [];
+    let bonusWin = 0;
     for (let id = 0; id < filled.length; id++) {
       if (filled[id]) continue;
-      if (rng() < p) parcels.push(drop(id));
+      if (rng() >= p) continue;
+      const parcel = drop(id);
+      if (rng() < pm) parcel.mod = pick(rng, ZBOX_MODS).mod;
+      put(parcel);
+      parcels.push(parcel);
+      const mod = parcel.mod;
+      if (!mod) continue;
+      const set: { id: number; x: number }[] = [];
+      const o = others(id);
+      if (mod === "kurier") {
+        const n = Math.min(o.length, 2 + Math.floor(rng() * 3));
+        const pool = [...o];
+        for (let k = 0; k < n; k++) {
+          const t = pool.splice(Math.floor(rng() * pool.length), 1)[0];
+          vals[t] = round4(vals[t] * 2);
+          set.push({ id: t, x: vals[t] });
+        }
+      } else if (mod === "dobierka") {
+        for (const t of o) {
+          vals[t] = round4(vals[t] + vals[id]);
+          set.push({ id: t, x: vals[t] });
+        }
+      } else if (mod === "zberny") {
+        vals[id] = round4(vals[id] + o.reduce((s2, t) => s2 + vals[t], 0));
+        set.push({ id, x: vals[id] });
+      } else if (mod === "sklad") {
+        for (const t of o) {
+          vals[t] = Math.max(0.05, round4(vals[t] * 0.9));
+          set.push({ id: t, x: vals[t] });
+        }
+      } else if (mod === "presmer") {
+        bonusWin += 1;
+      } else if (mod === "expres") {
+        expres.push(id);
+      }
+      fx.push(mod === "presmer" ? { by: id, mod, set, windows: ZBOX_WINDOWS + bonusWin } : { by: id, mod, set });
     }
-    for (const parcel of parcels) filled[parcel.id] = parcel;
     const can = rng() < q ? pick(rng, CAN_TABLE).x : 0;
     if (can) cans.push(can);
-    windows = parcels.length ? ZBOX_WINDOWS : windows - 1;
-    rounds.push({ parcels, can, windows });
+    // EXPRES: after every later round (not the one it landed in), its value goes to every other parcel
+    for (const e of expres) {
+      if (parcels.some((x) => x.id === e)) continue;
+      const set = others(e).map((t) => {
+        vals[t] = round4(vals[t] + vals[e]);
+        return { id: t, x: vals[t] };
+      });
+      if (set.length) fx.push({ by: e, mod: "expres", set, tick: true });
+    }
+    windows = parcels.length ? ZBOX_WINDOWS + bonusWin : windows - 1;
+    rounds.push({ parcels, fx, can, windows });
   }
   const full = filled.every(Boolean);
-  const sumX = round4(filled.reduce((s, c) => s + (c ? c.x : 0), 0));
+  const sumX = round4(vals.reduce((s, v) => s + v, 0));
   const canSum = cans.reduce((s, c) => s + c, 0);
   const mult = (canSum || 1) * (full ? ZBOX_FULL_MUL : 1);
   const grossX = round4(sumX * mult);
   const totalX = Math.min(ZBOX_CAP_X, grossX);
-  return { start, rounds, cans, canSum, sumX, mult, full, grossX, totalX, capped: grossX > ZBOX_CAP_X };
+  return { start, vals, rounds, cans, canSum, sumX, mult, full, grossX, totalX, capped: grossX > ZBOX_CAP_X };
 }
 
 /** Parcels in the wall after `n` rounds (start included). */

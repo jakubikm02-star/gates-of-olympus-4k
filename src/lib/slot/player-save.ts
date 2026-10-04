@@ -23,6 +23,8 @@ export interface PlayerSave {
   pityByBet: PityMap;
   /** Bar filled: the drawn mode (KONTROLA / Ž-BOX) waiting to be played. A reload keeps it. */
   bonusPending?: PendingBonus | null;
+  /** The player turned the Ž-BOX explanation off (zbox-help.ts). */
+  zboxHelpOff?: boolean;
   rp: number;
   rankPeak: number;
   rankShield: boolean;
@@ -311,6 +313,7 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.bestWin = num(r.bestWin, 0, 0, 1_000_000_000);
   s.pityByBet = pityMap(r.pityByBet);
   s.bonusPending = sanitizePendingBonus(r.bonusPending);
+  s.zboxHelpOff = bool(r.zboxHelpOff, false);
   s.rp = Math.max(0, Math.floor(num(r.rp, 0)));
   s.rankPeak = Math.max(0, Math.floor(num(r.rankPeak, 0)));
   s.rankShield = bool(r.rankShield, false);

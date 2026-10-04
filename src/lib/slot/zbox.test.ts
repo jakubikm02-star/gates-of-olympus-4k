@@ -5,7 +5,9 @@ import { createRng } from "./engine.ts";
 import {
   CAN_TABLE,
   P_CAN,
+  P_MOD,
   P_PARCEL,
+  ZBOX_MODS,
   ZBOX_CAP_X,
   ZBOX_CELLS,
   ZBOX_FULL_MUL,
@@ -71,10 +73,10 @@ describe("Ž-BOX engine", () => {
       const ids = zboxFilledAfter(p, p.rounds.length).map((c) => c.id);
       assert.equal(new Set(ids).size, ids.length, "a cell fills at most once");
       assert.equal(p.full, ids.length === ZBOX_CELLS);
-      // windows: reset to 3 on any delivery, -1 on NEDORUČENÉ, end at 0 or full wall
+      // windows: reset to 3 on any delivery (+1 per PRESMEROVANIE), -1 on NEDORUČENÉ, end at 0 or full wall
       let w = ZBOX_WINDOWS;
       for (const r of p.rounds) {
-        const exp = r.parcels.length ? ZBOX_WINDOWS : w - 1;
+        const exp = r.parcels.length ? ZBOX_WINDOWS + r.parcels.filter((x) => x.mod === "presmer").length : w - 1;
         assert.equal(r.windows, exp);
         if (!r.parcels.length) sawMiss = true;
         w = r.windows;
@@ -106,8 +108,63 @@ describe("Ž-BOX engine", () => {
   });
 
   it("probabilities are the documented ones", () => {
-    assert.equal(P_PARCEL, 0.0333);
+    assert.equal(P_PARCEL, 0.0284);
+    assert.equal(P_MOD, 0.12);
     assert.equal(P_CAN, 0.05);
+  });
+
+  it("modifiers: replaying the fx script gives the final values; every special acts", () => {
+    const rng = createRng(31);
+    const seen = new Set<string>();
+    for (let n = 0; n < 20000; n++) {
+      const p = playZbox(rng);
+      const v = ZBOX_LAYOUT.map(() => 0);
+      for (const c of p.start) v[c.id] = c.x;
+      for (const r of p.rounds) {
+        for (const c of r.parcels) {
+          v[c.id] = c.x;
+          for (const f of r.fx.filter((f) => f.by === c.id && !f.tick)) {
+            seen.add(f.mod);
+            assert.equal(f.mod, c.mod);
+            for (const t of f.set) v[t.id] = t.x;
+          }
+        }
+        for (const f of r.fx.filter((f) => f.tick)) {
+          assert.equal(f.mod, "expres");
+          for (const t of f.set) v[t.id] = t.x;
+        }
+        // every special parcel has exactly one landing action
+        for (const c of r.parcels.filter((c) => c.mod)) assert.equal(r.fx.filter((f) => f.by === c.id && !f.tick).length, 1);
+      }
+      for (let i = 0; i < v.length; i++) assert.ok(Math.abs(v[i] - p.vals[i]) < 1e-9, `cell ${i}`);
+      assert.ok(Math.abs(p.sumX - p.vals.reduce((a, b) => a + b, 0)) < 1e-3);
+      assert.ok(p.vals.every((x) => x >= 0));
+    }
+    for (const m of ZBOX_MODS) assert.ok(seen.has(m.mod), `saw ${m.mod}`);
+  });
+
+  it("KURIÉR doubles 2–4 parcels, DOBIERKA adds to all, ZBERNÝ collects, SKLAD −10 %", () => {
+    const rng = createRng(77);
+    for (let n = 0; n < 30000; n++) {
+      const p = playZbox(rng, { m: 1 });
+      const before = ZBOX_LAYOUT.map(() => 0);
+      for (const c of p.start) before[c.id] = c.x;
+      for (const r of p.rounds) {
+        for (const c of r.parcels) {
+          before[c.id] = c.x;
+          const f = r.fx.find((x) => x.by === c.id && !x.tick)!;
+          if (f.mod === "kurier") {
+            assert.ok(f.set.length >= Math.min(2, f.set.length) && f.set.length <= 4);
+            for (const t of f.set) assert.ok(Math.abs(t.x - before[t.id] * 2) < 1e-3);
+          }
+          if (f.mod === "dobierka") for (const t of f.set) assert.ok(Math.abs(t.x - before[t.id] - before[c.id]) < 1e-3);
+          if (f.mod === "sklad") for (const t of f.set) assert.ok(t.x <= before[t.id] + 1e-9 && t.x >= 0.05);
+          if (f.mod === "zberny") assert.deepEqual(f.set.map((t) => t.id), [c.id]);
+          for (const t of f.set) before[t.id] = t.x;
+        }
+        for (const f of r.fx.filter((x) => x.tick)) for (const t of f.set) before[t.id] = t.x;
+      }
+    }
   });
 });
 
@@ -198,6 +255,6 @@ describe("stats + sfx + copy", () => {
   });
   it("Ž-BOX copy is Slovak", () => {
     const ui = src("../../components/slot/ZboxBonus.tsx");
-    for (const t of ["NEDORUČENÉ", "VŠETKO DORUČENÉ", "Doručovacie okná", "Kuriérsky príplatok", "Ž-BOX SA ZATVÁRA"]) assert.ok(ui.includes(t), t);
+    for (const t of ["Nič nedoručené", "prázdne", "VŠETKO DORUČENÉ", "Doručovacie okná", "Kuriérsky príplatok", "Ž-BOX SA ZATVÁRA"]) assert.ok(ui.includes(t), t);
   });
 });

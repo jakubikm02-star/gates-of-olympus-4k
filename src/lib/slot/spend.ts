@@ -2,7 +2,7 @@ import { PAY_SYMBOLS, payName, type PayId } from "./symbols.ts";
 import { formatMoney } from "./format.ts";
 import type { TierId } from "./jackpot";
 
-/** Jobs unlock at this credit, any bet. */
+/** Reference credit for sizing a ticket; tickets open at any credit (below it the stake follows the real credit). */
 export const JOB_BANK = 100;
 export const SURPLUS_X = JOB_BANK;
 
@@ -156,7 +156,7 @@ function featureFor(floor: JobFloor, rng: () => number): Template {
  * (HACK, ZÁSAH win, one KONTROLA / Ž-BOX) keep the ticket open past its last spin until that ZÁSAH ends /
  * the bonus armed on the last spin is played (seal), so a run that started in time is never cut off.
  * Left out on purpose (too rare for any spin budget): 4KA TV inside ZÁSAH (~1 in 120 ZÁSAH),
- * all 9 pins in KONTROLA (1 in 220), VŠETKO DORUČENÉ (~1 in 6 000 Ž-BOX).
+ * all 9 pins in KONTROLA (1 in 220), VŠETKO DORUČENÉ (~1 in 15 000–30 000 Ž-BOX, by rank).
  */
 const FEATURE_TEMPLATES: Template[] = [
   { id: "zasah", titles: ["ZÁSAH", "RAZIA", "NÁLET"], kind: "zasah", scope: "base", need: [1, 2], until: [150, 300], line: "spustiť ZÁSAH", feat: "zasah" },

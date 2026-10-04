@@ -40,6 +40,7 @@ import {
 import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, spendPity, type PickTile, type PityMap } from "@/lib/slot/pick-bonus";
 import { drawBonusMode, type BonusModeId, type PendingBonus } from "@/lib/slot/bonus-mode";
 import { playZbox, zboxVipOf, type ZPlay } from "@/lib/slot/zbox";
+import { setZboxHelpOff, zboxHelpOff } from "@/lib/slot/zbox-help";
 import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision, fsSpinsOf, nextRebate, perkOf, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
@@ -542,6 +543,7 @@ export function useSlotGame() {
     pityByBetRef.current = s.pityByBet;
     setPityByBet(s.pityByBet);
     bonusPendingRef.current = s.bonusPending ?? null;
+    if (s.zboxHelpOff && !zboxHelpOff()) setZboxHelpOff(true);
     setRp(s.rp);
     setRankPeak(s.rankPeak);
     setRankShield(s.rankShield);
@@ -678,6 +680,7 @@ export function useSlotGame() {
       fsZasah: fsSessionRef.current.zasah,
       antiStreak: antiStreakRef.current,
       bonusPending: bonusPendingRef.current,
+      zboxHelpOff: zboxHelpOff(),
     };
     if (dead) writeLocal(saveSnapRef.current);
   }, []);
@@ -777,6 +780,7 @@ export function useSlotGame() {
       fsZasah: fsSessionRef.current.zasah,
       antiStreak: antiStreakRef.current,
       bonusPending: bonusPendingRef.current,
+      zboxHelpOff: zboxHelpOff(),
       duelDeposit: depositRef.current,
       updatedAt: Date.now(),
     };
@@ -1002,6 +1006,7 @@ export function useSlotGame() {
       fsZasah: fsSessionRef.current.zasah,
       antiStreak: antiStreakRef.current,
       bonusPending: bonusPendingRef.current,
+      zboxHelpOff: zboxHelpOff(),
       duelDeposit: depositRef.current,
     };
     saveSnapRef.current = payload;

@@ -1,0 +1,95 @@
+/* Pravidlá (Paytable.tsx): game manual with jump chips. Built for a 412 px phone first. */
+.modal-card.man-card {
+  position: relative;
+  width: min(620px, 100%);
+  max-height: min(90dvh, 860px);
+  padding: 14px 14px 18px;
+  scroll-padding-top: 64px;
+}
+.man-card .modal-lead { margin: 4px 0 8px; }
+.man-nav {
+  position: sticky;
+  top: -14px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+  margin: 0 -14px 8px;
+  padding: 10px 14px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: linear-gradient(180deg, #12181e 82%, rgb(18 24 30 / 0));
+}
+.man-nav::-webkit-scrollbar { display: none; }
+.man-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 11px 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgb(62 198 224 / 0.35);
+  background: rgb(255 255 255 / 0.05);
+  color: #d6e6ee;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.man-chip i { display: grid; place-items: center; width: 18px; height: 18px; }
+.man-chip i img { width: 18px; height: 18px; object-fit: contain; }
+.man-chip.is-on { background: var(--color-gold-2, #f0c44a); border-color: transparent; color: #1a1406; }
+.man-sec { padding: 12px 0 6px; border-top: 1px solid rgb(255 255 255 / 0.08); }
+.man-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  letter-spacing: 0.04em;
+  color: var(--color-gold-2, #f0c44a);
+}
+.man-h i { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: rgb(255 255 255 / 0.07); color: #fff; }
+.man-h i img { width: 24px; height: 24px; object-fit: contain; }
+.man-lead { margin: 0 0 8px; font-size: 0.9rem; line-height: 1.45; color: #e3e8ee; }
+.man-p { margin: 4px 0 6px; font-size: 0.86rem; line-height: 1.45; color: var(--color-muted, #b9c3cc); }
+.man-p a { color: #7fdcf0; text-decoration: underline; cursor: pointer; }
+.man-list { margin: 4px 0 6px; padding-left: 18px; font-size: 0.86rem; line-height: 1.45; color: var(--color-muted, #b9c3cc); }
+.man-list li + li { margin-top: 4px; }
+.man-list b, .man-p b { color: #eef2f6; }
+.man-sub { display: flex; align-items: center; gap: 8px; margin: 14px 0 4px; font-size: 0.95rem; color: #fff; }
+.man-sub img { width: 26px; height: 26px; object-fit: contain; }
+.man-facts { display: grid; gap: 4px; margin: 6px 0; }
+.man-facts > div { display: grid; grid-template-columns: minmax(96px, 38%) 1fr; gap: 8px; padding: 6px 9px; border-radius: 9px; background: rgb(255 255 255 / 0.045); font-size: 0.84rem; line-height: 1.4; }
+.man-facts dt { font-weight: 800; color: #eef2f6; }
+.man-facts dd { margin: 0; color: #c9d2da; }
+.man-ico { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.man-pays { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--color-gold-2, #f0c44a); font-variant-numeric: tabular-nums; font-size: 0.86rem; font-weight: 700; }
+.man-pays i { font-style: normal; margin-right: 4px; font-size: 0.72rem; font-weight: 800; color: #8fa2b0; }
+.man-outcomes { display: grid; gap: 4px; margin: 6px 0; }
+.man-outcomes > div { display: flex; flex-direction: column; padding: 6px 10px; border-radius: 9px; background: rgb(255 255 255 / 0.045); border-left: 3px solid #8fa2b0; font-size: 0.84rem; }
+.man-outcomes .is-good { border-left-color: #5dff7a; }
+.man-outcomes .is-bad { border-left-color: #ff5a4a; }
+.man-outcomes b { color: #fff; letter-spacing: 0.06em; }
+.man-outcomes span { color: #c9d2da; }
+.man-pots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin: 6px 0; }
+.man-pots > div { display: grid; grid-template-columns: 34px 1fr; column-gap: 8px; align-items: center; padding: 6px 8px; border-radius: 10px; background: rgb(255 255 255 / 0.045); }
+.man-pots img { grid-row: span 3; width: 34px; height: 34px; object-fit: contain; }
+.man-pots b { font-size: 0.86rem; color: #fff; }
+.man-pots span { font-size: 0.78rem; color: var(--color-gold-2, #f0c44a); font-variant-numeric: tabular-nums; }
+.man-pots em { font-style: normal; font-size: 0.72rem; color: #c9d2da; }
+.man-ranks { display: grid; gap: 4px; margin: 6px 0; }
+.man-ranks > div { display: grid; grid-template-columns: 112px 1fr; gap: 8px; padding: 6px 9px; border-radius: 9px; background: rgb(255 255 255 / 0.045); border-left: 3px solid var(--rc); font-size: 0.82rem; line-height: 1.4; }
+.man-ranks b { display: flex; flex-direction: column; color: var(--rc); letter-spacing: 0.04em; }
+.man-ranks small { font-size: 0.7rem; font-weight: 600; color: #8fa2b0; letter-spacing: 0; }
+.man-ranks span { color: #c9d2da; }
+.man-off { padding: 8px 10px; border-radius: 9px; background: rgb(255 90 74 / 0.08); border: 1px solid rgb(255 90 74 / 0.3); }
+.man-card .pay-row { grid-template-columns: 48px 1fr; align-items: start; }
+.man-card .pay-ico { width: 48px; height: 48px; }
+.man-card .zr { margin-top: 4px; }
+.man-card .math-box { margin-top: 8px; }
+@media (max-width: 380px) {
+  .man-facts > div, .man-ranks > div { grid-template-columns: 1fr; gap: 2px; }
+}
+.man-bank .atm-desk { margin: 4px 0 0; }
