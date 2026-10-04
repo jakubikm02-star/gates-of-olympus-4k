@@ -15,6 +15,7 @@ import { jobClock, jobMeter, jobProgress, jobShownGoal, sayCluster, type JobCard
 import { rankPeekIds } from "@/lib/slot/pick-bonus";
 import { BonusModeStrip } from "./BonusModeStrip";
 import { ZboxBonus } from "./ZboxBonus";
+import { ZasahBattery } from "./ZasahBattery";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { useShell } from "@/hooks/use-shell";
 import { useContainerVars } from "@/hooks/use-container-vars";
@@ -43,6 +44,7 @@ import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
 import { depositTotal, writeAppReloadMarker } from "@/lib/slot/duel-deposit";
 import "./duel-ui.css";
 import "./zbox.css";
+import "./zasah-battery.css";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
 
@@ -389,17 +391,21 @@ export function SlotGame() {
                       ×2 <span>ZÁSAH</span>
                     </div>
                   ) : null}
-                  <div className={`fs-heat ${g.chase ? "is-chase" : ""}`} aria-label={g.chase ? `Zásah ${Math.min(g.chase.total, g.chase.spin + 1)} z ${g.chase.total}` : `Hlásenie ${g.heat}`}>
-                    <span>{g.chase ? "ZÁSAH" : "HLÁSENIE"}</span>
+                  {g.chase ? (
+                    <ZasahBattery spin={g.chase.spin} total={g.chase.total} />
+                  ) : (
+                  <div className="fs-heat" aria-label={`Hlásenie ${g.heat}`}>
+                    <span>HLÁSENIE</span>
                     <i
                       style={{
-                        ["--heat" as string]: `${g.chase ? Math.min(100, (g.chase.spin / g.chase.total) * 100) : Math.min(100, (g.heat / HEAT_MAX) * 100)}%`,
+                        ["--heat" as string]: `${Math.min(100, (g.heat / HEAT_MAX) * 100)}%`,
                       }}
                     />
                     <b>
-                      {g.chase ? `SPIN ${Math.min(g.chase.total, g.chase.spin + 1)}/${g.chase.total}` : `${g.heat}/${HEAT_MAX}`}
+                      {g.heat}/{HEAT_MAX}
                     </b>
                   </div>
+                  )}
                 </div>
               ) : (
                 <div className="meter-split">
@@ -420,17 +426,23 @@ export function SlotGame() {
                       {Math.min(g.pityGoal, g.pity)}/{g.pityGoal}
                     </b>
                   </div>
-                  <div className={`heat-bar ${g.chase ? "is-chase" : ""} ${g.heat >= HEAT_MAX ? "is-hot" : ""}`}>
-                    <span className="heat-kicker">{g.chase ? "ZÁSAH" : "HLÁSENIE"}</span>
+                  {g.chase ? (
+                    <ZasahBattery spin={g.chase.spin} total={g.chase.total} />
+                  ) : (
+                  <div className={`heat-bar ${g.heat >= HEAT_MAX ? "is-hot" : ""}`}>
+                    <span className="heat-kicker">HLÁSENIE</span>
                     <div className="heat-segs" aria-hidden="true">
                       <i
                         style={{
-                          ["--heat" as string]: `${g.chase ? Math.min(100, (g.chase.spin / g.chase.total) * 100) : Math.min(100, (g.heat / HEAT_MAX) * 100)}%`,
+                          ["--heat" as string]: `${Math.min(100, (g.heat / HEAT_MAX) * 100)}%`,
                         }}
                       />
                     </div>
-                    <b>{g.chase ? `SPIN ${Math.min(g.chase.total, g.chase.spin + 1)}/${g.chase.total}` : `${g.heat}/${HEAT_MAX}`}</b>
+                    <b>
+                      {g.heat}/{HEAT_MAX}
+                    </b>
                   </div>
+                  )}
                 </div>
               )}
             </div>
