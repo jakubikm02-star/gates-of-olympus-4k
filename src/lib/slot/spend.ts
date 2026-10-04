@@ -36,7 +36,7 @@ export interface JobCard {
     | "chain"
     | "collect"
     | "cash"
-    // Feature tickets (FEATURE_TEMPLATES): ZÁSAH starts, best of one ZÁSAH, KONTROLA · Ž-BOX bar points, bar bonuses, best of one bar bonus.
+    // Feature tickets (FEATURE_TEMPLATES): ZÁSAH starts, best of one ZÁSAH, bonus bar points, bar bonuses, best of one bar bonus.
     | "zasah"
     | "zasahBest"
     | "bar"
@@ -149,7 +149,7 @@ function featureFor(floor: JobFloor, rng: () => number): Template {
 }
 
 /**
- * Feature tickets: ZÁSAH (its HLÁSENIE heat bar), the KONTROLA · Ž-BOX bar (mode drawn 50:50) and each bar mode.
+ * Feature tickets: ZÁSAH (its HLÁSENIE heat bar), the bonus bar (mode drawn 1/3 each: KONTROLA, Ž-BOX, KOLESO) and the KONTROLA / Ž-BOX modes (no KOLESO-only tickets yet).
  * Budgets count paid base-game spins (ZÁSAH spins included, 4KA TV spins not), like every base ticket.
  * Each goal is tuned on the real engine (scripts/feature-sim) to the floor's clear rate of the base tickets,
  * so with the same payout bands the ticket return per € stays where it was. "Best of one" goals
@@ -162,14 +162,14 @@ const FEATURE_TEMPLATES: Template[] = [
   { id: "zasah", titles: ["ZÁSAH", "RAZIA", "NÁLET"], kind: "zasah", scope: "base", need: [1, 2], until: [150, 300], line: "spustiť ZÁSAH", feat: "zasah" },
   { id: "hack", titles: ["HACKER", "ZAMERANÉ", "PRIELOM"], kind: "zasahBest", scope: "base", need: [2, 4], until: [150, 300], line: "HACK v jednom ZÁSAHU", feat: "zasah" },
   { id: "lup", titles: ["LÚP ZO ZÁSAHU", "ČIERNA KASA", "ZÁSAH PLATÍ"], kind: "zasahBest", scope: "base", need: [3, 8], until: [150, 300], line: "× stávky v jednom ZÁSAHU", feat: "zasah" },
-  { id: "kvota", titles: ["KVÓTA", "PAPIERE", "UDANIE"], kind: "bar", scope: "base", need: [70, 100], until: [40, 60], line: "bodov do baru KONTROLA · Ž-BOX", feat: "bar" },
-  { id: "urad", titles: ["BONUS Z BARU", "NÁHODNÁ KONTROLA", "LOTÉRIA ÚRADU"], kind: "bonus", scope: "base", need: [1, 2], until: [60, 160], line: "bonus z baru KONTROLA · Ž-BOX", feat: "bar" },
-  { id: "uradvyhra", titles: ["ÚRADNÁ VÝPLATA", "DOTÁCIA", "VRATKA"], kind: "bonusBest", scope: "base", need: [3, 6], until: [60, 200], line: "× stávky v jednom bonuse KONTROLA / Ž-BOX", feat: "bar" },
-  { id: "listky", titles: ["BEZ ODŤAHU", "PARKOVACIE LÍSTKY", "ZÓNA A"], kind: "bonusBest", scope: "base", need: [2, 4], until: [100, 300], line: "lístkov v jednej KONTROLE", feat: "kontrola" },
-  { id: "pokuta", titles: ["POKUTA", "BLOKOVÉ KONANIE", "MESTSKÁ KASA"], kind: "bonusBest", scope: "base", need: [3, 5], until: [100, 300], line: "× stávky v jednej KONTROLE", feat: "kontrola" },
-  { id: "zasielky", titles: ["PAKEŤÁK", "DORUČOVATEĽ", "Ž-BOX"], kind: "bonusBest", scope: "base", need: [4, 7], until: [100, 300], line: "zásielok v jednom Ž-BOXE", feat: "zbox" },
-  { id: "priplatok", titles: ["PRÍPLATOK", "KURIÉR", "PLECHOVKA NA STRECHE"], kind: "bonusBest", scope: "base", need: [2, 2], until: [180, 270], line: "kuriérsky príplatok v Ž-BOXE", feat: "zbox", floors: ["draha"] },
-  { id: "okna", titles: ["DOČKAJ SA", "DORUČOVACIE OKNÁ", "TRPEZLIVOSŤ"], kind: "bonusBest", scope: "base", need: [4, 7], until: [100, 300], line: "kôl v jednom Ž-BOXE", feat: "zbox" },
+  { id: "kvota", titles: ["KVÓTA", "PAPIERE", "UDANIE"], kind: "bar", scope: "base", need: [70, 100], until: [40, 60], line: "bodov do bonus baru", feat: "bar" },
+  { id: "urad", titles: ["BONUS Z BARU", "NÁHODNÁ KONTROLA", "LOTÉRIA ÚRADU"], kind: "bonus", scope: "base", need: [1, 2], until: [60, 160], line: "bonus z bonus baru", feat: "bar" },
+  { id: "uradvyhra", titles: ["ÚRADNÁ VÝPLATA", "DOTÁCIA", "VRATKA"], kind: "bonusBest", scope: "base", need: [3, 6], until: [60, 200], line: "× stávky v jednom bonuse z baru", feat: "bar" },
+  { id: "listky", titles: ["BEZ ODŤAHU", "PARKOVACIE LÍSTKY", "ZÓNA A"], kind: "bonusBest", scope: "base", need: [1, 3], until: [130, 395], line: "lístkov v jednej KONTROLE", feat: "kontrola" },
+  { id: "pokuta", titles: ["POKUTA", "BLOKOVÉ KONANIE", "MESTSKÁ KASA"], kind: "bonusBest", scope: "base", need: [1, 4], until: [180, 400], line: "× stávky v jednej KONTROLE", feat: "kontrola" },
+  { id: "zasielky", titles: ["PAKEŤÁK", "DORUČOVATEĽ", "Ž-BOX"], kind: "bonusBest", scope: "base", need: [2, 5], until: [220, 365], line: "zásielok v jednom Ž-BOXE", feat: "zbox" },
+  { id: "priplatok", titles: ["PRÍPLATOK", "KURIÉR", "PLECHOVKA NA STRECHE"], kind: "bonusBest", scope: "base", need: [2, 2], until: [295, 400], line: "kuriérsky príplatok v Ž-BOXE", feat: "zbox", floors: ["draha"] },
+  { id: "okna", titles: ["DOČKAJ SA", "DORUČOVACIE OKNÁ", "TRPEZLIVOSŤ"], kind: "bonusBest", scope: "base", need: [3, 7], until: [180, 340], line: "kôl v jednom Ž-BOXE", feat: "zbox" },
 ];
 
 const ALL_TEMPLATES: Template[] = [...TEMPLATES, ...FEATURE_TEMPLATES];
@@ -203,11 +203,11 @@ export function featureGoal(template: string, need: number): string {
     case "lup":
       return `Vyhraj ${need}× stávku v jednom ZÁSAHU`;
     case "kvota":
-      return `${need} ${skCount(need, "bod", "body", "bodov")} do baru KONTROLA · Ž-BOX`;
+      return `${need} ${skCount(need, "bod", "body", "bodov")} do bonus baru`;
     case "urad":
-      return `${need}× bonus z baru (KONTROLA alebo Ž-BOX)`;
+      return `${need}× bonus z baru (KONTROLA, Ž-BOX alebo KOLESO)`;
     case "uradvyhra":
-      return `Vyhraj ${need}× stávku v jednom bonuse z baru (KONTROLA alebo Ž-BOX)`;
+      return `Vyhraj ${need}× stávku v jednom bonuse z baru (KONTROLA, Ž-BOX alebo KOLESO)`;
     case "listky":
       return `${need} ${skCount(need, "lístok", "lístky", "lístkov")} v jednej KONTROLE`;
     case "pokuta":
@@ -587,7 +587,9 @@ export const JOB_RANGES: Record<string, Record<JobFloor, { need: Span; window: S
   odpis: { lacna: { need: [0, 0], window: [15, 25] }, stred: { need: [0, 0], window: [25, 40] }, draha: { need: [0, 0], window: [40, 55] } },
   // Feature tickets (scripts/feature-sim/tune.ts on the real engine, Kredit rank, ante off): each cell clears
   // about as often as the base single tickets of its floor (76.6 / 59.3 / 39.6 %). Rates the windows rest on:
-  // KONTROLA · Ž-BOX bar ≈ 1.93 points per spin (bar bonus every ~54 spins, KONTROLA or Ž-BOX ~1 in 108 each),
+  // bonus bar ≈ 1.93 points per spin (bar bonus every ~54 spins). Since KOLESO joined the draw (1/3 each), a
+  // given mode is ~1 in 162 (was 1 in 108): the KONTROLA / Ž-BOX-only cells (listky … okna) were re-tuned with
+  // lower goals so their windows stay ≤ 400 spins (tune.ts NEEDS). priplatok ×2 needs ~295–440: capped at 400 (~37 %).
   // ZÁSAH every ~170 spins (10 spins, 4× HACK = únik in ~47 %).
   zasah: { lacna: { need: [1, 1], window: [110, 170] }, stred: { need: [1, 2], window: [160, 245] }, draha: { need: [2, 2], window: [190, 290] } },
   hack: { lacna: { need: [2, 3], window: [165, 250] }, stred: { need: [3, 4], window: [160, 240] }, draha: { need: [4, 4], window: [115, 175] } },
@@ -595,12 +597,12 @@ export const JOB_RANGES: Record<string, Record<JobFloor, { need: Span; window: S
   kvota: { lacna: { need: [45, 65], window: [30, 50] }, stred: { need: [70, 100], window: [40, 60] }, draha: { need: [120, 155], window: [55, 80] } },
   urad: { lacna: { need: [1, 1], window: [35, 50] }, stred: { need: [1, 2], window: [50, 80] }, draha: { need: [2, 3], window: [75, 115] } },
   uradvyhra: { lacna: { need: [2, 3], window: [125, 185] }, stred: { need: [3, 4], window: [110, 170] }, draha: { need: [4, 6], window: [95, 140] } },
-  listky: { lacna: { need: [2, 2], window: [200, 295] }, stred: { need: [2, 3], window: [155, 230] }, draha: { need: [3, 4], window: [130, 195] } },
-  pokuta: { lacna: { need: [2, 2], window: [225, 340] }, stred: { need: [3, 4], window: [210, 310] }, draha: { need: [4, 5], window: [135, 205] } },
-  zasielky: { lacna: { need: [3, 4], window: [215, 325] }, stred: { need: [4, 5], window: [225, 340] }, draha: { need: [5, 6], window: [215, 320] } },
-  // ×2 in one Ž-BOX is ~1 in 490 spins: only drahá fits a sane budget.
-  priplatok: { lacna: { need: [2, 2], window: [180, 270] }, stred: { need: [2, 2], window: [180, 270] }, draha: { need: [2, 2], window: [180, 270] } },
-  okna: { lacna: { need: [3, 4], window: [130, 200] }, stred: { need: [4, 6], window: [135, 205] }, draha: { need: [6, 8], window: [140, 205] } },
+  listky: { lacna: { need: [1, 2], window: [265, 395] }, stred: { need: [2, 2], window: [185, 280] }, draha: { need: [2, 3], window: [130, 195] } },
+  pokuta: { lacna: { need: [1, 1], window: [270, 400] }, stred: { need: [2, 3], window: [245, 365] }, draha: { need: [3, 4], window: [180, 265] } },
+  zasielky: { lacna: { need: [2, 3], window: [220, 335] }, stred: { need: [3, 4], window: [245, 365] }, draha: { need: [4, 5], window: [240, 360] } },
+  // ×2 in one Ž-BOX is ~1 in 735 spins (1 in 490 before KOLESO): only drahá fits a sane budget.
+  priplatok: { lacna: { need: [2, 2], window: [295, 400] }, stred: { need: [2, 2], window: [295, 400] }, draha: { need: [2, 2], window: [295, 400] } },
+  okna: { lacna: { need: [3, 4], window: [225, 340] }, stred: { need: [4, 5], window: [210, 315] }, draha: { need: [5, 7], window: [180, 270] } },
 };
 
 /**
@@ -1035,9 +1037,9 @@ export interface JobEvent {
   chaseX?: number;
   /** The ZÁSAH ended on this spin. */
   chaseOver?: boolean;
-  /** Points this spin put on the KONTROLA · Ž-BOX bar (dead spin +2, 3 scatters +30). */
+  /** Points this spin put on the bonus bar (dead spin +2, 3 scatters +30). */
   pityAdd?: number;
-  /** This spin filled the bar: a bar bonus (KONTROLA / Ž-BOX) plays right after it. */
+  /** This spin filled the bar: a bar bonus (KONTROLA / Ž-BOX / KOLESO) plays right after it. */
   bonusArmed?: boolean;
   /** A bar bonus just paid (its own event, spun: false). */
   bonus?: BonusResult;
@@ -1045,7 +1047,7 @@ export interface JobEvent {
 
 /** One finished bar bonus, as feature tickets read it. */
 export interface BonusResult {
-  mode: "kontrola" | "zbox";
+  mode: "kontrola" | "zbox" | "koleso";
   /** Payout × bet (after príplatok / ×2 / cap, before the tax period). */
   x: number;
   /** KONTROLA: safe pins opened. Ž-BOX: parcels in the wall at the end (start parcels included). */

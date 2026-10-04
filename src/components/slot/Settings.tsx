@@ -1,4 +1,5 @@
 import { setZboxHelpOff, zboxHelpOff } from "@/lib/slot/zbox-help";
+import { kolesoEnvelopes, kolesoHelpOff, setKolesoEnvelopes, setKolesoHelpOff } from "@/lib/slot/koleso-help";
 import "./volume.css";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
@@ -86,7 +87,7 @@ const SOUND_CUES: { id: string; name: string; loop?: boolean; when?: string; hea
   { id: "zap", name: "Rampa", when: "Každé pustenie plechoviek rampou: po zastavení valcov aj po páde. Spolu s ňou ide aj Elektrika." },
   { id: "electric", name: "Elektrika", when: "Spolu s Rampou pri každom pustení plechoviek." },
   { id: "collect", name: "Zber", when: "Výhra lístka (pot), presne 3 scattere po dopade a +5 točení." },
-  { id: "payout", name: "Výplata", when: "Výhra sa pripíše na kredit v base, mimo duelu." },
+  { id: "payout", name: "Výplata", when: "Výhra sa pripíše na kredit v base, mimo VERSUS." },
   { id: "fsStart", name: "Štart 4KA TV", when: "Začiatok 4KA TV." },
   { id: "bed", name: "Podklad 4KA TV", loop: true, when: "Počas celej 4KA TV. Naskočí na náhodnom mieste skladby. Súbor do 50 MB." },
   { id: "zasah", name: "Podklad zásahu", loop: true, when: "Čo robí: hudba pod celým zásahom. Naskočí na náhodnom mieste skladby. Odporúčanie: dlhá tmavá slučka bez spevu, napätie. Do 50 MB." },
@@ -101,11 +102,31 @@ const SOUND_CUES: { id: string; name: string; loop?: boolean; when?: string; hea
   { id: "zNeutral", name: "Koniec bez ničoho", when: "Čo robí: zásah skončí bez úniku aj bez dane. Odporúčanie: krátke povzdychnutie. Kým nenahráš vlastný, nehrá nič." },
   { id: "kontrola", name: "Kontrola", when: "Štart KONTROLA." },
   { id: "zb-head", name: "Ž-BOX (Pakeťák)", head: true },
-  { id: "zbox_beep", name: "Ž-BOX pípnutie", when: "Čo robí: pípnutie displeja Ž-BOXu: výber režimu (pás KONTROLA / Ž-BOX), štart a každý pokus o doručenie. Odporúčanie: krátke pípnutie klávesnice, do 0,3 s. Kým nenahráš vlastný, hrá sa syntetické dvojpípnutie." },
+  { id: "zbox_beep", name: "Ž-BOX pípnutie", when: "Čo robí: pípnutie displeja Ž-BOXu: výber režimu (pás KONTROLA / Ž-BOX / KOLESO), štart a každý pokus o doručenie. Odporúčanie: krátke pípnutie klávesnice, do 0,3 s. Kým nenahráš vlastný, hrá sa syntetické dvojpípnutie." },
   { id: "zbox_open", name: "Ž-BOX otvorenie", when: "Čo robí: dvierka sa otvoria, vyskočí balík a cvakne zelený zámok. Odporúčanie: cvak zámku + krátke ťuknutie, 0,3–0,8 s. Kým nenahráš vlastný, hrá sa Zber." },
   { id: "zbox_miss", name: "Ž-BOX nedoručené", when: "Čo robí: pokus bez balíka, NEDORUČENÉ (zhasne jedno doručovacie okno). Odporúčanie: suchý bzučiak „mimo prevádzky“, do 0,6 s. Kým nenahráš vlastný, hrá sa syntetický bzučiak." },
   { id: "zbox_slam", name: "Ž-BOX zatvorenie", when: "Čo robí: na konci sa dvierka zabuchnú rad po rade (Ž-BOX SA ZATVÁRA), raz na rad. Odporúčanie: tupé buchnutie plechových dvierok, do 0,4 s. Kým nenahráš vlastný, hrá sa Dopad 2." },
   { id: "zbox_full", name: "Ž-BOX všetko doručené", when: "Čo robí: plná stena, VŠETKO DORUČENÉ ×2. Odporúčanie: krátka fanfára, 2–4 s. Kým nenahráš vlastný, hrá sa Úspešný tiket a harfa. Plechovka na streche používa Hrom a Plechovku." },
+  { id: "kn-head", name: "KOLESO NEŠŤASTIA", head: true },
+  { id: "koleso_tick", name: "KOLESO tik", when: "Čo robí: jazýček kolesa preskočí kolík, pri každom kolíku (zrýchľuje a spomaľuje s kolesom, max ~25 za sekundu). Odporúčanie: suché drevené cvaknutie, do 0,05 s. Kým nenahráš vlastný, hrá sa syntetický klik." },
+  { id: "koleso_letter", name: "KOLESO písmeno", when: "Čo robí: Betka Frekvencová otočí políčko s písmenom, raz na každé políčko. Odporúčanie: jasné cinknutie, 0,2–0,5 s. Kým nenahráš vlastný, hrá sa syntetické cinknutie." },
+  { id: "koleso_miss", name: "KOLESO nie je tam", when: "Čo robí: písmeno v tajničke nie je. Odporúčanie: krátky bzučiak, do 0,6 s. Kým nenahráš vlastný, hrá sa syntetický dvojbzučiak." },
+  { id: "koleso_bankrot", name: "KOLESO bankrot", when: "Čo robí: koleso zastane na BANKROT, banka zmizne. Odporúčanie: pád, fail, 1–2 s. Kým nenahráš vlastný, hrá sa Big win B." },
+  { id: "koleso_solve", name: "KOLESO tajnička", when: "Čo robí: tajnička vylúštená (×2 + 1,58× stávky). Odporúčanie: fanfára, 2–4 s. Kým nenahráš vlastný, hrá sa Úspešný tiket a harfa." },
+  { id: "kv-head", name: "KOLESO · hlášky moderátora", head: true },
+  { id: "koleso_vo_welcome", name: "Hláška: vitajte", when: "Čo robí: moderátor Peter Marcipán (fiktívna postava) víta na začiatku KOLESA. Predvolená: „Dobrý večer a vitajte v Kolese nešťastia!“" },
+  { id: "koleso_vo_spin", name: "Hláška: točíme", when: "Čo robí: pri roztočení kolesa (nie pri každom, aby neotravovala). Predvolená: „Točíme!“" },
+  { id: "koleso_vo_bankrot", name: "Hláška: bankrot", when: "Predvolená: „Bankrot!“" },
+  { id: "koleso_vo_vowel", name: "Hláška: samohláska", when: "Predvolená: „Samohláska za peniaze!“" },
+  { id: "koleso_vo_solve", name: "Hláška: vyriešené", when: "Predvolená: „Tajnička je vyriešená!“" },
+  { id: "koleso_vo_lost", name: "Hláška: stratený ťah", when: "Predvolená: „Stratili ste ťah!“" },
+  { id: "koleso_vo_tax", name: "Hláška: daňová kontrola", when: "Predvolená: „Daňová kontrola!“ (Daňová Danka)" },
+  { id: "koleso_vo_exek", name: "Hláška: exekúcia", when: "Predvolená: „Exekúcia!“ (JUDr. Zabavil)" },
+  { id: "koleso_vo_courier", name: "Hláška: kuriér", when: "Predvolená: „Kuriér vás nezastihol!“ (Kuriér Nezastihol)" },
+  { id: "koleso_vo_extra", name: "Hláška: extra ťah", when: "Predvolená: „Extra ťah!“" },
+  { id: "koleso_vo_x2", name: "Hláška: dvojnásobok", when: "Predvolená: „Dvojnásobok!“ (Lukáš Adapter)" },
+  { id: "koleso_vo_none", name: "Hláška: nie je tam", when: "Predvolená: „Nie je tam!“" },
+  { id: "koleso_vo_end", name: "Hláška: koniec", when: "Predvolená: „Koniec kola!“ (tajnička nevylúštená)" },
   { id: "tableA", name: "Big win A", when: "Náhodne A alebo B: BIG od 20×, MEGA od 35×, SUPER MEGA od 50×, aj koniec 4KA TV s výhrou. MAX 5000× hrá to isté." },
   { id: "tableB", name: "Big win B", when: "Náhodne A alebo B pri veľkej výhre a na konci 4KA TV." },
   { id: "massive", name: "Masívna výhra", when: "Čo robí: fanfára pod ohlásením MASÍVNA VÝHRA, od 250× stávky. V base pri spine, v 4KA TV raz na konci (súčet bonusu), pred súhrnom. Odporúčanie: veľká fanfára s nábehom, 4–7 s, nech nesie odpočítavanie sumy. Kým nenahráš vlastný, hrá sa Big win A alebo B." },
@@ -614,6 +635,8 @@ export function Settings({
   const [busy, setBusy] = useState(false);
   const [backup, setBackup] = useState(() => isStatsBackupEnabled());
   const [zboxHelp, setZboxHelp] = useState(() => !zboxHelpOff());
+  const [kolesoHelp, setKolesoHelp] = useState(() => !kolesoHelpOff());
+  const [kolesoEnv, setKolesoEnv] = useState(() => kolesoEnvelopes());
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -623,7 +646,10 @@ export function Settings({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
   useEffect(() => {
-    if (open) setZboxHelp(!zboxHelpOff());
+    if (!open) return;
+    setZboxHelp(!zboxHelpOff());
+    setKolesoHelp(!kolesoHelpOff());
+    setKolesoEnv(kolesoEnvelopes());
   }, [open]);
   useEffect(() => {
     if (open) return;
@@ -677,6 +703,30 @@ export function Settings({
               }}
             />
             <span>Vysvetlenie Ž-BOXu (pravidlá na začiatku a tipy v prvých kolách)</span>
+          </label>
+          <label className="st-toggle" style={{ display: "flex", gap: 10, alignItems: "center", margin: "8px 0" }}>
+            <input
+              type="checkbox"
+              checked={kolesoHelp}
+              onChange={() => {
+                const next = !kolesoHelp;
+                setKolesoHelp(next);
+                setKolesoHelpOff(!next);
+              }}
+            />
+            <span>Vysvetlenie KOLESA NEŠŤASTIA (pravidlá na začiatku a tipy v prvých točeniach)</span>
+          </label>
+          <label className="st-toggle" style={{ display: "flex", gap: 10, alignItems: "center", margin: "8px 0" }}>
+            <input
+              type="checkbox"
+              checked={kolesoEnv}
+              onChange={() => {
+                const next = !kolesoEnv;
+                setKolesoEnv(next);
+                setKolesoEnvelopes(next);
+              }}
+            />
+            <span>KOLESO: obálky s písmenom (ťukneš si sám; vypnuté = písmeno vyberie Jožo Pročkár, výhra je rovnaká)</span>
           </label>
           <button
             type="button"

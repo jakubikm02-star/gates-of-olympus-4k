@@ -30,7 +30,7 @@ const TABS = [
   { id: "bonus", label: "Bonusy" },
   { id: "zasah", label: "Zásah" },
   { id: "tickets", label: "Tikety" },
-  { id: "net", label: "Sieť & Duel" },
+  { id: "net", label: "Sieť & Versus" },
   { id: "rank", label: "Rank" },
   { id: "records", label: "Rekordy" },
   { id: "time", label: "Čas" },
@@ -310,6 +310,10 @@ export function StatsSheet({
           <Row name="Zaplatil si všetko parkovné" value={num(cget(s, "pick.clear"))} />
           <Row name="KONTROLA — výhra spolu" value={money(cget(s, "pick.paid"))} />
           <Row name="Pokuty chytené" value={num(cget(s, "fine"))} />
+          <Row name="KOLESO NEŠŤASTIA spustené" value={num(cget(s, "koleso.start"))} />
+          <Row name="KOLESO — tajnička vylúštená" value={num(cget(s, "koleso.solved"))} />
+          <Row name="KOLESO — BANKROT" value={num(cget(s, "koleso.bankrot"))} />
+          <Row name="KOLESO — výhra spolu" value={money(cget(s, "koleso.paid"))} />
         </>
       );
     }
@@ -393,7 +397,7 @@ export function StatsSheet({
     if (tab === "net") {
       return (
         <>
-          <Sec title="JACKPOTY & DUEL" />
+          <Sec title="JACKPOTY & VERSUS" />
           {TIERS.map((t) => (
             <Row key={t} name={`Lístky ${t === "ulica" ? "1" : t === "okres" ? "2" : t === "kraj" ? "3" : "4"}-FTTB`} value={num(cget(s, `jp.${t}`))} />
           ))}
@@ -401,10 +405,10 @@ export function StatsSheet({
           <Row name="Lístok odložený na koniec 4KA TV" value={num(cget(s, "jp.stash"))} />
           <Row name="Podiel z cudzieho 4-FTTB" value={money(cget(s, "credit.split"))} />
           <Row name="Najväčší pool pri výhre" value={money(s.hi["jp.pool"] ?? 0)} />
-          <Row name="Duely odohrané" value={num(cget(s, "duel.play"))} />
+          <Row name="VERSUS hry odohrané" value={num(cget(s, "duel.play"))} />
           <Row name="Vyhrané / prehrané / remízy" value={`${num(cget(s, "duel.win"))} / ${num(cget(s, "duel.loss"))} / ${num(cget(s, "duel.draw"))}`} />
-          <Row name="Vzdania (ja / súper)" value={`${num(cget(s, "duel.forfeit.me"))} / ${num(cget(s, "duel.forfeit.peer"))}`} />
-          <Row name="Bank z duelov" value={money(cget(s, "duel.pot"))} />
+          <Row name="Vzdania (ja / súperi)" value={`${num(cget(s, "duel.forfeit.me"))} / ${num(cget(s, "duel.forfeit.peer"))}`} />
+          <Row name="Bank z VERSUS" value={money(cget(s, "duel.pot"))} />
           <Row name="Kaucia zaplatená" value={`${money(cget(s, "duel.dep.paid"))} (${num(cget(s, "duel.dep.paid.n"))}×)`} />
           <Row name="Kaucia vrátená" value={`${money(cget(s, "duel.dep.returned"))} (${num(cget(s, "duel.dep.returned.n"))}×)`} />
           <Row name="Kaucia prepadnutá" value={`${money(cget(s, "duel.dep.burned"))} (${num(cget(s, "duel.dep.burned.n"))}×)`} />
@@ -483,6 +487,7 @@ export function StatsSheet({
           <Row name="Najviac retriggerov v jednej 4KA TV" value={num(s.hi["fs.retriggerMax"] ?? 0)} />
           <Row name="Najdlhšia 4KA TV" value={num(s.hi["fs.playedMax"] ?? 0)} />
           <Row name="Najlepšia KONTROLA" value={money(s.hi["pick.best"] ?? 0)} />
+          <Row name="Najlepšie KOLESO" value={money(s.hi["koleso.best"] ?? 0)} />
           <Row name="Najväčšia daň naraz" value={money(s.hi["tax.max"] ?? 0)} />
           <Row name="Najväčší jackpot" value={money(s.hi["jp.best"] ?? 0)} />
           <Row name="Najvyšší tiket" value={money(s.hi["ticket.best"] ?? 0)} />
@@ -549,6 +554,7 @@ export function StatsSheet({
       { k: "fs.buy", name: "Prvá kúpa" },
       { k: "retrigger", name: "Prvý retrigger" },
       { k: "pick.clear", name: "Prvá KONTROLA vyčistená" },
+      { k: "koleso.solved", name: "Prvá tajnička vylúštená" },
       { k: "escape", name: "Prvý ÚTEK" },
       { k: "unik", name: "Prvý DAŇOVÝ ÚNIK" },
       { k: "job.ok", name: "Prvý splnený tiket" },
@@ -558,7 +564,7 @@ export function StatsSheet({
       { k: "jp.kraj", name: "Prvý 3-FTTB" },
       { k: "jp.stat", name: "Prvý 4-FTTB" },
       { k: "bust", name: "Prvá exekúcia" },
-      { k: "duel.win", name: "Prvý vyhraný duel" },
+      { k: "duel.win", name: "Prvá vyhraná VERSUS hra" },
       { k: "can.500", name: "Prvá plechovka 500×" },
       { k: "pdf.12", name: "Prvé PDF 12+" },
     ];

@@ -15,9 +15,9 @@ export type BonusNeed = "buy" | "fs" | "trigger" | FeatureNeed;
 /**
  * Feature tickets (spend.ts FEATURE_TEMPLATES): the goal needs a game feature to run.
  * - "zasah":    ZÁSAH (starts when the HLÁSENIE heat bar is full),
- * - "bar":      the KONTROLA · Ž-BOX bar or its bonus, whichever mode the 50:50 draw gives,
- * - "kontrola": only a KONTROLA counts (a Ž-BOX from the bar does not),
- * - "zbox":     only a Ž-BOX counts.
+ * - "bar":      the bonus bar or its bonus, whichever mode the 1/3 draw gives (KONTROLA, Ž-BOX, KOLESO),
+ * - "kontrola": only a KONTROLA counts (a Ž-BOX or KOLESO from the bar does not),
+ * - "zbox":     only a Ž-BOX counts (KONTROLA / KOLESO do not).
  */
 export type FeatureNeed = "zasah" | "bar" | "kontrola" | "zbox";
 
@@ -29,22 +29,22 @@ const FEATURE_NOTE: Record<FeatureNeed, { badge: string; pill: string; hint: str
       "ZÁSAH sa spustí, keď sa výhrami naplní HLÁSENIE. Spiny ZÁSAHU minú točenia tiketu, 4KA TV nie. Ak ZÁSAH beží pri poslednom točení, tiket počká na jeho koniec.",
   },
   bar: {
-    badge: "BONUS BAR · KONTROLA ALEBO Ž-BOX",
+    badge: "BONUS BAR · KONTROLA, Ž-BOX ALEBO KOLESO",
     pill: "BONUS",
     hint:
-      "Bar KONTROLA · Ž-BOX plnia mŕtve spiny (+2) a 3 scattery (+30). Plný bar losuje KONTROLU alebo Ž-BOX 50:50, počíta sa oboje. Bonus spustený posledným točením sa ešte odohrá.",
+      "Bonus bar plnia mŕtve spiny (+2) a 3 scattery (+30). Plný bar losuje KONTROLU, Ž-BOX alebo KOLESO NEŠŤASTIA (každé 1/3), počíta sa všetko. Bonus spustený posledným točením sa ešte odohrá.",
   },
   kontrola: {
     badge: "LEN V KONTROLE",
     pill: "KONTROLA",
     hint:
-      "Ráta sa len KONTROLA. Plný bar KONTROLA · Ž-BOX losuje režim 50:50, Ž-BOX sa pri tomto tikete nepočíta (limit je na to nastavený). Bonus spustený posledným točením sa ešte odohrá.",
+      "Ráta sa len KONTROLA. Plný bonus bar losuje režim (každý 1/3), Ž-BOX ani KOLESO sa pri tomto tikete nepočítajú (limit je na to nastavený). Bonus spustený posledným točením sa ešte odohrá.",
   },
   zbox: {
     badge: "LEN V Ž-BOXE",
     pill: "Ž-BOX",
     hint:
-      "Ráta sa len Ž-BOX. Plný bar KONTROLA · Ž-BOX losuje režim 50:50, KONTROLA sa pri tomto tikete nepočíta (limit je na to nastavený). Bonus spustený posledným točením sa ešte odohrá.",
+      "Ráta sa len Ž-BOX. Plný bonus bar losuje režim (každý 1/3), KONTROLA ani KOLESO sa pri tomto tikete nepočítajú (limit je na to nastavený). Bonus spustený posledným točením sa ešte odohrá.",
   },
 };
 

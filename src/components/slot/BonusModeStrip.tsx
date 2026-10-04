@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BONUS_MODES, bonusModeDef, stripMs, stripTarget, type BonusModeId } from "@/lib/slot/bonus-mode";
+import { BONUS_MODES, BONUS_MODE_RESULT, bonusModeDef, stripMs, stripTarget, type BonusModeId } from "@/lib/slot/bonus-mode";
 import * as sfx from "@/lib/slot/audio";
 
 const LAPS = 4;
@@ -7,7 +7,7 @@ const LAPS = 4;
 const TILE = 168;
 
 /**
- * Bar full: the screen dims, a strip of the mode tiles (KONTROLA · Ž-BOX · ?) spins like a lottery and
+ * Bar full: the screen dims, a strip of the mode tiles (KONTROLA · Ž-BOX · KOLESO) spins like a lottery and
  * decelerates into the mode drawn when the bar filled (it never decides anything). Tap = skip. Compositor
  * only: one CSS transform transition on the strip.
  */
@@ -74,7 +74,7 @@ export function BonusModeStrip({ mode, turbo, reduced, onDone }: { mode: BonusMo
         <i className="ms-pointer" aria-hidden="true" />
       </div>
       <p className="ms-result" aria-live="assertive">
-        {landed ? (mode === "zbox" ? "Ž-BOX · PAKEŤÁK DORUČUJE" : "KONTROLA · PARKOVNÉ") : "\u00a0"}
+        {landed ? BONUS_MODE_RESULT[mode] : "\u00a0"}
       </p>
       <p className="ms-hint">Ťukni pre preskočenie</p>
     </div>

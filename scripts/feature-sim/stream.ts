@@ -1,7 +1,7 @@
 /**
  * Feature-ticket simulation, part 1: one long base-game session on the real engine (resolvePaidSpin),
  * with the real ZÁSAH heat bar / chase windows, the real KONTROLA pity bar (dead +2, 3 scatters +30),
- * natural 4KA TV rounds (their wins feed the heat bar) and the 50:50 bonus mode (KONTROLA / Ž-BOX).
+ * natural 4KA TV rounds (their wins feed the heat bar) and the bonus mode drawn 1/3 each (KONTROLA / Ž-BOX / KOLESO).
  * Ante off, flat bet, rank Kredit (no peek, no priority parcels): the most conservative player.
  * Every base spin becomes one record; tickets are replayed over it (play.ts) from random start points,
  * so the bar / heat state at ticket start follows the real stationary distribution.
@@ -14,6 +14,7 @@ import { PITY_GOAL, pityGain } from "../../src/lib/slot/pick-bonus.ts";
 import { drawBonusMode } from "../../src/lib/slot/bonus-mode.ts";
 import { kontrolaRun } from "../../src/lib/slot/bonus-ev.ts";
 import { playZbox } from "../../src/lib/slot/zbox.ts";
+import { kolesoVipOf, playKoleso } from "../../src/lib/slot/koleso.ts";
 
 /** Per base spin. Flags: 1 win, 2 chase spin, 4 chase start, 8 chase over, 16 4KA TV trigger, 32 4KA TV in ZÁSAH,
  * 64 bonus (bar filled → bonus played after this spin), 128 escape. */
@@ -24,7 +25,7 @@ export interface Stream {
   pityAdd: Uint8Array;
   chaseHits: Uint8Array;
   chaseWinX: Float32Array;
-  bonusMode: Uint8Array; // 1 KONTROLA, 2 Ž-BOX
+  bonusMode: Uint8Array; // 1 KONTROLA, 2 Ž-BOX, 3 KOLESO
   bonusX: Float32Array;
   safes: Uint8Array; // KONTROLA safe pins / Ž-BOX parcels in the wall
   cleared: Uint8Array; // KONTROLA all 9 / Ž-BOX full wall
@@ -115,6 +116,13 @@ export function makeStream(n: number, seed: number): Stream {
         s.cleared[i] = z.full ? 1 : 0;
         s.canSum[i] = Math.min(255, z.canSum);
         s.rounds[i] = z.rounds.length;
+      } else if (mode === "koleso") {
+        const kp = playKoleso(rng, { vip: kolesoVipOf("kredit") });
+        s.bonusMode[i] = 3;
+        s.bonusX[i] = kp.totalX;
+        s.safes[i] = kp.steps.filter((x) => x.letter && x.hits > 0).length;
+        s.cleared[i] = kp.solved ? 1 : 0;
+        s.rounds[i] = kp.steps.length;
       } else {
         const k = kontrolaRun(rng, 0, 0);
         s.bonusMode[i] = 1;
@@ -130,7 +138,7 @@ export function makeStream(n: number, seed: number): Stream {
 }
 
 export function summarize(s: Stream): Record<string, number> {
-  let chaseStarts = 0, chaseSpins = 0, fs = 0, fsChase = 0, bonus = 0, kon = 0, zb = 0, dead = 0, pity = 0;
+  let chaseStarts = 0, chaseSpins = 0, fs = 0, fsChase = 0, bonus = 0, kon = 0, zb = 0, kol = 0, dead = 0, pity = 0;
   const hits = [0, 0, 0, 0, 0];
   for (let i = 0; i < s.n; i++) {
     const f = s.flags[i];
@@ -140,13 +148,13 @@ export function summarize(s: Stream): Record<string, number> {
     if (f & 8) hits[s.chaseHits[i]]++;
     if (f & 16) fs++;
     if (f & 32) fsChase++;
-    if (f & 64) { bonus++; if (s.bonusMode[i] === 1) kon++; else zb++; }
+    if (f & 64) { bonus++; if (s.bonusMode[i] === 1) kon++; else if (s.bonusMode[i] === 3) kol++; else zb++; }
     pity += s.pityAdd[i];
   }
   return {
     spins: s.n, deadRate: dead / s.n, pityPerSpin: pity / s.n, spinsPerBonus: s.n / bonus,
     spinsPerZasah: s.n / chaseStarts, chaseSpinShare: chaseSpins / s.n, spinsPerFs: s.n / fs, fsInChasePerChase: fsChase / chaseStarts,
-    kontrola: kon, zbox: zb, hits0: hits[0], hits1: hits[1], hits2: hits[2], hits3: hits[3], hits4: hits[4],
+    kontrola: kon, zbox: zb, koleso: kol, hits0: hits[0], hits1: hits[1], hits2: hits[2], hits3: hits[3], hits4: hits[4],
   };
 }
 

@@ -33,8 +33,10 @@ import { BONUS_MODES } from "@/lib/slot/bonus-mode";
 import { RANKS, RANK_PERKS, REBATE_CAP_BETS, REBATE_WINDOW, anteMulOf, buyDeadEquiv, fsSpinsOf } from "@/lib/slot/ranks";
 import { ZASAH, ZASAH_FS_MUL } from "@/lib/slot/zasah";
 import { ZBOX_VIP } from "@/lib/slot/zbox";
+import { KOLESO_VIP } from "@/lib/slot/koleso";
 import { DUEL_DEPOSIT_MULT } from "@/lib/slot/duel-deposit";
 import { ZboxRules } from "./ZboxRules";
+import { KolesoRules } from "./KolesoRules";
 import "./manual.css";
 
 interface Props {
@@ -55,11 +57,11 @@ const SECTIONS: { id: string; chip: string; title: string; icon: ReactNode }[] =
   { id: "symboly", chip: "Symboly", title: "Symboly", icon: <img src={canSrc(2)} alt="" /> },
   { id: "fs", chip: "4KA TV", title: "4KA TV · voľné točenia", icon: <img src={SCATTER.src} alt="" /> },
   { id: "zasah", chip: "ZÁSAH", title: "ZÁSAH", icon: <Siren size={15} /> },
-  { id: "bar", chip: "Bonus bar: KONTROLA a Ž-BOX", title: "Bonus bar: KONTROLA a Ž-BOX", icon: <Gauge size={15} /> },
+  { id: "bar", chip: "Bonus bar: KONTROLA, Ž-BOX, KOLESO", title: "Bonus bar: KONTROLA, Ž-BOX a KOLESO NEŠŤASTIA", icon: <Gauge size={15} /> },
   { id: "jackpoty", chip: "Jackpoty", title: "Jackpoty", icon: <img src={TICKETS.stat.src} alt="" /> },
   { id: "tikety", chip: "Tikety", title: "Tikety", icon: <Ticket size={15} /> },
   { id: "ranky", chip: "Ranky", title: "Ranky", icon: <Trophy size={15} /> },
-  { id: "duel", chip: "Duel", title: "Duel", icon: <Swords size={15} /> },
+  { id: "duel", chip: "Versus", title: "Versus", icon: <Swords size={15} /> },
   { id: "nastavenia", chip: "Nastavenia a zvuky", title: "Nastavenia a zvuky", icon: <SettingsIcon size={15} /> },
 ];
 
@@ -196,7 +198,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
               dvakrát častejšie (1 z {MATH_NOTE.bonusEvery} → 1 z {MATH_NOTE.anteBonusEvery} spinov), šancu lístka nemení.
             </li>
             <li>
-              <b>Kúpa 4KA TV:</b> {BUY_COST_X}× stávky na každom ranku. Ante sa na kúpu nevzťahuje. V dueli je kúpa zamknutá.
+              <b>Kúpa 4KA TV:</b> {BUY_COST_X}× stávky na každom ranku. Ante sa na kúpu nevzťahuje. Vo VERSUS je kúpa zamknutá.
             </li>
             <li>
               <b>Banery:</b> BIG WIN od {WIN_POP_X.big}× stávky, MEGA WIN od {WIN_POP_X.mega}×, SUPER MEGA WIN od {WIN_POP_X.epic}×, MASÍVNA VÝHRA od{" "}
@@ -362,8 +364,8 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             </div>
           </div>
           <ul className="man-list">
-            <li>Daňové obdobie (±23 %) platí na každú výplatu okrem spinov ZÁSAHU a duelu. Odpočítava sa na platených spinoch, vo 4KA TV aj pri kúpe.</li>
-            <li>Počas ZÁSAHU stávku nezvýšiš, AUTO sa zastaví. Vo 4KA TV a v dueli sa ZÁSAH nespustí.</li>
+            <li>Daňové obdobie (±23 %) platí na každú výplatu okrem spinov ZÁSAHU a VERSUS. Odpočítava sa na platených spinoch, vo 4KA TV aj pri kúpe.</li>
+            <li>Počas ZÁSAHU stávku nezvýšiš, AUTO sa zastaví. Vo 4KA TV a vo VERSUS sa ZÁSAH nespustí.</li>
           </ul>
         </Sec>
 
@@ -373,11 +375,11 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
         >
           <ul className="man-list">
             <li>
-              Plný bar hneď vylosuje režim {modeShare.map((m) => m.label).join(" alebo ")} ({modeShare.map(() => "50").join(" : ")}) a uloží ho; obnovenie stránky
+              Plný bar hneď vylosuje režim {modeShare.map((m) => m.label).join(" alebo ")} (každý {modeShare.length === 3 ? "1/3" : `1/${modeShare.length}`}) a uloží ho; obnovenie stránky
               ho nezmení. Bar spadne na 0. Kúpiť sa nedá.
             </li>
-            <li>Vo 4KA TV a v dueli sa bar neplní. Bonus sa odohrá mimo 4KA TV a duelu a platí na stávku, na ktorej sa bar naplnil.</li>
-            <li>Oba režimy majú pre každý rank rovnakú priemernú výhru.</li>
+            <li>Vo 4KA TV a vo VERSUS sa bar neplní. Bonus sa odohrá mimo 4KA TV a VERSUS a platí na stávku, na ktorej sa bar naplnil.</li>
+            <li>Všetky {modeShare.length} režimy majú pre každý rank rovnakú priemernú výhru.</li>
           </ul>
           <h4 className="man-sub">
             <img src="/symbols/park.svg" alt="" /> KONTROLA · parkovné
@@ -403,6 +405,12 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
               ])}
             />
           ) : null}
+          <h4 id="man-koleso" className="man-sub">
+            <img src="/koleso/hub.webp" alt="" /> KOLESO NEŠŤASTIA · s Petrom Marcipánom
+          </h4>
+          <KolesoRules />
+          <Facts rows={RANKS.map((r) => [r.name, `Sponzorský šek +${n(KOLESO_VIP[r.id] ?? 0)}× stávky`])} />
+          <p className="man-p">Všetky postavy (Peter Marcipán, Jožo Pročkár, Betka Frekvencová, Lukáš Adapter, JUDr. Zabavil, Daňová Danka, Kuriér Nezastihol) sú vymyslené paródie.</p>
         </Sec>
 
         <Sec id="jackpoty" lead={`Štyri spoločné poty pre všetkých hráčov. Padnú len cez LÍSTOK a len pri stávke od ${POOL_ELIGIBLE_BET} (kúpa 4KA TV sa ráta vždy).`}>
@@ -435,7 +443,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
               Tikety na ZÁSAH, bonus bar, KONTROLU a Ž-BOX rátajú platené spiny základnej hry (spiny ZÁSAHU áno, 4KA TV nie). ZÁSAH alebo bonus,
               ktorý začal včas, sa dohrá aj po poslednom točení.
             </li>
-            <li>Kým beží tiket, stávka je zamknutá. V dueli sa tikety neberú.</li>
+            <li>Kým beží tiket, stávka je zamknutá. Vo VERSUS sa tikety neberú.</li>
           </ul>
         </Sec>
 
@@ -463,18 +471,18 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
           </ul>
         </Sec>
 
-        <Sec id="duel" lead="1 v 1 pri jednom stole (dvaja hráči, jeden kredit) alebo online cez kód. Obaja točia rovnakou stávkou aj ante.">
+        <Sec id="duel" lead="DUEL (2), TRIPLE THREAT (3) alebo FANTASTIC FOUR (4 hráči) pri jednom stole (jeden kredit, telefón koluje) alebo online cez kód. Hra štartuje, keď je miestnosť plná. Všetci točia rovnakou stávkou aj ante.">
           <Facts
             rows={[
               ["Dĺžka", "5, 10 alebo 20 točení"],
-              ["Skóre", "súčet výhier; víťaz berie výhry oboch, pri remíze má každý svoje"],
+              ["Skóre", "súčet výhier; víťaz berie celý bank (výhry všetkých). Remíza dvoch hráčov: každý má svoje; remíza na čele pri 3–4 hráčoch: bank sa delí"],
               ["Kaucia", `${DUEL_DEPOSIT_MULT}× stávka; vráti sa po dohraní aj pri remíze, prepadne pri odchode, VZDAŤ a neaktivite`],
-              ["Chyba hry / odchod súpera", "kaucia sa vráti"],
+              ["Chyba hry / odchod súperov", "kaucia sa vráti; pri 3–4 hráčoch kto vzdá, vypadne a jeho výhry ostávajú v banku"],
             ]}
           />
           <p className="man-p man-off">
-            <b>V dueli je vypnuté:</b> kúpa 4KA TV, ZÁSAH (HLÁSENIE sa neplní), bonus bar KONTROLA · Ž-BOX (neplní sa, čakajúci bonus počká na koniec
-            duelu), daňové obdobie ±23 %, extra plechovka NEKONEČNA a tikety.
+            <b>Vo VERSUS je vypnuté:</b> kúpa 4KA TV, ZÁSAH (HLÁSENIE sa neplní), bonus bar KONTROLA · Ž-BOX · KOLESO (neplní sa, čakajúci bonus počká na koniec
+            hry), daňové obdobie ±23 %, extra plechovka NEKONEČNA a tikety.
           </p>
         </Sec>
 
@@ -487,13 +495,13 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
                 </span>,
                 "stlmí alebo zapne všetky zvuky",
               ],
-              ["QUICK / TURBO", "rýchlejšie spiny; zapnutie jedného vypne druhé (Ž-BOX v TURBO beží asi 2× rýchlejšie)"],
+              ["QUICK / TURBO", "rýchlejšie spiny; zapnutie jedného vypne druhé (Ž-BOX aj KOLESO v TURBO bežia asi 2× rýchlejšie)"],
               ["AUTO", `10, 25, 50 alebo 100 spinov. BIG WIN STOP zastaví AUTO pri 4KA TV, pri výhre od ${WIN_POP_X.big}× a keď kredit klesne na polovicu. ZÁSAH, bonus z baru a jackpot zastavia AUTO vždy.`],
               [
                 <span className="man-ico" key="s">
                   <SettingsIcon size={14} /> Nastavenia
                 </span>,
-                "cloudová záloha štatistík (predvolene vypnutá), vymazanie lokálnych štatistík, vysvetlenie Ž-BOXu zapnúť / vypnúť",
+                "cloudová záloha štatistík (predvolene vypnutá), vymazanie lokálnych štatistík, vysvetlenie Ž-BOXu a KOLESA zapnúť / vypnúť, obálky v KOLESE",
               ],
               [
                 <span className="man-ico" key="b">

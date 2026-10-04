@@ -16,7 +16,7 @@ export function cleanRoomCode(raw: string): string {
  * What the setup summary shows: the stakes actually played (ante multiplier included), the kaucia,
  * their sum, and the min. credit the game checks before it lets the duel start (canAffordDuel).
  */
-export function duelSummary(opts: { bet: number; need: number; ante: boolean; anteMul: number; seats: 1 | 2 }): {
+export function duelSummary(opts: { bet: number; need: number; ante: boolean; anteMul: number; seats: number }): {
   stakes: number;
   deposit: number;
   total: number;

@@ -45,7 +45,7 @@ export function bonusEvent(s: Stream, i: number): JobEvent {
     orbs: false,
     spun: false,
     bonus: {
-      mode: s.bonusMode[i] === 2 ? "zbox" : "kontrola",
+      mode: s.bonusMode[i] === 2 ? "zbox" : s.bonusMode[i] === 3 ? "koleso" : "kontrola",
       x: s.bonusX[i],
       safes: s.safes[i],
       cleared: s.cleared[i] === 1,

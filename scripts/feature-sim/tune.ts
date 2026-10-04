@@ -19,11 +19,13 @@ export const NEEDS: Record<string, Partial<Record<Floor, [number, number]>>> = {
   kvota: { lacna: [45, 65], stred: [65, 100], draha: [115, 155] },
   urad: { lacna: [1, 1], stred: [1, 2], draha: [2, 3] },
   uradvyhra: { lacna: [2, 3], stred: [3, 4], draha: [4, 6] },
-  listky: { lacna: [2, 2], stred: [2, 3], draha: [3, 4] },
-  pokuta: { lacna: [2, 2], stred: [3, 4], draha: [4, 5] },
-  zasielky: { lacna: [3, 4], stred: [4, 5], draha: [5, 6] },
+  // KONTROLA / Ž-BOX-only goals lowered when KOLESO joined the draw (each mode 1/3, ~1 in 162 spins), so the
+  // windows stay within the 400-spin card limit.
+  listky: { lacna: [1, 2], stred: [2, 2], draha: [2, 3] },
+  pokuta: { lacna: [1, 1], stred: [2, 3], draha: [3, 4] },
+  zasielky: { lacna: [2, 3], stred: [3, 4], draha: [4, 5] },
   priplatok: { draha: [2, 2] },
-  okna: { lacna: [3, 4], stred: [4, 6], draha: [6, 8] },
+  okna: { lacna: [3, 4], stred: [4, 5], draha: [5, 7] },
 };
 
 /** Spins (from the start) at which a goal of `need` qualifies, or Infinity within `horizon`. */

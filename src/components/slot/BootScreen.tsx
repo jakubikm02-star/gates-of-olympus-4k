@@ -21,7 +21,7 @@ interface Feat {
 const FEATS: readonly Feat[] = [
   { id: "tv", title: "4KA TV", sub: "Voľné točenia od 15 FS", icon: <img src="/symbols/tv4ka.png" alt="" decoding="async" /> },
   { id: "zasah", title: "ZÁSAH", sub: "Finančná správa ide po tebe", icon: <Siren size={20} strokeWidth={2.2} /> },
-  { id: "kontrola", title: "KONTROLA", sub: "Bonus bar · KONTROLA alebo Ž-BOX", icon: <img src="/symbols/park.svg" alt="" decoding="async" /> },
+  { id: "kontrola", title: "KONTROLA", sub: "Bonus bar · KONTROLA, Ž-BOX, KOLESO", icon: <img src="/symbols/park.svg" alt="" decoding="async" /> },
   { id: "jp", title: "JACKPOTY", sub: `4 poty FTTB cez lístok · od stávky ${POOL_ELIGIBLE_BET}`, icon: <img src="/symbols/fttb-stat.png?v=fttb3" alt="" decoding="async" /> },
   { id: "tikety", title: "TIKETY", sub: "Úlohy pri akomkoľvek kredite", icon: <Ticket size={20} strokeWidth={2.2} /> },
   { id: "duel", title: "DUEL", sub: "1 v 1 pri stole aj online · víťaz berie oboje", icon: <Swords size={20} strokeWidth={2.2} /> },

@@ -191,13 +191,13 @@ describe("Ž-BOX EV ≈ KONTROLA EV per rank (same RTP share)", () => {
 });
 
 describe("bonus mode draw", () => {
-  it("50:50 KONTROLA / Ž-BOX, mode 3 never drawn", () => {
+  it("1/3 each: KONTROLA / Ž-BOX / KOLESO", () => {
     const rng = createRng(2026);
-    const n = { kontrola: 0, zbox: 0, mode3: 0 };
-    for (let i = 0; i < 100_000; i++) n[drawBonusMode(rng)]++;
-    assert.equal(n.mode3, 0);
-    assert.ok(Math.abs(n.kontrola / 100_000 - 0.5) < 0.01, JSON.stringify(n));
-    assert.equal(BONUS_MODES.find((m) => m.id === "mode3")?.weight, 0);
+    const n: Record<string, number> = { kontrola: 0, zbox: 0, koleso: 0 };
+    for (let i = 0; i < 120_000; i++) n[drawBonusMode(rng)]++;
+    for (const k of Object.keys(n)) assert.ok(Math.abs(n[k] / 120_000 - 1 / 3) < 0.01, JSON.stringify(n));
+    assert.deepEqual(BONUS_MODES.map((m) => m.id), ["kontrola", "zbox", "koleso"]);
+    assert.ok(BONUS_MODES.every((m) => m.weight === 1));
   });
   it("strip lands on the drawn tile; durations", () => {
     for (const m of BONUS_MODES) assert.equal(BONUS_MODES[stripTarget(m.id, 4) % BONUS_MODES.length].id, m.id);
@@ -212,7 +212,10 @@ describe("pending bonus persistence", () => {
     const p = sanitizePendingBonus({ mode: "zbox", bet: 2, mod: "bezDane", modLeft: 4, at: 5, seed: 1234 });
     assert.deepEqual(p, { mode: "zbox", bet: 2, mod: "bezDane", modLeft: 4, at: 5, seed: 1234 });
   });
-  it("rejects garbage, mode 3 and zero bets", () => {
+  it("keeps a pending KOLESO with its seed", () => {
+    assert.deepEqual(sanitizePendingBonus({ mode: "koleso", bet: 1, mod: null, modLeft: 0, at: 2, seed: 99 }), { mode: "koleso", bet: 1, mod: null, modLeft: 0, at: 2, seed: 99 });
+  });
+  it("rejects garbage, the retired mode 3 and zero bets", () => {
     assert.equal(sanitizePendingBonus(null), null);
     assert.equal(sanitizePendingBonus({ mode: "mode3", bet: 1 }), null);
     assert.equal(sanitizePendingBonus({ mode: "evil", bet: 1 }), null);

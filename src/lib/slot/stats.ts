@@ -104,6 +104,8 @@ export type StatEvent =
   | { t: "barMode"; mode: string }
   | { t: "zboxStart" }
   | { t: "zbox"; cash: number; parcels: number; found: number; full: boolean; cans: number; rounds: number; capped: boolean }
+  | { t: "kolesoStart" }
+  | { t: "koleso"; cash: number; solved: boolean; spins: number; letters: number; bankrot: number; capped: boolean }
   | { t: "chaseStart"; fsSym: FsSymId }
   | { t: "chaseWindow"; result: "hit" | "fs" | "miss"; lock: boolean }
   | { t: "chaseEnd"; outcome: ChaseOutcome | "void"; spins: number; strikes: number; ms: number }
@@ -199,6 +201,7 @@ const C_PREFIXES = [
   "retrigger",
   "pick.",
   "zbox.",
+  "koleso.",
   "bar.",
   "odtah",
   "fine",
@@ -672,7 +675,7 @@ export function applyStat(s: PlayerStats, ev: StatEvent, now = Date.now()): Play
       break;
     }
     case "barMode": {
-      bump(c, `bar.mode.${ev.mode === "zbox" ? "zbox" : "kontrola"}`);
+      bump(c, `bar.mode.${ev.mode === "zbox" || ev.mode === "koleso" ? ev.mode : "kontrola"}`);
       break;
     }
     case "zboxStart": {
@@ -693,6 +696,25 @@ export function applyStat(s: PlayerStats, ev: StatEvent, now = Date.now()): Play
         setFirst(first, "zbox.full", now);
       }
       setHi(hi, "zbox.best", ev.cash);
+      break;
+    }
+    case "kolesoStart": {
+      bump(c, "koleso.start");
+      break;
+    }
+    case "koleso": {
+      bump(c, "koleso.done");
+      bump(c, "koleso.paid", ev.cash);
+      bump(c, "paid", ev.cash);
+      bump(c, "koleso.spins", ev.spins);
+      bump(c, "koleso.letters", ev.letters);
+      if (ev.bankrot > 0) bump(c, "koleso.bankrot", ev.bankrot);
+      if (ev.capped) bump(c, "koleso.cap");
+      if (ev.solved) {
+        bump(c, "koleso.solved");
+        setFirst(first, "koleso.solved", now);
+      }
+      setHi(hi, "koleso.best", ev.cash);
       break;
     }
     case "chaseStart": {

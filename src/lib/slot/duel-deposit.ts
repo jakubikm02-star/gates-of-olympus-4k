@@ -67,7 +67,7 @@ export function depositAmount(bet: number, mult = DUEL_DEPOSIT_MULT): number {
 }
 
 /** Stakes reserve (as before: 1.2 x bet x spins) plus the deposit, per seat and in total. */
-export function duelEntryCost(opts: { bet: number; need: number; seats?: 1 | 2 }): {
+export function duelEntryCost(opts: { bet: number; need: number; seats?: number }): {
   stake: number;
   deposit: number;
   perSeat: number;
@@ -80,7 +80,7 @@ export function duelEntryCost(opts: { bet: number; need: number; seats?: 1 | 2 }
   return { stake, deposit, perSeat, total: r2(perSeat * seats) };
 }
 
-export function canAffordDuel(balance: number, opts: { bet: number; need: number; seats?: 1 | 2 }): boolean {
+export function canAffordDuel(balance: number, opts: { bet: number; need: number; seats?: number }): boolean {
   return balance >= duelEntryCost(opts).total;
 }
 
@@ -89,7 +89,7 @@ export interface DuelDeposit {
   id: string;
   kind: "hotseat" | "online";
   room: string;
-  /** Amount paid from this wallet per seat: online [mine], hot-seat [seat 0, seat 1]. */
+  /** Amount paid from this wallet per seat: online [mine], hot-seat [seat 0, seat 1, …] (2-4 seats). */
   seats: number[];
   paidAt: number;
   /** The duel actually started (a lobby that never started always refunds). */
@@ -112,13 +112,16 @@ export function newDeposit(opts: {
   now: number;
   id?: string;
   started?: boolean;
+  /** Hot-seat seats paid from this wallet (VERSUS: 2-4, default 2). */
+  seats?: number;
 }): DuelDeposit {
   const one = depositAmount(opts.bet);
+  const hot = Math.max(2, Math.min(4, Math.round(opts.seats ?? 2)));
   return {
     id: opts.id ?? `${opts.now.toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     kind: opts.kind,
     room: opts.room ?? "",
-    seats: opts.kind === "hotseat" ? [one, one] : [one],
+    seats: opts.kind === "hotseat" ? Array.from({ length: hot }, () => one) : [one],
     paidAt: opts.now,
     started: opts.started ?? opts.kind === "hotseat",
     finished: false,
@@ -137,12 +140,19 @@ export interface DepositSettlement {
  * Money for one settlement. Hot-seat with a seat-specific burn (that seat folded): only that seat's
  * deposit burns, the other seat's comes back. Without `burnSeat` a burn takes the whole deposit.
  */
-export function settleDeposit(dep: DuelDeposit, reason: DepositReason, opts?: { burnSeat?: 0 | 1 }): DepositSettlement {
+export function settleDeposit(
+  dep: DuelDeposit,
+  reason: DepositReason,
+  opts?: { burnSeat?: number; burnSeats?: number[] },
+): DepositSettlement {
   const total = depositTotal(dep);
   if (depositOutcome(reason) === "refund") return { id: dep.id, reason, refund: total, burned: 0 };
-  const seat = opts?.burnSeat;
-  if (dep.seats.length > 1 && (seat === 0 || seat === 1)) {
-    const burned = r2(dep.seats[seat] ?? 0);
+  // Hot-seat VERSUS: every seat that folded burns its own deposit, the others come back.
+  const list = [...(opts?.burnSeats ?? []), ...(typeof opts?.burnSeat === "number" ? [opts.burnSeat] : [])].filter(
+    (seat, k, all) => seat >= 0 && seat < dep.seats.length && all.indexOf(seat) === k,
+  );
+  if (dep.seats.length > 1 && list.length) {
+    const burned = r2(list.reduce((a, seat) => a + (dep.seats[seat] ?? 0), 0));
     return { id: dep.id, reason, refund: r2(total - burned), burned };
   }
   return { id: dep.id, reason, refund: 0, burned: total };
@@ -155,11 +165,11 @@ export function settleDeposit(dep: DuelDeposit, reason: DepositReason, opts?: { 
 export function settleOnce(
   pending: DuelDeposit | null | undefined,
   reason: DepositReason,
-  opts?: { id?: string; burnSeat?: 0 | 1 },
+  opts?: { id?: string; burnSeat?: number; burnSeats?: number[] },
 ): { pending: DuelDeposit | null; settlement: DepositSettlement | null } {
   if (!pending) return { pending: null, settlement: null };
   if (opts?.id && opts.id !== pending.id) return { pending, settlement: null };
-  return { pending: null, settlement: settleDeposit(pending, reason, { burnSeat: opts?.burnSeat }) };
+  return { pending: null, settlement: settleDeposit(pending, reason, { burnSeat: opts?.burnSeat, burnSeats: opts?.burnSeats }) };
 }
 
 /**
@@ -230,7 +240,7 @@ export function sanitizeDeposit(raw: unknown): DuelDeposit | null {
   if (!id) return null;
   const kind = r.kind === "hotseat" ? "hotseat" : r.kind === "online" ? "online" : null;
   if (!kind) return null;
-  const list = Array.isArray(r.seats) ? r.seats.slice(0, kind === "hotseat" ? 2 : 1).map(money) : [];
+  const list = Array.isArray(r.seats) ? r.seats.slice(0, kind === "hotseat" ? 4 : 1).map(money) : [];
   if (!list.length || list.every((n) => n <= 0)) return null;
   const paidAt = typeof r.paidAt === "number" && Number.isFinite(r.paidAt) && r.paidAt > 0 ? r.paidAt : 0;
   return {

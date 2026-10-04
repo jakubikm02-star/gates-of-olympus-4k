@@ -2,13 +2,12 @@
  * The KONTROLA bar (pity, lib/slot/pick-bonus) no longer always opens KONTROLA: when it fills, a mode is
  * drawn right away and saved with the player (PlayerSave.bonusPending), so a reload cannot redraw it. The
  * mode strip (BonusModeStrip) only shows the result. Every mode has the same EV per rank as KONTROLA
- * (lib/slot/bonus-ev, scripts/zbox-ev.ts), so the bar's RTP share does not depend on the draw.
- *
- * A third mode is prepared: its "?" tile is on the strip, but weight 0 = never drawn yet.
+ * (lib/slot/bonus-ev, scripts/zbox-ev.ts, scripts/koleso-ev.ts), so the bar's RTP share does not depend on
+ * the draw. Three modes, 1/3 each: KONTROLA, Ž-BOX, KOLESO NEŠŤASTIA.
  */
 import type { ChaseModKind } from "./zasah.ts";
 
-export type BonusModeId = "kontrola" | "zbox" | "mode3";
+export type BonusModeId = "kontrola" | "zbox" | "koleso";
 
 export interface BonusModeDef {
   id: BonusModeId;
@@ -21,11 +20,23 @@ export interface BonusModeDef {
 export const BONUS_MODES: readonly BonusModeDef[] = [
   { id: "kontrola", label: "KONTROLA", sub: "Parkovné", weight: 1 },
   { id: "zbox", label: "Ž-BOX", sub: "Pakeťák", weight: 1 },
-  { id: "mode3", label: "?", sub: "V riešení", weight: 0 },
+  { id: "koleso", label: "KOLESO", sub: "Nešťastia", weight: 1 },
 ];
 
 export function bonusModeDef(id: BonusModeId): BonusModeDef {
   return BONUS_MODES.find((m) => m.id === id) ?? BONUS_MODES[0];
+}
+
+/** Line under the mode strip once it lands. */
+export const BONUS_MODE_RESULT: Record<BonusModeId, string> = {
+  kontrola: "KONTROLA · PARKOVNÉ",
+  zbox: "Ž-BOX · PAKEŤÁK DORUČUJE",
+  koleso: "KOLESO NEŠŤASTIA · TOČÍME!",
+};
+
+/** Modes that keep the pending bar (with its seed) until they pay, so a reload replays the same run. */
+export function seededMode(id: BonusModeId): boolean {
+  return id === "zbox" || id === "koleso";
 }
 
 /** Draw a mode by weight (the same rng source the game deals KONTROLA with). */
@@ -50,7 +61,7 @@ export interface PendingBonus {
   /** Left of the tax period when it was drawn (applyMod only needs the kind). */
   modLeft: number;
   at: number;
-  /** Ž-BOX: seed of its run, fixed when it starts (a reload mid-run replays the same run). */
+  /** Ž-BOX / KOLESO: seed of its run, fixed when it starts (a reload mid-run replays the same run). */
   seed?: number;
 }
 

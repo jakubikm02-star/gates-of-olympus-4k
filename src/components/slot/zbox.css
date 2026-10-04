@@ -74,8 +74,16 @@
 }
 .ms-tile.is-kontrola { background: linear-gradient(160deg, #2f6cff, #1c3a9e 60%, #101e57); }
 .ms-tile.is-zbox { background: linear-gradient(160deg, #ff3b3b, #c4161c 60%, #6e0b0f); }
-.ms-tile.is-mode3 { background: repeating-linear-gradient(135deg, #2a2f38 0 10px, #20242b 10px 20px); }
-.ms-tile.is-mode3 b { font-size: 2.4rem; color: #9aa4b2; }
+.ms-tile.is-koleso {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 50%, rgb(0 0 0 / 0) 0 30%, rgb(10 6 6 / 0.82) 64%),
+    repeating-conic-gradient(from -11.25deg, #b3141c 0 22.5deg, #17110f 22.5deg 45deg);
+  border-color: #d8a73a;
+}
+.ms-tile.is-koleso b { color: #ffe7a3; text-shadow: 0 0 10px rgb(255 40 40 / 0.85), 0 2px 0 rgb(0 0 0 / 0.7); }
+.ms-tile.is-koleso span { color: #ffd1d1; text-shadow: 0 1px 2px #000; }
 .ms-tile.is-hit { animation: ms-hit 0.5s ease-out 2 both; border-color: #fff6c8; }
 @keyframes ms-hit {
   0% { box-shadow: 0 0 0 0 rgb(255 240 160 / 0.9), inset 0 2px 0 rgb(255 255 255 / 0.25); filter: brightness(1.6); }

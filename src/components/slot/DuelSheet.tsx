@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { formatMoney } from "@/lib/slot/format";
-import { duelCreate, duelForfeitIf, duelJoin, duelLeave, duelPoll, duelStart, duelTick, type DuelSnap } from "@/lib/slot/duel-api";
+import { duelCreate, duelForfeitIf, duelJoinSeat, duelLeave, duelPoll, duelStart, duelTick, roomFull, type DuelSnap } from "@/lib/slot/duel-api";
 import {
   canDuelSpin,
   duelCreditDelta,
+  duelLeaders,
   duelPot,
+  nextSeat,
+  versusMode,
+  VERSUS_MODES,
+  type VersusSize,
   duelView,
-  duelWinner,
   peerFrozen,
   type Duel,
   type DuelLink,
@@ -15,6 +19,13 @@ import {
 import { BETS } from "@/lib/slot/symbols";
 import { DUEL_DEPOSIT_MULT, depositAmount, duelEntryCost, type DepositSettlement } from "@/lib/slot/duel-deposit";
 import { cleanRoomCode, duelSummary } from "@/lib/slot/duel-setup";
+import artDuel from "@/assets/versus/duel.webp";
+import artTriple from "@/assets/versus/triple.webp";
+import artFour from "@/assets/versus/four.webp";
+
+/** VERSUS option art (more players = bigger arcade chaos). */
+const VERSUS_ART: Record<VersusSize, string> = { 2: artDuel, 3: artTriple, 4: artFour };
+const VERSUS_SUB: Record<VersusSize, string> = { 2: "1 na 1", 3: "traja proti sebe", 4: "každý proti každému" };
 
 interface Props {
   open: boolean;
@@ -24,8 +35,9 @@ interface Props {
   bet: number;
   credit: number;
   onClose: () => void;
-  onStart: (mode: DuelMode, a: string, b: string, bet: number, need: number, ante: boolean) => string;
-  onHost: (mode: DuelMode, name: string, bet: number, need: number, ante: boolean) => string;
+  /** Hot-seat: 2-4 names, all on this phone. */
+  onStart: (mode: DuelMode, names: string[], bet: number, need: number, ante: boolean) => string;
+  onHost: (mode: DuelMode, name: string, bet: number, need: number, ante: boolean, players: number) => string;
   onJoin: (mode: DuelMode, name: string, code: string, bet: number, need: number, ante: boolean) => string;
   onSwap: () => void;
   onEnd: () => void;
@@ -60,10 +72,10 @@ function seatCost(need: number, bet: number): number {
 /** Kaucia rules, one line each: shown behind the (i) button instead of a wall of small print. */
 const DEPOSIT_RULES = [
   `Kaucia = ${DUEL_DEPOSIT_MULT}× stávka na točenie, platí každý hráč.`,
-  "Vráti sa po dohraní (aj pri remíze), keď súper odíde, alebo keď zlyhá hra / spojenie.",
+  "Vráti sa po dohraní (aj pri remíze), keď odídu všetci súperi, alebo keď zlyhá hra / spojenie.",
   "Prepadne, keď odídeš, dáš VZDAŤ alebo prestaneš hrať (neaktivita).",
   "Min. kredit = rezerva na stávky (1,2× stávka × točenia) + kaucia.",
-  "V dueli je zamknutá stávka, Ante aj Buy. KONTROLA ani ZÁSAH sa nespúšťajú.",
+  "Vo VERSUS je zamknutá stávka, Ante aj Buy. KONTROLA ani ZÁSAH sa nespúšťajú.",
 ];
 
 /** (i) button + popover with the kaucia rules. */
@@ -93,8 +105,8 @@ function DepositInfo({ id }: { id: string }) {
   );
 }
 
-/** Seat colours, the same in lobby, panel and result: seat 0 (host / HRÁČ 1) gold, seat 1 (guest / HRÁČ 2) cyan. */
-export const SEAT_CLASS = ["p1", "p2"] as const;
+/** Seat colours, the same in lobby, panel, dots and result: seat 0 (host / HRÁČ 1) gold, 1 cyan, 2 red, 3 green. */
+export const SEAT_CLASS = ["p1", "p2", "p3", "p4"] as const;
 
 /** One dot per spin: filled = played, ring = the spin this seat is on now. */
 export function DuelPips({ have, need, live }: { have: number; need: number; live?: boolean }) {
@@ -120,7 +132,7 @@ export function DuelSeatRow({
   status,
   win,
 }: {
-  seat: 0 | 1;
+  seat: number;
   name: string;
   have: number;
   need: number;
@@ -133,7 +145,7 @@ export function DuelSeatRow({
   win?: boolean;
 }) {
   return (
-    <div className={`duel-seat ${SEAT_CLASS[seat]} ${you ? "is-you" : ""} ${win ? "is-win" : ""}`}>
+    <div className={`duel-seat ${SEAT_CLASS[seat] ?? "p1"} ${you ? "is-you" : ""} ${win ? "is-win" : ""}`}>
       <span className="duel-seat-name">
         <i className="duel-chip" aria-hidden="true" />
         <span className="duel-seat-label">{name || "…"}</span>
@@ -153,7 +165,60 @@ export function DuelSeatRow({
 }
 
 /** Small chip in the duel UI: the running ticket waits while the duel plays. */
-export function TicketPausedChip({ text = "TIKET POZASTAVENÝ · počas duelu" }: { text?: string }) {
+/** Phone strip seat: name + score on top, a segmented progress bar + count + status below. p2 is mirrored. */
+function DuelStripSeat({
+  seat,
+  name,
+  have,
+  need,
+  score,
+  you,
+  live,
+  out,
+  status,
+}: {
+  seat: number;
+  name: string;
+  have: number;
+  need: number;
+  score: number;
+  you?: boolean;
+  live?: boolean;
+  out?: boolean;
+  status?: string;
+}) {
+  const n = Math.max(1, need);
+  const k = Math.max(0, Math.min(n, have));
+  return (
+    <div className={`duel-sseat ${SEAT_CLASS[seat] ?? "p1"} ${you ? "is-you" : ""} ${live ? "is-live" : ""} ${out ? "is-out" : k >= n ? "is-done" : ""}`}>
+      <span className="duel-sseat-top">
+        <i className="duel-chip" aria-hidden="true" />
+        <span className="duel-seat-label">{name || "…"}</span>
+        {you ? <small className="duel-you">TY</small> : null}
+        <b className="duel-seat-score">{formatMoney(score)}</b>
+      </span>
+      <span className="duel-sseat-bot">
+        <span
+          className="duel-sbar"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={n}
+          aria-valuenow={k}
+          aria-label={`${k} z ${n} točení`}
+          style={{ ["--n" as string]: String(n), ["--k" as string]: `${(k / n) * 100}%` }}
+        >
+          <i />
+        </span>
+        <span className="duel-seat-count">
+          {k}/{n}
+        </span>
+        {status ? <em className={`duel-seat-status ${status === "4KA TV / TOČÍ" ? "is-busy" : ""}`}>{status}</em> : null}
+      </span>
+    </div>
+  );
+}
+
+export function TicketPausedChip({ text = "TIKET POZASTAVENÝ · počas VERSUS" }: { text?: string }) {
   return (
     <span className="duel-ticket-chip" role="status">
       <i aria-hidden="true">❚❚</i>
@@ -192,18 +257,21 @@ export function DuelLink({
   /** This seat is busy (spin, 4KA TV, banner, KONTROLA): sent as the `net` heartbeat flag. */
   inFs: boolean;
   onPeerName: (name: string) => void;
-  onGo: (peerName: string, bet: number, mode: DuelMode, need: number, ante: boolean) => void;
-  onTick: (have: number, score: number) => void;
-  onForfeit: (who: 0 | 1) => void;
-  onPeerNet: (net: boolean) => void;
+  /** The room started: every seat's name (seat 0 = host) and my seat. */
+  onGo: (info: { names: string[]; you: number; bet: number; mode: DuelMode; need: number; ante: boolean }) => void;
+  /** A peer seat's progress (2 seats: seat omitted = the other seat). */
+  onTick: (have: number, score: number, seat?: number) => void;
+  onForfeit: (who: number) => void;
+  onPeerNet: (net: boolean, seat?: number) => void;
   onEnd: () => void;
-  /** Room vanished mid-duel / polls+writes failing / both seats were away: the game's fault (kaucia back). */
+  /** Room vanished mid-duel / polls+writes failing / all seats were away: the game's fault (kaucia back). */
   onRoomFail?: (kind: "gone" | "net" | "both") => void;
   /** Opponent name as far as known (host name for a guest). */
   peerName?: string;
 }) {
   const [status, setStatus] = useState("Pálim miestnosť…");
-  const [guest, setGuest] = useState("");
+  /** Lobby: names per seat as the room shows them (seat 0 = host). */
+  const [names, setNames] = useState<string[]>(() => Array.from({ length: link.players ?? 2 }, (_, i) => (i === 0 && link.role === "host" ? link.name : "")));
   const [err, setErr] = useState("");
   const started = useRef(false);
   const lastHave = useRef(-1);
@@ -212,16 +280,23 @@ export function DuelLink({
   const onTickRef = useRef(onTick);
   const onForfeitRef = useRef(onForfeit);
   const onPeerNetRef = useRef(onPeerNet);
-  const peerAt = useRef(0);
-  const peerHave = useRef(-1);
+  /** Per seat: when its progress last moved, and the have seen then. */
+  const peerAt = useRef<number[]>([]);
+  const peerHave = useRef<number[]>([]);
   const playSince = useRef(0);
+  /** Room-level give-up (2 seats: forfeit / both away; any size: room failure). */
   const gaveUp = useRef(false);
+  /** 3-4 seats: seats this client already handled as out (or is declaring out right now). */
+  const outSeen = useRef<Set<number>>(new Set());
   const inFsRef = useRef(inFs);
   const onRoomFailRef = useRef(onRoomFail);
   const goneRun = useRef(0);
   const lastOk = useRef(0);
   const netFlagged = useRef(false);
   const tickOk = useRef(0);
+  /** My seat (host 0; a guest learns it from the join). */
+  const seatRef = useRef<number>(link.seat ?? (link.role === "host" ? 0 : 1));
+  const playersRef = useRef<number>(link.players ?? 2);
   onRoomFailRef.current = onRoomFail;
   onPeerNameRef.current = onPeerName;
   onGoRef.current = onGo;
@@ -233,28 +308,44 @@ export function DuelLink({
   useEffect(() => {
     let stop = false;
     let ready = false;
+    const go = (snap: DuelSnap) => {
+      started.current = true;
+      onGoRef.current({
+        names: snap.seats.map((x, i) => x.name || (i === 0 ? "HOSŤ" : `HRÁČ ${i + 1}`)),
+        you: seatRef.current,
+        bet: snap.bet,
+        mode: snap.mode,
+        need: snap.need,
+        ante: snap.ante,
+      });
+    };
     const boot = async () => {
       try {
         if (link.role === "host") {
-          await duelCreate({
+          const snap = await duelCreate({
             code: link.room,
             name: link.name,
             mode: link.mode,
             bet: link.bet || bet,
             need: link.need || 10,
             ante: link.ante,
+            players: link.players ?? 2,
           });
           if (stop) return;
+          playersRef.current = snap.players;
           ready = true;
           setErr("");
-          setStatus("Kód je živý. Pošli ho kamošovi.");
+          setStatus(snap.players > 2 ? `Kód je živý. Pošli ho ${snap.players - 1} kamošom.` : "Kód je živý. Pošli ho kamošovi.");
         } else {
-          const snap = await duelJoin(link.room, link.name);
+          const { snap, seat } = await duelJoinSeat(link.room, link.name);
           if (stop) return;
+          seatRef.current = seat;
+          playersRef.current = snap.players;
           ready = true;
           onPeerNameRef.current(snap.hostName);
+          setNames(snap.seats.map((x, i) => (i === seat ? link.name : x.name)));
           setErr("");
-          setStatus("Si v miestnosti. Čakám na ŠTART.");
+          setStatus(snap.players > 2 && !roomFull(snap) ? "Si v miestnosti. Čaká sa, kým sa zaplní." : "Si v miestnosti. Čakám na ŠTART.");
         }
       } catch (e) {
         if (!stop) setErr(e instanceof Error ? e.message : "Spojenie zlyhalo");
@@ -273,76 +364,104 @@ export function DuelLink({
           lastOk.current = Date.now();
           goneRun.current = 0;
           setErr("");
-          if (snap.guestName) {
-            setGuest(snap.guestName);
-            if (link.role === "host") onPeerNameRef.current(snap.guestName);
+          const me = seatRef.current;
+          const many = snap.players > 2;
+          playersRef.current = snap.players;
+          if (!started.current) {
+            setNames(snap.seats.map((x, i) => (i === me ? link.name : x.name)));
+            if (link.role === "host") {
+              const firstPeer = snap.seats.find((x, i) => i !== 0 && x.name)?.name;
+              if (firstPeer) onPeerNameRef.current(firstPeer);
+            }
+            if (link.role !== "host" && many) {
+              setStatus(roomFull(snap) ? "Miestnosť je plná. Štartuje sa…" : `Čaká sa na hráčov · ${snap.seats.filter((x) => x.name).length}/${snap.players}`);
+            }
           }
-          if (link.role === "host" && snap.guestName && snap.phase === "wait" && !started.current) {
+          // The room starts by itself once every seat has a player.
+          if (link.role === "host" && roomFull(snap) && snap.phase === "wait" && !started.current) {
             void duelStart(link.room)
-              .then((go) => {
+              .then((started2) => {
                 if (stop || started.current) return;
-                started.current = true;
-                onGoRef.current(go.guestName || snap.guestName, go.bet, go.mode, go.need, go.ante);
+                go(started2);
               })
               .catch(() => {});
           }
-          if (snap.forfeit != null && !gaveUp.current) {
+          if (!many && snap.forfeit != null && !gaveUp.current) {
             gaveUp.current = true;
-            const theirs = link.role === "host" ? snap.guestHave : snap.hostHave;
-            const theirScore = link.role === "host" ? snap.guestScore : snap.hostScore;
-            onTickRef.current(theirs, theirScore);
+            const other = me === 0 ? 1 : 0;
+            onTickRef.current(snap.seats[other]!.have, snap.seats[other]!.score);
             onForfeitRef.current(snap.forfeit);
             return;
           }
           if (snap.phase === "play" || snap.phase === "done") {
-            if (!started.current) {
-              started.current = true;
-              const peer = link.role === "host" ? snap.guestName : snap.hostName;
-              onGoRef.current(peer || "SÚPER", snap.bet, snap.mode, snap.need, snap.ante);
-            }
-            const theirs = link.role === "host" ? snap.guestHave : snap.hostHave;
-            const theirScore = link.role === "host" ? snap.guestScore : snap.hostScore;
-            const mine = link.role === "host" ? snap.hostHave : snap.guestHave;
-            const peerNet = link.role === "host" ? snap.guestNet : snap.hostNet;
-            const peerSeen = link.role === "host" ? snap.guestSeen : snap.hostSeen;
-            onPeerNetRef.current(peerNet);
+            if (!started.current) go(snap);
             if (snap.phase === "play" && playSince.current === 0) playSince.current = Date.now();
-            // The no-progress clock restarts on every peer spin and stays at zero while the peer is busy
-            // (spin, 4KA TV, a banner still open): modal time never counts toward the 90 s.
-            if (theirs !== peerHave.current || peerNet) {
-              peerHave.current = theirs;
-              peerAt.current = Date.now();
+            const need = snap.need;
+            const mine = snap.seats[me]?.have ?? 0;
+            const peers = snap.seats.map((_, i) => i).filter((i) => i !== me);
+            // 3-4 seats: seats the row marks out (VZDAŤ, idle, declared out by another client).
+            if (many) {
+              for (const i of snap.seats.map((_, k) => k)) {
+                const x = snap.seats[i]!;
+                if (!x.out || outSeen.current.has(i)) continue;
+                outSeen.current.add(i);
+                if (i !== me) onTickRef.current(x.have, x.score, i);
+                onForfeitRef.current(i);
+              }
+              if (snap.seats[me]?.out) return;
             }
-            const lastBeat = peerSeen > playSince.current ? peerSeen : playSince.current;
-            const seenAge = playSince.current ? Date.now() - lastBeat : 0;
-            // 90 s (was 45 s): a phone that locks or switches apps for a moment pauses JS and the heartbeat.
-            const silent = snap.phase === "play" && theirs < snap.need && seenAge > PEER_SILENT_MS;
-            const frozen =
-              snap.phase === "play" &&
-              peerFrozen({ now: Date.now(), idleSince: peerAt.current, peerBusy: peerNet, mine, theirs, need: snap.need });
-            if (silent && awayMe && !gaveUp.current) {
-              // Both seats dropped: nobody claims the bank. The host removes the room so the guest's
-              // client aborts too ("room gone"); each seat keeps its own stack and gets its kaucia back.
+            let busyPeer = false;
+            const silentPeers: number[] = [];
+            const frozenPeers: number[] = [];
+            for (const i of peers) {
+              const x = snap.seats[i]!;
+              if (many && x.out) continue;
+              busyPeer ||= x.net;
+              if (many) onPeerNetRef.current(x.net, i);
+              // The no-progress clock restarts on every peer spin and stays at zero while the peer is busy
+              // (spin, 4KA TV, a banner still open): modal time never counts toward the 90 s.
+              if (x.have !== peerHave.current[i] || x.net) {
+                peerHave.current[i] = x.have;
+                peerAt.current[i] = Date.now();
+              }
+              const lastBeat = x.seen > playSince.current ? x.seen : playSince.current;
+              const seenAge = playSince.current ? Date.now() - lastBeat : 0;
+              // 90 s (was 45 s): a phone that locks or switches apps for a moment pauses JS and the heartbeat.
+              if (snap.phase === "play" && x.have < need && seenAge > PEER_SILENT_MS) silentPeers.push(i);
+              else if (
+                snap.phase === "play" &&
+                peerFrozen({ now: Date.now(), idleSince: peerAt.current[i] ?? 0, peerBusy: x.net, mine, theirs: x.have, need })
+              )
+                frozenPeers.push(i);
+              onTickRef.current(x.have, x.score, many ? i : undefined);
+            }
+            if (!many) onPeerNetRef.current(busyPeer);
+            const owing = peers.filter((i) => !(many && snap.seats[i]!.out) && snap.seats[i]!.have < need);
+            if (awayMe && owing.length && silentPeers.length === owing.length && !gaveUp.current) {
+              // Every seat dropped: nobody claims the bank. The host removes the room so the other clients
+              // abort too ("room gone"); each seat keeps its own stack and gets its kaucia back.
               gaveUp.current = true;
               if (link.role === "host") void duelLeave(link.room, "host");
               onRoomFailRef.current?.("both");
               return;
             }
-            if ((silent || frozen) && !gaveUp.current) {
-              const who: 0 | 1 = link.role === "host" ? 1 : 0;
-              gaveUp.current = true;
+            for (const who of [...silentPeers, ...frozenPeers]) {
+              if (many ? outSeen.current.has(who) : gaveUp.current) continue;
+              if (many) outSeen.current.add(who);
+              else gaveUp.current = true;
               // Only a forfeit this client actually wrote (peer still short of its spins) is settled locally.
-              void duelForfeitIf(link.room, link.role === "host" ? "guest" : "host", snap.need, "peer")
+              void duelForfeitIf(link.room, who, need, "peer", undefined, snap.players)
                 .then((ok) => {
                   if (stop) return;
                   if (ok) onForfeitRef.current(who);
+                  else if (many) outSeen.current.delete(who);
                   else gaveUp.current = false;
                 })
                 .catch(() => {
-                  gaveUp.current = false;
+                  if (many) outSeen.current.delete(who);
+                  else gaveUp.current = false;
                 });
             }
-            onTickRef.current(theirs, theirScore);
           }
         } catch (e) {
           if (stop) return;
@@ -366,16 +485,16 @@ export function DuelLink({
       stop = true;
       window.clearInterval(tick);
     };
-  }, [link.room, link.role, link.name, link.mode, link.bet, link.need, link.ante, bet]);
+  }, [link.room, link.role, link.name, link.mode, link.bet, link.need, link.ante, link.players, bet]);
 
   useEffect(() => {
     if (!duel || duel.kind !== "online") return;
     if (duel.phase !== "play" && duel.phase !== "done") return;
     const send = () => {
-      const have = duel.seats[duel.you].have;
-      const score = Math.max(0, +(duel.seats[duel.you].score - (duel.held || 0)).toFixed(2));
+      const have = duel.seats[duel.you]!.have;
+      const score = Math.max(0, +(duel.seats[duel.you]!.score - (duel.held || 0)).toFixed(2));
       lastHave.current = have;
-      void duelTick(link.room, link.role, have, score, {
+      void duelTick(link.room, seatRef.current, have, score, {
         name: link.name,
         ante: Boolean(link.ante),
         net: inFsRef.current,
@@ -407,13 +526,22 @@ export function DuelLink({
     };
   }, [duel, link.room, link.role, link.name, link.ante]);
 
+  const full = names.length >= 2 && names.every(Boolean);
   const launch = () => {
-    if (started.current || link.role !== "host" || !guest) return;
+    if (started.current || link.role !== "host" || !full) return;
     void (async () => {
       try {
         const snap = await duelStart(link.room);
+        if (started.current) return;
         started.current = true;
-        onGo(snap.guestName || guest, snap.bet, snap.mode, snap.need, snap.ante);
+        onGo({
+          names: snap.seats.map((x, i) => x.name || (i === 0 ? "HOSŤ" : `HRÁČ ${i + 1}`)),
+          you: 0,
+          bet: snap.bet,
+          mode: snap.mode,
+          need: snap.need,
+          ante: snap.ante,
+        });
       } catch (e) {
         setErr(e instanceof Error ? e.message : "Štart zlyhal");
       }
@@ -421,7 +549,7 @@ export function DuelLink({
   };
 
   const leave = () => {
-    void duelLeave(link.room, link.role);
+    void duelLeave(link.room, link.role === "host" ? "host" : seatRef.current, playersRef.current);
     onEnd();
   };
 
@@ -433,13 +561,18 @@ export function DuelLink({
 
   const need = link.need || 10;
   const stake = link.bet || bet;
-  const hostName = link.role === "host" ? link.name : peerName || "HOSŤ";
-  const guestName = link.role === "guest" ? link.name : guest;
+  const me = seatRef.current;
+  const players = Math.max(names.length, 2);
+  const vm = versusMode(players);
+  const shownNames = names.map((n, i) => (i === me ? link.name : i === 0 ? n || peerName || "HOSŤ" : n));
+  const joined = shownNames.filter(Boolean).length;
   return (
     <div className="modal-back" role="presentation">
-      <div className="modal-card spend-card duel-card duel-lobby" role="dialog" aria-labelledby="duel-title">
+      <div className={`modal-card spend-card duel-card duel-lobby is-${vm.id}`} role="dialog" aria-labelledby="duel-title">
         <header className="modal-head">
-          <h2 id="duel-title">{link.role === "host" ? "DUEL · LOBBY" : "DUEL · PRIPÁJAM"}</h2>
+          <h2 id="duel-title">
+            {vm.label} · {link.role === "host" ? "LOBBY" : "PRIPÁJAM"}
+          </h2>
           <button type="button" className="icon-btn" onClick={leave} aria-label="Odísť">
             ×
           </button>
@@ -449,17 +582,19 @@ export function DuelLink({
         <button type="button" className="duel-code" onClick={copy} aria-label="Skopírovať kód">
           {link.room}
         </button>
-        <div className="duel-seats">
-          <DuelSeatRow seat={0} name={hostName} have={0} need={need} score={null} you={link.role === "host"} status={link.role === "host" ? "PRIPRAVENÝ" : "HOSŤ"} />
-          <DuelSeatRow
-            seat={1}
-            name={guestName || "čaká sa…"}
-            have={0}
-            need={need}
-            score={null}
-            you={link.role === "guest"}
-            status={guestName ? "PRIPRAVENÝ" : "VOĽNÉ"}
-          />
+        <div className={`duel-seats ${players > 2 ? "is-multi" : ""}`}>
+          {shownNames.map((n, i) => (
+            <DuelSeatRow
+              key={i}
+              seat={i}
+              name={n || "čaká sa…"}
+              have={0}
+              need={need}
+              score={null}
+              you={i === me}
+              status={i === 0 && link.role !== "host" ? "HOSŤ" : n ? "PRIPRAVENÝ" : "VOĽNÉ"}
+            />
+          ))}
         </div>
         <dl className="duel-facts">
           <div>
@@ -487,8 +622,8 @@ export function DuelLink({
         </p>
         <div className={`duel-actions ${link.role === "host" ? "" : "is-guest"}`}>
           {link.role === "host" ? (
-            <button type="button" className="chip-btn gold duel-go" disabled={!guest} onClick={launch}>
-              {guest ? "ŠTART" : "ČAKÁM SÚPERA…"}
+            <button type="button" className="chip-btn gold duel-go" disabled={!full} onClick={launch}>
+              {full ? "ŠTART" : players > 2 ? `ČAKÁM HRÁČOV · ${joined}/${players}` : "ČAKÁM SÚPERA…"}
             </button>
           ) : null}
           <button type="button" className="chip-btn duel-leave" onClick={leave}>
@@ -567,7 +702,9 @@ export function DuelSheet({
   ticketPaused = false,
 }: Props) {
   const [a, setA] = useState(nick || "HRÁČ 1");
-  const [b, setB] = useState("HRÁČ 2");
+  /** Hot-seat names of seats 2-4 (seat 1 = `a`). */
+  const [others, setOthers] = useState<string[]>(["HRÁČ 2", "HRÁČ 3", "HRÁČ 4"]);
+  const [players, setPlayers] = useState<VersusSize>(2);
   const nameTouched = useRef(false);
   const [need, setNeed] = useState(10);
   const [anteOn, setAnteOn] = useState(false);
@@ -602,7 +739,11 @@ export function DuelSheet({
         const snap = await duelPoll(room);
         if (id !== lookupId.current) return;
         if (snap.phase !== "wait") {
-          setJoin({ kind: "error", code: room, msg: "Tento duel už beží." });
+          setJoin({ kind: "error", code: room, msg: "Táto hra už beží." });
+          return;
+        }
+        if (roomFull(snap)) {
+          setJoin({ kind: "error", code: room, msg: "Miestnosť je plná." });
           return;
         }
         setJoin({ kind: "ok", snap });
@@ -614,18 +755,28 @@ export function DuelSheet({
   };
 
   if (duel?.phase === "swap") {
+    const cur = duel.seats[duel.turn]!;
+    const nx = nextSeat(duel);
+    const up = nx == null ? null : duel.seats[nx]!;
     return (
       <div className="modal-back" role="presentation">
-        <div className="modal-card spend-card" role="dialog" aria-labelledby="duel-title">
+        <div className={`modal-card spend-card duel-card duel-swap ${nx == null ? "" : `to-${SEAT_CLASS[nx]}`}`} role="dialog" aria-labelledby="duel-title">
           <header className="modal-head">
             <h2 id="duel-title">PREDÁŠ TELEFÓN</h2>
           </header>
           <p className="modal-lead">
-            {duel.seats[0].name} má {formatMoney(duel.seats[0].score)}. Teraz točí {duel.seats[1].name} — rovnaká
-            stávka {formatMoney(duel.bet)}.
+            {cur.name} {cur.out ? "sa vzdal" : `má ${formatMoney(cur.score)}`}. Teraz točí {up?.name ?? "…"} — rovnaká stávka{" "}
+            {formatMoney(duel.bet)}.
           </p>
+          {duel.seats.length > 2 ? (
+            <div className="duel-seats is-multi">
+              {duel.seats.map((x, i) => (
+                <DuelSeatRow key={i} seat={i} name={x.name} have={x.have} need={duel.need} score={x.have > 0 || x.out ? x.score : null} live={i === nx} status={x.out ? "VZDAL" : i === nx ? "NA RADE" : x.have >= duel.need ? "HOTOVO" : "ČAKÁ"} />
+              ))}
+            </div>
+          ) : null}
           <button type="button" className="chip-btn gold" onClick={onSwap}>
-            HRAJ {duel.seats[1].name}
+            HRAJ {up?.name ?? ""}
           </button>
         </div>
       </div>
@@ -633,42 +784,61 @@ export function DuelSheet({
   }
 
   if (duel?.phase === "done") {
+    const many = duel.seats.length > 2;
     const gain = duel.kind === "hotseat" ? duelPot(duel) : duelCreditDelta(duel, duel.you);
-    const w = duel.aborted ? null : duel.forfeit != null ? (duel.forfeit === 0 ? 1 : 0) : duelWinner(duel);
-    const title = duel.aborted ? "ZRUŠENÝ" : duel.forfeit != null ? "VZDANIE" : w === null ? "REMÍZA" : "DUEL";
-    const dep = depositLine(depositNote);
-    const verdict =
-      duel.aborted
-        ? "Hra zlyhala · každý si necháva svoju výhru"
+    const leaders = duel.aborted ? [] : duelLeaders(duel);
+    const w = leaders.length === 1 ? leaders[0]! : null;
+    const meOut = duel.kind === "online" && Boolean(duel.seats[duel.you]?.out);
+    const vm = versusMode(duel.seats.length);
+    const title = duel.aborted
+      ? "ZRUŠENÝ"
+      : meOut || (!many && duel.forfeit != null)
+        ? "VZDANIE"
         : w === null
-          ? "Remíza · každý si necháva svoju výhru"
+          ? "REMÍZA"
+          : vm.label;
+    const dep = depositLine(depositNote);
+    const verdict = duel.aborted
+      ? "Hra zlyhala · každý si necháva svoju výhru"
+      : meOut
+        ? many
+          ? "VZDAL SI SA · tvoj stack ostáva v banku"
+          : "PREHRAL SI · bank berie súper"
+        : w === null
+          ? many
+            ? `Remíza na čele · bank sa delí (${leaders.map((i) => duel.seats[i]!.name).join(", ")})`
+            : "Remíza · každý si necháva svoju výhru"
           : duel.kind === "online"
             ? w === duel.you
               ? "VYHRAL SI · berieš bank"
-              : "PREHRAL SI · bank berie súper"
-            : `${duel.seats[w].name} berie bank`;
+              : `PREHRAL SI · bank berie ${duel.seats[w]!.name}`
+            : `${duel.seats[w]!.name} berie bank`;
+    // Podium order for 3-4 seats (best first, forfeited seats last); 2 seats keep the seat order.
+    const order = duel.seats.map((_, i) => i);
+    if (many) order.sort((x, y) => Number(Boolean(duel.seats[x]!.out)) - Number(Boolean(duel.seats[y]!.out)) || duel.seats[y]!.score - duel.seats[x]!.score);
     return (
       <div className="modal-back" role="presentation">
-        <div className={`modal-card spend-card duel-card duel-slam ${w === null ? "" : `win-${SEAT_CLASS[w]}`}`} role="dialog" aria-labelledby="duel-title">
+        <div className={`modal-card spend-card duel-card duel-slam is-${vm.id} ${w === null ? "" : `win-${SEAT_CLASS[w]}`}`} role="dialog" aria-labelledby="duel-title">
           <header className="modal-head">
             <h2 id="duel-title">{title}</h2>
           </header>
           <p className="duel-verdict">{verdict}</p>
-          <div className="duel-seats">
-            {([0, 1] as const).map((i) => (
+          <div className={`duel-seats ${many ? "is-multi is-podium" : ""}`}>
+            {order.map((i, rank) => (
               <DuelSeatRow
                 key={i}
                 seat={i}
-                name={duel.seats[i].name}
-                have={duel.seats[i].have}
+                name={many ? `${duel.seats[i]!.out ? "–" : rank + 1}. ${duel.seats[i]!.name}` : duel.seats[i]!.name}
+                have={duel.seats[i]!.have}
                 need={duel.need}
-                score={duel.seats[i].score}
+                score={duel.seats[i]!.score}
                 you={duel.kind === "online" && duel.you === i}
-                win={w === i}
-                status={duel.forfeit === i ? "VZDAL" : undefined}
+                win={leaders.includes(i)}
+                status={duel.seats[i]!.out ? "VZDAL" : undefined}
               />
             ))}
           </div>
+          {many ? <p className="duel-pot-line">BANK {formatMoney(duelPot(duel))}</p> : null}
           <p className="duel-take">{gain > 0 ? `+${formatMoney(gain)}` : "0,00"}</p>
           {ticketPaused ? <TicketPausedChip text="TIKET POZASTAVENÝ · pokračuje po zatvorení" /> : null}
           {dep ? <p className={`duel-deposit-note ${depositNote && depositNote.burned > 0 ? "is-burn" : ""}`}>{dep}</p> : null}
@@ -682,7 +852,7 @@ export function DuelSheet({
 
   if (link || !open) return null;
 
-  const seats: 1 | 2 = where === "hotseat" ? 2 : 1;
+  const seats = where === "hotseat" ? players : 1;
   const sum = duelSummary({ bet: stake, need, ante: anteOn, anteMul, seats });
   // A running ticket keeps credit for its locked bet on top of the duel (same check as the game's).
   const createNeed = +(sum.minCredit + ticketReserve).toFixed(2);
@@ -721,8 +891,12 @@ export function DuelSheet({
   if (tab === "create") {
     cta =
       where === "online"
-        ? { label: "VYTVORIŤ DUEL", disabled: createShort, run: () => setBlock(onHost("spins", a, stake, need, anteOn)) }
-        : { label: "ZAČAŤ PRI STOLE", disabled: createShort, run: () => setBlock(onStart("spins", a, b, stake, need, anteOn)) };
+        ? { label: "VYTVORIŤ HRU", disabled: createShort, run: () => setBlock(onHost("spins", a, stake, need, anteOn, players)) }
+        : {
+            label: "ZAČAŤ PRI STOLE",
+            disabled: createShort,
+            run: () => setBlock(onStart("spins", [a, ...others.slice(0, players - 1)], stake, need, anteOn)),
+          };
   } else if (invite) {
     cta = {
       label: "PRIPOJIŤ SA",
@@ -731,7 +905,7 @@ export function DuelSheet({
     };
   } else {
     cta = {
-      label: join.kind === "loading" ? "HĽADÁM DUEL…" : "PRIPOJIŤ SA",
+      label: join.kind === "loading" ? "HĽADÁM HRU…" : "PRIPOJIŤ SA",
       disabled: !codeOk || join.kind === "loading",
       run: () => lookup(code),
     };
@@ -752,8 +926,8 @@ export function DuelSheet({
       >
         <header className="duel-setup-head">
           <div>
-            <h2 id="duel-title">DUEL</h2>
-            <p>Rovnaká stávka aj točenia · víťaz berie výhry oboch</p>
+            <h2 id="duel-title">VERSUS</h2>
+            <p>Rovnaká stávka aj točenia · víťaz berie výhry všetkých</p>
           </div>
           <button type="button" className="icon-btn" onClick={onClose} aria-label="Zavrieť">
             ×
@@ -761,11 +935,11 @@ export function DuelSheet({
         </header>
         {ticketReserve > 0 ? (
           <p className="duel-ticket-note">
-            <TicketPausedChip text="TIKET SA POZASTAVÍ · počas duelu" />
-            <small>Po dueli pokračuje so svojou stávkou. Rezerva {formatMoney(ticketReserve)} ostáva v kredite.</small>
+            <TicketPausedChip text="TIKET SA POZASTAVÍ · počas VERSUS" />
+            <small>Po VERSUS hre pokračuje so svojou stávkou. Rezerva {formatMoney(ticketReserve)} ostáva v kredite.</small>
           </p>
         ) : null}
-        <div className="duel-tabs2" role="tablist" aria-label="Duel">
+        <div className="duel-tabs2" role="tablist" aria-label="Versus">
           <button
             type="button"
             role="tab"
@@ -776,7 +950,7 @@ export function DuelSheet({
               setBlock("");
             }}
           >
-            Vytvoriť duel
+            Vytvoriť hru
           </button>
           <button
             type="button"
@@ -795,6 +969,31 @@ export function DuelSheet({
         <div className="duel-setup-body">
           {tab === "create" ? (
             <>
+              <section className="duel-sec">
+                <h3>Počet hráčov</h3>
+                <div className="vs-modes" role="radiogroup" aria-label="Počet hráčov">
+                  {VERSUS_MODES.map((m) => (
+                    <button
+                      key={m.n}
+                      type="button"
+                      role="radio"
+                      aria-checked={players === m.n}
+                      className={`vs-mode is-${m.id} ${players === m.n ? "is-on" : ""}`}
+                      onClick={() => {
+                        setPlayers(m.n);
+                        setBlock("");
+                      }}
+                    >
+                      <span className="vs-art">
+                        <img src={VERSUS_ART[m.n]} alt="" width={384} height={384} loading="eager" decoding="async" draggable={false} />
+                        <i className="vs-count">{m.n}</i>
+                      </span>
+                      <b>{m.label}</b>
+                      <small>{VERSUS_SUB[m.n]}</small>
+                    </button>
+                  ))}
+                </div>
+              </section>
               <section className="duel-sec">
                 <h3>Kde hráte</h3>
                 <Seg
@@ -852,9 +1051,9 @@ export function DuelSheet({
                 onClick={() => setAnteOn((v) => !v)}
               >
                 <span>
-                  <b>ANTE pre oboch</b>
+                  <b>{players > 2 ? "ANTE pre všetkých" : "ANTE pre oboch"}</b>
                   <small>
-                    stávka {anteMul.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}× · 4KA TV častejšie · súper hrá rovnako
+                    stávka {anteMul.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}× · 4KA TV častejšie · {players > 2 ? "súperi hrajú" : "súper hrá"} rovnako
                   </small>
                 </span>
                 <i aria-hidden="true">{anteOn ? "ON" : "OFF"}</i>
@@ -863,9 +1062,11 @@ export function DuelSheet({
                 {where === "online" ? (
                   nameInput("Tvoje meno", a, editName, "duel-name")
                 ) : (
-                  <div className="duel-names">
+                  <div className={`duel-names ${players > 2 ? "is-multi" : ""}`}>
                     {nameInput("Hráč 1", a, editName, "duel-name")}
-                    {nameInput("Hráč 2", b, setB, "duel-name-2")}
+                    {others.slice(0, players - 1).map((v, k) =>
+                      nameInput(`Hráč ${k + 2}`, v, (nv) => setOthers((o) => o.map((x, j) => (j === k ? nv : x))), `duel-name-${k + 2}`),
+                    )}
                   </div>
                 )}
               </section>
@@ -903,7 +1104,7 @@ export function DuelSheet({
                   {join.kind === "error"
                     ? join.msg
                     : join.kind === "loading"
-                      ? "Hľadám duel…"
+                      ? "Hľadám hru…"
                       : invite
                         ? ""
                         : "4 znaky, ktoré ti poslal hosť. Pozvánka sa ukáže hneď."}
@@ -912,10 +1113,16 @@ export function DuelSheet({
               {invite && inviteSum ? (
                 <section className="duel-invite" aria-live="polite">
                   <p className="duel-invite-from">
-                    <small>Pozýva ťa</small>
+                    <small>Pozýva ťa · {versusMode(invite.players).label}</small>
                     <b>{invite.hostName}</b>
                   </p>
                   <dl>
+                    <div>
+                      <dt>Hráči</dt>
+                      <dd>
+                        {invite.seats.filter((x) => x.name).length}/{invite.players}
+                      </dd>
+                    </div>
                     <div>
                       <dt>Točenia</dt>
                       <dd>{invite.need}</dd>
@@ -944,7 +1151,7 @@ export function DuelSheet({
                 <small>
                   stávky {formatMoney((tab === "create" ? sum : inviteSum!).stakes)} + kaucia{" "}
                   {formatMoney((tab === "create" ? sum : inviteSum!).deposit)}
-                  {tab === "create" && seats === 2 ? " · za oboch" : ""}
+                  {tab === "create" && seats > 1 ? (seats === 2 ? " · za oboch" : ` · za ${seats}`) : ""}
                 </small>
               </span>
               <span className="duel-sum-min">
@@ -979,24 +1186,35 @@ export function DuelBar({
   canFold?: boolean;
   /** Kaucia still held for this duel (0 = none / settled). */
   deposit?: number;
-  /** bar = above the board (phones), card = side column (desktop, away from the jackpot strip). */
-  variant?: "bar" | "card";
+  /** bar = full panel above the board, card = side column (desktop, away from the jackpot strip),
+   *  strip = phones: a 50px versus strip that takes the place of the KÚPIŤ / ANTE row (both locked in a duel),
+   *  so the reels keep exactly the size they have in normal play. */
+  variant?: "bar" | "card" | "strip";
 }) {
   const view = duelView(duel);
   const online = duel.kind === "online";
-  const me: 0 | 1 = online ? duel.you : duel.turn;
-  const peer: 0 | 1 = me === 0 ? 1 : 0;
+  const n = duel.seats.length;
+  const many = n > 2;
+  const me = online ? duel.you : duel.turn;
   const wait = view.waiting || (online && !canDuelSpin(duel) && duel.phase === "play");
-  const left = Math.max(0, duel.need - duel.seats[me].have);
-  // Scores as each seat should see them: online my own last spin stays hidden until the peer reaches it.
-  const shown = (i: 0 | 1) => (online ? (i === duel.you ? view.mine : view.peer) : duel.seats[i].score);
-  const statusOf = (i: 0 | 1): string | undefined => {
-    if (duel.seats[i].have >= duel.need) return "HOTOVO";
+  const left = Math.max(0, duel.need - (duel.seats[me]?.have ?? 0));
+  const vm = versusMode(n);
+  const seatsIdx = duel.seats.map((_, i) => i);
+  const shown = (i: number) => duel.seats[i]!.score;
+  const statusOf = (i: number): string | undefined => {
+    const x = duel.seats[i]!;
+    if (x.out) return "VZDAL";
+    if (x.have >= duel.need) return "HOTOVO";
     if (online) {
       if (i === duel.you) return wait ? "ČAKÁŠ" : "NA ŤAHU";
-      return duel.peerNet ? "4KA TV / TOČÍ" : "TOČÍ";
+      const busy = many ? duel.nets?.[i] : duel.peerNet;
+      return busy ? "4KA TV / TOČÍ" : "TOČÍ";
     }
     return i === duel.turn ? "NA ŤAHU" : "ČAKÁ";
+  };
+  const liveOf = (i: number) => {
+    const x = duel.seats[i]!;
+    return duel.phase === "play" && !x.out && x.have < duel.need && (online ? i !== duel.you || !wait : i === duel.turn);
   };
   const fold =
     onForfeit && duel.phase === "play" ? (
@@ -1010,34 +1228,97 @@ export function DuelBar({
         VZDAŤ{variant === "card" && deposit > 0 ? " · kaucia prepadne" : ""}
       </button>
     ) : null;
+  const sr = (
+    <span className="duel-sr">
+      {seatsIdx.map((i) => `${duel.seats[i]!.name} ${formatMoney(shown(i))}`).join(" vs ")}
+    </span>
+  );
+  if (variant === "strip") {
+    const seat = (i: number) => (
+      <DuelStripSeat
+        key={i}
+        seat={i}
+        name={duel.seats[i]!.name}
+        have={duel.seats[i]!.have}
+        need={duel.need}
+        score={shown(i)}
+        you={online && i === duel.you}
+        live={liveOf(i)}
+        out={Boolean(duel.seats[i]!.out)}
+        status={many ? undefined : statusOf(i)}
+      />
+    );
+    const hub = (
+      <div className="duel-strip-hub">
+        <span className="duel-strip-head">
+          <span className="duel-panel-title">{many ? vm.short : "DUEL"}</span>
+          {ticketPaused ? (
+            <i className="duel-strip-tiket" role="status" title="TIKET POZASTAVENÝ · počas duelu" aria-label="Tiket pozastavený počas duelu">
+              ❚❚
+            </i>
+          ) : null}
+        </span>
+        {/* Each seat carries its own count, so the hub line shows what is not visible elsewhere. */}
+        {wait ? (
+          <span className="duel-panel-left">ČAKÁ SA</span>
+        ) : deposit > 0 ? (
+          <span className="duel-strip-dep" title={`Zostáva ${left}/${duel.need}`}>
+            {many ? "K " : "KAUCIA "}
+            {formatMoney(deposit)}
+          </span>
+        ) : (
+          <span className="duel-panel-left">
+            {many ? "" : "ZOSTÁVA "}
+            {left}/{duel.need}
+          </span>
+        )}
+        {fold}
+      </div>
+    );
+    return (
+      <div className={`duel-bar duel-panel is-strip is-n${n} ${wait ? "is-wait" : ""}`} aria-live="polite">
+        {many ? (
+          <>
+            {hub}
+            {seatsIdx.map(seat)}
+          </>
+        ) : (
+          <>
+            {seat(0)}
+            {hub}
+            {seat(1)}
+          </>
+        )}
+        {sr}
+      </div>
+    );
+  }
   return (
-    <div className={`duel-bar duel-panel is-${variant} ${wait ? "is-wait" : ""}`} aria-live="polite">
+    <div className={`duel-bar duel-panel is-${variant} is-n${n} ${wait ? "is-wait" : ""}`} aria-live="polite">
       <div className="duel-panel-head">
-        <span className="duel-panel-title">DUEL</span>
-        <span className="duel-panel-left">{wait ? "HOTOVO · ČAKÁ SA NA SÚPERA" : `ZOSTÁVA ${left}/${duel.need}`}</span>
+        <span className="duel-panel-title">{many ? vm.label : "DUEL"}</span>
+        <span className="duel-panel-left">{wait ? "HOTOVO · ČAKÁ SA NA SÚPEROV".replace("SÚPEROV", many ? "SÚPEROV" : "SÚPERA") : `ZOSTÁVA ${left}/${duel.need}`}</span>
         {deposit > 0 ? <span className="duel-panel-deposit">KAUCIA {formatMoney(deposit)}</span> : null}
         {variant === "bar" ? fold : null}
       </div>
       <div className="duel-seats">
-        {([0, 1] as const).map((i) => (
+        {seatsIdx.map((i) => (
           <DuelSeatRow
             key={i}
             seat={i}
-            name={duel.seats[i].name}
-            have={duel.seats[i].have}
+            name={duel.seats[i]!.name}
+            have={duel.seats[i]!.have}
             need={duel.need}
             score={shown(i)}
             you={online && i === duel.you}
-            live={duel.phase === "play" && duel.seats[i].have < duel.need && (online ? i !== duel.you || !wait : i === duel.turn)}
+            live={liveOf(i)}
             status={statusOf(i)}
           />
         ))}
       </div>
       {ticketPaused ? <TicketPausedChip /> : null}
       {variant === "card" ? fold : null}
-      <span className="duel-sr">
-        {duel.seats[me].name} {formatMoney(shown(me))} vs {duel.seats[peer].name} {formatMoney(shown(peer))}
-      </span>
+      {sr}
     </div>
   );
 }

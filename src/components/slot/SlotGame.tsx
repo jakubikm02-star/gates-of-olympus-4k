@@ -16,6 +16,7 @@ import { rankPeekIds } from "@/lib/slot/pick-bonus";
 import { BonusModeStrip } from "./BonusModeStrip";
 import { ZboxBonus } from "./ZboxBonus";
 import { ZasahBattery } from "./ZasahBattery";
+import { KolesoBonus } from "./KolesoBonus";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { useShell } from "@/hooks/use-shell";
 import { useContainerVars } from "@/hooks/use-container-vars";
@@ -45,6 +46,7 @@ import { depositTotal, writeAppReloadMarker } from "@/lib/slot/duel-deposit";
 import "./duel-ui.css";
 import "./zbox.css";
 import "./zasah-battery.css";
+import "./koleso.css";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
 
@@ -319,7 +321,9 @@ export function SlotGame() {
           </div>
 
         <div className="arena">
-          <aside className="side-left">
+          <aside
+            className={`side-left${g.duel && g.duel.phase === "play" ? (shell !== "pc" ? " has-duel" : g.duel.seats.length > 2 ? " has-versus" : "") : ""}`}
+          >
             <button
               type="button"
               className="parchment buy"
@@ -361,16 +365,15 @@ export function SlotGame() {
                 ));
               })()}
             </ol>
-            {/* Desktop: the duel panel lives in the side column, never under the jackpot strip at the top. */}
-            {g.duel && g.duel.phase === "play" && shell === "pc" ? (
-              <DuelBar duel={g.duel} onForfeit={g.foldDuel} canFold={g.canFold} deposit={depositTotal(g.duelDeposit)} ticketPaused={g.ticketPaused} variant="card" />
+            {/* Desktop: the duel panel lives in the side column, never under the jackpot strip at the top.
+                Phones: a versus strip laid over the KÚPIŤ / ANTE row (both locked during a duel). It never
+                takes height from the board, so the reels stay exactly as big as in normal play. */}
+            {g.duel && g.duel.phase === "play" ? (
+              <DuelBar duel={g.duel} onForfeit={g.foldDuel} canFold={g.canFold} deposit={depositTotal(g.duelDeposit)} ticketPaused={g.ticketPaused} variant={shell === "pc" ? "card" : "strip"} />
             ) : null}
           </aside>
 
           <section className="board-wrap">
-            {g.duel && g.duel.phase === "play" && shell !== "pc" ? (
-              <DuelBar duel={g.duel} onForfeit={g.foldDuel} canFold={g.canFold} deposit={depositTotal(g.duelDeposit)} ticketPaused={g.ticketPaused} />
-            ) : null}
             <div className="board-stage" ref={boardStageRef}>
             <div className="board-stage-inner">
             <div className="board-meter">
@@ -410,7 +413,7 @@ export function SlotGame() {
               ) : (
                 <div className="meter-split">
                   <div className={`pity-bar ${g.pityDelta ? "is-feed" : ""} ${g.pity >= g.pityGoal ? "is-hot" : ""} ${g.pity <= 0 ? "is-quiet" : ""}`}>
-                    <span className="pity-kicker" title="Plný bar spustí náhodne KONTROLU alebo Ž-BOX">KONTROLA · Ž-BOX</span>
+                    <span className="pity-kicker" title="Plný bar spustí náhodne KONTROLU, Ž-BOX alebo KOLESO NEŠŤASTIA">KONTROLA · Ž-BOX · KOLESO</span>
                     <span className="pity-mini" aria-hidden="true">BONUS</span>
                     <div
                       className="pity-track"
@@ -418,7 +421,7 @@ export function SlotGame() {
                       aria-valuemin={0}
                       aria-valuemax={g.pityGoal}
                       aria-valuenow={Math.min(g.pityGoal, g.pity)}
-                      aria-label="Bonus bar: KONTROLA alebo Ž-BOX"
+                      aria-label="Bonus bar: KONTROLA, Ž-BOX alebo KOLESO"
                     >
                       <i style={{ ["--pity" as string]: `${Math.min(100, (g.pity / g.pityGoal) * 100)}%` }} />
                     </div>
@@ -748,7 +751,7 @@ export function SlotGame() {
               onClick={() => g.setDuelOpen(true)}
               disabled={g.busy}
             >
-              DUEL
+              VERSUS
             </button>
           )}
           {g.autoReason && !g.autoOn && !g.duel && <span className="auto-stop">{g.autoReason}</span>}
@@ -793,6 +796,20 @@ export function SlotGame() {
           turbo={g.turbo}
           reduced={reducedMotion}
           onDone={g.finishZbox}
+        />
+      ) : null}
+
+      {g.koleso ? (
+        <KolesoBonus
+          key={g.koleso.key}
+          play={g.koleso.play}
+          bet={g.koleso.bet}
+          gross={g.koleso.gross}
+          net={g.koleso.net}
+          tax={g.koleso.tax}
+          turbo={g.turbo}
+          reduced={reducedMotion}
+          onDone={g.finishKoleso}
         />
       ) : null}
 

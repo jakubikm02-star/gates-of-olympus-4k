@@ -148,6 +148,26 @@ const FILES: Record<string, string> = {
   zbox_miss: "",
   zbox_slam: "/sfx/land2.mp3?v=keys1",
   zbox_full: "/sfx/ticket-ok.mp3?v=garand1",
+  /** KOLESO NEŠŤASTIA. Effects: synth when empty (pointer tick, tile ding, buzzer), existing files otherwise. */
+  koleso_tick: "",
+  koleso_letter: "",
+  koleso_miss: "",
+  koleso_bankrot: "/sfx/table-b.mp3?v=fail1",
+  koleso_solve: "/sfx/ticket-ok.mp3?v=garand1",
+  /** Host lines (Peter Marcipán, fictional): original TTS takes v2 in public/sfx/koleso (scripts/koleso-vo/make_vo_v2.sh). */
+  koleso_vo_welcome: "/sfx/koleso/vo-welcome.mp3?v=k2",
+  koleso_vo_spin: "/sfx/koleso/vo-spin.mp3?v=k2",
+  koleso_vo_bankrot: "/sfx/koleso/vo-bankrot.mp3?v=k2",
+  koleso_vo_vowel: "/sfx/koleso/vo-vowel.mp3?v=k2",
+  koleso_vo_solve: "/sfx/koleso/vo-solve.mp3?v=k2",
+  koleso_vo_lost: "/sfx/koleso/vo-lost.mp3?v=k2",
+  koleso_vo_tax: "/sfx/koleso/vo-tax.mp3?v=k2",
+  koleso_vo_exek: "/sfx/koleso/vo-exek.mp3?v=k2",
+  koleso_vo_courier: "/sfx/koleso/vo-courier.mp3?v=k2",
+  koleso_vo_extra: "/sfx/koleso/vo-extra.mp3?v=k2",
+  koleso_vo_x2: "/sfx/koleso/vo-x2.mp3?v=k2",
+  koleso_vo_none: "/sfx/koleso/vo-none.mp3?v=k2",
+  koleso_vo_end: "/sfx/koleso/vo-end.mp3?v=k2",
 };
 
 const CUE_MAX = 50 * 1024 * 1024;
@@ -2269,5 +2289,69 @@ if (typeof document !== "undefined") {
     } else {
       liveEl?.pause();
     }
+  });
+}
+
+/** KOLESO host lines (fictional host Peter Marcipán): one per wheel event. */
+export const KOLESO_VO = ["welcome", "spin", "bankrot", "vowel", "solve", "lost", "tax", "exek", "courier", "extra", "x2", "none", "end"] as const;
+export type KolesoVo = (typeof KOLESO_VO)[number];
+let voPlaying: { stop: () => void } | null = null;
+/** Host line; a new line cuts the previous one. Silent when the slot is empty (the banner says it anyway). */
+export function playKolesoVo(line: KolesoVo): void {
+  wake();
+  const key = `koleso_vo_${line}`;
+  withCue(key, () => {
+    voPlaying?.stop();
+    voPlaying = playBuf(key, { gain: 0.95 });
+  });
+}
+
+/** Pointer flap hits a stud. Own upload, else a short wooden click (pitch follows the wheel speed). */
+export function playKolesoTick(speed = 1): void {
+  wake();
+  withCue("koleso_tick", () => {
+    if (playOwn("koleso_tick", { gain: 0.55, rate: 0.9 + 0.25 * speed })) return;
+    tone("triangle", 1900 + 500 * speed, 0.018, 0.07, 900);
+    noise("white", 0.012, 0.05, 2500, 7000);
+  });
+}
+
+/** A tile on the board turns (Betka Frekvencová). Own upload, else a bright two-partial ding. */
+export function playKolesoLetter(i = 0): void {
+  wake();
+  withCue("koleso_letter", () => {
+    if (playOwn("koleso_letter", { gain: 0.7, rate: 1 + (i % 4) * 0.03 })) return;
+    const f = 1318 * (1 + (i % 4) * 0.06);
+    tone("sine", f, 0.42, 0.11);
+    tone("sine", f * 2.01, 0.25, 0.035);
+  });
+}
+
+/** The letter is not in the tajnička. Own upload, else a low double buzz. */
+export function playKolesoMiss(): void {
+  wake();
+  withCue("koleso_miss", () => {
+    if (playOwn("koleso_miss", { gain: 0.8 })) return;
+    tone("sawtooth", 98, 0.22, 0.07);
+    tone("sawtooth", 92, 0.26, 0.06, undefined, (ctx?.currentTime ?? 0) + 0.26);
+  });
+}
+
+/** BANKROT: the bank is gone. */
+export function playKolesoBankrot(): void {
+  wake();
+  withCue("koleso_bankrot", () => {
+    if (!playBuf("koleso_bankrot", { gain: 0.9 })) playBuf("tableB", { gain: 0.85 });
+    if (!custom.has("koleso_bankrot")) tone("sawtooth", 220, 0.9, 0.06, 55);
+  });
+}
+
+/** Tajnička vylúštená fanfare. */
+export function playKolesoSolve(): void {
+  wake();
+  withCue("koleso_solve", () => {
+    stopSpin();
+    if (!playBuf("koleso_solve", { gain: 0.9 })) playBuf("ticketOk", { gain: 0.8 });
+    if (!custom.has("koleso_solve")) playBuf("harp", { gain: 0.5 });
   });
 }

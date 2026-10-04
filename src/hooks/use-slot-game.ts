@@ -42,6 +42,8 @@ import { drawBonusMode, type BonusModeId, type PendingBonus } from "@/lib/slot/b
 import { playZbox, zboxVipOf, type ZPlay } from "@/lib/slot/zbox";
 import { setZboxHelpOff, zboxHelpOff } from "@/lib/slot/zbox-help";
 import { pauseTicket, resumePlan, ticketCounts, tickUnlessPaused, ticketReserve, type TicketPause } from "@/lib/slot/ticket-pause";
+import { playKoleso, kolesoVipOf, type KPlay } from "@/lib/slot/koleso";
+import { kolesoHelpOff, setKolesoHelpOff } from "@/lib/slot/koleso-help";
 import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision, fsSpinsOf, nextRebate, perkOf, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
@@ -81,7 +83,7 @@ import {
   type DepositSettlement,
   type DuelDeposit,
 } from "@/lib/slot/duel-deposit";
-import { abortDuel, startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, forfeitDuel, reconcileDuel, duelSettleKey, duelOutcome, blankStep, duelBannerMs, duelHoldsReload, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
+import { clampPlayers, versusMode, abortDuel, startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, forfeitDuel, reconcileDuel, duelSettleKey, duelOutcome, blankStep, duelBannerMs, duelHoldsReload, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
 import { duelForfeitIf, duelLeave, duelPoll, duelTick, type DuelSnap } from "@/lib/slot/duel-api";
 import {
   canSpend,
@@ -277,6 +279,8 @@ export function useSlotGame() {
   const [modeStrip, setModeStrip] = useState<{ mode: BonusModeId; key: number } | null>(null);
   /** Running Ž-BOX: the whole run is decided up front (playZbox), the overlay animates it. */
   const [zbox, setZbox] = useState<{ play: ZPlay; bet: number; gross: number; net: number; tax: ChaseModKind | null; key: number } | null>(null);
+  /** Running KOLESO NEŠŤASTIA: decided up front (playKoleso), the overlay animates it. */
+  const [koleso, setKoleso] = useState<{ play: KPlay; bet: number; gross: number; net: number; tax: ChaseModKind | null; key: number } | null>(null);
   const [pityDelta, setPityDelta] = useState(0);
   const [rp, setRp] = useState(0);
   const [rankPeak, setRankPeak] = useState(0);
@@ -373,7 +377,8 @@ export function useSlotGame() {
   const [duelLink, setDuelLink] = useState<DuelLink | null>(null);
   const duelLinkRef = useRef<DuelLink | null>(null);
   const [duelPeer, setDuelPeer] = useState("");
-  const pendingPeerTick = useRef<{ have: number; score: number } | null>(null);
+  /** Peer progress that arrived before the local duel object existed (keyed by seat). */
+  const pendingPeerTick = useRef<Map<number, { have: number; score: number }> | null>(null);
   const duelSettled = useRef(false);
   /** Kaucia: the deposit paid on duel entry and not settled yet (mirrored in the local save). */
   const depositRef = useRef<DuelDeposit | null>(null);
@@ -420,6 +425,7 @@ export function useSlotGame() {
   const bonusPendingRef = useRef<PendingBonus | null>(null);
   const stripWait = useRef<(() => void) | null>(null);
   const zboxWait = useRef<(() => void) | null>(null);
+  const kolesoWait = useRef<(() => void) | null>(null);
   const bonusResumeOnce = useRef(false);
   /** Tax period of the spin that armed KONTROLA (null = none / ZÁSAH / duel). */
   const pickModRef = useRef<ChaseMod | null>(null);
@@ -551,6 +557,7 @@ export function useSlotGame() {
     setPityByBet(s.pityByBet);
     bonusPendingRef.current = s.bonusPending ?? null;
     if (s.zboxHelpOff && !zboxHelpOff()) setZboxHelpOff(true);
+    if (s.kolesoHelpOff && !kolesoHelpOff()) setKolesoHelpOff(true);
     setRp(s.rp);
     setRankPeak(s.rankPeak);
     setRankShield(s.rankShield);
@@ -692,6 +699,7 @@ export function useSlotGame() {
       antiStreak: antiStreakRef.current,
       bonusPending: bonusPendingRef.current,
       zboxHelpOff: zboxHelpOff(),
+      kolesoHelpOff: kolesoHelpOff(),
     };
     if (dead) writeLocal(saveSnapRef.current);
   }, []);
@@ -793,6 +801,7 @@ export function useSlotGame() {
       antiStreak: antiStreakRef.current,
       bonusPending: bonusPendingRef.current,
       zboxHelpOff: zboxHelpOff(),
+      kolesoHelpOff: kolesoHelpOff(),
       duelDeposit: depositRef.current,
       updatedAt: Date.now(),
     };
@@ -873,8 +882,8 @@ export function useSlotGame() {
 
   /** Settle the pending deposit exactly once (refund or burn by reason). */
   const settleDeposit = useCallback(
-    (reason: DepositReason, opts?: { burnSeat?: 0 | 1; toast?: boolean }) => {
-      const res = settleOnce(depositRef.current, reason, { burnSeat: opts?.burnSeat });
+    (reason: DepositReason, opts?: { burnSeat?: number; burnSeats?: number[]; toast?: boolean }) => {
+      const res = settleOnce(depositRef.current, reason, { burnSeat: opts?.burnSeat, burnSeats: opts?.burnSeats });
       const st = res.settlement;
       if (!st) return null;
       setDeposit(null);
@@ -1020,6 +1029,7 @@ export function useSlotGame() {
       antiStreak: antiStreakRef.current,
       bonusPending: bonusPendingRef.current,
       zboxHelpOff: zboxHelpOff(),
+      kolesoHelpOff: kolesoHelpOff(),
       duelDeposit: depositRef.current,
     };
     saveSnapRef.current = payload;
@@ -2145,10 +2155,104 @@ export function useSlotGame() {
     [pushRank, noteResult, noteHeat, noteStat, persistNow, settleJob, bumpToday],
   );
 
+  /** KOLESO payout seen, tap to return. */
+  const finishKoleso = useCallback(() => {
+    const done = kolesoWait.current;
+    kolesoWait.current = null;
+    sfx.playClick();
+    done?.();
+  }, []);
+
+  /**
+   * KOLESO NEŠŤASTIA: decided up front by playKoleso(createRng(seed)) with the seed saved with the pending bar, so a
+   * reload mid-run replays the same run. Pays like KONTROLA / Ž-BOX: applyMod(…, "pick"), board (bumpToday),
+   * HLÁSENIE, RP kind "pick", stats (koleso.*), spin tape, feature tickets.
+   */
+  const runKoleso = useCallback(
+    async (pend: PendingBonus, seed: number) => {
+      const betNow = pend.bet > 0 ? pend.bet : BETS[betIndexRef.current];
+      const rankId = standing(rankRef.current.rp).id;
+      const play = playKoleso(createRng(seed), { vip: kolesoVipOf(rankId) });
+      const pickMod = pickModRef.current;
+      pickModRef.current = null;
+      const cash0 = +(play.totalX * betNow).toFixed(2);
+      const { net: cash } = applyMod(cash0, pickMod, "pick");
+      const taxKind = Math.abs(cash - cash0) >= 0.01 ? (pickMod?.kind ?? null) : null;
+      setPhase("pick");
+      setTopLine("KOLESO NEŠŤASTIA");
+      setMessage("Točíme!");
+      sfx.duckMusic(0.35);
+      setKoleso({ play, bet: betNow, gross: cash0, net: cash, tax: taxKind, key: Date.now() });
+      noteStat({ t: "kolesoStart" });
+      await new Promise<void>((resolve) => {
+        kolesoWait.current = resolve;
+      });
+      bonusPendingRef.current = null;
+      if (cash > 0) {
+        setBalance((b) => +(b + cash).toFixed(2));
+        // Board / desk: KOLESO is real credit like KONTROLA / Ž-BOX; counted once here.
+        bumpToday(0, cash, "KOLESO", betNow, null);
+        noteHeat(cash, betNow);
+        setDisplayWin(cash);
+        setSpinWin(cash);
+        setBestWin((w) => Math.max(w, cash));
+        setSpinTape((t) => [{ label: "KOLESO", amount: formatMoney(cash) }, ...t].slice(0, 8));
+        roundCashRef.current = +(roundCashRef.current + cash).toFixed(2);
+        sfx.playPayout();
+        const streak = noteResult(true);
+        const parts = rpFromSpin({
+          cash,
+          bet: betNow,
+          mult: 1,
+          tumbles: 0,
+          streak,
+          banner: bannerFromX(cash / betNow),
+          kind: "pick",
+          picks: play.steps.filter((st) => st.hits > 0).length,
+          rankId: standing(rankRef.current.rp).id,
+        });
+        pushRank(parts.total, parts);
+      } else {
+        noteResult(false);
+      }
+      persistNow();
+      setKoleso(null);
+      sfx.duckMusic(1);
+      setPhase("idle");
+      setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
+      setMessage(play.solved ? `TAJNIČKA VYLÚŠTENÁ · ${formatMoney(cash)}` : `KOLESO ${formatMoney(cash)}`);
+      const letters = play.steps.reduce((n, st) => n + st.hits, 0);
+      noteStat({
+        t: "koleso",
+        cash,
+        solved: play.solved,
+        spins: play.steps.length,
+        letters,
+        bankrot: play.steps.filter((st) => st.kind === "bankrot").length,
+        capped: play.capped,
+      });
+      // Feature tickets (bonus bar): one event per finished bar bonus; it spends no spin.
+      settleJob({
+        win: cash > 0,
+        dead: false,
+        tumbles: 0,
+        live: false,
+        ticket: null,
+        pdf: false,
+        signal: 0,
+        clusters: 0,
+        orbs: false,
+        spun: false,
+        bonus: { mode: "koleso", x: play.totalX, safes: letters, cleared: play.solved, canSum: 0, rounds: play.steps.length },
+      });
+    },
+    [pushRank, noteResult, noteHeat, noteStat, persistNow, settleJob, bumpToday],
+  );
+
   /**
    * The filled bar: show the drawn mode on the strip, then play it. KONTROLA clears the pending mode when it
-   * starts (as before: a reload mid-KONTROLA would deal a new map, so it is spent). Ž-BOX keeps it until it
-   * pays, together with its seed, so a reload replays the same run.
+   * starts (as before: a reload mid-KONTROLA would deal a new map, so it is spent). Ž-BOX and KOLESO keep it
+   * until they pay, together with the seed, so a reload replays the same run.
    */
   const runBonus = useCallback(async () => {
     const pend = bonusPendingRef.current ?? {
@@ -2166,17 +2270,18 @@ export function useSlotGame() {
     });
     setModeStrip(null);
     noteStat({ t: "barMode", mode: pend.mode });
-    if (pend.mode === "zbox") {
+    if (pend.mode === "zbox" || pend.mode === "koleso") {
       const seed = pend.seed ?? Math.floor(Math.random() * 0x100000000);
       bonusPendingRef.current = { ...pend, seed };
       persistNow();
-      await runZbox(bonusPendingRef.current, seed);
+      if (pend.mode === "koleso") await runKoleso(bonusPendingRef.current, seed);
+      else await runZbox(bonusPendingRef.current, seed);
     } else {
       bonusPendingRef.current = null;
       persistNow();
       await runPick();
     }
-  }, [runPick, runZbox, noteStat, persistNow]);
+  }, [runPick, runZbox, runKoleso, noteStat, persistNow]);
 
   const runSequence = useCallback(
     async (opts?: { buy?: boolean; free?: boolean }): Promise<"fs" | "ok" | "max" | "pick" | "skip"> => {
@@ -3015,23 +3120,28 @@ export function useSlotGame() {
     const out = duelOutcome(d);
     if (out.credit > 0) setBalance((b) => +(b + out.credit).toFixed(2));
     const pot = out.pot;
-    const w = d.forfeit != null ? (d.forfeit === 0 ? 1 : 0) : duelWinner(d);
-    if (d.forfeit != null) {
-      setTopLine(d.forfeit === d.you ? "VZDAL SI SA · stack berie súper" : `SÚPER SA VZDAL · BANK ${formatMoney(pot)}`);
-      setJobToast(d.forfeit === d.you ? "VZDAŤ" : `BANK ${formatMoney(pot)}`);
+    const w = d.aborted ? null : duelWinner(d);
+    const meOut = d.kind === "online" && Boolean(d.seats[d.you]?.out);
+    if (meOut) {
+      setTopLine(d.seats.length > 2 ? "VZDAL SI SA · tvoj stack ostáva v banku" : "VZDAL SI SA · stack berie súper");
+      setJobToast("VZDAŤ");
+    } else if (d.forfeit != null && d.seats.length <= 2) {
+      setTopLine(`SÚPER SA VZDAL · BANK ${formatMoney(pot)}`);
+      setJobToast(`BANK ${formatMoney(pot)}`);
     } else if (w === null) {
-      setTopLine("DUEL REMÍZA · každý si necháva svoju výhru");
+      setTopLine(d.seats.length > 2 && !d.aborted ? "REMÍZA NA ČELE · bank sa delí" : "DUEL REMÍZA · každý si necháva svoju výhru");
       setJobToast("REMÍZA");
     } else {
       const take = `${d.seats[w].name} BERIE BANK ${formatMoney(pot)}`;
       setTopLine(take);
       setJobToast(`BANK ${formatMoney(pot)}`);
-      setSpinTape((t) => [{ label: "DUEL BANK", amount: formatMoney(pot) }, ...t].slice(0, 8));
+      setSpinTape((t) => [{ label: `${versusMode(d.seats.length).short} BANK`, amount: formatMoney(pot) }, ...t].slice(0, 8));
     }
     // Desk / board: duel spins only counted their stakes; the payout is counted once, here.
     if (out.credit > 0) {
-      const mine = Math.round(d.seats[d.you].score);
-      const other = Math.round(d.seats[d.you === 0 ? 1 : 0].score);
+      const mine = Math.round(d.seats[d.you]!.score);
+      // 3-4 seats: the board recipe keeps its "mine vs best other" pair.
+      const other = Math.max(0, ...d.seats.filter((_, i) => i !== d.you).map((s) => Math.round(s.score)));
       bumpToday(0, out.credit, winHow({ mode: "DUEL", duel: `${mine} vs ${other}` }), BETS[betIndexRef.current] ?? 0, {
         v: 1,
         mode: "duel",
@@ -3051,11 +3161,12 @@ export function useSlotGame() {
     if (d.aborted) settleDeposit(abortReasonRef.current, { toast: false });
     else if (d.forfeit == null) settleDeposit("finish", { toast: false });
     else if (d.kind === "hotseat") {
-      settleDeposit(forfeitCauseRef.current === "idle" ? "idle" : "forfeit", { burnSeat: d.forfeit, toast: false });
+      const outs = d.seats.map((s, i) => (s.out ? i : -1)).filter((i) => i >= 0);
+      settleDeposit(forfeitCauseRef.current === "idle" ? "idle" : "forfeit", { burnSeats: outs.length ? outs : [d.forfeit], toast: false });
     } else {
       settleDeposit(
         forfeitReason({
-          mine: d.forfeit === d.you,
+          mine: Boolean(d.seats[d.you]?.out),
           cause: forfeitCauseRef.current ?? "timeout",
           netFault: depositRef.current?.netFault,
         }),
@@ -3082,7 +3193,7 @@ export function useSlotGame() {
       // Never wait forever for the row: after 8 s the local result is paid (as before this check existed).
       const timeout = new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error("timeout")), 8000));
       void Promise.race([
-        duelTick(link.room, link.role, d.seats[d.you].have, d.seats[d.you].score, {
+        duelTick(link.room, link.seat ?? (link.role === "host" ? 0 : 1), d.seats[d.you]!.have, d.seats[d.you]!.score, {
           name: link.name,
           ante: Boolean(link.ante),
           net: false,
@@ -3116,7 +3227,7 @@ export function useSlotGame() {
   const forfeitSelf = useCallback((cur: Duel, cause: "fold" | "idle" = "fold") => {
     if (cur.phase !== "play" || duelSettled.current || foldingRef.current) return;
     forfeitCauseRef.current = cause;
-    const who: 0 | 1 = cur.kind === "online" ? cur.you : cur.turn;
+    const who = cur.kind === "online" ? cur.you : cur.turn;
     const link = duelLinkRef.current;
     const local = () => {
       const live = duelRef.current;
@@ -3140,10 +3251,14 @@ export function useSlotGame() {
       setDuel(next);
       if (next.phase === "done") settleDuel(next);
     };
-    void duelForfeitIf(link.room, link.role, cur.need, "self", {
-      have: cur.seats[who].have,
-      score: cur.seats[who].score,
-    })
+    void duelForfeitIf(
+      link.room,
+      link.seat ?? (link.role === "host" ? 0 : 1),
+      cur.need,
+      "self",
+      { have: cur.seats[who]!.have, score: cur.seats[who]!.score },
+      link.players ?? cur.seats.length,
+    )
       .then(
         (ok) => (ok ? local() : follow().catch(() => {})),
         // Offline: forfeit locally; the opponent's client ends the duel on its own (silent seat).
@@ -3920,7 +4035,7 @@ export function useSlotGame() {
         finishModeStrip();
         return;
       }
-      if (zboxWait.current) return;
+      if (zboxWait.current || kolesoWait.current) return;
       if (bannerOpen.current) {
         closeBanner();
         return;
@@ -4059,6 +4174,8 @@ export function useSlotGame() {
     finishModeStrip,
     zbox,
     finishZbox,
+    koleso,
+    finishKoleso,
     pity,
     pityDelta,
     pityGoal: PITY_GOAL,
@@ -4250,15 +4367,15 @@ export function useSlotGame() {
     duelDeposit,
     depositNote,
     depositMult: DUEL_DEPOSIT_MULT,
-    hostDuel: (mode: DuelMode, name: string, betAmt?: number, need = 10, anteOn = false) => {
+    hostDuel: (mode: DuelMode, name: string, betAmt?: number, need = 10, anteOn = false, players = 2) => {
       if (chaseRef.current || chaseCardRef.current) return "Počas ZÁSAHU zamknuté";
       if (busyRef.current) return "Počkaj, kým dotočí.";
       if (autoRef.current) return "Najprv vypni AUTO.";
       if (jobRef.current?.seal) return "Najprv dokonči tiket (čaká na bonus).";
-      if (duelRef.current) return "Už beží duel.";
+      if (duelRef.current) return "Už beží VERSUS.";
       if (inFsRef.current) {
-        setTopLine("DOTOČ 4KA TV, POTOM DUEL");
-        return "Dotoč 4KA TV, potom duel.";
+        setTopLine("DOTOČ 4KA TV, POTOM VERSUS");
+        return "Dotoč 4KA TV, potom VERSUS.";
       }
       const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
       const spins = need > 0 ? Math.round(need) : 10;
@@ -4268,7 +4385,7 @@ export function useSlotGame() {
       const tj = jobRef.current;
       const reserve = tj ? ticketReserve(tj, buyXOf(standing(rankRef.current.rp).id)) : 0;
       if (!canAffordDuel(+(balanceRef.current - reserve).toFixed(2), { bet: BETS[i], need: spins }))
-        return tj ? `Málo kreditu na duel + rezervu tiketu ${formatMoney(reserve)}.` : "Málo kreditu na stávky + kauciu.";
+        return tj ? `Málo kreditu na VERSUS + rezervu tiketu ${formatMoney(reserve)}.` : "Málo kreditu na stávky + kauciu.";
       setBetIndex(i);
       betIndexRef.current = i;
       if (tj && !ticketPauseRef.current) setTicketPause(pauseTicket(tj, anteRef.current, Date.now()));
@@ -4280,6 +4397,8 @@ export function useSlotGame() {
       setDuelLink({
         room,
         role: "host",
+        seat: 0,
+        players: clampPlayers(players),
         name: name.trim().slice(0, 16) || "HRÁČ 1",
         mode,
         bet: BETS[i],
@@ -4296,10 +4415,10 @@ export function useSlotGame() {
       if (busyRef.current) return "Počkaj, kým dotočí.";
       if (autoRef.current) return "Najprv vypni AUTO.";
       if (jobRef.current?.seal) return "Najprv dokonči tiket (čaká na bonus).";
-      if (duelRef.current) return "Už beží duel.";
+      if (duelRef.current) return "Už beží VERSUS.";
       if (inFsRef.current) {
-        setTopLine("DOTOČ 4KA TV, POTOM DUEL");
-        return "Dotoč 4KA TV, potom duel.";
+        setTopLine("DOTOČ 4KA TV, POTOM VERSUS");
+        return "Dotoč 4KA TV, potom VERSUS.";
       }
       const room = code.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 4);
       if (room.length < 4) return "Kód má 4 znaky.";
@@ -4310,7 +4429,7 @@ export function useSlotGame() {
       const tj = jobRef.current;
       const reserve = tj ? ticketReserve(tj, buyXOf(standing(rankRef.current.rp).id)) : 0;
       if (!canAffordDuel(+(balanceRef.current - reserve).toFixed(2), { bet: BETS[i], need: spins }))
-        return tj ? `Málo kreditu na duel + rezervu tiketu ${formatMoney(reserve)}.` : "Málo kreditu na stávky + kauciu.";
+        return tj ? `Málo kreditu na VERSUS + rezervu tiketu ${formatMoney(reserve)}.` : "Málo kreditu na stávky + kauciu.";
       clearStaleDeposit();
       payDeposit(newDeposit({ kind: "online", room, bet: BETS[i], now: Date.now() }));
       setBetIndex(i);
@@ -4332,25 +4451,27 @@ export function useSlotGame() {
       sfx.playClick();
       return "";
     },
-    beginOnline: (peerName: string, bet: number, mode: DuelMode, need = 10, anteOn = false) => {
+    beginOnline: (info: { names: string[]; you: number; bet: number; mode: DuelMode; need?: number; ante?: boolean }) => {
       if (chaseRef.current) return "Počas ZÁSAHU zamknuté";
       const link = duelLinkRef.current;
       if (!link) return;
       if (duelRef.current?.room === link.room && duelRef.current.phase === "play") return;
-      const you: 0 | 1 = link.role === "host" ? 0 : 1;
-      const hostName = link.role === "host" ? link.name : peerName;
-      const guestName = link.role === "guest" ? link.name : peerName;
+      const you = Math.max(0, Math.min(info.names.length - 1, info.you));
+      const names = info.names.map((n, k) => (k === you ? link.name : n || (k === 0 ? "HOSŤ" : `HRÁČ ${k + 1}`)));
+      const need = info.need ?? 10;
       const spins = need > 0 ? Math.round(need) : link.need || 10;
-      const i = BETS.reduce((best, v, idx) => (Math.abs(v - bet) < Math.abs(BETS[best] - bet) ? idx : best), 0);
+      const i = BETS.reduce((best, v, idx) => (Math.abs(v - info.bet) < Math.abs(BETS[best] - info.bet) ? idx : best), 0);
       setBetIndex(i);
       betIndexRef.current = i;
-      const anteMatch = anteOn || link.ante;
+      const anteMatch = Boolean(info.ante) || link.ante;
       setAnte(anteMatch);
       anteRef.current = anteMatch;
+      const nextLink: DuelLink = { ...link, seat: you, players: names.length };
+      duelLinkRef.current = nextLink;
+      setDuelLink(nextLink);
       const next = startDuel({
-        mode: mode === "live" ? "spins" : mode,
-        a: hostName,
-        b: guestName,
+        mode: info.mode === "live" ? "spins" : info.mode,
+        names,
         bet: BETS[i],
         kind: "online",
         you,
@@ -4372,37 +4493,55 @@ export function useSlotGame() {
       const pending = pendingPeerTick.current;
       if (pending) {
         pendingPeerTick.current = null;
-        const synced = applyPeerTick(next, pending.have, pending.score);
+        let synced = next;
+        pending.forEach((p, seatN) => {
+          synced = applyPeerTick(synced, p.have, p.score, seatN < 0 ? undefined : seatN);
+        });
         duelRef.current = synced;
         setDuel(synced);
         if (synced.phase === "done") settleDuel(synced);
       }
     },
-    applyRemoteTick: (have: number, score: number) => {
+    /** A peer seat's progress (2 seats: `seatN` omitted = the other seat). */
+    applyRemoteTick: (have: number, score: number, seatN?: number) => {
       const cur = duelRef.current;
       if (!cur || cur.kind !== "online") {
-        pendingPeerTick.current = { have, score };
+        const map = pendingPeerTick.current ?? new Map<number, { have: number; score: number }>();
+        map.set(seatN ?? -1, { have, score });
+        pendingPeerTick.current = map;
         return;
       }
-      const next = applyPeerTick(cur, have, score);
+      const next = applyPeerTick(cur, have, score, seatN);
+      if (next === cur) return;
       duelRef.current = next;
       setDuel(next);
       if (next.phase === "done") settleDuel(next);
     },
-    notePeerNet: (net: boolean) => {
+    notePeerNet: (net: boolean, seatN?: number) => {
       const cur = duelRef.current;
-      if (!cur || Boolean(cur.peerNet) === net) return;
-      const next = { ...cur, peerNet: net };
+      if (!cur) return;
+      if (seatN === undefined) {
+        if (Boolean(cur.peerNet) === net) return;
+        const next = { ...cur, peerNet: net };
+        duelRef.current = next;
+        setDuel(next);
+        return;
+      }
+      const nets = cur.nets ? [...cur.nets] : cur.seats.map(() => false);
+      if (Boolean(nets[seatN]) === net) return;
+      nets[seatN] = net;
+      const next = { ...cur, nets, peerNet: nets.some((v, k) => v && k !== cur.you) };
       duelRef.current = next;
       setDuel(next);
     },
-    noteForfeit: (who: 0 | 1) => {
+    noteForfeit: (who: number) => {
       const cur = duelRef.current;
       if (!cur || cur.phase === "done" || duelSettled.current) return;
+      if (cur.seats[who]?.out) return;
       const next = forfeitDuel(cur, who);
       duelRef.current = next;
       setDuel(next);
-      settleDuel(next);
+      if (next.phase === "done") settleDuel(next);
     },
     /**
      * DuelLink: the room vanished mid-duel ("gone"), polls/writes kept failing ("net"), or this client
@@ -4426,7 +4565,7 @@ export function useSlotGame() {
       const next = abortDuel(cur);
       duelRef.current = next;
       setDuel(next);
-      setTopLine(kind === "both" ? "OBAJA VYPADLI · DUEL ZRUŠENÝ · KAUCIA SPÄŤ" : "MIESTNOSŤ ZMIZLA · DUEL ZRUŠENÝ · KAUCIA SPÄŤ");
+      setTopLine(kind === "both" ? (cur.seats.length > 2 ? "VŠETCI VYPADLI" : "OBAJA VYPADLI") + " · VERSUS ZRUŠENÝ · KAUCIA SPÄŤ" : "MIESTNOSŤ ZMIZLA · VERSUS ZRUŠENÝ · KAUCIA SPÄŤ");
       payDuel(next);
     },
     foldDuel: () => {
@@ -4439,13 +4578,15 @@ export function useSlotGame() {
       forfeitSelf(cur);
     },
     canFold: Boolean(duel && duel.phase === "play" && !busy && !inFs && !pickOpen && !banner),
-    beginDuel: (mode: DuelMode, a: string, b: string, betAmt?: number, need = 10, anteOn = false) => {
+    /** Hot-seat VERSUS: 2-4 names, all seats play from this phone, one after another. */
+    beginDuel: (mode: DuelMode, names: string[], betAmt?: number, need = 10, anteOn = false) => {
+      const seatsN = clampPlayers(names.length);
       if (chaseRef.current || chaseCardRef.current) return "Počas ZÁSAHU zamknuté";
       if (busyRef.current) return "Počkaj, kým dotočí.";
       if (autoRef.current) return "Najprv vypni AUTO.";
       if (jobRef.current?.seal) return "Najprv dokonči tiket (čaká na bonus).";
-      if (inFsRef.current) return "Dotoč 4KA TV, potom duel.";
-      if (duelRef.current) return "Už beží duel.";
+      if (inFsRef.current) return "Dotoč 4KA TV, potom VERSUS.";
+      if (duelRef.current) return "Už beží VERSUS.";
       const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
       const spins = need > 0 ? Math.round(need) : 10;
       const i = BETS.reduce((best, v, idx) => (Math.abs(v - stake) < Math.abs(BETS[best] - stake) ? idx : best), 0);
@@ -4454,16 +4595,16 @@ export function useSlotGame() {
       // A running ticket keeps a reserve for its locked bet on top of the duel: a lost duel cannot kill it.
       const tj = jobRef.current;
       const reserve = tj ? ticketReserve(tj, buyXOf(standing(rankRef.current.rp).id)) : 0;
-      if (!canAffordDuel(+(balanceRef.current - reserve).toFixed(2), { bet: BETS[i], need: spins, seats: 2 }))
-        return tj ? `Málo kreditu na duel + rezervu tiketu ${formatMoney(reserve)}.` : "Málo kreditu na stávky + kauciu.";
+      if (!canAffordDuel(+(balanceRef.current - reserve).toFixed(2), { bet: BETS[i], need: spins, seats: seatsN }))
+        return tj ? `Málo kreditu na VERSUS + rezervu tiketu ${formatMoney(reserve)}.` : "Málo kreditu na stávky + kauciu.";
       setBetIndex(i);
       betIndexRef.current = i;
       if (tj && !ticketPauseRef.current) setTicketPause(pauseTicket(tj, anteRef.current, Date.now()));
       setAnte(anteOn);
       anteRef.current = anteOn;
-      const next = startDuel({ mode, a, b, bet: BETS[i], need: spins });
+      const next = startDuel({ mode, names: names.slice(0, seatsN), bet: BETS[i], need: spins });
       clearStaleDeposit();
-      payDeposit(newDeposit({ kind: "hotseat", bet: BETS[i], now: Date.now() }));
+      payDeposit(newDeposit({ kind: "hotseat", bet: BETS[i], now: Date.now(), seats: seatsN }));
       forfeitCauseRef.current = null;
       abortReasonRef.current = "roomFailure";
       duelSettled.current = false;
@@ -4484,7 +4625,7 @@ export function useSlotGame() {
       const next = confirmSwap(cur);
       duelRef.current = next;
       setDuel(next);
-      setTopLine(`DUEL · ${next.seats[1].name}`);
+      setTopLine(`${versusMode(next.seats.length).label} · ${next.seats[next.turn]!.name}`);
       sfx.playClick();
     },
     endDuel: () => {
@@ -4498,7 +4639,7 @@ export function useSlotGame() {
         forfeitSelf(cur);
         return;
       }
-      if (link && !cur) void duelLeave(link.room, link.role).catch(() => {});
+      if (link && !cur) void duelLeave(link.room, link.seat ?? link.role, link.players ?? 2).catch(() => {});
       // Kaucia: a lobby that never became a duel returns it; a finished duel whose payout is still in
       // flight is settled by payDuel, anything else left pending here is refunded as a game failure.
       if (!cur) settleDeposit(depositRef.current?.started ? "roomFailure" : "notStarted");
