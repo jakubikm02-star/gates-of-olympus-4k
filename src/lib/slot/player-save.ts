@@ -6,6 +6,7 @@ import { sanitizePendingBonus, type PendingBonus } from "./bonus-mode.ts";
 import type { TierId } from "./jackpot";
 import { type JobCard, type JobFloor } from "./spend.ts";
 import { sanitizeDeposit, type DuelDeposit } from "./duel-deposit.ts";
+import { sanitizeTicketPause, type TicketPause } from "./ticket-pause.ts";
 import { antiStreak } from "./anticipation.ts";
 
 export const SAVE_KEY = "parkizmus-v1";
@@ -74,6 +75,8 @@ export interface PlayerSave {
   antiStreak: number;
   /** Duel entry deposit paid and not settled yet (kaucia). Settled on boot if the page went away. */
   duelDeposit?: DuelDeposit | null;
+  /** Ticket paused for a duel: locked bet + ante to put back when the duel is over (also after a reload). */
+  ticketPause?: TicketPause | null;
 }
 
 export function emptyPlayerSave(): PlayerSave {
@@ -133,6 +136,7 @@ export function emptyPlayerSave(): PlayerSave {
     fsZasah: false,
     antiStreak: 0,
     duelDeposit: null,
+    ticketPause: null,
   };
 }
 
@@ -363,6 +367,9 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.fsZasah = bool(r.fsZasah, false);
   s.antiStreak = antiStreak(r.antiStreak);
   s.duelDeposit = sanitizeDeposit(r.duelDeposit);
+  s.ticketPause = sanitizeTicketPause(r.ticketPause);
+  // A pause only makes sense next to its ticket.
+  if (s.ticketPause && (!s.job || s.job.id !== s.ticketPause.jobId)) s.ticketPause = null;
   if (!s.inFs || s.fsLeft <= 0) {
     s.inFs = false;
     s.fsLeft = 0;

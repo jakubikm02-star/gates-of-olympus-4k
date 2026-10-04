@@ -35,6 +35,10 @@ interface Props {
   nick?: string;
   /** This player's ante multiplier (rank perk): the stake shown in the summary when ANTE is on. */
   anteMul?: number;
+  /** A ticket is running: it pauses for the duel and keeps this much credit for its locked bet (0 = no ticket). */
+  ticketReserve?: number;
+  /** The ticket is paused by the running duel (result card chip). */
+  ticketPaused?: boolean;
 }
 
 /** No heartbeat from the peer for this long while it still owes spins: the peer is out. */
@@ -148,6 +152,16 @@ export function DuelSeatRow({
   );
 }
 
+/** Small chip in the duel UI: the running ticket waits while the duel plays. */
+export function TicketPausedChip({ text = "TIKET POZASTAVENÝ · počas duelu" }: { text?: string }) {
+  return (
+    <span className="duel-ticket-chip" role="status">
+      <i aria-hidden="true">❚❚</i>
+      {text}
+    </span>
+  );
+}
+
 function depositLine(st: DepositSettlement | null | undefined): string {
   if (!st) return "";
   if (st.burned > 0 && st.refund > 0) return `Kaucia: prepadlo ${formatMoney(st.burned)} · vrátené ${formatMoney(st.refund)}`;
@@ -168,7 +182,10 @@ export function DuelLink({
   onRoomFail,
   inFs,
   peerName = "",
+  ticketPaused = false,
 }: {
+  /** A ticket is paused for this duel: chip in the lobby. */
+  ticketPaused?: boolean;
   link: DuelLink;
   duel: Duel | null;
   bet: number;
@@ -427,6 +444,7 @@ export function DuelLink({
             ×
           </button>
         </header>
+        {ticketPaused ? <TicketPausedChip /> : null}
         <p className="duel-kicker">KÓD MIESTNOSTI · ťukni pre kopírovanie</p>
         <button type="button" className="duel-code" onClick={copy} aria-label="Skopírovať kód">
           {link.room}
@@ -545,6 +563,8 @@ export function DuelSheet({
   depositNote,
   nick = "",
   anteMul = 1,
+  ticketReserve = 0,
+  ticketPaused = false,
 }: Props) {
   const [a, setA] = useState(nick || "HRÁČ 1");
   const [b, setB] = useState("HRÁČ 2");
@@ -650,6 +670,7 @@ export function DuelSheet({
             ))}
           </div>
           <p className="duel-take">{gain > 0 ? `+${formatMoney(gain)}` : "0,00"}</p>
+          {ticketPaused ? <TicketPausedChip text="TIKET POZASTAVENÝ · pokračuje po zatvorení" /> : null}
           {dep ? <p className={`duel-deposit-note ${depositNote && depositNote.burned > 0 ? "is-burn" : ""}`}>{dep}</p> : null}
           <button type="button" className="chip-btn gold duel-go" onClick={onEnd}>
             PORT
@@ -663,14 +684,17 @@ export function DuelSheet({
 
   const seats: 1 | 2 = where === "hotseat" ? 2 : 1;
   const sum = duelSummary({ bet: stake, need, ante: anteOn, anteMul, seats });
-  const createShort = credit < sum.minCredit;
+  // A running ticket keeps credit for its locked bet on top of the duel (same check as the game's).
+  const createNeed = +(sum.minCredit + ticketReserve).toFixed(2);
+  const createShort = credit < createNeed;
   const presets = STAKE_PRESETS.filter((v) => seatCost(need, v) * seats <= credit);
   const maxed = nearestBetIndex(stake) >= BETS.length - 1;
   const minned = nearestBetIndex(stake) <= 0;
 
   const invite = join.kind === "ok" ? join.snap : null;
   const inviteSum = invite ? duelSummary({ bet: invite.bet, need: invite.need, ante: invite.ante, anteMul, seats: 1 }) : null;
-  const joinShort = inviteSum ? credit < inviteSum.minCredit : false;
+  const joinNeed = inviteSum ? +(inviteSum.minCredit + ticketReserve).toFixed(2) : 0;
+  const joinShort = inviteSum ? credit < joinNeed : false;
   const codeOk = code.length === 4;
 
   const editName = (v: string) => {
@@ -715,8 +739,8 @@ export function DuelSheet({
 
   const note =
     block ||
-    (tab === "create" && createShort ? `Málo kreditu · treba ${formatMoney(sum.minCredit)}` : "") ||
-    (tab === "join" && joinShort && inviteSum ? `Málo kreditu · treba ${formatMoney(inviteSum.minCredit)}` : "");
+    (tab === "create" && createShort ? `Málo kreditu · treba ${formatMoney(createNeed)}${ticketReserve > 0 ? " (s rezervou tiketu)" : ""}` : "") ||
+    (tab === "join" && joinShort && inviteSum ? `Málo kreditu · treba ${formatMoney(joinNeed)}${ticketReserve > 0 ? " (s rezervou tiketu)" : ""}` : "");
 
   return (
     <div className="modal-back duel-setup-back" onClick={onClose} role="presentation">
@@ -735,6 +759,12 @@ export function DuelSheet({
             ×
           </button>
         </header>
+        {ticketReserve > 0 ? (
+          <p className="duel-ticket-note">
+            <TicketPausedChip text="TIKET SA POZASTAVÍ · počas duelu" />
+            <small>Po dueli pokračuje so svojou stávkou. Rezerva {formatMoney(ticketReserve)} ostáva v kredite.</small>
+          </p>
+        ) : null}
         <div className="duel-tabs2" role="tablist" aria-label="Duel">
           <button
             type="button"
@@ -919,7 +949,7 @@ export function DuelSheet({
               </span>
               <span className="duel-sum-min">
                 <small>min. kredit</small>
-                <b>{formatMoney((tab === "create" ? sum : inviteSum!).minCredit)}</b>
+                <b>{formatMoney(tab === "create" ? createNeed : joinNeed)}</b>
               </span>
               <DepositInfo id="duel-setup-info" />
             </div>
@@ -940,7 +970,10 @@ export function DuelBar({
   canFold = true,
   deposit = 0,
   variant = "bar",
+  ticketPaused = false,
 }: {
+  /** A ticket waits for this duel: small chip under the seats. */
+  ticketPaused?: boolean;
   duel: Duel;
   onForfeit?: () => void;
   canFold?: boolean;
@@ -1000,6 +1033,7 @@ export function DuelBar({
           />
         ))}
       </div>
+      {ticketPaused ? <TicketPausedChip /> : null}
       {variant === "card" ? fold : null}
       <span className="duel-sr">
         {duel.seats[me].name} {formatMoney(shown(me))} vs {duel.seats[peer].name} {formatMoney(shown(peer))}

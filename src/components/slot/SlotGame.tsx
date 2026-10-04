@@ -361,13 +361,13 @@ export function SlotGame() {
             </ol>
             {/* Desktop: the duel panel lives in the side column, never under the jackpot strip at the top. */}
             {g.duel && g.duel.phase === "play" && shell === "pc" ? (
-              <DuelBar duel={g.duel} onForfeit={g.foldDuel} canFold={g.canFold} deposit={depositTotal(g.duelDeposit)} variant="card" />
+              <DuelBar duel={g.duel} onForfeit={g.foldDuel} canFold={g.canFold} deposit={depositTotal(g.duelDeposit)} ticketPaused={g.ticketPaused} variant="card" />
             ) : null}
           </aside>
 
           <section className="board-wrap">
             {g.duel && g.duel.phase === "play" && shell !== "pc" ? (
-              <DuelBar duel={g.duel} onForfeit={g.foldDuel} canFold={g.canFold} deposit={depositTotal(g.duelDeposit)} />
+              <DuelBar duel={g.duel} onForfeit={g.foldDuel} canFold={g.canFold} deposit={depositTotal(g.duelDeposit)} ticketPaused={g.ticketPaused} />
             ) : null}
             <div className="board-stage" ref={boardStageRef}>
             <div className="board-stage-inner">
@@ -493,7 +493,7 @@ export function SlotGame() {
             ))}
             <RankToast flash={resolving || g.inFs ? null : g.rankFlash} />
             </div>
-            <div className={`board-job ${liveJob || seal ? "has-job" : ""} ${seal ? `is-seal is-${seal.verdict}` : ""}`}>
+            <div className={`board-job ${liveJob || seal ? "has-job" : ""} ${seal ? `is-seal is-${seal.verdict}` : ""} ${g.ticketPaused ? "is-paused" : ""}`}>
               {(liveJob || seal) && (
                 <JobCardCompact
                   job={liveJob ?? seal!.job}
@@ -1119,6 +1119,8 @@ export function SlotGame() {
         depositNote={g.depositNote}
         nick={g.nick}
         anteMul={g.perk.anteMul}
+        ticketReserve={g.ticketReserve}
+        ticketPaused={g.ticketPaused}
       />
       {g.duelLink ? (
         <DuelLink
@@ -1134,6 +1136,7 @@ export function SlotGame() {
           onEnd={g.endDuel}
           onRoomFail={g.noteRoomFail}
           peerName={g.duelPeer}
+          ticketPaused={g.ticketPaused}
           inFs={g.inFs || g.busy}
         />
       ) : null}

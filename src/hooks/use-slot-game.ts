@@ -41,6 +41,7 @@ import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, spendPity, type
 import { drawBonusMode, type BonusModeId, type PendingBonus } from "@/lib/slot/bonus-mode";
 import { playZbox, zboxVipOf, type ZPlay } from "@/lib/slot/zbox";
 import { setZboxHelpOff, zboxHelpOff } from "@/lib/slot/zbox-help";
+import { pauseTicket, resumePlan, ticketCounts, tickUnlessPaused, ticketReserve, type TicketPause } from "@/lib/slot/ticket-pause";
 import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision, fsSpinsOf, nextRebate, perkOf, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
@@ -92,7 +93,6 @@ import {
   jobStatus,
   shownOnGrid,
   stampDaily,
-  tickJob,
   freeSpinsLabel,
   JOB_BANK,
   type DailyBoard,
@@ -305,6 +305,13 @@ export function useSlotGame() {
   const [ticketFx, setTicketFx] = useState<{ id: number; kind: "pay" | "payout"; job: JobCard } | null>(null);
   const clearTicketFx = useCallback(() => setTicketFx(null), []);
   const jobRef = useRef<JobCard | null>(null);
+  /** Ticket paused for a duel (persisted): locked bet + ante to restore when the duel is over. */
+  const [ticketPause, setTicketPauseState] = useState<TicketPause | null>(null);
+  const ticketPauseRef = useRef<TicketPause | null>(null);
+  const setTicketPause = useCallback((p: TicketPause | null) => {
+    ticketPauseRef.current = p;
+    setTicketPauseState(p);
+  }, []);
   const rebateRef = useRef({ paid: 0, spins: 0 });
   const [jobOffer, setJobOffer] = useState<JobCard[] | null>(null);
   const [daily, setDaily] = useState<DailyBoard | null>(null);
@@ -625,6 +632,10 @@ export function useSlotGame() {
     }
     setJob(dead ? null : loaded);
     jobRef.current = dead ? null : loaded;
+    // A reload during a duel: the duel itself is gone (its kaucia is settled below), the paused ticket
+    // stays paused until the resume effect puts the locked bet + ante back.
+    ticketPauseRef.current = s.ticketPause ?? null;
+    setTicketPauseState(s.ticketPause ?? null);
     pendingLiveTicketRef.current = s.pendingLiveTicket;
     if (s.dailyCards.length === 3 && s.dailyDay === deskToday()) {
       const board = { day: s.dailyDay, cards: s.dailyCards, marks: s.dailyMarks };
@@ -755,6 +766,7 @@ export function useSlotGame() {
       rankPeak: rankRef.current.peak,
       rankShield: rankRef.current.shield,
       job: jobRef.current,
+      ticketPause: ticketPauseRef.current,
       pendingLiveTicket: pendingLiveTicketRef.current,
       dailyDay: dailyRef.current?.day ?? "",
       dailyCards: dailyRef.current?.cards ?? [],
@@ -982,6 +994,7 @@ export function useSlotGame() {
       fsTriggerCash: fsSessionRef.current.triggerCash,
       globalMult: globalMultRef.current,
       job: jobRef.current,
+      ticketPause: ticketPauseRef.current,
       pendingLiveTicket: pendingLiveTicketRef.current,
       dailyDay: dailyRef.current?.day ?? "",
       dailyCards: dailyRef.current?.cards ?? [],
@@ -1011,7 +1024,7 @@ export function useSlotGame() {
     };
     saveSnapRef.current = payload;
     writeLocal(payload);
-  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, autoHalt, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pots, reloadStreak, weekDue, fsLeft, inFs, globalMult, job, daily, heat, klienti, chase, chaseMod]);
+  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, autoHalt, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pots, reloadStreak, weekDue, fsLeft, inFs, globalMult, job, ticketPause, daily, heat, klienti, chase, chaseMod]);
 
   useEffect(() => {
     let stop = false;
@@ -1665,10 +1678,18 @@ export function useSlotGame() {
   }, []);
 
   const settleJob = useCallback((ev: JobEvent) => {
-    if (duelRef.current) return;
     const cur = jobRef.current;
     if (!cur) return;
-    const next = tickJob(cur, ev);
+    // Paused ticket: nothing from a duel (its lobby, its rounds, a round that started in it) counts,
+    // so no progress, no spin off the clock, no payout and no fail.
+    const gate = {
+      duel: Boolean(duelRef.current),
+      lobby: Boolean(duelLinkRef.current),
+      roundInDuel: roundEscrowRef.current,
+      paused: Boolean(ticketPauseRef.current),
+    };
+    if (!ticketCounts(gate)) return;
+    const next = tickUnlessPaused(cur, ev, gate);
     const st = jobStatus(next);
     if (st === "ok") {
       jobRef.current = null;
@@ -1792,7 +1813,8 @@ export function useSlotGame() {
    */
   useEffect(() => {
     if (!hydrated || !started || busy || inFs || fsSessionRef.current.left > 0) return;
-    if (duel || duelLink) return;
+    // A paused ticket is never failed by the money guard: it waits for the resume (locked bet back) first.
+    if (duel || duelLink || ticketPause) return;
     const rankId = standing(rankRef.current.rp).id;
     const perkNow = perkOf(rankId);
     const anteOf = (b: number) => +(b * perkNow.anteMul).toFixed(2);
@@ -1850,7 +1872,24 @@ export function useSlotGame() {
     }
     // Not even the smallest bet: a chase cannot go on, EXEKÚCIA opens.
     if (chaseRef.current) voidChase();
-  }, [hydrated, started, busy, inFs, duel, duelLink, balance, betIndex, ante, job, rp, chase, autoOn, failParknetJob, voidChase]);
+  }, [hydrated, started, busy, inFs, duel, duelLink, ticketPause, balance, betIndex, ante, job, rp, chase, autoOn, failParknetJob, voidChase]);
+
+  /**
+   * Duel over (any end: result closed, VZDAŤ, lobby left, room failure, or a reload during the duel):
+   * the home slot goes back to the ticket's locked bet + ante and the ticket goes on where it stopped.
+   */
+  useEffect(() => {
+    if (!hydrated || !started || busy || inFs || fsSessionRef.current.left > 0) return;
+    if (duel || duelLink || !ticketPause) return;
+    const plan = resumePlan(ticketPauseRef.current, jobRef.current);
+    setTicketPause(null);
+    if (!plan || "clear" in plan) return;
+    betIndexRef.current = plan.betIndex;
+    setBetIndex(plan.betIndex);
+    anteRef.current = plan.ante;
+    setAnte(plan.ante);
+    setJobToast(plan.toast);
+  }, [hydrated, started, busy, inFs, duel, duelLink, ticketPause, setTicketPause]);
 
   const waitForPick = useCallback(() => {
     return new Promise<void>((resolve) => {
@@ -4201,6 +4240,8 @@ export function useSlotGame() {
     lcdFlash,
     surplusX: JOB_BANK,
     duel,
+    ticketPaused: Boolean(ticketPause && job && ticketPause.jobId === job.id),
+    ticketReserve: job && !job.seal ? ticketReserve(job, buyX) : 0,
     duelOpen,
     setDuelOpen,
     duelLink,
@@ -4213,7 +4254,7 @@ export function useSlotGame() {
       if (chaseRef.current || chaseCardRef.current) return "Počas ZÁSAHU zamknuté";
       if (busyRef.current) return "Počkaj, kým dotočí.";
       if (autoRef.current) return "Najprv vypni AUTO.";
-      if (jobRef.current) return "Najprv dokonči tiket (OTRS).";
+      if (jobRef.current?.seal) return "Najprv dokonči tiket (čaká na bonus).";
       if (duelRef.current) return "Už beží duel.";
       if (inFsRef.current) {
         setTopLine("DOTOČ 4KA TV, POTOM DUEL");
@@ -4223,9 +4264,14 @@ export function useSlotGame() {
       const spins = need > 0 ? Math.round(need) : 10;
       const i = BETS.reduce((best, v, idx) => (Math.abs(v - stake) < Math.abs(BETS[best] - stake) ? idx : best), 0);
       // Stakes reserve + kaucia (DUEL_DEPOSIT_MULT x bet).
-      if (!canAffordDuel(balanceRef.current, { bet: BETS[i], need: spins })) return "Málo kreditu na stávky + kauciu.";
+      // A running ticket keeps a reserve for its locked bet on top of the duel: a lost duel cannot kill it.
+      const tj = jobRef.current;
+      const reserve = tj ? ticketReserve(tj, buyXOf(standing(rankRef.current.rp).id)) : 0;
+      if (!canAffordDuel(+(balanceRef.current - reserve).toFixed(2), { bet: BETS[i], need: spins }))
+        return tj ? `Málo kreditu na duel + rezervu tiketu ${formatMoney(reserve)}.` : "Málo kreditu na stávky + kauciu.";
       setBetIndex(i);
       betIndexRef.current = i;
+      if (tj && !ticketPauseRef.current) setTicketPause(pauseTicket(tj, anteRef.current, Date.now()));
       setAnte(anteOn);
       anteRef.current = anteOn;
       const room = makeRoomCode();
@@ -4249,7 +4295,7 @@ export function useSlotGame() {
       if (chaseRef.current || chaseCardRef.current) return "Počas ZÁSAHU zamknuté";
       if (busyRef.current) return "Počkaj, kým dotočí.";
       if (autoRef.current) return "Najprv vypni AUTO.";
-      if (jobRef.current) return "Najprv dokonči tiket (OTRS).";
+      if (jobRef.current?.seal) return "Najprv dokonči tiket (čaká na bonus).";
       if (duelRef.current) return "Už beží duel.";
       if (inFsRef.current) {
         setTopLine("DOTOČ 4KA TV, POTOM DUEL");
@@ -4260,11 +4306,16 @@ export function useSlotGame() {
       const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
       const spins = need > 0 ? Math.round(need) : 10;
       const i = BETS.reduce((best, v, idx) => (Math.abs(v - stake) < Math.abs(BETS[best] - stake) ? idx : best), 0);
-      if (!canAffordDuel(balanceRef.current, { bet: BETS[i], need: spins })) return "Málo kreditu na stávky + kauciu.";
+      // A running ticket keeps a reserve for its locked bet on top of the duel: a lost duel cannot kill it.
+      const tj = jobRef.current;
+      const reserve = tj ? ticketReserve(tj, buyXOf(standing(rankRef.current.rp).id)) : 0;
+      if (!canAffordDuel(+(balanceRef.current - reserve).toFixed(2), { bet: BETS[i], need: spins }))
+        return tj ? `Málo kreditu na duel + rezervu tiketu ${formatMoney(reserve)}.` : "Málo kreditu na stávky + kauciu.";
       clearStaleDeposit();
       payDeposit(newDeposit({ kind: "online", room, bet: BETS[i], now: Date.now() }));
       setBetIndex(i);
       betIndexRef.current = i;
+      if (tj && !ticketPauseRef.current) setTicketPause(pauseTicket(tj, anteRef.current, Date.now()));
       setAnte(anteOn);
       anteRef.current = anteOn;
       setDuelLink({
@@ -4392,7 +4443,7 @@ export function useSlotGame() {
       if (chaseRef.current || chaseCardRef.current) return "Počas ZÁSAHU zamknuté";
       if (busyRef.current) return "Počkaj, kým dotočí.";
       if (autoRef.current) return "Najprv vypni AUTO.";
-      if (jobRef.current) return "Najprv dokonči tiket (OTRS).";
+      if (jobRef.current?.seal) return "Najprv dokonči tiket (čaká na bonus).";
       if (inFsRef.current) return "Dotoč 4KA TV, potom duel.";
       if (duelRef.current) return "Už beží duel.";
       const stake = betAmt && betAmt > 0 ? betAmt : BETS[betIndexRef.current];
@@ -4400,9 +4451,14 @@ export function useSlotGame() {
       const i = BETS.reduce((best, v, idx) => (Math.abs(v - stake) < Math.abs(BETS[best] - stake) ? idx : best), 0);
       // Hot-seat: both seats spin from this one wallet while the winnings sit in the duel bank;
       // both seats also pay their kaucia from it.
-      if (!canAffordDuel(balanceRef.current, { bet: BETS[i], need: spins, seats: 2 })) return "Málo kreditu na stávky + kauciu.";
+      // A running ticket keeps a reserve for its locked bet on top of the duel: a lost duel cannot kill it.
+      const tj = jobRef.current;
+      const reserve = tj ? ticketReserve(tj, buyXOf(standing(rankRef.current.rp).id)) : 0;
+      if (!canAffordDuel(+(balanceRef.current - reserve).toFixed(2), { bet: BETS[i], need: spins, seats: 2 }))
+        return tj ? `Málo kreditu na duel + rezervu tiketu ${formatMoney(reserve)}.` : "Málo kreditu na stávky + kauciu.";
       setBetIndex(i);
       betIndexRef.current = i;
+      if (tj && !ticketPauseRef.current) setTicketPause(pauseTicket(tj, anteRef.current, Date.now()));
       setAnte(anteOn);
       anteRef.current = anteOn;
       const next = startDuel({ mode, a, b, bet: BETS[i], need: spins });

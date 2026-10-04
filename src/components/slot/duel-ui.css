@@ -1187,3 +1187,66 @@
 .duel-hint.is-err::first-letter {
   text-transform: uppercase;
 }
+
+/* —— ticket paused for a duel —— */
+.duel-ticket-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgb(110 201 169 / 0.55);
+  background: rgb(110 201 169 / 0.12);
+  color: #a6f0d4;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.duel-ticket-chip i {
+  font-style: normal;
+  font-size: 0.55rem;
+  letter-spacing: -0.05em;
+}
+
+.duel-ticket-note {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 16px 8px;
+}
+
+.duel-ticket-note small {
+  font-size: 0.74rem;
+  color: var(--color-muted);
+}
+
+.duel-lobby .duel-ticket-chip,
+.duel-slam .duel-ticket-chip {
+  margin: 0 0 8px;
+}
+
+.duel-slam .duel-ticket-chip {
+  align-self: center;
+  margin: 0 auto 10px;
+  display: flex;
+  width: fit-content;
+}
+
+.duel-bar.duel-panel .duel-ticket-chip {
+  font-size: 0.52rem;
+  padding: 2px 8px;
+}
+
+/* The ticket bar under the reels is dimmed while its ticket waits for the duel. */
+.board-job.is-paused {
+  opacity: 0.55;
+  filter: saturate(0.4);
+  pointer-events: none;
+}
