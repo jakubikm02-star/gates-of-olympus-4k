@@ -67,7 +67,8 @@ test("combinations vary: each template × floor deals many need/window pairs", (
   }
   for (const [k, s] of seen) {
     const t = k.split("/")[0]!;
-    const min = t === "pot" || t === "sucho" ? 2 : FIXED_NEED.has(t) ? 4 : 6;
+    const fixedFeature = JOB_RANGES[t]?.[k.split("/")[1] as "lacna"]?.need[0] === JOB_RANGES[t]?.[k.split("/")[1] as "lacna"]?.need[1];
+    const min = t === "pot" || t === "sucho" ? 2 : FIXED_NEED.has(t) || fixedFeature ? 4 : 6;
     assert.ok(s.size >= min, `${k}: only ${s.size} combinations`);
   }
 });

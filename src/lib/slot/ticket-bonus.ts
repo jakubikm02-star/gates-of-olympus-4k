@@ -1,5 +1,5 @@
 import { formatMoney } from "./format.ts";
-import { jobBaseDone, jobBonusDone, jobLeft, jobShownGoal, jobSplit, jobTriesLeft, spinWord, triesWord, type JobCard } from "./spend.ts";
+import { featureOf, jobBaseDone, jobBonusDone, jobLeft, jobShownGoal, jobSplit, jobTriesLeft, spinWord, triesWord, type JobCard } from "./spend.ts";
 
 /**
  * Display-only read of a ticket: does finishing it depend on 4KA TV (the bonus)?
@@ -10,7 +10,47 @@ import { jobBaseDone, jobBonusDone, jobLeft, jobShownGoal, jobSplit, jobTriesLef
  * - "trigger": 4KA TV has to land naturally in the base game; a buy does not count (template siet).
  *              Ante doubles the 4KA TV chance, so it is the useful switch here.
  */
-export type BonusNeed = "buy" | "fs" | "trigger";
+export type BonusNeed = "buy" | "fs" | "trigger" | FeatureNeed;
+
+/**
+ * Feature tickets (spend.ts FEATURE_TEMPLATES): the goal needs a game feature to run.
+ * - "zasah":    ZÁSAH (starts when the HLÁSENIE heat bar is full),
+ * - "bar":      the KONTROLA · Ž-BOX bar or its bonus, whichever mode the 50:50 draw gives,
+ * - "kontrola": only a KONTROLA counts (a Ž-BOX from the bar does not),
+ * - "zbox":     only a Ž-BOX counts.
+ */
+export type FeatureNeed = "zasah" | "bar" | "kontrola" | "zbox";
+
+const FEATURE_NOTE: Record<FeatureNeed, { badge: string; pill: string; hint: string }> = {
+  zasah: {
+    badge: "LEN V ZÁSAHU",
+    pill: "ZÁSAH",
+    hint:
+      "ZÁSAH sa spustí, keď sa výhrami naplní HLÁSENIE. Spiny ZÁSAHU minú točenia tiketu, 4KA TV nie. Ak ZÁSAH beží pri poslednom točení, tiket počká na jeho koniec.",
+  },
+  bar: {
+    badge: "BONUS BAR · KONTROLA ALEBO Ž-BOX",
+    pill: "BONUS",
+    hint:
+      "Bar KONTROLA · Ž-BOX plnia mŕtve spiny (+2) a 3 scattery (+30). Plný bar losuje KONTROLU alebo Ž-BOX 50:50, počíta sa oboje. Bonus spustený posledným točením sa ešte odohrá.",
+  },
+  kontrola: {
+    badge: "LEN V KONTROLE",
+    pill: "KONTROLA",
+    hint:
+      "Ráta sa len KONTROLA. Plný bar KONTROLA · Ž-BOX losuje režim 50:50, Ž-BOX sa pri tomto tikete nepočíta (limit je na to nastavený). Bonus spustený posledným točením sa ešte odohrá.",
+  },
+  zbox: {
+    badge: "LEN V Ž-BOXE",
+    pill: "Ž-BOX",
+    hint:
+      "Ráta sa len Ž-BOX. Plný bar KONTROLA · Ž-BOX losuje režim 50:50, KONTROLA sa pri tomto tikete nepočíta (limit je na to nastavený). Bonus spustený posledným točením sa ešte odohrá.",
+  },
+};
+
+export function isFeatureNeed(need: BonusNeed | null | undefined): need is FeatureNeed {
+  return need === "zasah" || need === "bar" || need === "kontrola" || need === "zbox";
+}
 
 export interface TicketLeg {
   /** Where this goal counts. "trigger" goals count base spins. */
@@ -47,9 +87,11 @@ export interface TicketBonus {
   cta: "buy" | "ante" | null;
 }
 
-const RANK: Record<BonusNeed, number> = { buy: 3, fs: 2, trigger: 1 };
+const RANK: Record<BonusNeed, number> = { buy: 3, fs: 2, trigger: 1, zasah: 1, bar: 1, kontrola: 1, zbox: 1 };
 
-export function legNeed(kind: JobCard["kind"], scope: JobCard["scope"]): BonusNeed | null {
+export function legNeed(kind: JobCard["kind"], scope: JobCard["scope"], template?: string): BonusNeed | null {
+  const feat = featureOf(template);
+  if (feat) return feat;
   if (kind === "buy") return "buy";
   if (scope === "live") return "fs";
   if (kind === "live") return "trigger";
@@ -77,12 +119,12 @@ function legLabel(need: BonusNeed | null): string {
 }
 
 export function ticketBonus(job: JobCard): TicketBonus {
-  const a = legNeed(job.kind, job.scope);
+  const a = legNeed(job.kind, job.scope, job.template);
   const legs: TicketLeg[] = [];
   const two = Boolean(job.kindB);
   if (two) {
     const goals = jobShownGoal(job).split(" + ");
-    const b = legNeed(job.kindB!, job.scopeB);
+    const b = legNeed(job.kindB!, job.scopeB, job.templateB);
     legs.push({
       where: a === "buy" || a === "fs" ? "bonus" : "base",
       need: a,
@@ -151,6 +193,8 @@ export function ticketBonus(job: JobCard): TicketBonus {
     pill = "SPUSTI TV";
     hint = "4KA TV musí padnúť v základnej hre, kúpa sa nepočíta. Odporúčame ANTE (4KA TV ×2)." + shared;
     cta = "ante";
+  } else if (isFeatureNeed(need)) {
+    ({ badge, pill, hint } = FEATURE_NOTE[need]);
   }
   if (dual) badge = need === "buy" ? "DVOJITÝ · ZÁKLAD + KÚPA 4KA TV" : "DVOJITÝ · ZÁKLAD + 4KA TV";
   return { need, dual, split, legs, badge, pill, hint, cta };

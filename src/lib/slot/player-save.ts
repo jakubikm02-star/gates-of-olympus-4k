@@ -2,6 +2,7 @@ import { BETS, START_BALANCE, type PayId } from "./symbols.ts";
 import type { ChaseModKind, FsSymId } from "./zasah.ts";
 import { readChaseFields } from "./zasah.ts";
 import type { PityMap } from "./pick-bonus";
+import { sanitizePendingBonus, type PendingBonus } from "./bonus-mode.ts";
 import type { TierId } from "./jackpot";
 import { type JobCard, type JobFloor } from "./spend.ts";
 import { sanitizeDeposit, type DuelDeposit } from "./duel-deposit.ts";
@@ -20,6 +21,8 @@ export interface PlayerSave {
   autoHalt: boolean;
   bestWin: number;
   pityByBet: PityMap;
+  /** Bar filled: the drawn mode (KONTROLA / Ž-BOX) waiting to be played. A reload keeps it. */
+  bonusPending?: PendingBonus | null;
   rp: number;
   rankPeak: number;
   rankShield: boolean;
@@ -82,6 +85,7 @@ export function emptyPlayerSave(): PlayerSave {
     autoHalt: true,
     bestWin: 0,
     pityByBet: {},
+    bonusPending: null,
     rp: 0,
     rankPeak: 0,
     rankShield: false,
@@ -175,7 +179,28 @@ function stampMs(v: unknown): number {
 
 const TIERS: TierId[] = ["ulica", "okres", "kraj", "stat"];
 const FLOORS: JobFloor[] = ["lacna", "stred", "draha"];
-const KINDS: JobCard["kind"][] = ["wins", "deads", "tumbles", "live", "ticket", "pdf", "signal", "symbol", "buy", "hydra", "chain", "collect", "cash"];
+const KINDS: JobCard["kind"][] = [
+  "wins",
+  "deads",
+  "tumbles",
+  "live",
+  "ticket",
+  "pdf",
+  "signal",
+  "symbol",
+  "buy",
+  "hydra",
+  "chain",
+  "collect",
+  "cash",
+  "zasah",
+  "zasahBest",
+  "bar",
+  "bonus",
+  "bonusBest",
+];
+/** Feature tickets: the goal is not one-per-spin, so the window is not stretched to the goal. */
+const LOOSE_KINDS: JobCard["kind"][] = ["collect", "bar", "zasahBest", "bonus", "bonusBest", "zasah"];
 const SCOPES: JobCard["scope"][] = ["base", "live", "any"];
 
 function jobSave(raw: unknown): JobCard | null {
@@ -211,7 +236,7 @@ function jobSave(raw: unknown): JobCard | null {
     limit: (() => {
       const spunNow = Math.min(400, Math.max(0, Math.floor(num(r.spun, 0))));
       let spins = Math.min(800, Math.max(5, Math.floor(num(r.limit, 40))));
-      if (!cash && kind !== "collect") spins = Math.max(spins, Math.min(need, 200));
+      if (!cash && !LOOSE_KINDS.includes(kind)) spins = Math.max(spins, Math.min(need, 200));
       if (kindB && (cash || kindB === "cash") && spins > 160) spins = Math.max(110, spunNow);
       return Math.max(spins, spunNow);
     })(),
@@ -285,6 +310,7 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.autoHalt = bool(r.autoHalt, true);
   s.bestWin = num(r.bestWin, 0, 0, 1_000_000_000);
   s.pityByBet = pityMap(r.pityByBet);
+  s.bonusPending = sanitizePendingBonus(r.bonusPending);
   s.rp = Math.max(0, Math.floor(num(r.rp, 0)));
   s.rankPeak = Math.max(0, Math.floor(num(r.rankPeak, 0)));
   s.rankShield = bool(r.rankShield, false);

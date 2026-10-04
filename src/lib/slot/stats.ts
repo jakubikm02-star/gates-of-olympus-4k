@@ -101,6 +101,9 @@ export type StatEvent =
       zasah?: boolean;
     }
   | { t: "pick"; cash: number; safes: number; clear: boolean; fines: number; odtah?: boolean }
+  | { t: "barMode"; mode: string }
+  | { t: "zboxStart" }
+  | { t: "zbox"; cash: number; parcels: number; found: number; full: boolean; cans: number; rounds: number; capped: boolean }
   | { t: "chaseStart"; fsSym: FsSymId }
   | { t: "chaseWindow"; result: "hit" | "fs" | "miss"; lock: boolean }
   | { t: "chaseEnd"; outcome: ChaseOutcome | "void"; spins: number; strikes: number; ms: number }
@@ -155,6 +158,11 @@ const JOB_KINDS = [
   "chain",
   "collect",
   "cash",
+  "zasah",
+  "zasahBest",
+  "bar",
+  "bonus",
+  "bonusBest",
 ] as const;
 const FLOORS: readonly JobFloor[] = ["lacna", "stred", "draha"];
 const TIERS: readonly TierId[] = ["ulica", "okres", "kraj", "stat"];
@@ -190,6 +198,8 @@ const C_PREFIXES = [
   "buy.",
   "retrigger",
   "pick.",
+  "zbox.",
+  "bar.",
   "odtah",
   "fine",
   "chase.",
@@ -659,6 +669,30 @@ export function applyStat(s: PlayerStats, ev: StatEvent, now = Date.now()): Play
       const better = (hi["pick.best"] ?? 0) < ev.cash;
       setHi(hi, "pick.best", ev.cash);
       if (better) setRec(rec, "pick.best", null, true);
+      break;
+    }
+    case "barMode": {
+      bump(c, `bar.mode.${ev.mode === "zbox" ? "zbox" : "kontrola"}`);
+      break;
+    }
+    case "zboxStart": {
+      bump(c, "zbox.start");
+      break;
+    }
+    case "zbox": {
+      bump(c, "zbox.done");
+      bump(c, "zbox.paid", ev.cash);
+      bump(c, "paid", ev.cash);
+      bump(c, "zbox.parcels", ev.parcels);
+      bump(c, "zbox.found", ev.found);
+      bump(c, "zbox.rounds", ev.rounds);
+      if (ev.cans > 0) bump(c, "zbox.can");
+      if (ev.capped) bump(c, "zbox.cap");
+      if (ev.full) {
+        bump(c, "zbox.full");
+        setFirst(first, "zbox.full", now);
+      }
+      setHi(hi, "zbox.best", ev.cash);
       break;
     }
     case "chaseStart": {

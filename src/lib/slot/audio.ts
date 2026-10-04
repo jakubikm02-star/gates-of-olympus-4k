@@ -123,6 +123,13 @@ const FILES: Record<string, string> = {
   zNeutral: "",
   /** MASÍVNA VÝHRA (250×+). Until the admin uploads one, the game plays the big-win fanfare (A/B). */
   massive: "/sfx/table-a.mp3?v=glitch1",
+  /** Ž-BOX (PAKEŤÁK). Built-in defaults until the admin uploads: synth keypad beep / synth buzzer when the file
+   *  is empty, existing files otherwise — never silent. The roof can reuses Hrom + Plechovka. */
+  zbox_beep: "",
+  zbox_open: "/sfx/collect.mp3",
+  zbox_miss: "",
+  zbox_slam: "/sfx/land2.mp3?v=keys1",
+  zbox_full: "/sfx/ticket-ok.mp3?v=garand1",
 };
 
 const CUE_MAX = 50 * 1024 * 1024;
@@ -1805,6 +1812,69 @@ export function previewHeartbeat(): void {
     if (playOwn("zHeart", { gain: 0.85 })) return;
     synthHeartbeat();
   });
+}
+
+/** Ž-BOX display / keypad beep (mode strip ticks too). Own upload, else a two-tone synth beep. */
+export function playZboxBeep(pitch = 1): void {
+  wake();
+  withCue("zbox_beep", () => {
+    if (playOwn("zbox_beep", { gain: 0.7, rate: pitch })) return;
+    tone("square", 1568 * pitch, 0.06, 0.05);
+    tone("square", 2093 * pitch, 0.07, 0.04, undefined, (ctx?.currentTime ?? 0) + 0.07);
+  });
+}
+
+/** Mode strip tick (quiet beep while the tiles pass). */
+export function playStripTick(): void {
+  wake();
+  withCue("zbox_beep", () => {
+    if (playOwn("zbox_beep", { gain: 0.25, rate: 1.5 })) return;
+    tone("square", 2400, 0.025, 0.025);
+  });
+}
+
+/** Door flies open, parcel pops, green lock click. */
+export function playZboxOpen(): void {
+  wake();
+  withCue("zbox_open", () => {
+    if (!playBuf("zbox_open", { gain: 0.85, rate: 0.97 + Math.random() * 0.06 })) playBuf("collect", { gain: 0.6 });
+    tone("square", 1200, 0.03, 0.05, 600, (ctx?.currentTime ?? 0) + 0.18);
+  });
+}
+
+/** NEDORUČENÉ: "mimo prevádzky" buzzer. Own upload, else a synth buzzer. */
+export function playZboxMiss(): void {
+  wake();
+  withCue("zbox_miss", () => {
+    if (playOwn("zbox_miss", { gain: 0.8 })) return;
+    tone("sawtooth", 110, 0.32, 0.08);
+    tone("square", 116, 0.32, 0.04);
+  });
+}
+
+/** Doors slam (end, row by row). */
+export function playZboxSlam(): void {
+  wake();
+  withCue("zbox_slam", () => {
+    if (!playBuf("zbox_slam", { gain: 0.9, rate: 0.85 + Math.random() * 0.1 })) noise("brown", 0.18, 0.3, 40, 900);
+  });
+}
+
+/** VŠETKO DORUČENÉ fanfare. */
+export function playZboxFull(): void {
+  wake();
+  withCue("zbox_full", () => {
+    stopSpin();
+    if (!playBuf("zbox_full", { gain: 0.9 })) playBuf("ticketOk", { gain: 0.8 });
+    if (!custom.has("zbox_full")) playBuf("harp", { gain: 0.5 });
+  });
+}
+
+/** Kuriérsky príplatok: a can lands on the roof — thunder, then the can sound. */
+export function playZboxCan(): void {
+  wake();
+  playThunder();
+  window.setTimeout(() => playMult(), 160);
 }
 
 export function playPickStart(): void {

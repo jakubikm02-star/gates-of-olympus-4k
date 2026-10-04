@@ -22,7 +22,26 @@ export interface JobCard {
   have: number;
   limit: number;
   spun: number;
-  kind: "wins" | "deads" | "tumbles" | "live" | "ticket" | "pdf" | "signal" | "symbol" | "buy" | "hydra" | "chain" | "collect" | "cash";
+  kind:
+    | "wins"
+    | "deads"
+    | "tumbles"
+    | "live"
+    | "ticket"
+    | "pdf"
+    | "signal"
+    | "symbol"
+    | "buy"
+    | "hydra"
+    | "chain"
+    | "collect"
+    | "cash"
+    // Feature tickets (FEATURE_TEMPLATES): ZÁSAH starts, best of one ZÁSAH, KONTROLA · Ž-BOX bar points, bar bonuses, best of one bar bonus.
+    | "zasah"
+    | "zasahBest"
+    | "bar"
+    | "bonus"
+    | "bonusBest";
   scope?: "base" | "live" | "any";
   /** Bet locked for the life of the job. */
   lockBet: number;
@@ -113,12 +132,101 @@ const TEMPLATES: {
   },
 ];
 
-export const JOB_TEMPLATE_IDS: readonly string[] = TEMPLATES.map((t) => t.id);
+/** Which game feature a feature ticket is about (on-card marker, Slovak copy, counting). */
+export type FeatureId = "zasah" | "kontrola" | "zbox" | "bar";
+
+type Template = (typeof TEMPLATES)[number] & {
+  feat?: FeatureId;
+  /** Floors this feature ticket is dealt on (default all). */
+  floors?: JobFloor[];
+};
+
+function featureFor(floor: JobFloor, rng: () => number): Template {
+  return pickOne(
+    FEATURE_TEMPLATES.filter((t) => !t.floors || t.floors.includes(floor)),
+    rng,
+  );
+}
+
+/**
+ * Feature tickets: ZÁSAH (its HLÁSENIE heat bar), the KONTROLA · Ž-BOX bar (mode drawn 50:50) and each bar mode.
+ * Budgets count paid base-game spins (ZÁSAH spins included, 4KA TV spins not), like every base ticket.
+ * Each goal is tuned on the real engine (scripts/feature-sim) to the floor's clear rate of the base tickets,
+ * so with the same payout bands the ticket return per € stays where it was. "Best of one" goals
+ * (HACK, ZÁSAH win, one KONTROLA / Ž-BOX) keep the ticket open past its last spin until that ZÁSAH ends /
+ * the bonus armed on the last spin is played (seal), so a run that started in time is never cut off.
+ * Left out on purpose (too rare for any spin budget): 4KA TV inside ZÁSAH (~1 in 120 ZÁSAH),
+ * all 9 pins in KONTROLA (1 in 220), VŠETKO DORUČENÉ (~1 in 6 000 Ž-BOX).
+ */
+const FEATURE_TEMPLATES: Template[] = [
+  { id: "zasah", titles: ["ZÁSAH", "RAZIA", "NÁLET"], kind: "zasah", scope: "base", need: [1, 2], until: [150, 300], line: "spustiť ZÁSAH", feat: "zasah" },
+  { id: "hack", titles: ["HACKER", "ZAMERANÉ", "PRIELOM"], kind: "zasahBest", scope: "base", need: [2, 4], until: [150, 300], line: "HACK v jednom ZÁSAHU", feat: "zasah" },
+  { id: "lup", titles: ["LÚP ZO ZÁSAHU", "ČIERNA KASA", "ZÁSAH PLATÍ"], kind: "zasahBest", scope: "base", need: [3, 8], until: [150, 300], line: "× stávky v jednom ZÁSAHU", feat: "zasah" },
+  { id: "kvota", titles: ["KVÓTA", "PAPIERE", "UDANIE"], kind: "bar", scope: "base", need: [70, 100], until: [40, 60], line: "bodov do baru KONTROLA · Ž-BOX", feat: "bar" },
+  { id: "urad", titles: ["BONUS Z BARU", "NÁHODNÁ KONTROLA", "LOTÉRIA ÚRADU"], kind: "bonus", scope: "base", need: [1, 2], until: [60, 160], line: "bonus z baru KONTROLA · Ž-BOX", feat: "bar" },
+  { id: "uradvyhra", titles: ["ÚRADNÁ VÝPLATA", "DOTÁCIA", "VRATKA"], kind: "bonusBest", scope: "base", need: [3, 6], until: [60, 200], line: "× stávky v jednom bonuse KONTROLA / Ž-BOX", feat: "bar" },
+  { id: "listky", titles: ["BEZ ODŤAHU", "PARKOVACIE LÍSTKY", "ZÓNA A"], kind: "bonusBest", scope: "base", need: [2, 4], until: [100, 300], line: "lístkov v jednej KONTROLE", feat: "kontrola" },
+  { id: "pokuta", titles: ["POKUTA", "BLOKOVÉ KONANIE", "MESTSKÁ KASA"], kind: "bonusBest", scope: "base", need: [3, 5], until: [100, 300], line: "× stávky v jednej KONTROLE", feat: "kontrola" },
+  { id: "zasielky", titles: ["PAKEŤÁK", "DORUČOVATEĽ", "Ž-BOX"], kind: "bonusBest", scope: "base", need: [4, 7], until: [100, 300], line: "zásielok v jednom Ž-BOXE", feat: "zbox" },
+  { id: "priplatok", titles: ["PRÍPLATOK", "KURIÉR", "PLECHOVKA NA STRECHE"], kind: "bonusBest", scope: "base", need: [2, 2], until: [180, 270], line: "kuriérsky príplatok v Ž-BOXE", feat: "zbox", floors: ["draha"] },
+  { id: "okna", titles: ["DOČKAJ SA", "DORUČOVACIE OKNÁ", "TRPEZLIVOSŤ"], kind: "bonusBest", scope: "base", need: [4, 7], until: [100, 300], line: "kôl v jednom Ž-BOXE", feat: "zbox" },
+];
+
+const ALL_TEMPLATES: Template[] = [...TEMPLATES, ...FEATURE_TEMPLATES];
+
+export const JOB_TEMPLATE_IDS: readonly string[] = ALL_TEMPLATES.map((t) => t.id);
+export const FEATURE_TEMPLATE_IDS: readonly string[] = FEATURE_TEMPLATES.map((t) => t.id);
+
+/** Feature of a ticket template, null for the classic tickets. */
+export function featureOf(template: string | undefined): FeatureId | null {
+  return FEATURE_TEMPLATES.find((t) => t.id === template)?.feat ?? null;
+}
+
+export function isFeatureKind(kind: JobCard["kind"] | undefined): boolean {
+  return kind === "zasah" || kind === "zasahBest" || kind === "bar" || kind === "bonus" || kind === "bonusBest";
+}
+
+/** Slovak count word: 1 / 2–4 / 0 and 5+ (Slovak: 22 bodov, 133 bodov). */
+export function skCount(n: number, one: string, few: string, many: string): string {
+  if (n === 1) return one;
+  if (n >= 2 && n <= 4) return few;
+  return many;
+}
+
+/** Plain goal line of a feature ticket (picker, strip, sheet). */
+export function featureGoal(template: string, need: number): string {
+  switch (template) {
+    case "zasah":
+      return `${need}× spustiť ZÁSAH`;
+    case "hack":
+      return need >= 4 ? "4× HACK v jednom ZÁSAHU (únik BEZ DANE)" : `${need}× HACK v jednom ZÁSAHU`;
+    case "lup":
+      return `Vyhraj ${need}× stávku v jednom ZÁSAHU`;
+    case "kvota":
+      return `${need} ${skCount(need, "bod", "body", "bodov")} do baru KONTROLA · Ž-BOX`;
+    case "urad":
+      return `${need}× bonus z baru (KONTROLA alebo Ž-BOX)`;
+    case "uradvyhra":
+      return `Vyhraj ${need}× stávku v jednom bonuse z baru (KONTROLA alebo Ž-BOX)`;
+    case "listky":
+      return `${need} ${skCount(need, "lístok", "lístky", "lístkov")} v jednej KONTROLE`;
+    case "pokuta":
+      return `Vyhraj ${need}× stávku v jednej KONTROLE`;
+    case "zasielky":
+      return `${need} ${skCount(need, "zásielka", "zásielky", "zásielok")} v jednom Ž-BOXE`;
+    case "priplatok":
+      return `Kuriérsky príplatok ×${need} v jednom Ž-BOXE`;
+    case "okna":
+      return `${need} ${skCount(need, "kolo", "kolá", "kôl")} v jednom Ž-BOXE`;
+    default:
+      return `${need}×`;
+  }
+}
 
 const titleOver = new Map<string, string[]>();
 
 export function contractCatalog(): { id: string; line: string; titles: string[]; defaults: string[] }[] {
-  return TEMPLATES.map((t) => ({
+  return ALL_TEMPLATES.map((t) => ({
     id: t.id,
     line: t.line,
     defaults: [...t.titles],
@@ -234,6 +342,7 @@ function splitClock(job: JobCard): string {
 
 export function jobClock(job: JobCard, inLive = false): string {
   if (jobDone(job)) return "SPLNENÁ";
+  if (job.seal && isFeatureKind(job.kind)) return job.kind === "zasahBest" ? "ČAKÁ NA KONIEC ZÁSAHU" : "ČAKÁ NA BONUS";
   if (jobSplit(job)) return jobStatus(job) === "fail" ? "NEÚSPEŠNÝ TIKET" : splitClock(job);
   const bothLive =
     Boolean(job.kindB) &&
@@ -281,10 +390,15 @@ export function jobMeter(job: JobCard): string {
   }
   if (job.kind === "collect") return `${job.have}/${job.need} ks`;
   if (job.kind === "cash") return `${formatMoney(job.have)} / ${formatMoney(job.need)} €`;
+  if (job.template === "lup" || job.template === "pokuta" || job.template === "uradvyhra") return `${job.have}×/${job.need}×`;
+  if (job.template === "priplatok") return job.have > 0 ? `×${job.have}/×${job.need}` : `–/×${job.need}`;
+  if (job.kind === "bar") return `${job.have}/${job.need} b.`;
   return `${job.have}/${job.need}`;
 }
 
 export function jobScopeLabel(job: JobCard): string {
+  const feat = featureOf(job.template);
+  if (feat) return `BASE GAME · ${FEATURE_TAG[feat]}`;
   if (job.scope === "live") return job.kind === "buy" ? "KÚPA 4KA TV" : "4KA TV";
   if (job.scope === "any") return "BASE + 4KA TV";
   return "BASE GAME";
@@ -470,6 +584,22 @@ export const JOB_RANGES: Record<string, Record<JobFloor, { need: Span; window: S
   noc: { lacna: { need: [2, 4], window: [25, 35] }, stred: { need: [3, 5], window: [25, 35] }, draha: { need: [4, 7], window: [25, 30] } },
   hydra: { lacna: { need: [0, 0], window: [65, 85] }, stred: { need: [0, 0], window: [55, 75] }, draha: { need: [0, 0], window: [45, 65] } },
   odpis: { lacna: { need: [0, 0], window: [15, 25] }, stred: { need: [0, 0], window: [25, 40] }, draha: { need: [0, 0], window: [40, 55] } },
+  // Feature tickets (scripts/feature-sim/tune.ts on the real engine, Kredit rank, ante off): each cell clears
+  // about as often as the base single tickets of its floor (76.6 / 59.3 / 39.6 %). Rates the windows rest on:
+  // KONTROLA · Ž-BOX bar ≈ 1.93 points per spin (bar bonus every ~54 spins, KONTROLA or Ž-BOX ~1 in 108 each),
+  // ZÁSAH every ~170 spins (10 spins, 4× HACK = únik in ~47 %).
+  zasah: { lacna: { need: [1, 1], window: [110, 170] }, stred: { need: [1, 2], window: [160, 245] }, draha: { need: [2, 2], window: [190, 290] } },
+  hack: { lacna: { need: [2, 3], window: [165, 250] }, stred: { need: [3, 4], window: [160, 240] }, draha: { need: [4, 4], window: [115, 175] } },
+  lup: { lacna: { need: [2, 3], window: [225, 340] }, stred: { need: [3, 5], window: [200, 295] }, draha: { need: [5, 8], window: [185, 280] } },
+  kvota: { lacna: { need: [45, 65], window: [30, 50] }, stred: { need: [70, 100], window: [40, 60] }, draha: { need: [120, 155], window: [55, 80] } },
+  urad: { lacna: { need: [1, 1], window: [35, 50] }, stred: { need: [1, 2], window: [50, 80] }, draha: { need: [2, 3], window: [75, 115] } },
+  uradvyhra: { lacna: { need: [2, 3], window: [125, 185] }, stred: { need: [3, 4], window: [110, 170] }, draha: { need: [4, 6], window: [95, 140] } },
+  listky: { lacna: { need: [2, 2], window: [200, 295] }, stred: { need: [2, 3], window: [155, 230] }, draha: { need: [3, 4], window: [130, 195] } },
+  pokuta: { lacna: { need: [2, 2], window: [225, 340] }, stred: { need: [3, 4], window: [210, 310] }, draha: { need: [4, 5], window: [135, 205] } },
+  zasielky: { lacna: { need: [3, 4], window: [215, 325] }, stred: { need: [4, 5], window: [225, 340] }, draha: { need: [5, 6], window: [215, 320] } },
+  // ×2 in one Ž-BOX is ~1 in 490 spins: only drahá fits a sane budget.
+  priplatok: { lacna: { need: [2, 2], window: [180, 270] }, stred: { need: [2, 2], window: [180, 270] }, draha: { need: [2, 2], window: [180, 270] } },
+  okna: { lacna: { need: [3, 4], window: [130, 200] }, stred: { need: [4, 6], window: [135, 205] }, draha: { need: [6, 8], window: [140, 205] } },
 };
 
 /**
@@ -550,7 +680,7 @@ export function payTilt(hards: number[], floor: JobFloor, kind: "single" | "comb
 }
 
 function makeJob(
-  t: (typeof TEMPLATES)[number],
+  t: Template,
   floor: JobFloor,
   credit: number,
   bet: number,
@@ -568,7 +698,8 @@ function makeJob(
   const winD = drawWindow(rng, range.window);
   const need = needD.v;
   const slack = t.kind === "buy" || t.scope === "live" ? 3 : 8;
-  let limit = snapFive(Math.max(need + slack, winD.v));
+  // Feature goals are not one-per-spin (bar points, best of one ZÁSAH / bonus): the window alone is the budget.
+  let limit = isFeatureKind(t.kind) ? snapFive(winD.v) : snapFive(Math.max(need + slack, winD.v));
   const title = pickOne(titleOver.get(t.id) ?? t.titles, rng);
   let payId = t.payIds?.length ? pickOne(t.payIds, rng) : undefined;
   let payIdB: PayId | undefined;
@@ -627,9 +758,10 @@ function makeJob(
         : t.kind === "symbol" && payId
           ? `výhier ${payName(payId)} dokopy`
           : t.line;
-  const tag = t.scope === "live" ? " · 4KA TV" : t.scope === "any" ? " · BASE+4KA TV" : "";
-  const goal =
-    t.kind === "cash"
+  const tag = t.feat ? ` · ${FEATURE_TAG[t.feat]}` : t.scope === "live" ? " · 4KA TV" : t.scope === "any" ? " · BASE+4KA TV" : "";
+  const goal = t.feat
+    ? featureGoal(t.id, needNow)
+    : t.kind === "cash"
       ? `Nazbieraj ${formatMoney(needNow)} € vo výhrach do ${limit} ${spinWord(limit)}`
       : t.kind === "hydra"
         ? line
@@ -659,6 +791,8 @@ function makeJob(
   legMeta.set(card, { hards, plainPay });
   return card;
 }
+
+const FEATURE_TAG: Record<FeatureId, string> = { zasah: "ZÁSAH", kontrola: "KONTROLA", zbox: "Ž-BOX", bar: "BONUS BAR" };
 
 /** Drawn difficulty and untilted payout of a dealt goal, so OTRS can tilt the whole ticket once. */
 const legMeta = new WeakMap<JobCard, { hards: number[]; plainPay: number }>();
@@ -799,6 +933,16 @@ export function dealOtrs(rng: () => number, credit: number, bet: number): JobCar
   return makeOtrs(rng, credit, bet);
 }
 
+/** Share of deals with a feature ticket among the three cards / as the 4th (mystery) single. */
+export const FEATURE_DEAL = { daily: 0.5, mystery: 0.2 };
+
+/** Test/sim hook: one feature ticket of a given template and floor, dealt like any card. */
+export function dealFeature(id: string, floor: JobFloor, rng: () => number, credit: number, bet: number): JobCard {
+  const t = FEATURE_TEMPLATES.find((x) => x.id === id);
+  if (!t) throw new Error(`no feature template ${id}`);
+  return makeJob(t, floor, credit, bet, rng);
+}
+
 export function dealJobs(rng: () => number, credit: number, bet: number): JobCard[] {
   const floors: JobFloor[] = ["lacna", "stred", "draha"];
   const bag = shuffle(TEMPLATES, rng);
@@ -813,12 +957,19 @@ export function dealJobs(rng: () => number, credit: number, bet: number): JobCar
     if (cashAt >= 0) rest.splice(cashAt, 1);
     if (displaced) rest.unshift(displaced);
   }
-  const three = floors.map((floor, i) => makeJob(threeT[i % threeT.length], floor, credit, bet, rng));
+  const deck: Template[] = threeT.slice();
+  // One of the three cards is a feature ticket (ZÁSAH / bonus bar / KONTROLA / Ž-BOX) about every other deal.
+  if (rng() < FEATURE_DEAL.daily) {
+    const at = Math.floor(rng() * deck.length);
+    deck[at] = featureFor(floors[at] ?? "stred", rng);
+  }
+  const three = floors.map((floor, i) => makeJob(deck[i % deck.length], floor, credit, bet, rng));
   const bonusFloor = floors[Math.floor(rng() * floors.length)] ?? "stred";
+  const single = rng() < FEATURE_DEAL.mystery ? featureFor(bonusFloor, rng) : pickOne(TEMPLATES, rng);
   const bonus =
     rng() < 0.25
       ? makeOtrs(rng, credit, bet)
-      : makeJob(pickOne(TEMPLATES, rng), bonusFloor, credit, bet, rng, drawReal(rng, PAY_RANGES.mystery).v, true);
+      : makeJob(single, bonusFloor, credit, bet, rng, drawReal(rng, PAY_RANGES.mystery).v, true);
   return [...three, bonus];
 }
 
@@ -868,6 +1019,93 @@ export interface JobEvent {
   cash?: number;
   /** Natural or bought PARKNET just closed. */
   featureOver?: boolean;
+  /** Feature tickets. This paid spin was a ZÁSAH spin. */
+  chasing?: boolean;
+  /** ZÁSAH started with this spin. */
+  chaseStart?: boolean;
+  /** HACK count and win (× bet, ZÁSAH spins only) of the running ZÁSAH after this spin. */
+  chaseHits?: number;
+  chaseX?: number;
+  /** The ZÁSAH ended on this spin. */
+  chaseOver?: boolean;
+  /** Points this spin put on the KONTROLA · Ž-BOX bar (dead spin +2, 3 scatters +30). */
+  pityAdd?: number;
+  /** This spin filled the bar: a bar bonus (KONTROLA / Ž-BOX) plays right after it. */
+  bonusArmed?: boolean;
+  /** A bar bonus just paid (its own event, spun: false). */
+  bonus?: BonusResult;
+}
+
+/** One finished bar bonus, as feature tickets read it. */
+export interface BonusResult {
+  mode: "kontrola" | "zbox";
+  /** Payout × bet (after príplatok / ×2 / cap, before the tax period). */
+  x: number;
+  /** KONTROLA: safe pins opened. Ž-BOX: parcels in the wall at the end (start parcels included). */
+  safes: number;
+  /** KONTROLA: all 9 safes. Ž-BOX: VŠETKO DORUČENÉ. */
+  cleared: boolean;
+  /** Ž-BOX: kuriérsky príplatok (sum of the cans, 0 = none). */
+  canSum: number;
+  /** Ž-BOX: rounds played. */
+  rounds: number;
+}
+
+/** Progress of a feature ticket after this event (null: the event does not touch this ticket). */
+export function featureHave(job: JobCard, ev: JobEvent): number | null {
+  const t = job.template;
+  if (job.kind === "zasah") return ev.chaseStart ? job.have + 1 : null;
+  if (job.kind === "zasahBest") {
+    if (!ev.chasing) return null;
+    const v = t === "hack" ? Math.floor(ev.chaseHits ?? 0) : Math.floor((ev.chaseX ?? 0) + 1e-9);
+    return Math.max(job.have, v);
+  }
+  if (job.kind === "bar") return ev.pityAdd ? job.have + Math.max(0, Math.floor(ev.pityAdd)) : null;
+  const b = ev.bonus;
+  if (!b) return null;
+  if (job.kind === "bonus") return job.have + 1;
+  if (job.kind !== "bonusBest") return null;
+  const metric = (): number | null => {
+    if (t === "uradvyhra") return Math.floor(b.x + 1e-9);
+    if (t === "listky") return b.mode === "kontrola" ? b.safes : null;
+    if (t === "pokuta") return b.mode === "kontrola" ? Math.floor(b.x + 1e-9) : null;
+    if (t === "zasielky") return b.mode === "zbox" ? b.safes : null;
+    if (t === "priplatok") return b.mode === "zbox" ? b.canSum : null;
+    if (t === "okna") return b.mode === "zbox" ? b.rounds : null;
+    return null;
+  };
+  const m = metric();
+  return m == null ? null : Math.max(job.have, m);
+}
+
+/** A "best of one" feature ticket still waiting for a run that started in time: the running ZÁSAH or the armed bonus. */
+function featureWaits(job: JobCard, ev: JobEvent): boolean {
+  if (job.kind === "zasahBest") return Boolean(ev.chasing && !ev.chaseOver);
+  if (job.kind === "bonus" || job.kind === "bonusBest") return Boolean(ev.bonusArmed);
+  return false;
+}
+
+/** Feature tickets: base-game spins only (ZÁSAH spins count, 4KA TV spins and the bonus itself do not). */
+function tickFeature(job: JobCard, ev: JobEvent): JobCard {
+  const live = Boolean(ev.liveSpin || ev.bought);
+  const have = live ? null : featureHave(job, ev);
+  const nextHave = have == null ? job.have : Math.min(job.need, have);
+  if (job.seal) {
+    const next = { ...job, have: nextHave };
+    if (jobDone(next)) return { ...next, seal: undefined };
+    // Released when the run it waited for is over: ZÁSAH ended, or the bonus paid.
+    const over = job.kind === "zasahBest" ? Boolean(ev.chaseOver) : Boolean(ev.bonus);
+    return over ? { ...next, seal: undefined, spun: job.limit } : next;
+  }
+  const counts = !live && ev.spun !== false;
+  const spun = counts ? job.spun + 1 : job.spun;
+  const next: JobCard = { ...job, have: nextHave, spun };
+  if (jobDone(next)) return next;
+  if (next.limit - next.spun <= 0) {
+    if (featureWaits(next, ev)) return { ...next, spun: next.limit, seal: true };
+    return { ...next, spun: next.limit };
+  }
+  return next;
 }
 
 function jobOnThisSpin(job: JobCard, ev: JobEvent): boolean {
@@ -1019,6 +1257,9 @@ function comboHops(job: JobCard): boolean {
 }
 
 export function tickJob(job: JobCard, ev: JobEvent): JobCard {
+  if (isFeatureKind(job.kind) && !job.kindB) return tickFeature(job, ev);
+  // A bar bonus result is only for feature tickets: the classic ones never saw KONTROLA (no spin, no win).
+  if (ev.bonus) return job;
   if (job.seal) {
     if (!ev.featureOver) return job;
     return jobDone(job) ? { ...job, seal: false } : { ...job, seal: false, spun: job.limit };
@@ -1079,6 +1320,7 @@ export function tickJob(job: JobCard, ev: JobEvent): JobCard {
 export function jobCap(job: JobCard): number | null {
   const id = job.template;
   if (id === "retaz" || id === "balik" || id === "siet" || id === "pot" || id === "signal" || id === "noc" || id === "odpis") return null;
+  if (isFeatureKind(job.kind)) return null;
   if (id === "plechovky") return 6;
   if (id === "pada") return 20;
   if (job.kind === "collect") return 18;

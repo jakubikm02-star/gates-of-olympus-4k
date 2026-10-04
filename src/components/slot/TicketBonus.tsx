@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { RotateCw, ShoppingCart, Tv, Zap } from "lucide-react";
+import { ClipboardCheck, Gauge, Package, RotateCw, ShoppingCart, Siren, Tv, Zap } from "lucide-react";
 import { formatMoney } from "@/lib/slot/format";
 import type { BonusNeed, TicketBonus, TicketLeg } from "@/lib/slot/ticket-bonus";
 
@@ -8,6 +8,10 @@ export function BonusIcon({ need, size = 12 }: { need: BonusNeed | "base" | "ant
   if (need === "buy") return <ShoppingCart size={size} strokeWidth={2.6} aria-hidden="true" />;
   if (need === "fs" || need === "trigger") return <Tv size={size} strokeWidth={2.6} aria-hidden="true" />;
   if (need === "ante") return <Zap size={size} strokeWidth={2.6} aria-hidden="true" />;
+  if (need === "zasah") return <Siren size={size} strokeWidth={2.6} aria-hidden="true" />;
+  if (need === "bar") return <Gauge size={size} strokeWidth={2.6} aria-hidden="true" />;
+  if (need === "kontrola") return <ClipboardCheck size={size} strokeWidth={2.6} aria-hidden="true" />;
+  if (need === "zbox") return <Package size={size} strokeWidth={2.6} aria-hidden="true" />;
   return <RotateCw size={size} strokeWidth={2.6} aria-hidden="true" />;
 }
 

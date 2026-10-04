@@ -9534,6 +9534,47 @@ html:-webkit-full-screen {
   background: linear-gradient(180deg, #9be8f6, #3ec6e0);
 }
 
+/* Feature tickets: ZÁSAH (police red/blue), bonus bar (amber), KONTROLA (blue), Ž-BOX (parcel red). */
+.tb-pill.is-zasah,
+.tb-note.is-zasah .tb-badge {
+  color: #fff;
+  background: linear-gradient(100deg, #d8253a 10%, #7a2a9a 50%, #2457d6 90%);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.35), 0 0 10px rgb(80 110 255 / 0.45);
+}
+.tb-pill.is-bar,
+.tb-note.is-bar .tb-badge {
+  color: #1a1208;
+  background: linear-gradient(180deg, #ffd36a, #e88a12);
+  box-shadow: 0 0 0 1px rgb(255 211 106 / 0.45), 0 0 10px rgb(232 138 18 / 0.45);
+}
+.tb-pill.is-kontrola,
+.tb-note.is-kontrola .tb-badge {
+  color: #fff;
+  background: linear-gradient(180deg, #4c7dff, #1d3fb8);
+  box-shadow: 0 0 0 1px rgb(150 180 255 / 0.5), 0 0 10px rgb(60 100 255 / 0.45);
+}
+.tb-pill.is-zbox,
+.tb-note.is-zbox .tb-badge {
+  color: #fff;
+  background: linear-gradient(180deg, #ff5a4f, #b3121c);
+  box-shadow: 0 0 0 1px rgb(255 160 150 / 0.5), 0 0 10px rgb(230 40 40 / 0.45);
+}
+.tb-note.is-zasah {
+  border-color: rgb(110 130 255 / 0.75);
+  background: linear-gradient(180deg, rgb(40 14 30 / 0.9), rgb(10 14 40 / 0.92));
+}
+.tb-note.is-bar {
+  border-color: rgb(232 138 18 / 0.75);
+}
+.tb-note.is-kontrola {
+  border-color: rgb(76 125 255 / 0.75);
+  background: linear-gradient(180deg, rgb(10 22 60 / 0.9), rgb(6 10 22 / 0.92));
+}
+.tb-note.is-zbox {
+  border-color: rgb(255 90 79 / 0.75);
+  background: linear-gradient(180deg, rgb(60 10 12 / 0.9), rgb(20 6 6 / 0.92));
+}
+
 .tb-note .tb-hint,
 .tb-note .tb-cost {
   display: block;
@@ -9631,6 +9672,39 @@ html:-webkit-full-screen {
 .spend-job.has-bonus.is-buy { border-color: rgb(255 106 61 / 0.85); }
 .spend-job.has-bonus.is-fs { border-color: rgb(46 196 132 / 0.8); }
 .spend-job.has-bonus.is-trigger { border-color: rgb(62 198 224 / 0.8); }
+.spend-job.has-bonus.is-zasah { border-color: rgb(110 130 255 / 0.85); }
+.spend-job.has-bonus.is-bar { border-color: rgb(232 138 18 / 0.85); }
+.spend-job.has-bonus.is-kontrola { border-color: rgb(76 125 255 / 0.85); }
+.spend-job.has-bonus.is-zbox { border-color: rgb(255 90 79 / 0.85); }
+
+.spend-job.has-bonus .tb-note.is-zasah .tb-badge,
+.otrs-note .tb-note.is-zasah .tb-badge,
+.spend-active .tb-note.is-zasah .tb-badge,
+.spend-job.has-bonus .tb-note.is-kontrola .tb-badge,
+.otrs-note .tb-note.is-kontrola .tb-badge,
+.spend-active .tb-note.is-kontrola .tb-badge,
+.spend-job.has-bonus .tb-note.is-zbox .tb-badge,
+.otrs-note .tb-note.is-zbox .tb-badge,
+.spend-active .tb-note.is-zbox .tb-badge {
+  color: #fff;
+}
+
+.stage .board-job.has-job:has(.job-chip.has-bonus.is-zasah) {
+  border-color: #5a74ff;
+  box-shadow: inset 3px 0 0 #d8253a;
+}
+.stage .board-job.has-job:has(.job-chip.has-bonus.is-bar) {
+  border-color: #e88a12;
+  box-shadow: inset 3px 0 0 #e88a12;
+}
+.stage .board-job.has-job:has(.job-chip.has-bonus.is-kontrola) {
+  border-color: #4c7dff;
+  box-shadow: inset 3px 0 0 #4c7dff;
+}
+.stage .board-job.has-job:has(.job-chip.has-bonus.is-zbox) {
+  border-color: #ff5a4f;
+  box-shadow: inset 3px 0 0 #ff5a4f;
+}
 
 .spend-active .tb-note {
   margin-top: 6px;

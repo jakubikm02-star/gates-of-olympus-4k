@@ -38,6 +38,8 @@ import {
   zeusDropCount,
 } from "@/lib/slot/engine";
 import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, spendPity, type PickTile, type PityMap } from "@/lib/slot/pick-bonus";
+import { drawBonusMode, type BonusModeId, type PendingBonus } from "@/lib/slot/bonus-mode";
+import { playZbox, zboxVipOf, type ZPlay } from "@/lib/slot/zbox";
 import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision, fsSpinsOf, nextRebate, perkOf, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
@@ -269,6 +271,10 @@ export function useSlotGame() {
   const [pickPicks, setPickPicks] = useState(0);
   const [pickClear, setPickClear] = useState(false);
   const [pityByBet, setPityByBet] = useState<PityMap>({});
+  /** Mode strip of the filled bar (shows the mode drawn at the fill). */
+  const [modeStrip, setModeStrip] = useState<{ mode: BonusModeId; key: number } | null>(null);
+  /** Running Ž-BOX: the whole run is decided up front (playZbox), the overlay animates it. */
+  const [zbox, setZbox] = useState<{ play: ZPlay; bet: number; gross: number; net: number; tax: ChaseModKind | null; key: number } | null>(null);
   const [pityDelta, setPityDelta] = useState(0);
   const [rp, setRp] = useState(0);
   const [rankPeak, setRankPeak] = useState(0);
@@ -398,7 +404,14 @@ export function useSlotGame() {
   const pickTilesRef = useRef<PickTile[]>([]);
   const pickRevealedRef = useRef<boolean[]>([]);
   const pityByBetRef = useRef<PityMap>({});
+  /** Win of the running ZÁSAH (× bet, ZÁSAH spins only) for feature tickets. Not saved: a reload restarts the sum. */
+  const chaseXRef = useRef(0);
   const kontrolaArmedRef = useRef(false);
+  /** Bar filled → drawn mode, saved with the player until the bonus starts (Ž-BOX: until it pays). */
+  const bonusPendingRef = useRef<PendingBonus | null>(null);
+  const stripWait = useRef<(() => void) | null>(null);
+  const zboxWait = useRef<(() => void) | null>(null);
+  const bonusResumeOnce = useRef(false);
   /** Tax period of the spin that armed KONTROLA (null = none / ZÁSAH / duel). */
   const pickModRef = useRef<ChaseMod | null>(null);
   /** BEZ DANE / DAŇOVÝ ÚNIK delta of the last free spin (summed into the 4KA TV session). */
@@ -527,6 +540,7 @@ export function useSlotGame() {
     setBestWin(s.bestWin);
     pityByBetRef.current = s.pityByBet;
     setPityByBet(s.pityByBet);
+    bonusPendingRef.current = s.bonusPending ?? null;
     setRp(s.rp);
     setRankPeak(s.rankPeak);
     setRankShield(s.rankShield);
@@ -662,6 +676,7 @@ export function useSlotGame() {
       fsTaxDelta: fsSessionRef.current.taxDelta,
       fsZasah: fsSessionRef.current.zasah,
       antiStreak: antiStreakRef.current,
+      bonusPending: bonusPendingRef.current,
     };
     if (dead) writeLocal(saveSnapRef.current);
   }, []);
@@ -760,6 +775,7 @@ export function useSlotGame() {
       fsTaxDelta: fsSessionRef.current.taxDelta,
       fsZasah: fsSessionRef.current.zasah,
       antiStreak: antiStreakRef.current,
+      bonusPending: bonusPendingRef.current,
       duelDeposit: depositRef.current,
       updatedAt: Date.now(),
     };
@@ -984,6 +1000,7 @@ export function useSlotGame() {
       fsTaxDelta: fsSessionRef.current.taxDelta,
       fsZasah: fsSessionRef.current.zasah,
       antiStreak: antiStreakRef.current,
+      bonusPending: bonusPendingRef.current,
       duelDeposit: depositRef.current,
     };
     saveSnapRef.current = payload;
@@ -1954,7 +1971,154 @@ export function useSlotGame() {
       fines,
       odtah: cash <= 0 && !pickClearRef.current,
     });
-  }, [waitForPick, pushRank, noteResult, noteHeat, noteStat]);
+    // Feature tickets (KONTROLA / bonus bar): one event per finished bar bonus; it spends no spin.
+    settleJob({
+      win: cash > 0,
+      dead: false,
+      tumbles: 0,
+      live: false,
+      ticket: null,
+      pdf: false,
+      signal: 0,
+      clusters: 0,
+      orbs: false,
+      spun: false,
+      bonus: { mode: "kontrola", x: pickTotalXRef.current, safes, cleared: pickClearRef.current, canSum: 0, rounds: 0 },
+    });
+  }, [waitForPick, pushRank, noteResult, noteHeat, noteStat, settleJob]);
+
+  /** Mode strip done (auto after ~2 s, or tapped). */
+  const finishModeStrip = useCallback(() => {
+    const done = stripWait.current;
+    stripWait.current = null;
+    done?.();
+  }, []);
+
+  /** Ž-BOX payout seen, tap to return. */
+  const finishZbox = useCallback(() => {
+    const done = zboxWait.current;
+    zboxWait.current = null;
+    sfx.playClick();
+    done?.();
+  }, []);
+
+  /**
+   * Ž-BOX: decided up front by playZbox(createRng(seed)) — the seed is the one saved with the pending bar, so
+   * a reload mid-run replays the very same run (no reroll). Pays like KONTROLA: applyMod(…, "pick"), HLÁSENIE,
+   * RP kind "pick", stats (zbox.*), spin tape.
+   */
+  const runZbox = useCallback(
+    async (pend: PendingBonus, seed: number) => {
+      const betNow = pend.bet > 0 ? pend.bet : BETS[betIndexRef.current];
+      const rankId = standing(rankRef.current.rp).id;
+      const play = playZbox(createRng(seed), { vip: zboxVipOf(rankId) });
+      const pickMod = pickModRef.current;
+      pickModRef.current = null;
+      const cash0 = +(play.totalX * betNow).toFixed(2);
+      const { net: cash } = applyMod(cash0, pickMod, "pick");
+      const taxKind = Math.abs(cash - cash0) >= 0.01 ? (pickMod?.kind ?? null) : null;
+      setPhase("pick");
+      setTopLine("Ž-BOX · PAKEŤÁK");
+      setMessage("Hľadáme vašu zásielku…");
+      sfx.playZboxBeep();
+      sfx.duckMusic(0.4);
+      setZbox({ play, bet: betNow, gross: cash0, net: cash, tax: taxKind, key: Date.now() });
+      noteStat({ t: "zboxStart" });
+      await new Promise<void>((resolve) => {
+        zboxWait.current = resolve;
+      });
+      bonusPendingRef.current = null;
+      if (cash > 0) {
+        setBalance((b) => +(b + cash).toFixed(2));
+        noteHeat(cash, betNow);
+        setDisplayWin(cash);
+        setSpinWin(cash);
+        setBestWin((w) => Math.max(w, cash));
+        setSpinTape((t) => [{ label: "Ž-BOX", amount: formatMoney(cash) }, ...t].slice(0, 8));
+        roundCashRef.current = +(roundCashRef.current + cash).toFixed(2);
+        sfx.playPayout();
+        const streak = noteResult(true);
+        const found = play.rounds.reduce((n, r) => n + r.parcels.length, 0);
+        const parts = rpFromSpin({
+          cash,
+          bet: betNow,
+          mult: 1,
+          tumbles: 0,
+          streak,
+          banner: bannerFromX(cash / betNow),
+          kind: "pick",
+          picks: found,
+          rankId: standing(rankRef.current.rp).id,
+        });
+        pushRank(parts.total, parts);
+      }
+      persistNow();
+      setZbox(null);
+      sfx.duckMusic(1);
+      setPhase("idle");
+      setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
+      setMessage(play.full ? `VŠETKO DORUČENÉ · ${formatMoney(cash)}` : `Ž-BOX ${formatMoney(cash)}`);
+      const parcels = play.start.length + play.rounds.reduce((n, r) => n + r.parcels.length, 0);
+      noteStat({
+        t: "zbox",
+        cash,
+        parcels,
+        found: play.rounds.reduce((n, r) => n + r.parcels.length, 0),
+        full: play.full,
+        cans: play.canSum,
+        rounds: play.rounds.length,
+        capped: play.capped,
+      });
+      // Feature tickets (Ž-BOX / bonus bar): one event per finished bar bonus; it spends no spin.
+      settleJob({
+        win: cash > 0,
+        dead: false,
+        tumbles: 0,
+        live: false,
+        ticket: null,
+        pdf: false,
+        signal: 0,
+        clusters: 0,
+        orbs: false,
+        spun: false,
+        bonus: { mode: "zbox", x: play.totalX, safes: parcels, cleared: play.full, canSum: play.canSum, rounds: play.rounds.length },
+      });
+    },
+    [pushRank, noteResult, noteHeat, noteStat, persistNow, settleJob],
+  );
+
+  /**
+   * The filled bar: show the drawn mode on the strip, then play it. KONTROLA clears the pending mode when it
+   * starts (as before: a reload mid-KONTROLA would deal a new map, so it is spent). Ž-BOX keeps it until it
+   * pays, together with its seed, so a reload replays the same run.
+   */
+  const runBonus = useCallback(async () => {
+    const pend = bonusPendingRef.current ?? {
+      mode: "kontrola" as BonusModeId,
+      bet: BETS[betIndexRef.current],
+      mod: null,
+      modLeft: 0,
+      at: Date.now(),
+    };
+    if (!pickModRef.current && pend.mod && pend.modLeft > 0) pickModRef.current = { kind: pend.mod, left: pend.modLeft };
+    sfx.stopSpin();
+    setModeStrip({ mode: pend.mode, key: Date.now() });
+    await new Promise<void>((resolve) => {
+      stripWait.current = resolve;
+    });
+    setModeStrip(null);
+    noteStat({ t: "barMode", mode: pend.mode });
+    if (pend.mode === "zbox") {
+      const seed = pend.seed ?? Math.floor(Math.random() * 0x100000000);
+      bonusPendingRef.current = { ...pend, seed };
+      persistNow();
+      await runZbox(bonusPendingRef.current, seed);
+    } else {
+      bonusPendingRef.current = null;
+      persistNow();
+      await runPick();
+    }
+  }, [runPick, runZbox, noteStat, persistNow]);
 
   const runSequence = useCallback(
     async (opts?: { buy?: boolean; free?: boolean }): Promise<"fs" | "ok" | "max" | "pick" | "skip"> => {
@@ -2340,6 +2504,16 @@ export function useSlotGame() {
             // KONTROLA pays with the tax period of the spin that earned it (that spin already counted it down).
             pickModRef.current = chasing ? null : modRef.current;
             pendingPick = true;
+            // The mode (KONTROLA / Ž-BOX) is drawn now and saved, so a reload cannot redraw it (lib/slot/bonus-mode).
+            const armMod = pickModRef.current && pickModRef.current.left > 0 ? pickModRef.current : null;
+            bonusPendingRef.current = {
+              mode: drawBonusMode(createRng()),
+              bet: currentBet,
+              mod: armMod?.kind ?? null,
+              modLeft: armMod?.left ?? 0,
+              at: Date.now(),
+            };
+            persistNow();
           } else {
             pityByBetRef.current = nextMap;
           }
@@ -2423,6 +2597,10 @@ export function useSlotGame() {
       if (isFree) lastTaxDeltaRef.current = taxDelta;
       setTaxFly(null);
       let chaseEnded = false;
+      // Feature tickets read the running ZÁSAH: start, HACK count and win (× bet, ZÁSAH spins only).
+      const chaseStartSpin = Boolean(chasing && chaseRef.current && chaseRef.current.spin === 0);
+      if (chasing) chaseXRef.current = (chaseStartSpin ? 0 : chaseXRef.current) + paidX;
+      let chaseHitsNow = 0;
       if (chasing && chaseRef.current) {
         const live = chaseRef.current;
         const rolled = rollWindows(Math.random, board, live, windowCount(live.spin));
@@ -2467,6 +2645,7 @@ export function useSlotGame() {
           await wait(dur(160 * slow), abort.current);
         }
         setActiveWindow(-1);
+        chaseHitsNow = rolled.next.hits;
         const played = live.spin + 1;
         if (rolled.outcome || played >= ZASAH.SPINS) {
           chaseEnded = true;
@@ -2615,6 +2794,13 @@ export function useSlotGame() {
           liveSpin,
           shown: shownCount,
           cash,
+          chasing: Boolean(chasing),
+          chaseStart: chaseStartSpin,
+          chaseHits: chasing ? chaseHitsNow : undefined,
+          chaseX: chasing ? +chaseXRef.current.toFixed(2) : undefined,
+          chaseOver: chaseEnded,
+          pityAdd: pityAdd || undefined,
+          bonusArmed: pendingPick,
         });
       }
 
@@ -2743,7 +2929,7 @@ export function useSlotGame() {
             ? "3× 4KA TV PRIDÁ TOČENIA"
             : "SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE",
         );
-        setMessage(cash > 0 ? "" : pendingPick ? "KONTROLA" : isFree ? "" : DEAD[Math.floor(Math.random() * DEAD.length)]);
+        setMessage(cash > 0 ? "" : pendingPick ? "BONUS" : isFree ? "" : DEAD[Math.floor(Math.random() * DEAD.length)]);
       }
       sfx.duckMusic(1);
 
@@ -2910,7 +3096,7 @@ export function useSlotGame() {
   }, [settleDuel]);
 
   const playRound = useCallback(
-    async (opts?: { buy?: boolean; resumeFs?: boolean }) => {
+    async (opts?: { buy?: boolean; resumeFs?: boolean; resumeBonus?: boolean }) => {
       if (busyRef.current || chaseCardRef.current) return;
       const gate = duelRef.current;
       if (
@@ -3219,6 +3405,14 @@ export function useSlotGame() {
           if (settled.delta) pushRank(settled.delta, settled.parts);
         };
 
+      if (opts?.resumeBonus) {
+        // A filled bar saved before a reload: play the mode that was drawn then (never a new draw).
+        if (bonusPendingRef.current && !inFsRef.current && !roundEscrowRef.current) await runBonus();
+        busyRef.current = false;
+        setBusy(false);
+        return;
+      }
+
       if (opts?.resumeFs) {
         const sess = fsSessionRef.current;
         if (sess.left <= 0) {
@@ -3259,6 +3453,8 @@ export function useSlotGame() {
         sfx.startLiveBed();
         const hitCap = await playFsSpins();
         await closeFs(hitCap, makeApplyBought(betNow, buyCost, buyXNow, rankIdNow));
+        // The same round filled the bar too: its bonus waits for the 4KA TV (as without a reload).
+        if (bonusPendingRef.current && !roundEscrowRef.current) await runBonus();
         // A 4KA TV resumed inside a duel still counts as that round's duel spin.
         const resumedIn = duelRef.current;
         if (roundEscrowRef.current && resumedIn?.phase === "play") {
@@ -3304,7 +3500,7 @@ export function useSlotGame() {
           autoRef.current = false;
           setAutoOn(false);
           setAutoLeft(0);
-          setAutoReason("AUTO STOP · KONTROLA");
+          setAutoReason("AUTO STOP · BONUS");
           noteStat({ t: "ui", what: "autoStop", why: "pick" });
         } else if (lastPaidXRef.current >= 20) {
           autoRef.current = false;
@@ -3323,7 +3519,7 @@ export function useSlotGame() {
         autoRef.current = false;
         setAutoOn(false);
         setAutoLeft(0);
-        setAutoReason("AUTO STOP · KONTROLA");
+        setAutoReason("AUTO STOP · BONUS");
       }
 
       if (r === "fs") {
@@ -3391,15 +3587,19 @@ export function useSlotGame() {
 
       if (r === "max" || roundEscrowRef.current) {
         kontrolaArmedRef.current = false;
+        if (bonusPendingRef.current) {
+          bonusPendingRef.current = null;
+          persistNow();
+        }
       } else if (r === "pick" || kontrolaArmedRef.current) {
         kontrolaArmedRef.current = false;
         if (autoRef.current) {
           autoRef.current = false;
           setAutoOn(false);
           setAutoLeft(0);
-          setAutoReason("AUTO STOP · KONTROLA");
+          setAutoReason("AUTO STOP · BONUS");
         }
-        await runPick();
+        await runBonus();
       }
 
       const live = duelRef.current;
@@ -3449,7 +3649,7 @@ export function useSlotGame() {
       abort.current.aborted = false;
     }
   },
-    [dur, runSequence, waitForBanner, runPick, pushRank, noteResult, persistNow, runTicket, settleJob, settleDuel, bumpToday, settleDeposit],
+    [dur, runSequence, waitForBanner, runBonus, pushRank, noteResult, persistNow, runTicket, settleJob, settleDuel, bumpToday, settleDeposit],
   );
 
   useEffect(() => {
@@ -3457,6 +3657,14 @@ export function useSlotGame() {
     if (!inFsRef.current || fsSessionRef.current.left <= 0) return;
     resumeOnce.current = true;
     void playRound({ resumeFs: true });
+  }, [started, hydrated, playRound]);
+
+  useEffect(() => {
+    if (!started || !hydrated || bonusResumeOnce.current) return;
+    if (!bonusPendingRef.current || inFsRef.current || fsSessionRef.current.left > 0 || duelRef.current) return;
+    bonusResumeOnce.current = true;
+    const t = window.setTimeout(() => void playRound({ resumeBonus: true }), 600);
+    return () => window.clearTimeout(t);
   }, [started, hydrated, playRound]);
 
   const stopReels = useCallback(() => {
@@ -3649,6 +3857,11 @@ export function useSlotGame() {
         if (pickEndedRef.current && (e.code === "Space" || e.code === "Enter")) finishPick();
         return;
       }
+      if (stripWait.current) {
+        finishModeStrip();
+        return;
+      }
+      if (zboxWait.current) return;
       if (bannerOpen.current) {
         closeBanner();
         return;
@@ -3676,7 +3889,7 @@ export function useSlotGame() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [started, playRound, stopReels, closeBanner, finishPick, closeFsReveal]);
+  }, [started, playRound, stopReels, closeBanner, finishPick, finishModeStrip, closeFsReveal]);
 
   /** A deposit left pending with no duel or lobby around it (should not happen): refund it before a new one. */
   const clearStaleDeposit = () => {
@@ -3783,6 +3996,10 @@ export function useSlotGame() {
     pickPicks,
     revealPick,
     finishPick,
+    modeStrip,
+    finishModeStrip,
+    zbox,
+    finishZbox,
     pity,
     pityDelta,
     pityGoal: PITY_GOAL,

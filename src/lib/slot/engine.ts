@@ -1,4 +1,4 @@
-import { onFrame } from "./frame-loop";
+import { onFrame } from "./frame-loop.ts";
 import {
   COLS,
   ROWS,

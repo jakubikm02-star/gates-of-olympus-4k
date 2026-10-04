@@ -153,8 +153,19 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
           </li>
           <li>Ante zdvojnásobí 4KA TV, nie šancu lístka. Stojí 1,13×, od SMART 1,10×. Buy je vždy 79×. Pity je IDLE meter, nikdy jackpot.</li>
           <li>
-            KONTROLA má vlastný PITY meter na každú stávku (100). Iba mŕtvy spin (+2) a 3 / 4 scattere
-            (+30). Po spustení bar padne na 0. Kúpiť sa nedá.
+            Bonus bar (KONTROLA · Ž-BOX) má vlastný PITY meter na každú stávku (100). Iba mŕtvy spin (+2) a 3 / 4 scattere
+            (+30). Po spustení bar padne na 0. Kúpiť sa nedá. Plný bar hneď vylosuje režim, 50 : 50 KONTROLA alebo
+            Ž-BOX (pás ho len ukáže, načítanie stránky ho nezmení). Oba režimy majú pre každý rank rovnakú priemernú výhru.
+          </li>
+          <li>
+            Ž-BOX (PAKEŤÁK): stena 12 schránok, väčšie dvierka = väčší balík. Na štarte 2 zásielky. 3 doručovacie
+            okná: nová zásielka ich vráti na 3, pokus bez zásielky (NEDORUČENÉ) jedno zhasne. Kuriérsky príplatok
+            (plechovka 2× / 3× / 5× na streche) sa sčíta a na konci násobí všetko. Plná stena ×2, strop 30× stávky.
+            Od SMART je v stene aj prioritná zásielka (rank).
+          </li>
+          <li className="pt-satire">
+            Satira. Akákoľvek podobnosť s reálnymi doručovacími službami je zveličená pre zábavu. Všetky balíky,
+            e-shopy a čísla zásielok v hre sú fiktívne a doručené včas.
           </li>
           <li>
             Od kreditu 100 € tikety. Dokopy je súčet, nemusí ísť po sebe. Po sebe sú len REŤAZ
@@ -166,7 +177,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
           </li>
           <li>
             Ranked liga 4ky: KREDIT → SLOBODA → SMART → 4KA TV → OPTIKA → DUO → 5G NA DOMA → NEKONEČNO.
-            Raz za týždeň klesáš o jednu divíziu. Od SMART kontrola ukáže cenu bezpečného státia, meter ostáva rovnaký.
+            Raz za týždeň klesáš o jednu divíziu. Od SMART kontrola ukáže cenu bezpečného státia a Ž-BOX pridá prioritnú zásielku, meter ostáva rovnaký.
           </li>
           <li>
             Win popup ako na Olympuse: BIG WIN od 20× stávky, MEGA WIN od 35×, SUPER MEGA WIN od 50×.

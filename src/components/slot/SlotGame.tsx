@@ -13,6 +13,8 @@ import { formatMoney } from "@/lib/slot/format";
 import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
 import { jobClock, jobMeter, jobProgress, jobShownGoal, sayCluster, type JobCard } from "@/lib/slot/spend";
 import { rankPeekIds } from "@/lib/slot/pick-bonus";
+import { BonusModeStrip } from "./BonusModeStrip";
+import { ZboxBonus } from "./ZboxBonus";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { useShell } from "@/hooks/use-shell";
 import { useContainerVars } from "@/hooks/use-container-vars";
@@ -40,6 +42,7 @@ import { HEAT_MAX } from "@/lib/slot/heat";
 import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
 import { depositTotal, writeAppReloadMarker } from "@/lib/slot/duel-deposit";
 import "./duel-ui.css";
+import "./zbox.css";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
 
@@ -401,14 +404,15 @@ export function SlotGame() {
               ) : (
                 <div className="meter-split">
                   <div className={`pity-bar ${g.pityDelta ? "is-feed" : ""} ${g.pity >= g.pityGoal ? "is-hot" : ""} ${g.pity <= 0 ? "is-quiet" : ""}`}>
-                    <span className="pity-kicker">KONTROLA</span>
+                    <span className="pity-kicker" title="Plný bar spustí náhodne KONTROLU alebo Ž-BOX">KONTROLA · Ž-BOX</span>
+                    <span className="pity-mini" aria-hidden="true">BONUS</span>
                     <div
                       className="pity-track"
                       role="progressbar"
                       aria-valuemin={0}
                       aria-valuemax={g.pityGoal}
                       aria-valuenow={Math.min(g.pityGoal, g.pity)}
-                      aria-label="Kontrola"
+                      aria-label="Bonus bar: KONTROLA alebo Ž-BOX"
                     >
                       <i style={{ ["--pity" as string]: `${Math.min(100, (g.pity / g.pityGoal) * 100)}%` }} />
                     </div>
@@ -761,6 +765,24 @@ export function SlotGame() {
           onDone={g.finishPick}
         />
       )}
+
+      {g.modeStrip ? (
+        <BonusModeStrip key={g.modeStrip.key} mode={g.modeStrip.mode} turbo={g.turbo} reduced={reducedMotion} onDone={g.finishModeStrip} />
+      ) : null}
+
+      {g.zbox ? (
+        <ZboxBonus
+          key={g.zbox.key}
+          play={g.zbox.play}
+          bet={g.zbox.bet}
+          gross={g.zbox.gross}
+          net={g.zbox.net}
+          tax={g.zbox.tax}
+          turbo={g.turbo}
+          reduced={reducedMotion}
+          onDone={g.finishZbox}
+        />
+      ) : null}
 
       {g.bustAsk && (
         <div className="buy-ask bust-ask" role="dialog" aria-label="Exekúcia">

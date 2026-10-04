@@ -18,7 +18,7 @@ import { applyWeeklyDecay, buyTurnoverPunish, buyXOf, dropOneDivision, fsSpinsOf
 import { pityGain, rankPeekIds, type PickTile } from "./pick-bonus.ts";
 import { startDuel, tickDuel, confirmSwap, duelWinner, applyPeerTick, duelPot, duelCreditDelta, canDuelSpin, duelView, forfeitDuel } from "./duel.ts";
 import { PAY_SYMBOLS, payName, ORB_TABLE, ORB_VALUES, fsTriggerSpins } from "./symbols.ts";
-import { canSpend, dealJobs, freshDaily, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobMeter, jobParknetBroke, jobShownGoal, jobStatus, missCollectPlan, stampDaily, symbolNeed, tickJob, spinWord, winCollectPlan, JOB_BANK, JOB_TEMPLATE_IDS, type JobCard } from "./spend.ts";
+import { canSpend, dealJobs, freshDaily, hydraSplit, jobChip, jobClock, jobLcd, jobLeft, jobMeter, jobParknetBroke, jobShownGoal, jobStatus, missCollectPlan, stampDaily, symbolNeed, tickJob, spinWord, winCollectPlan, JOB_BANK, JOB_TEMPLATE_IDS, FEATURE_TEMPLATE_IDS, featureOf, type JobCard } from "./spend.ts";
 import { bumpLocalDesk, bumpTicketDesk, emptyDesk, ticketProfit } from "./desk-api.ts";
 
 describe("park jackpots", () => {
@@ -364,8 +364,11 @@ describe("míňať", () => {
     assert.ok(highBet[0].stake > small[0].stake);
     for (const j of small.slice(0, 3)) {
       assert.equal(j.limit % 5, 0);
-      assert.ok(j.limit >= 15 && j.limit <= 120);
-      if (j.kind === "collect") assert.ok(j.need > j.limit);
+      // Feature tickets (ZÁSAH / bar bonus) wait for a feature: longer budgets, bar points above the spin count.
+      // SUCHO's window starts at 10 (JOB_RANGES); this deal now draws it because the feature card takes rng draws.
+      assert.ok(j.limit >= 10 && j.limit <= (featureOf(j.template) ? 400 : 120));
+      if (featureOf(j.template)) assert.ok(j.need >= 1);
+      else if (j.kind === "collect") assert.ok(j.need > j.limit);
       else if (j.kind === "cash") assert.match(j.goal ?? "", /^Nazbieraj .+ € vo výhrach do \d+/);
       else assert.ok(j.need >= 1 && j.need <= j.limit);
       assert.equal(jobLeft(j), j.limit);
@@ -453,7 +456,8 @@ describe("míňať", () => {
       return s / 0x100000000;
     };
     const skip = new Set(["sucho", "hydra", "retaz"]);
-    const pool = JOB_TEMPLATE_IDS.filter((id) => !skip.has(id));
+    // Feature tickets are singles only (never an OTRS leg).
+    const pool = JOB_TEMPLATE_IDS.filter((id) => !skip.has(id) && !FEATURE_TEMPLATE_IDS.includes(id));
     const singles = new Set<string>();
     const pairs = new Set<string>();
     let combos = 0;
