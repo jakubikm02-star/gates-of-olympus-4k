@@ -258,7 +258,20 @@ export function fsTriggerSpins(scatters: number, base = FS_SPINS): number {
   const extra = Math.max(0, Math.floor(scatters) - FS_TRIGGER_SCATTERS);
   return base + extra * FS_EXTRA_PER_SCATTER;
 }
-export const BUY_COST_X = 79;
+/**
+ * Buy price in bets, by the number of free spins the buyer's rank gets (15 / 16 / 17): each price is the bought
+ * feature's EV on this engine (200k / 100k / 200k bought bonuses, see /workspace/buyprice) rounded up above the
+ * 95 % upper bound, so a buy returns just under 100 % of its price on every rank. Ante never applies to a buy.
+ */
+export const BUY_X_BY_FS: Readonly<Record<number, number>> = { 15: 102, 16: 115, 17: 123 };
+/** Base price (15 free spins, ranks without the +1 / +2 perk). */
+export const BUY_COST_X = BUY_X_BY_FS[FS_SPINS]!;
+/** Price for a rank's free-spin count (more spins cost more; unknown counts take the next priced one up). */
+export function buyXForFs(fsSpins: number): number {
+  const keys = Object.keys(BUY_X_BY_FS).map(Number).sort((a, b) => a - b);
+  const k = keys.find((x) => x >= fsSpins) ?? keys[keys.length - 1]!;
+  return BUY_X_BY_FS[k]!;
+}
 /**
  * Ante stake. A 2× bonus is not worth +25% here: most of the return is the base
  * game, so 1.25× dropped RTP by about ten points. 1.13× keeps it level with base.
@@ -267,14 +280,14 @@ export const BUY_COST_X = 79;
 export const ANTE_COST = 1.13;
 export const START_BALANCE = 5000;
 
-/** 450k spins on this engine. Bonus ~1/378, ante ~1/192. Buy at 79× returns ~1.23× the price. */
+/** 450k spins on this engine. Bonus ~1/378, ante ~1/192. Buy (15 spins) at 102× returns ~0.99× the price (200k buys: EV 100.7× ± 1.0). */
 export const MATH_NOTE = {
   spins: 450_000,
   rtp: 1.26,
   hit: 0.284,
   bonusEvery: 378,
   anteBonusEvery: 192,
-  buyEv: 1.229,
+  buyEv: 0.987,
   maxEvery: null as number | null,
 };
 

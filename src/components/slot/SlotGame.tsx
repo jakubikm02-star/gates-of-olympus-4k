@@ -20,6 +20,8 @@ import { KolesoBonus } from "./KolesoBonus";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { useShell } from "@/hooks/use-shell";
 import { useContainerVars } from "@/hooks/use-container-vars";
+// Short-phone compaction, keyed off html[data-short-vp] / [data-phone-vp] from hooks/use-shell.
+import "./short-vp.css";
 import { SlotGrid } from "./Grid";
 import { CanValue } from "./Can";
 import { Paytable } from "./Paytable";
@@ -30,7 +32,7 @@ import { BootScreen } from "./BootScreen";
 import { MachineFrame } from "./MachineFrame";
 import { RankPanel } from "./RankPanel";
 import { RankToast } from "./RankToast";
-import { SpendSheet } from "./SpendSheet";
+import { RpTag, SpendSheet } from "./SpendSheet";
 import { TicketFx } from "./TicketFx";
 import { BonusIcon, BonusNote, BonusPill, LegCounters, TicketGoals } from "./TicketBonus";
 import { ticketBonus } from "@/lib/slot/ticket-bonus";
@@ -47,6 +49,8 @@ import "./duel-ui.css";
 import "./zbox.css";
 import "./zasah-battery.css";
 import "./koleso.css";
+import "./rp-ui.css";
+import { SuchoChip } from "./SuchoChip";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
 
@@ -194,6 +198,7 @@ export function SlotGame() {
   const [reducedMotion, setReducedMotion] = useState(false);
   const [deskOpen, setDeskOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [manFocus, setManFocus] = useState<string | null>(null);
   const [boardOpen, setBoardOpen] = useState(false);
   const [jobOpen, setJobOpen] = useState(false);
   const [, names] = useState(0);
@@ -276,7 +281,19 @@ export function SlotGame() {
 
       <div className="table">
         <div className="table-head">
-          <RankBadge stand={g.rank} perkTitle={g.perk.title} plain onOpen={() => g.setRankOpen(true)} />
+          <div className="head-rank">
+            <RankBadge stand={g.rank} perkTitle={g.perk.title} plain onOpen={() => g.setRankOpen(true)} />
+            <SuchoChip
+              idle={g.rpIdle}
+              league={g.suchoLeague}
+              ticketActive={g.ticketActive}
+              rp={g.rank.rp}
+              onOpen={() => {
+                setManFocus("rp");
+                g.setPaytableOpen(true);
+              }}
+            />
+          </div>
           <div className="head-center">
             <div className="logo-plate compact">
               <span className="logo-kicker">{g.inFs ? "4KA" : "PORTS of"}</span>
@@ -902,6 +919,7 @@ export function SlotGame() {
           seal={seal?.verdict ?? null}
           inFs={g.inFs}
           onClose={() => setJobOpen(false)}
+          rankId={g.rank.id}
           ante={g.ante}
           buyCost={+(g.bet * g.buyX).toFixed(2)}
           canBuy={g.canBuy}
@@ -1105,7 +1123,17 @@ export function SlotGame() {
         </div>
       )}
 
-      <Paytable open={g.paytableOpen} onClose={() => g.setPaytableOpen(false)} bet={g.bet} desk={g.desk} mine={g.mine} />
+      <Paytable
+        open={g.paytableOpen}
+        focus={manFocus}
+        onClose={() => {
+          g.setPaytableOpen(false);
+          setManFocus(null);
+        }}
+        bet={g.bet}
+        desk={g.desk}
+        mine={g.mine}
+      />
       <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} playerId={g.deviceId} />
       <DebugOverlay busy={g.busy} perfLite={perfLite} reduced={reducedMotion} />
       <Leaderboard open={boardOpen} nick={g.nick} deviceId={g.deviceId} onClose={() => setBoardOpen(false)} onSave={g.setNickName} />
@@ -1130,6 +1158,7 @@ export function SlotGame() {
         offer={g.jobOffer}
         onJob={g.takeJob}
         buyX={g.buyX}
+        rankId={g.rank.id}
       />
       <TicketFx fx={g.ticketFx} reduced={reducedMotion} onDone={g.clearTicketFx} current={g.job} />
       <DuelSheet
@@ -1178,6 +1207,11 @@ export function SlotGame() {
               tvoj podiel {Math.round((g.jpHit.share || 1) * 100)} % = {formatMoney(g.jpHit.payout)}
             </span>
           </strong>
+        </div>
+      )}
+      {g.rpNotice && !g.jpHit && !g.jobToast && (
+        <div className="job-toast rp-notice" aria-live="polite">
+          {g.rpNotice}
         </div>
       )}
       {g.jobToast && !g.jpHit && (
@@ -1304,11 +1338,13 @@ function JobSheet({
   canAnte,
   onBuy,
   onAnte,
+  rankId,
 }: {
   job: JobCard;
   seal: "ok" | "fail" | null;
   inFs: boolean;
   onClose: () => void;
+  rankId: string;
   ante: boolean;
   buyCost: number;
   canBuy: boolean;
@@ -1365,6 +1401,10 @@ function JobSheet({
           <dt>Vklad → výplata</dt>
           <dd>
             {formatMoney(job.stake)} → {formatMoney(job.payout)}
+          </dd>
+          <dt>RP</dt>
+          <dd>
+            <RpTag card={job} rankId={rankId} />
           </dd>
         </dl>
         <button type="button" className="job-sheet-ok" onClick={onClose}>

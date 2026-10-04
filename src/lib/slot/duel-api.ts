@@ -152,6 +152,11 @@ function snap(r: Row): DuelSnap {
   };
 }
 
+/** A raw room row as the client reads it (tests and stubs build rows and read them like the REST answer). */
+export function rowToSnap(r: Record<string, unknown>): DuelSnap {
+  return snap(r as unknown as Row);
+}
+
 /** Every seat of the room has a player. */
 export function roomFull(s: Pick<DuelSnap, "seats">): boolean {
   return s.seats.length >= 2 && s.seats.every((x) => Boolean(x.name));

@@ -1,0 +1,199 @@
+/* ===== Short portrait phones (regular browser: URL bar + 3-button nav bar visible) =====
+   hooks/use-shell sets html[data-phone-vp] on any portrait phone and html[data-short-vp] when the
+   visible height would leave the reels height-bound (< 0.91·width + 400 px). Short screens get the
+   chrome around the reels compacted so the reel frame can use the full width; nothing is hidden and
+   nothing scrolls. Tall screens keep the stock layout (only the AUTO STOP dock below applies). */
+:root[data-phone-vp] .stage:is(.shell-mw, .shell-pwa) {
+  --svp-icon: 44px;
+  --svp-spin: 52px;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) {
+  --svp-icon: 34px;
+  --svp-spin: 46px;
+  --svp-round: 40px;
+  --svp-chip: 30px;
+}
+
+/* AUTO STOP notice (every portrait phone): docked into the free right end of the icon row instead of
+   its own line under the mode chips, so the reels no longer shrink when an auto-play stops. */
+:root[data-phone-vp] .stage:is(.shell-mw, .shell-pwa) .extra-row .auto-stop {
+  position: absolute;
+  right: 2px;
+  bottom: calc(100% + var(--svp-spin) + 3px + (var(--svp-icon) - 22px) / 2);
+  width: auto;
+  max-width: calc(100% - 5 * var(--svp-icon) - 4 * 6px - 10px);
+  height: 22px;
+  box-sizing: border-box;
+  padding: 0 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.56rem;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+/* header: rank pill + jackpot strip */
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .table {
+  padding-top: 1px;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .table-head {
+  height: 36px;
+  min-height: 36px;
+  max-height: 36px;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .jp-stack.is-strip {
+  height: 34px;
+  min-height: 34px;
+  max-height: 34px;
+  padding: 1px 6px;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .jp-stack.is-strip .jp-row b,
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .jp-stack.is-strip .jp-row.stat b {
+  font-size: 0.64rem;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .rank-chip {
+  min-height: 28px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+/* KÚPIŤ / ANTE row: one line each */
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .side-left {
+  gap: 6px;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .side-left > .parchment {
+  height: 34px;
+  min-height: 34px;
+  max-height: 34px;
+  padding: 2px 8px;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .side-left > .parchment.buy em {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .side-left > .parchment.buy strong {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .side-left:not(.has-duel) + .board-wrap {
+  margin-top: -4px;
+}
+
+/* BONUS / HLÁSENIE and the TUMBLE ticker */
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .board-meter {
+  height: 22px;
+  min-height: 22px;
+  max-height: 22px;
+  margin: 2px 0 1px;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .top-ticker:not(.is-chase) {
+  height: 22px;
+  min-height: 22px;
+  max-height: 22px;
+  margin-bottom: 1px;
+}
+
+/* empty ticket strip: no reserved row (a live/sealed ticket keeps its strip) */
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .board-job:not(.has-job) {
+  flex-basis: 0;
+  height: 0;
+  min-height: 0;
+  max-height: 0;
+  margin: 0;
+  border: 0;
+}
+
+/* bottom HUD */
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .bottom-hud {
+  margin-top: 2px;
+  gap: 3px 8px;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .win-stack {
+  height: 31px;
+  min-height: 31px;
+  max-height: 31px;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .win-line {
+  line-height: 18px;
+  height: 18px;
+  min-height: 18px;
+  max-height: 18px;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .pay-hint {
+  height: 13px;
+  min-height: 13px;
+  max-height: 13px;
+  line-height: 13px;
+  font-size: 0.58rem;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .pay-hint img {
+  width: 12px;
+  height: 12px;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .hud-icons {
+  height: var(--svp-icon);
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .hud-icons .icon-btn {
+  width: var(--svp-icon);
+  height: var(--svp-icon);
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .hud-icons .icon-btn svg {
+  width: 17px;
+  height: 17px;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .hud-right {
+  height: var(--svp-spin);
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .spin-btn {
+  width: var(--svp-spin);
+  height: var(--svp-spin);
+  flex-basis: var(--svp-spin);
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .round-btn {
+  width: var(--svp-round);
+  height: var(--svp-round);
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .credit-stack {
+  max-height: var(--svp-spin);
+  padding: 3px 8px;
+  font-size: 0.7rem;
+}
+
+/* mode chips */
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .extra-row {
+  padding: 2px 0 max(4px, env(safe-area-inset-bottom));
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .extra-row .chip-btn {
+  height: var(--svp-chip);
+  min-height: var(--svp-chip);
+}
+
+
+/* VERSUS strip lies over the (locked) KÚPIŤ / ANTE row: give that row the strip's height, a bit
+   tighter than the stock 50px, so the strip never spills onto the BONUS / HLÁSENIE row. */
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .side-left.has-duel > .parchment {
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .side-left.has-duel > .duel-bar.duel-panel.is-strip {
+  height: 44px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa).in-fs .board-meter {
+  height: 26px;
+  min-height: 26px;
+  max-height: 26px;
+}

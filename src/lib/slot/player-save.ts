@@ -8,6 +8,7 @@ import { type JobCard, type JobFloor } from "./spend.ts";
 import { sanitizeDeposit, type DuelDeposit } from "./duel-deposit.ts";
 import { sanitizeTicketPause, type TicketPause } from "./ticket-pause.ts";
 import { antiStreak } from "./anticipation.ts";
+import { sanitizeIdle, sanitizeRpDay, type RpDay } from "./rp-tickets.ts";
 
 export const SAVE_KEY = "parkizmus-v1";
 const LEGACY_KEYS = ["olympus4k-v1"];
@@ -79,6 +80,10 @@ export interface PlayerSave {
   duelDeposit?: DuelDeposit | null;
   /** Ticket paused for a duel: locked bet + ante to put back when the duel is over (also after a reload). */
   ticketPause?: TicketPause | null;
+  /** Paid spins in a row without an active ticket (SUCHO, rp-tickets.ts). Older saves: 0. */
+  rpIdle?: number;
+  /** Day record for the daily RP decay. Older saves: empty day, so nothing is taken retroactively. */
+  rpDay?: RpDay;
 }
 
 export function emptyPlayerSave(): PlayerSave {
@@ -329,6 +334,8 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.reloadStreak = Math.min(20, Math.max(0, Math.floor(num(r.reloadStreak, 0))));
   s.spinsSinceReload = Math.min(10_000, Math.max(0, Math.floor(num(r.spinsSinceReload, 0))));
   s.lastDecayAt = stampMs(r.lastDecayAt);
+  s.rpIdle = sanitizeIdle(r.rpIdle);
+  s.rpDay = sanitizeRpDay(r.rpDay, "");
   s.updatedAt = stampMs(r.updatedAt ?? r.updated_at);
   s.inFs = bool(r.inFs, false);
   s.fsLeft = Math.min(500, Math.max(0, Math.floor(num(r.fsLeft, 0))));

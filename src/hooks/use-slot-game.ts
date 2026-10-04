@@ -44,7 +44,8 @@ import { setZboxHelpOff, zboxHelpOff } from "@/lib/slot/zbox-help";
 import { pauseTicket, resumePlan, ticketCounts, tickUnlessPaused, ticketReserve, type TicketPause } from "@/lib/slot/ticket-pause";
 import { playKoleso, kolesoVipOf, type KPlay } from "@/lib/slot/koleso";
 import { kolesoHelpOff, setKolesoHelpOff } from "@/lib/slot/koleso-help";
-import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision, fsSpinsOf, nextRebate, perkOf, rpFromDead, rpFromJob, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
+import { freshRpDay, rollRpDay, rpParts, scaleSpinGain, scaledParts, suchoLeague, suchoStep, ticketRp, type RpDay } from "@/lib/slot/rp-tickets";
+import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision, fsSpinsOf, nextRebate, perkOf, rpFromDead, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
@@ -441,6 +442,14 @@ export function useSlotGame() {
   const reloadStreakRef = useRef(0);
   const spinsSinceReloadRef = useRef(0);
   const lastDecayAtRef = useRef(0);
+  /** SUCHO counter: paid spins without an active ticket (rp-tickets.ts). */
+  const rpIdleRef = useRef(0);
+  const [rpIdle, setRpIdle] = useState(0);
+  /** Daily RP decay record: day, played, cleared ticket. */
+  const rpDayRef = useRef<RpDay>(freshRpDay(""));
+  const rollRpDayRef = useRef<() => void>(() => {});
+  /** Daily decay notice: waits for the start screen, then shows ~4 s. */
+  const [rpNotice, setRpNotice] = useState<{ text: string; id: number } | null>(null);
   const [reloadStreak, setReloadStreak] = useState(0);
   const [weekDue, setWeekDue] = useState(0);
   const [desk, setDeskState] = useState<DeskDay>(emptyDesk);
@@ -598,6 +607,9 @@ export function useSlotGame() {
     spinsSinceReloadRef.current = s.spinsSinceReload ?? 0;
     setReloadStreak(reloadStreakRef.current);
     lastDecayAtRef.current = s.lastDecayAt ?? 0;
+    rpIdleRef.current = s.rpIdle ?? 0;
+    setRpIdle(rpIdleRef.current);
+    rpDayRef.current = s.rpDay ?? freshRpDay("");
     setWeekDue(lastDecayAtRef.current > 0 ? lastDecayAtRef.current + WEEK_MS : 0);
     setInFs(Boolean(s.inFs && s.fsLeft > 0));
     inFsRef.current = Boolean(s.inFs && s.fsLeft > 0);
@@ -700,6 +712,8 @@ export function useSlotGame() {
       bonusPending: bonusPendingRef.current,
       zboxHelpOff: zboxHelpOff(),
       kolesoHelpOff: kolesoHelpOff(),
+      rpIdle: rpIdleRef.current,
+      rpDay: rpDayRef.current,
     };
     if (dead) writeLocal(saveSnapRef.current);
   }, []);
@@ -802,6 +816,8 @@ export function useSlotGame() {
       bonusPending: bonusPendingRef.current,
       zboxHelpOff: zboxHelpOff(),
       kolesoHelpOff: kolesoHelpOff(),
+      rpIdle: rpIdleRef.current,
+      rpDay: rpDayRef.current,
       duelDeposit: depositRef.current,
       updatedAt: Date.now(),
     };
@@ -967,6 +983,7 @@ export function useSlotGame() {
       reportDeposit(bootDeposit, true);
     }
     runWeeklyDecay();
+    rollRpDayRef.current();
     setHydrated(true);
   }, [applySave, runWeeklyDecay, flushSave, reportDeposit]);
 
@@ -1030,6 +1047,8 @@ export function useSlotGame() {
       bonusPending: bonusPendingRef.current,
       zboxHelpOff: zboxHelpOff(),
       kolesoHelpOff: kolesoHelpOff(),
+      rpIdle: rpIdleRef.current,
+      rpDay: rpDayRef.current,
       duelDeposit: depositRef.current,
     };
     saveSnapRef.current = payload;
@@ -1141,7 +1160,10 @@ export function useSlotGame() {
     const onHide = () => flushSave();
     const onVis = () => {
       if (document.visibilityState === "hidden") flushSave();
-      if (document.visibilityState === "visible") runWeeklyDecay();
+      if (document.visibilityState === "visible") {
+        runWeeklyDecay();
+        rollRpDayRef.current();
+      }
     };
     window.addEventListener("pagehide", onHide);
     document.addEventListener("visibilitychange", onVis);
@@ -1354,7 +1376,18 @@ export function useSlotGame() {
     return () => window.clearTimeout(t);
   }, [exekucia]);
 
-  const pushRank = useCallback((delta: number, parts?: RankBreakdown | null) => {
+  /**
+   * src "spin": positive deltas are scaled by the ticket rule (rp-tickets.ts spinGainMult).
+   * "ticket" / "sucho" / "daily" go in as they are. SUCHO shows no flash unless the division changes.
+   */
+  const pushRank = useCallback((rawDelta: number, rawParts?: RankBreakdown | null, src: "spin" | "ticket" | "sucho" | "daily" = "spin") => {
+    let delta = rawDelta;
+    let parts = rawParts ?? null;
+    if (src === "spin" && rawDelta > 0) {
+      const active = Boolean(jobRef.current) && !ticketPauseRef.current;
+      delta = scaleSpinGain(rawDelta, standing(rankRef.current.rp).id, active);
+      parts = scaledParts(rawParts, rawDelta, delta);
+    }
     if (!delta) return;
     const res = applyRankDelta(rankRef.current, delta);
     rankRef.current = res.save;
@@ -1383,8 +1416,10 @@ export function useSlotGame() {
       after: res.after.id,
       parts: parts ?? null,
       drip: dripAmt || undefined,
+      src: src === "spin" ? undefined : src,
     });
-    const event = res.event ?? (res.applied > 0 ? "gain" : res.applied < 0 ? "loss" : null);
+    if (src === "sucho" && res.event !== "up" && res.event !== "down") return;
+    const event = src === "daily" ? "day" : (res.event ?? (res.applied > 0 ? "gain" : res.applied < 0 ? "loss" : null));
     if (event) {
       const flash: RankFlash = {
         event,
@@ -1396,6 +1431,43 @@ export function useSlotGame() {
       setRankFlash(flash);
     }
   }, [noteStat]);
+
+  /** New local day: the closed day costs 1 % above 2 700 RP if it was played without a cleared ticket. */
+  const rollRpDayNow = useCallback(() => {
+    const r = rollRpDay(rankRef.current.rp, rpDayRef.current, deskToday());
+    if (!r.rolled) return;
+    rpDayRef.current = r.rec;
+    if (r.loss < 0) {
+      pushRank(r.loss, rpParts(r.loss, "fromDaily"), "daily");
+      setRpNotice({ text: `DENNÝ POKLES · bez tiketu · −${Math.abs(r.loss)} RP`, id: Date.now() });
+    }
+  }, [pushRank]);
+
+  /** Paid spin (base, ZÁSAH or buy): marks the day played and runs the SUCHO counter. */
+  const noteRpSpin = useCallback((chasing: boolean) => {
+    rollRpDayNow();
+    if (!rpDayRef.current.played) rpDayRef.current = { ...rpDayRef.current, played: true };
+    // Duel rounds, ZÁSAH spins and an active (not paused) ticket do not move SUCHO.
+    if (chasing || duelRef.current || duelLinkRef.current || roundEscrowRef.current) return;
+    if (jobRef.current && !ticketPauseRef.current) return;
+    const rankId = standing(rankRef.current.rp).id;
+    const st = suchoStep(rpIdleRef.current, rankRef.current.rp, rankId);
+    rpIdleRef.current = st.idle;
+    setRpIdle(st.idle);
+    if (st.tax) pushRank(st.tax, rpParts(st.tax, "fromSucho"), "sucho");
+    if (st.warn === "soon") setJobToast("SUCHO o 10 spinov · zober tiket");
+    else if (st.warn === "last") setJobToast("SUCHO od ďalšieho spinu · −1 RP/spin");
+    else if (st.warn === "start") setJobToast("SUCHO · −1 RP za spin bez tiketu");
+  }, [pushRank, rollRpDayNow]);
+  useEffect(() => {
+    if (!rpNotice || !started) return;
+    const t = window.setTimeout(() => setRpNotice(null), 4200);
+    return () => window.clearTimeout(t);
+  }, [rpNotice, started]);
+
+  const noteRpSpinRef = useRef(noteRpSpin);
+  noteRpSpinRef.current = noteRpSpin;
+  rollRpDayRef.current = rollRpDayNow;
 
   const noteResult = useCallback((paid: boolean) => {
     const perk = perkOf(standing(rankRef.current.rp).id);
@@ -1570,8 +1642,10 @@ export function useSlotGame() {
       // A running BEZ DANE / DAŇOVÝ ÚRAD modifier keeps counting. Neutral does not cancel it.
     }
     setKlienti(klientiRef.current);
+    // Card shows what the rank gets: gains are scaled by the ticket rule like any spin RP.
+    const shownRp = rp > 0 ? scaleSpinGain(rp, standing(rankRef.current.rp).id, Boolean(jobRef.current) && !ticketPauseRef.current) : rp;
     pushRank(rp);
-    const card = { outcome, line, rp };
+    const card = { outcome, line, rp: shownRp };
     chaseCardRef.current = card;
     setChaseCard(card);
     setTopLine(line);
@@ -1708,9 +1782,13 @@ export function useSlotGame() {
       noteHeat(next.payout, next.stake || BETS[betIndexRef.current] || 0);
       const profit = ticketProfit(next.payout, next.stake);
       noteTicket(profit.won, profit.lost);
-      const parts = rpFromJob(next.payout, next.stake);
-      if (parts.total) pushRank(parts.total, parts);
-      setSpinTape((t) => [{ label: "TIKET", amount: `+${formatMoney(next.payout)} · +${parts.total} RP` }, ...t].slice(0, 8));
+      const tr = ticketRp(next, standing(rankRef.current.rp).id);
+      rollRpDayNow();
+      rpDayRef.current = { ...rpDayRef.current, ok: true };
+      rpIdleRef.current = 0;
+      setRpIdle(0);
+      if (tr.ok) pushRank(tr.ok, rpParts(tr.ok, "fromTicket"), "ticket");
+      setSpinTape((t) => [{ label: "TIKET", amount: `+${formatMoney(next.payout)} · +${tr.ok} RP` }, ...t].slice(0, 8));
       setLcdFlash({ job: next, verdict: "ok" });
       setTicketSeal({ job: next, verdict: "ok" });
       setTicketFx({ id: Date.now(), kind: "payout", job: next });
@@ -1736,7 +1814,9 @@ export function useSlotGame() {
       jobRef.current = null;
       setJob(null);
       noteTicket(0, next.stake);
-      setSpinTape((t) => [{ label: "TIKET", amount: `−${formatMoney(next.stake)}` }, ...t].slice(0, 8));
+      const tr = ticketRp(next, standing(rankRef.current.rp).id);
+      if (tr.fail) pushRank(tr.fail, rpParts(tr.fail, "fromTicket"), "ticket");
+      setSpinTape((t) => [{ label: "TIKET", amount: `−${formatMoney(next.stake)} · −${Math.abs(tr.fail)} RP` }, ...t].slice(0, 8));
       autoRef.current = false;
       setAutoOn(false);
       setAutoLeft(0);
@@ -1765,14 +1845,16 @@ export function useSlotGame() {
       jobRef.current = next;
       setJob(next);
     }
-  }, [pushRank, stampDailyJob, noteTicket, noteHeat, noteStat]);
+  }, [pushRank, rollRpDayNow, stampDailyJob, noteTicket, noteHeat, noteStat]);
 
   const failParknetJob = useCallback((cur: JobCard, line = "NEÚSPEŠNÝ TIKET · MÁLO KREDITU NA 4KA TV") => {
     const burned = { ...cur, seal: false, spun: cur.limit };
     jobRef.current = null;
     setJob(null);
     noteTicket(0, burned.stake);
-    setSpinTape((t) => [{ label: "TIKET", amount: `−${formatMoney(burned.stake)}` }, ...t].slice(0, 8));
+    const tr = ticketRp(burned, standing(rankRef.current.rp).id);
+    if (tr.fail) pushRank(tr.fail, rpParts(tr.fail, "fromTicket"), "ticket");
+    setSpinTape((t) => [{ label: "TIKET", amount: `−${formatMoney(burned.stake)} · −${Math.abs(tr.fail)} RP` }, ...t].slice(0, 8));
     autoRef.current = false;
     setAutoOn(false);
     setAutoLeft(0);
@@ -1798,7 +1880,7 @@ export function useSlotGame() {
       reason: "parknet",
     });
     sfx.playThunder();
-  }, [stampDailyJob, noteTicket, noteStat]);
+  }, [pushRank, stampDailyJob, noteTicket, noteStat]);
 
   /** ZÁSAH that can no longer be paid ends quietly: no outcome, no RP, no klienti. */
   const voidChase = useCallback(() => {
@@ -2341,6 +2423,7 @@ export function useSlotGame() {
 
       if (cost > 0) {
         setBalance((b) => +(b - cost).toFixed(2));
+        noteRpSpinRef.current(Boolean(chasing));
         spinsSinceReloadRef.current += 1;
         if (spinsSinceReloadRef.current >= RELOAD_STABILIZE && reloadStreakRef.current > 0) {
           reloadStreakRef.current = 0;
@@ -4354,6 +4437,10 @@ export function useSlotGame() {
     jobOffer,
     daily,
     jobToast,
+    rpNotice: started ? (rpNotice?.text ?? null) : null,
+    rpIdle,
+    suchoLeague: suchoLeague(standing(rp).id),
+    ticketActive: Boolean(job) && !(ticketPause && job && ticketPause.jobId === job.id),
     lcdFlash,
     surplusX: JOB_BANK,
     duel,

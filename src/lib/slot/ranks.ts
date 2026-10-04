@@ -1,10 +1,11 @@
+import { BUY_COST_X, BUY_X_BY_FS, buyXForFs } from "./symbols.ts";
+
 export const DIV_RP = 100;
 export const MASTER_RP = 300;
 export const PROMO_BUFFER = 40;
 export const WIN_RP_CAP = 200;
 
 const ANTE_BASE = 1.13;
-const BUY_BASE = 79;
 const FS_BASE = 15;
 const BASE_HIT = 0.284;
 
@@ -210,6 +211,14 @@ export interface RankBreakdown {
   fromStake: number;
   fromBuy: number;
   fromReload: number;
+  /** Ticket RP (rp-tickets.ts): cleared ticket (+) or failed ticket (−). */
+  fromTicket?: number;
+  /** Spin RP cut by the ticket rule (rp-tickets.ts spinGainMult): always ≤ 0. */
+  fromScale?: number;
+  /** SUCHO: spins without a ticket after the grace (−1 each). */
+  fromSucho?: number;
+  /** Daily decay for a played day with no cleared ticket. */
+  fromDaily?: number;
 }
 
 export interface RankPerk {
@@ -321,7 +330,7 @@ export const RANK_PERKS: RankPerk[] = [
   {
     id: "duo",
     title: "4KA TV 16",
-    detail: "4KA TV 16, buy 79×, postup +0,5×. Na kontrole vidíš lístok do 0,80×.",
+    detail: `4KA TV 16, buy ${BUY_X_BY_FS[16]}×, postup +0,5×. Na kontrole vidíš lístok do 0,80×.`,
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
@@ -338,7 +347,7 @@ export const RANK_PERKS: RankPerk[] = [
   {
     id: "fiveg",
     title: "4KA TV 16",
-    detail: "4KA TV 16, buy 79×, postup +1×. Na kontrole vidíš cenu do 1×.",
+    detail: `4KA TV 16, buy ${BUY_X_BY_FS[16]}×, postup +1×. Na kontrole vidíš cenu do 1×.`,
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
@@ -355,7 +364,7 @@ export const RANK_PERKS: RankPerk[] = [
   {
     id: "nekonecno",
     title: "4KA TV 17",
-    detail: "4KA TV 17, buy 79×, 5 % späť so stropom. Na kontrole vidíš dve ceny, najviac 1× a 0,80×. Druhá plechovka len v 20 %.",
+    detail: `4KA TV 17, buy ${BUY_X_BY_FS[17]}×, 5 % späť so stropom. Na kontrole vidíš dve ceny, najviac 1× a 0,80×. Druhá plechovka len v 20 %.`,
     pityBonus: 0,
     jackTicket: 1,
     streakHold: true,
@@ -400,8 +409,9 @@ export function nextRebate(opts: {
   return { pay, paid: +(paid + pay).toFixed(2), spins };
 }
 
+/** Buy price in bets: priced on the free spins the rank gets (lib/slot/symbols BUY_X_BY_FS), ~100 % return. */
 export function buyXOf(rankId?: string): number {
-  return Math.max(79, BUY_BASE - perkOf(rankId).buyOff);
+  return Math.max(BUY_COST_X, buyXForFs(fsSpinsOf(rankId)) - perkOf(rankId).buyOff);
 }
 
 export function anteMulOf(rankId?: string): number {
@@ -494,13 +504,17 @@ export function reloadPunish(opts: {
 }
 
 export const RANK_REWARDS = [
+  { id: "ticket", title: "Splnený tiket", detail: "Hlavný zdroj RP. Lacný 100, stredný 200, drahý 460 RP × liga (×1,0 KREDIT … ×2,0 NEKONEČNO) × typ (2 ciele ×1,5, základ + 4KA TV ×1,75, feature ×1,25, OTRS ×1,2, denný +50 %) × stávka. Strop 2 000 RP. Nesplnený tiket −25 %." },
+  { id: "scale", title: "Spin bez tiketu", detail: "RP z výhier bez tiketu: KREDIT a SLOBODA ×1,0, SMART ×0,8, 4KA TV ×0,6 … NEKONEČNO ×0,4. S bežiacim tiketom aspoň ×0,7. Straty sa nemenia." },
+  { id: "sucho", title: "SUCHO", detail: "Od 4KA TV ligy: po 40 platených spinoch bez tiketu −1 RP za každý ďalší. Tiket ho zastaví, splnený tiket vynuluje. Nikdy pod 1 200 RP." },
+  { id: "daily", title: "Denný pokles", detail: "Hraný deň bez splneného tiketu: na ďalší deň −1 % z RP nad 2 700. Nikdy pod 1 200 RP. Deň bez hry sa neráta." },
   { id: "sum", title: "Suma výhry", detail: "Suma v eurách násobí všetko RP z výhry. Malý hit na 0,20 € je 1 RP. 20× na 1 € je desiatky. Big win ide k stropu 200, nie cez celé ligy." },
   { id: "stake", title: "Výška stávky", detail: "Rovnaký násobok na vyššej stávke dá viac RP, lebo suma je väčšia. Bežná hra na max stávke v NEKONEČNE bez big win RP berie. Jedna prehra nie je celá divízia." },
   { id: "mult", title: "Násobič", detail: "Plechovky sa násobia sumou výhry. Samy o sebe sú malé, big win ich zväčší." },
   { id: "streak", title: "Séria výhier", detail: "Séria, tumble a banner sa násobia sumou. Mŕtvy spin zhodí sériu na 0 — od SLOBODY jeden hold." },
   { id: "tumble", title: "Cluster tumble", detail: "Dva a viac Cluster tumble v jednom spine: +2 až +8 RP." },
   { id: "banner", title: "BIG / MEGA / EPIC / MAX", detail: "Popup: +4 / +8 / +12 / +18." },
-  { id: "bonus", title: "4KA TV", detail: "4KA TV total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Buy je vždy 79×. 4KA TV je 15, od DUO 16, v NEKONEČNO 17. Kúpa sa ráta voči cene, prehra berie entry ako mŕtve spiny (max 1 divízia)." },
+  { id: "bonus", title: "4KA TV", detail: `4KA TV total +6, retrigger +5, KONTROLA +4 a +1 za standing, ante +1, 3+ scatter +2. Buy podľa 4KA TV: 15 točení ${BUY_X_BY_FS[15]}×, od DUO 16 za ${BUY_X_BY_FS[16]}×, v NEKONEČNO 17 za ${BUY_X_BY_FS[17]}× (vráti v priemere ~100 % ceny). Kúpa sa ráta voči cene, prehra berie entry ako mŕtve spiny (max 1 divízia).` },
   { id: "rank", title: "Aktívna liga", detail: "Vyšší rank berie viac RP za mŕtvy spin. Ante 1,10× od SMART, cashback so stropom od OPTIKA, +1 a +2 točenia v 4KA TV. Liga nenásobí výhru a nelacní buy." },
   { id: "reload", title: "Exekúcia", detail: "Pod minimálnou stávkou dobitie vráti rank na KREDIT IV. RP, štít, séria, hlásenie a daň sa vynulujú. Sezónne maximum, klienti, štatistiky a tikety ostanú. Kredit je znova 5 000." },
   { id: "week", title: "Týždenný drop", detail: "Raz za 7 dní klesáš o jednu divíziu, nie o celú skupinu. Dlhšia pauza zoberie najviac jednu skupinu. Štít týždeň nechytá." },
@@ -625,6 +639,10 @@ export function rankBits(b: RankBreakdown): string[] {
   if (b.fromBonus) bits.push(`4KA TV +${b.fromBonus}`);
   if (b.fromBuy) bits.push(`kúpa ${b.fromBuy}`);
   if (b.fromReload) bits.push(`bankrot ${b.fromReload}`);
+  if (b.fromTicket) bits.push(`tiket ${b.fromTicket > 0 ? "+" : ""}${b.fromTicket}`);
+  if (b.fromScale) bits.push(`bez tiketu ${b.fromScale}`);
+  if (b.fromSucho) bits.push(`sucho ${b.fromSucho}`);
+  if (b.fromDaily) bits.push(`denný pokles ${b.fromDaily}`);
   return bits;
 }
 
@@ -647,7 +665,7 @@ export interface RankSave {
   shield: boolean;
 }
 
-export type RankEvent = "up" | "down" | "shield" | "bust" | "week" | "gain" | "loss" | null;
+export type RankEvent = "up" | "down" | "shield" | "bust" | "week" | "day" | "gain" | "loss" | null;
 
 export interface RankFlash {
   event: RankEvent;

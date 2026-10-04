@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BarChart3, Gauge, Info, Settings as SettingsIcon, Siren, Swords, Ticket, Trophy, Volume2 } from "lucide-react";
+import { BarChart3, Gauge, Info, Settings as SettingsIcon, Siren, Sparkles, Swords, Ticket, Trophy, Volume2 } from "lucide-react";
 import {
   ANTE_COST,
   BETS,
   BUY_COST_X,
+  BUY_X_BY_FS,
   COLS,
   FS_EXTRA_PER_SCATTER,
   FS_RETRIGGER,
@@ -37,11 +38,30 @@ import { KOLESO_VIP } from "@/lib/slot/koleso";
 import { DUEL_DEPOSIT_MULT } from "@/lib/slot/duel-deposit";
 import { ZboxRules } from "./ZboxRules";
 import { KolesoRules } from "./KolesoRules";
+import {
+  ACTIVE_MULT,
+  DAILY_FLOOR,
+  IDLE_MULT,
+  RP_PROTECT_FLOOR,
+  SUCHO_GRACE,
+  SUCHO_MIN_ENTRY,
+  TICKET_FAIL_SHARE,
+  TICKET_RP_BASE,
+  TICKET_RP_CAP,
+  TYPE_MULT,
+  leagueMult,
+  spinGainMult,
+  stakeFactor,
+  ticketRp,
+} from "@/lib/slot/rp-tickets";
+import "./rp-ui.css";
 import "./manual.css";
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** Section to jump to on open (e.g. "rp" from the SUCHO chip). */
+  focus?: string | null;
   bet: number;
   desk?: DeskDay;
   mine?: DeskDay;
@@ -61,6 +81,7 @@ const SECTIONS: { id: string; chip: string; title: string; icon: ReactNode }[] =
   { id: "jackpoty", chip: "Jackpoty", title: "Jackpoty", icon: <img src={TICKETS.stat.src} alt="" /> },
   { id: "tikety", chip: "Tikety", title: "Tikety", icon: <Ticket size={15} /> },
   { id: "ranky", chip: "Ranky", title: "Ranky", icon: <Trophy size={15} /> },
+  { id: "rp", chip: "RP z tiketov", title: "RP z tiketov · SUCHO · denný pokles", icon: <Sparkles size={15} /> },
   { id: "duel", chip: "Versus", title: "Versus", icon: <Swords size={15} /> },
   { id: "nastavenia", chip: "Nastavenia a zvuky", title: "Nastavenia a zvuky", icon: <SettingsIcon size={15} /> },
 ];
@@ -105,7 +126,7 @@ function canStats() {
  * Pravidlá: the game manual. Every number is read from the code it describes (symbols, ranks, zasah, zbox,
  * jackpot, pick-bonus, duel-deposit), so the text cannot drift from the game. Jump chips scroll inside the card.
  */
-export function Paytable({ open, onClose, bet, desk, mine }: Props) {
+export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props) {
   const [, names] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
@@ -141,6 +162,18 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
     const chip = nav?.querySelector<HTMLElement>(`[data-id="${here}"]`);
     if (nav && chip) nav.scrollTo({ left: chip.offsetLeft - (nav.clientWidth - chip.offsetWidth) / 2, behavior: "smooth" });
   }, [here]);
+
+  useEffect(() => {
+    if (!open || !focus) return;
+    const t = window.setTimeout(() => {
+      const card = cardRef.current;
+      const el = card?.querySelector<HTMLElement>(`#man-${focus}`);
+      if (!card || !el) return;
+      card.scrollTo({ top: el.offsetTop - (navRef.current?.offsetHeight ?? 0) - 8 });
+      setHere(focus);
+    }, 60);
+    return () => window.clearTimeout(t);
+  }, [open, focus]);
 
   if (!open) return null;
   const go = (id: string) => {
@@ -198,7 +231,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
               dvakrát častejšie (1 z {MATH_NOTE.bonusEvery} → 1 z {MATH_NOTE.anteBonusEvery} spinov), šancu lístka nemení.
             </li>
             <li>
-              <b>Kúpa 4KA TV:</b> {BUY_COST_X}× stávky na každom ranku. Ante sa na kúpu nevzťahuje. Vo VERSUS je kúpa zamknutá.
+              <b>Kúpa 4KA TV:</b> cena podľa počtu točení tvojho ranku: 15 točení {BUY_X_BY_FS[15]}×, 16 točení {BUY_X_BY_FS[16]}×, 17 točení {BUY_X_BY_FS[17]}× stávky. Každá kúpa vráti v priemere približne 100 % ceny. Ante sa na kúpu nevzťahuje (cena aj kúpená 4KA TV sú bez ante). Vo VERSUS je kúpa zamknutá.
             </li>
             <li>
               <b>Banery:</b> BIG WIN od {WIN_POP_X.big}× stávky, MEGA WIN od {WIN_POP_X.mega}×, SUPER MEGA WIN od {WIN_POP_X.epic}×, MASÍVNA VÝHRA od{" "}
@@ -218,7 +251,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             <p>
               Simulácia {MATH_NOTE.spins.toLocaleString("sk-SK")} platených spinov na engine hry, len základná hra a 4KA TV (bez bonus baru,
               ZÁSAHU, jackpotov a výhod ranku): RTP okolo {pct(MATH_NOTE.rtp, 1)}, výhra na {pct(MATH_NOTE.hit, 1)} spinov, 4KA TV 1 z{" "}
-              {MATH_NOTE.bonusEvery} (s ante 1 z {MATH_NOTE.anteBonusEvery}). Kúpa za {BUY_COST_X}× vráti v priemere {pct(MATH_NOTE.buyEv)} ceny. MAX WIN{" "}
+              {MATH_NOTE.bonusEvery} (s ante 1 z {MATH_NOTE.anteBonusEvery}). Kúpa za {BUY_COST_X}× (15 točení) vráti v priemere {pct(MATH_NOTE.buyEv)} ceny; 16 a 17 točení sú drahšie v rovnakom pomere. MAX WIN{" "}
               {MAX_WIN_X}×: {MATH_NOTE.maxEvery ? `približne 1 z ${MATH_NOTE.maxEvery}` : "v tejto vzorke ani raz"}. Demo s vysokou volatilitou, nie
               certifikované RTP.
             </p>
@@ -319,7 +352,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
               [`${FS_TRIGGER_SCATTERS} scattery`, `${fsBase} voľných točení${fsRanks.length ? ` (rank ${fsRanks.join(", ")})` : ""}`],
               ["Každý ďalší scatter", `+${FS_EXTRA_PER_SCATTER} točenia (6 scatterov = ${fsTriggerSpins(6, fsBase)})`],
               [`${FS_RETRIGGER_SCATTERS}+ scattery vo 4KA TV`, `+${FS_RETRIGGER} točení`],
-              ["Kúpa", `${BUY_COST_X}× stávky`],
+              ["Kúpa", `${BUY_X_BY_FS[15]}× / ${BUY_X_BY_FS[16]}× / ${BUY_X_BY_FS[17]}× stávky (15 / 16 / 17 točení)`],
               ["Strop", `MAX WIN ${MAX_WIN_X}× ukončí 4KA TV`],
             ]}
           />
@@ -447,7 +480,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
           </ul>
         </Sec>
 
-        <Sec id="ranky" lead={`Liga: ${RANKS.map((r) => r.name).join(" → ")}. RP prinášajú najmä výhry v eurách; mŕtve spiny a prehratá kúpa berú.`}>
+        <Sec id="ranky" lead={`Liga: ${RANKS.map((r) => r.name).join(" → ")}. Hlavný zdroj RP sú splnené tikety (pozri RP z tiketov). Výhry v eurách pridávajú, mŕtve spiny a prehratá kúpa berú.`}>
           <div className="man-ranks">
             {RANKS.map((r) => {
               const p = RANK_PERKS.find((x) => x.id === r.id);
@@ -468,6 +501,63 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
               Cashback (od OPTIKA): z mŕtveho spinu vráti percento stávky, najviac {REBATE_CAP_BETS} stávok za {REBATE_WINDOW} spinov.
             </li>
             <li>Prehratá kúpa ťa v ranku stojí ako {buyDeadEquiv(BUY_COST_X)} mŕtvych spinov, najviac 1 divíziu.</li>
+          </ul>
+        </Sec>
+
+        <Sec
+          id="rp"
+          lead={`Splnený tiket dá pevné RP podľa ceny, ligy a typu. Výhry na spinoch RP stále dávajú, ale vo vyšších ligách bez tiketu menej. Kredit, výhry ani RTP sa tým nemenia, mení sa len RP.`}
+        >
+          <Facts
+            rows={[
+              ["Základ tiketu", `lacný ${TICKET_RP_BASE.lacna} · stredný ${TICKET_RP_BASE.stred} · drahý ${TICKET_RP_BASE.draha} RP`],
+              ["Liga", `× ${n(leagueMult(0))} (KREDIT) až × ${n(leagueMult(10))} (NEKONEČNO), +0,1 za každý stupeň`],
+              [
+                "Typ",
+                `2 ciele × ${n(TYPE_MULT.twoGoal)} · základ + 4KA TV × ${n(TYPE_MULT.dual)} · feature (ZÁSAH, bonus bar) × ${n(TYPE_MULT.feature)} · OTRS × ${n(TYPE_MULT.mystery)} · denný tiket +${Math.round((TYPE_MULT.daily - 1) * 100)} %`,
+              ],
+              ["Stávka", `× ${n(+stakeFactor(0.2).toFixed(2))} pri 0,20 € až × 1 pri 1 000 € (malé stávky dajú menej)`],
+              ["Strop", `${TICKET_RP_CAP.toLocaleString("sk-SK")} RP za jeden tiket`],
+              ["Nesplnený tiket", `−${Math.round(TICKET_FAIL_SHARE * 100)} % z RP, ktoré by dal (aj keď ho ukončí málo kreditu)`],
+            ]}
+          />
+          <div className="man-rp" role="table" aria-label="RP podľa ligy">
+            <div role="row" className="is-head">
+              <span role="columnheader">Liga</span>
+              <span role="columnheader">Denný stredný 100 €</span>
+              <span role="columnheader">Spin bez tiketu</span>
+              <span role="columnheader">Spin s tiketom</span>
+            </div>
+            {RANKS.map((r) => {
+              const ex = ticketRp({ floor: "stred", stake: 100, template: "", mystery: false }, r.id);
+              return (
+                <div role="row" key={r.id} style={{ ["--rc" as string]: r.color }}>
+                  <b role="cell">{r.name}</b>
+                  <span role="cell">
+                    +{ex.ok} <em>/ −{Math.abs(ex.fail)}</em>
+                  </span>
+                  <span role="cell">× {n(IDLE_MULT[r.id] ?? 1)}</span>
+                  <span role="cell">× {n(spinGainMult(r.id, true))}</span>
+                </div>
+              );
+            })}
+          </div>
+          <ul className="man-list">
+            <li>
+              RP sa ukáže na karte tiketu: <b>+RP</b> za splnenie a <b>−RP</b> za neúspech. Pri OTRS uvidíš presné číslo hneď po prijatí.
+            </li>
+            <li>
+              Kým beží tiket, výhry na spinoch dávajú najmenej × {n(ACTIVE_MULT)} RP. Strata RP za mŕtvy spin sa nemení. Každá výhra dá aspoň 1 RP.
+            </li>
+            <li>
+              <b>SUCHO</b> (od ligy {RANKS.find((r) => r.entry >= SUCHO_MIN_ENTRY)?.name}): po {SUCHO_GRACE} platených spinoch bez tiketu ťa každý ďalší stojí −1 RP. Ukazovateľ pod rankom
+              odpočítava. Tiket SUCHO zastaví, splnený tiket ho vynuluje, nesplnený nie. Spiny ZÁSAHU, 4KA TV a VERSUS sa nerátajú.
+            </li>
+            <li>
+              <b>Denný pokles</b>: ak si v daný deň hral a nesplnil žiadny tiket, na ďalší deň stratíš 1 % z RP nad {DAILY_FLOOR.toLocaleString("sk-SK")}. Deň bez hry sa
+              neráta (platí len týždenný drop).
+            </li>
+            <li>SUCHO ani denný pokles ťa nestiahnu pod {RP_PROTECT_FLOOR.toLocaleString("sk-SK")} RP.</li>
           </ul>
         </Sec>
 

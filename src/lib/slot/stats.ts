@@ -124,6 +124,8 @@ export type StatEvent =
       parts?: RankBreakdown | null;
       drip?: number;
       weekDrops?: number;
+      /** Non-spin RP (rp-tickets.ts): ticket clear/fail, SUCHO tax, daily decay. */
+      src?: "ticket" | "sucho" | "daily";
     }
   | { t: "bust"; rpLost: number }
   | {
@@ -822,6 +824,10 @@ export function applyStat(s: PlayerStats, ev: StatEvent, now = Date.now()): Play
         bump(c, "rp.week", Math.abs(ev.applied));
       }
       if (ev.drip && ev.drip > 0) bump(c, "rank.drip", ev.drip);
+      if (ev.src === "ticket") bump(c, ev.applied >= 0 ? "rp.ticket" : "rp.ticketFail", Math.abs(ev.applied));
+      else if (ev.src === "sucho") bump(c, "rp.sucho", Math.abs(ev.applied));
+      else if (ev.src === "daily") bump(c, "rp.daily", Math.abs(ev.applied));
+      if (ev.parts?.fromScale) bump(c, "rp.scaleCut", Math.abs(ev.parts.fromScale));
       if (ev.parts) {
         bump(c, "parts.fromSum", ev.parts.fromSum ?? 0);
         bump(c, "parts.fromMult", ev.parts.fromMult ?? 0);

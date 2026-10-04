@@ -24,6 +24,13 @@ function syncAppHeight(): void {
   const root = document.documentElement;
   root.style.setProperty("--app-h", `${Math.round(h)}px`);
   root.style.setProperty("--app-top", `${Math.round(top)}px`);
+  // Short portrait phone (browser URL bar + nav bar eat the height): the reels would be height-bound
+  // and narrow, so short-vp.css compacts the chrome around them. Uses the visible height, not the
+  // media-query (largest) viewport. Above ~0.91w + 400 px the stock layout already fills the width.
+  const w = root.clientWidth || window.innerWidth;
+  const phone = w <= 720 && h > w;
+  root.toggleAttribute("data-phone-vp", phone);
+  root.toggleAttribute("data-short-vp", phone && h < w * 0.91 + 400);
 }
 
 export function useShell(): Shell {

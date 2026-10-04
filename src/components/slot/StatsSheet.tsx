@@ -437,6 +437,10 @@ export function StatsSheet({
           </div>
           <Row name="RP získané spolu" value={num(cget(s, "rp.gain"))} />
           <Row name="RP stratené spolu" value={num(cget(s, "rp.loss"))} />
+          <Row name="RP zo splnených tiketov" value={num(cget(s, "rp.ticket"))} />
+          <Row name="RP stratené nesplnenými tiketmi" value={num(cget(s, "rp.ticketFail"))} />
+          <Row name="RP stratené SUCHOM" value={num(cget(s, "rp.sucho"))} />
+          <Row name="RP stratené denným poklesom" value={num(cget(s, "rp.daily"))} />
           <Row name="Postupy / Pády" value={`${num(cget(s, "up"))} / ${num(cget(s, "down"))}`} />
           <Row name="Štít zachránil" value={num(cget(s, "shield"))} />
           <Row name="Týždenné dropy" value={num(cget(s, "week"))} />

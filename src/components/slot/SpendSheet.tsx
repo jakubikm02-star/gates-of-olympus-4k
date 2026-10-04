@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { formatMoney } from "@/lib/slot/format";
 import { ticketBonus } from "@/lib/slot/ticket-bonus";
 import { BonusNote } from "./TicketBonus";
+import "./rp-ui.css";
+import { TYPE_MULT, ticketRp } from "@/lib/slot/rp-tickets";
 import { jobClock, jobLeft, jobMeter, jobScopeLabel, jobShownGoal, sayCluster, spinWord, type DailyBoard, type JobCard } from "@/lib/slot/spend";
 
 interface Props {
@@ -14,9 +16,22 @@ interface Props {
   onJob: (card: JobCard) => void;
   /** Current buy multiplier. Only used to show the buy price on cards that need a buy. */
   buyX?: number;
+  /** Current league: RP on the cards is shown for it (settled with the league at the end). */
+  rankId?: string;
 }
 
-export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob, buyX = 0 }: Props) {
+/** "+RP · neúspech −RP" for a ticket in league `rankId`. */
+export function RpTag({ card, rankId }: { card: JobCard; rankId: string }) {
+  const rp = ticketRp(card, rankId);
+  return (
+    <span className="rp-tag" title={`RP: základ ${rp.base} × liga ${rp.league.toFixed(1)} × typ ${rp.type.toFixed(2)} × stávka ${rp.stake.toFixed(2)}${rp.capped ? " · strop" : ""}`}>
+      +{rp.ok.toLocaleString("sk-SK")} RP <em>neúspech −{Math.abs(rp.fail).toLocaleString("sk-SK")} RP</em>
+      {rp.tags.length ? <small>{rp.tags.join(" · ")}{rp.capped ? " · strop" : ""}</small> : null}
+    </span>
+  );
+}
+
+export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob, buyX = 0, rankId = "kredit" }: Props) {
   const buyCost = (card: JobCard) => (buyX > 0 ? +((card.lockBet || 0) * buyX).toFixed(2) : undefined);
   const [otrsFail, setOtrsFail] = useState(false);
   const [otrsAck, setOtrsAck] = useState(false);
@@ -63,6 +78,7 @@ export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob, bu
               <b>
                 cena {formatMoney(job.stake)} · zisk {formatMoney(job.payout)}
               </b>
+              <RpTag card={job} rankId={rankId} />
             </div>
             <button
               type="button"
@@ -96,6 +112,7 @@ export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob, bu
                 <span>
                   {jobScopeLabel(job)} · {jobClock(job)} · stávka {formatMoney(job.lockBet || 0)} zamknutá
                 </span>
+                <RpTag card={job} rankId={rankId} />
               </p>
             ) : null}
 
@@ -126,6 +143,7 @@ export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob, bu
                       <b>
                         {formatMoney(card.stake)} → {formatMoney(card.payout)}
                       </b>
+                      <RpTag card={card} rankId={rankId} />
                     </span>
                     {mark ? <i className="spend-stamp">{mark === "ok" ? "ÚSPEŠNÝ" : "NEÚSPEŠNÝ"}</i> : null}
                     {running ? <i className="spend-stamp is-run">BEŽÍ</i> : null}
@@ -148,6 +166,9 @@ export function SpendSheet({ open, onClose, credit, job, daily, offer, onJob, bu
               >
                 <em>SKONTROLOVAŤ OTRS</em>
                 <span>Neznáma úloha. Cena aj zisk až po prijatí. Môže obsahovať úlohu v 4KA TV s vlastným limitom kôl 4KA TV, oddelene od točení v hre. Uvidíš ju hneď po prijatí.</span>
+                <span className="rp-tag">
+                  RP po prijatí · OTRS × {String(TYPE_MULT.mystery).replace(".", ",")}, 2 ciele až × {String(TYPE_MULT.dual).replace(".", ",")}
+                </span>
               </button>
             ) : null}
             {!job && otrsFail ? <p className="spend-active is-late">OTRS zamietnutý · málo kreditu</p> : null}

@@ -45,6 +45,7 @@ const FLASH_TITLE: Record<NonNullable<RankFlash["event"]>, string | null> = {
   down: null,
   bust: "EXEKÚCIA",
   week: "DROP",
+  day: "DENNÝ POKLES",
   shield: "ŠTÍT",
   gain: null,
   loss: null,
@@ -81,7 +82,7 @@ export function RankBadge({ stand, delta = 0, streak = 0, parts = null, perkTitl
         : event && FLASH_TITLE[event]
           ? FLASH_TITLE[event]
           : null;
-  const tone = event === "up" || event === "gain" || gain ? "gain" : event === "down" || event === "loss" || event === "week" || event === "bust" || loss ? "loss" : event === "shield" ? "gain" : "";
+  const tone = event === "up" || event === "gain" || gain ? "gain" : event === "down" || event === "loss" || event === "week" || event === "day" || event === "bust" || loss ? "loss" : event === "shield" ? "gain" : "";
 
   if (plain) {
     return (

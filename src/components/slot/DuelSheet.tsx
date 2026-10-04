@@ -11,7 +11,6 @@ import {
   VERSUS_MODES,
   type VersusSize,
   duelView,
-  peerFrozen,
   type Duel,
   type DuelLink,
   type DuelMode,
@@ -19,6 +18,7 @@ import {
 import { BETS } from "@/lib/slot/symbols";
 import { DUEL_DEPOSIT_MULT, depositAmount, duelEntryCost, type DepositSettlement } from "@/lib/slot/duel-deposit";
 import { cleanRoomCode, duelSummary } from "@/lib/slot/duel-setup";
+import { ROOM_NET_FAIL_MS, newRoomSyncState, peerTicksFromSnap, startRoomSync, type RoomSyncState } from "@/lib/slot/duel-sync";
 import artDuel from "@/assets/versus/duel.webp";
 import artTriple from "@/assets/versus/triple.webp";
 import artFour from "@/assets/versus/four.webp";
@@ -52,13 +52,6 @@ interface Props {
   /** The ticket is paused by the running duel (result card chip). */
   ticketPaused?: boolean;
 }
-
-/** No heartbeat from the peer for this long while it still owes spins: the peer is out. */
-const PEER_SILENT_MS = 90_000;
-/** Room polls failing this long mid-duel: the network/room is at fault (a later timeout refunds the kaucia). */
-const ROOM_NET_FAIL_MS = 30_000;
-/** Consecutive "room not found" polls mid-duel before the duel is aborted as a room failure. */
-const ROOM_GONE_POLLS = 3;
 
 function modeLabel(need: number): string {
   return `${need} TOČENÍ`;
@@ -273,30 +266,25 @@ export function DuelLink({
   /** Lobby: names per seat as the room shows them (seat 0 = host). */
   const [names, setNames] = useState<string[]>(() => Array.from({ length: link.players ?? 2 }, (_, i) => (i === 0 && link.role === "host" ? link.name : "")));
   const [err, setErr] = useState("");
-  const started = useRef(false);
+  /** Boot + poll state for the whole life of this seat (survives a restart of the sync effect). */
+  const sync = useRef<RoomSyncState | null>(null);
+  if (!sync.current) sync.current = newRoomSyncState(link);
+  const st = sync.current;
   const lastHave = useRef(-1);
   const onPeerNameRef = useRef(onPeerName);
   const onGoRef = useRef(onGo);
   const onTickRef = useRef(onTick);
   const onForfeitRef = useRef(onForfeit);
   const onPeerNetRef = useRef(onPeerNet);
-  /** Per seat: when its progress last moved, and the have seen then. */
-  const peerAt = useRef<number[]>([]);
-  const peerHave = useRef<number[]>([]);
-  const playSince = useRef(0);
-  /** Room-level give-up (2 seats: forfeit / both away; any size: room failure). */
-  const gaveUp = useRef(false);
-  /** 3-4 seats: seats this client already handled as out (or is declaring out right now). */
-  const outSeen = useRef<Set<number>>(new Set());
   const inFsRef = useRef(inFs);
   const onRoomFailRef = useRef(onRoomFail);
-  const goneRun = useRef(0);
-  const lastOk = useRef(0);
-  const netFlagged = useRef(false);
   const tickOk = useRef(0);
-  /** My seat (host 0; a guest learns it from the join). */
-  const seatRef = useRef<number>(link.seat ?? (link.role === "host" ? 0 : 1));
-  const playersRef = useRef<number>(link.players ?? 2);
+  // Link fields and the bet are read through refs: a link rewrite (beginOnline adds seat + players at the
+  // start) must not restart the room sync (it used to re-run the join and kill the guest's poll).
+  const linkRef = useRef(link);
+  const betRef = useRef(bet);
+  linkRef.current = link;
+  betRef.current = bet;
   onRoomFailRef.current = onRoomFail;
   onPeerNameRef.current = onPeerName;
   onGoRef.current = onGo;
@@ -306,186 +294,33 @@ export function DuelLink({
   inFsRef.current = inFs;
 
   useEffect(() => {
-    let stop = false;
-    let ready = false;
-    const go = (snap: DuelSnap) => {
-      started.current = true;
-      onGoRef.current({
-        names: snap.seats.map((x, i) => x.name || (i === 0 ? "HOSŤ" : `HRÁČ ${i + 1}`)),
-        you: seatRef.current,
-        bet: snap.bet,
-        mode: snap.mode,
-        need: snap.need,
-        ante: snap.ante,
-      });
-    };
-    const boot = async () => {
-      try {
-        if (link.role === "host") {
-          const snap = await duelCreate({
-            code: link.room,
-            name: link.name,
-            mode: link.mode,
-            bet: link.bet || bet,
-            need: link.need || 10,
-            ante: link.ante,
-            players: link.players ?? 2,
-          });
-          if (stop) return;
-          playersRef.current = snap.players;
-          ready = true;
-          setErr("");
-          setStatus(snap.players > 2 ? `Kód je živý. Pošli ho ${snap.players - 1} kamošom.` : "Kód je živý. Pošli ho kamošovi.");
-        } else {
-          const { snap, seat } = await duelJoinSeat(link.room, link.name);
-          if (stop) return;
-          seatRef.current = seat;
-          playersRef.current = snap.players;
-          ready = true;
-          onPeerNameRef.current(snap.hostName);
-          setNames(snap.seats.map((x, i) => (i === seat ? link.name : x.name)));
-          setErr("");
-          setStatus(snap.players > 2 && !roomFull(snap) ? "Si v miestnosti. Čaká sa, kým sa zaplní." : "Si v miestnosti. Čakám na ŠTART.");
-        }
-      } catch (e) {
-        if (!stop) setErr(e instanceof Error ? e.message : "Spojenie zlyhalo");
-      }
-    };
-    void boot();
-
-    const tick = window.setInterval(() => {
-      if (!ready) return;
-      void (async () => {
-        try {
-          const snap = await duelPoll(link.room);
-          if (stop) return;
-          // This client itself was away (JS paused in the background) for longer than the silent limit.
-          const awayMe = lastOk.current > 0 && Date.now() - lastOk.current > PEER_SILENT_MS;
-          lastOk.current = Date.now();
-          goneRun.current = 0;
-          setErr("");
-          const me = seatRef.current;
-          const many = snap.players > 2;
-          playersRef.current = snap.players;
-          if (!started.current) {
-            setNames(snap.seats.map((x, i) => (i === me ? link.name : x.name)));
-            if (link.role === "host") {
-              const firstPeer = snap.seats.find((x, i) => i !== 0 && x.name)?.name;
-              if (firstPeer) onPeerNameRef.current(firstPeer);
-            }
-            if (link.role !== "host" && many) {
-              setStatus(roomFull(snap) ? "Miestnosť je plná. Štartuje sa…" : `Čaká sa na hráčov · ${snap.seats.filter((x) => x.name).length}/${snap.players}`);
-            }
-          }
-          // The room starts by itself once every seat has a player.
-          if (link.role === "host" && roomFull(snap) && snap.phase === "wait" && !started.current) {
-            void duelStart(link.room)
-              .then((started2) => {
-                if (stop || started.current) return;
-                go(started2);
-              })
-              .catch(() => {});
-          }
-          if (!many && snap.forfeit != null && !gaveUp.current) {
-            gaveUp.current = true;
-            const other = me === 0 ? 1 : 0;
-            onTickRef.current(snap.seats[other]!.have, snap.seats[other]!.score);
-            onForfeitRef.current(snap.forfeit);
-            return;
-          }
-          if (snap.phase === "play" || snap.phase === "done") {
-            if (!started.current) go(snap);
-            if (snap.phase === "play" && playSince.current === 0) playSince.current = Date.now();
-            const need = snap.need;
-            const mine = snap.seats[me]?.have ?? 0;
-            const peers = snap.seats.map((_, i) => i).filter((i) => i !== me);
-            // 3-4 seats: seats the row marks out (VZDAŤ, idle, declared out by another client).
-            if (many) {
-              for (const i of snap.seats.map((_, k) => k)) {
-                const x = snap.seats[i]!;
-                if (!x.out || outSeen.current.has(i)) continue;
-                outSeen.current.add(i);
-                if (i !== me) onTickRef.current(x.have, x.score, i);
-                onForfeitRef.current(i);
-              }
-              if (snap.seats[me]?.out) return;
-            }
-            let busyPeer = false;
-            const silentPeers: number[] = [];
-            const frozenPeers: number[] = [];
-            for (const i of peers) {
-              const x = snap.seats[i]!;
-              if (many && x.out) continue;
-              busyPeer ||= x.net;
-              if (many) onPeerNetRef.current(x.net, i);
-              // The no-progress clock restarts on every peer spin and stays at zero while the peer is busy
-              // (spin, 4KA TV, a banner still open): modal time never counts toward the 90 s.
-              if (x.have !== peerHave.current[i] || x.net) {
-                peerHave.current[i] = x.have;
-                peerAt.current[i] = Date.now();
-              }
-              const lastBeat = x.seen > playSince.current ? x.seen : playSince.current;
-              const seenAge = playSince.current ? Date.now() - lastBeat : 0;
-              // 90 s (was 45 s): a phone that locks or switches apps for a moment pauses JS and the heartbeat.
-              if (snap.phase === "play" && x.have < need && seenAge > PEER_SILENT_MS) silentPeers.push(i);
-              else if (
-                snap.phase === "play" &&
-                peerFrozen({ now: Date.now(), idleSince: peerAt.current[i] ?? 0, peerBusy: x.net, mine, theirs: x.have, need })
-              )
-                frozenPeers.push(i);
-              onTickRef.current(x.have, x.score, many ? i : undefined);
-            }
-            if (!many) onPeerNetRef.current(busyPeer);
-            const owing = peers.filter((i) => !(many && snap.seats[i]!.out) && snap.seats[i]!.have < need);
-            if (awayMe && owing.length && silentPeers.length === owing.length && !gaveUp.current) {
-              // Every seat dropped: nobody claims the bank. The host removes the room so the other clients
-              // abort too ("room gone"); each seat keeps its own stack and gets its kaucia back.
-              gaveUp.current = true;
-              if (link.role === "host") void duelLeave(link.room, "host");
-              onRoomFailRef.current?.("both");
-              return;
-            }
-            for (const who of [...silentPeers, ...frozenPeers]) {
-              if (many ? outSeen.current.has(who) : gaveUp.current) continue;
-              if (many) outSeen.current.add(who);
-              else gaveUp.current = true;
-              // Only a forfeit this client actually wrote (peer still short of its spins) is settled locally.
-              void duelForfeitIf(link.room, who, need, "peer", undefined, snap.players)
-                .then((ok) => {
-                  if (stop) return;
-                  if (ok) onForfeitRef.current(who);
-                  else if (many) outSeen.current.delete(who);
-                  else gaveUp.current = false;
-                })
-                .catch(() => {
-                  if (many) outSeen.current.delete(who);
-                  else gaveUp.current = false;
-                });
-            }
-          }
-        } catch (e) {
-          if (stop) return;
-          const msg = e instanceof Error ? e.message : "spojenie padlo";
-          if (started.current && !gaveUp.current) {
-            if (msg.includes("neexistuje")) {
-              goneRun.current += 1;
-              if (goneRun.current >= ROOM_GONE_POLLS) onRoomFailRef.current?.("gone");
-            } else if (!netFlagged.current && lastOk.current > 0 && Date.now() - lastOk.current > ROOM_NET_FAIL_MS) {
-              netFlagged.current = true;
-              onRoomFailRef.current?.("net");
-            }
-          }
-          if (msg.includes("neexistuje") && started.current) setErr("Súper odišiel.");
-          else if (!started.current) setErr(msg);
-        }
-      })();
-    }, 400);
-
-    return () => {
-      stop = true;
-      window.clearInterval(tick);
-    };
-  }, [link.room, link.role, link.name, link.mode, link.bet, link.need, link.ante, link.players, bet]);
+    return startRoomSync({
+      api: {
+        create: duelCreate,
+        joinSeat: duelJoinSeat,
+        poll: duelPoll,
+        start: duelStart,
+        forfeitIf: (code, out, need, by, final, players) => duelForfeitIf(code, out, need, by, final, players),
+        leave: (code, role, players) => duelLeave(code, role, players),
+      },
+      state: st,
+      hooks: {
+        getLink: () => linkRef.current,
+        getBet: () => betRef.current,
+        onGo: (info) => onGoRef.current(info),
+        onTick: (have, score, seat) => onTickRef.current(have, score, seat),
+        onForfeit: (who) => onForfeitRef.current(who),
+        onPeerNet: (net, seat) => onPeerNetRef.current(net, seat),
+        onPeerName: (name) => onPeerNameRef.current(name),
+        onRoomFail: (kind) => onRoomFailRef.current?.(kind),
+        setErr,
+        setStatus,
+        setNames,
+      },
+    });
+    // Only the room and the role restart the sync (see lib/slot/duel-sync roomSyncKey).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [link.room, link.role]);
 
   useEffect(() => {
     if (!duel || duel.kind !== "online") return;
@@ -494,19 +329,27 @@ export function DuelLink({
       const have = duel.seats[duel.you]!.have;
       const score = Math.max(0, +(duel.seats[duel.you]!.score - (duel.held || 0)).toFixed(2));
       lastHave.current = have;
-      void duelTick(link.room, seatRef.current, have, score, {
+      void duelTick(link.room, st.seat, have, score, {
         name: link.name,
         ante: Boolean(link.ante),
         net: inFsRef.current,
       })
-        .then(() => {
+        .then((snap) => {
           tickOk.current = Date.now();
+          // Safety net: the PATCH returns the room row, so a peer's progress lands even if the poll stalls.
+          // Only real changes go on (an unchanged tick would re-render and re-run this effect in a loop).
+          if (duel.phase !== "play" || !st.started) return;
+          for (const t of peerTicksFromSnap(snap, st.seat)) {
+            const cur = duel.seats[t.seat ?? (duel.you === 0 ? 1 : 0)];
+            if (!cur || (t.have <= cur.have && t.score === cur.score)) continue;
+            onTickRef.current(t.have, t.score, t.seat);
+          }
         })
         .catch(() => {
           // Heartbeat writes failing for a long time mid-duel: the room/network is at fault.
-          if (duel.phase !== "play" || netFlagged.current) return;
+          if (duel.phase !== "play" || st.netFlagged) return;
           if (tickOk.current > 0 && Date.now() - tickOk.current > ROOM_NET_FAIL_MS) {
-            netFlagged.current = true;
+            st.netFlagged = true;
             onRoomFailRef.current?.("net");
           }
         });
@@ -524,16 +367,16 @@ export function DuelLink({
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", onShow);
     };
-  }, [duel, link.room, link.role, link.name, link.ante]);
+  }, [duel, link.room, link.role, link.name, link.ante, st]);
 
   const full = names.length >= 2 && names.every(Boolean);
   const launch = () => {
-    if (started.current || link.role !== "host" || !full) return;
+    if (st.started || link.role !== "host" || !full) return;
     void (async () => {
       try {
         const snap = await duelStart(link.room);
-        if (started.current) return;
-        started.current = true;
+        if (st.started) return;
+        st.started = true;
         onGo({
           names: snap.seats.map((x, i) => x.name || (i === 0 ? "HOSŤ" : `HRÁČ ${i + 1}`)),
           you: 0,
@@ -549,7 +392,7 @@ export function DuelLink({
   };
 
   const leave = () => {
-    void duelLeave(link.room, link.role === "host" ? "host" : seatRef.current, playersRef.current);
+    void duelLeave(link.room, link.role === "host" ? "host" : st.seat, st.players);
     onEnd();
   };
 
@@ -561,7 +404,7 @@ export function DuelLink({
 
   const need = link.need || 10;
   const stake = link.bet || bet;
-  const me = seatRef.current;
+  const me = st.seat;
   const players = Math.max(names.length, 2);
   const vm = versusMode(players);
   const shownNames = names.map((n, i) => (i === me ? link.name : i === 0 ? n || peerName || "HOSŤ" : n));

@@ -4,6 +4,7 @@ import type { Standing } from "@/lib/slot/ranks";
 import { WIN_POP_X } from "@/lib/slot/symbols";
 import { POOL_ELIGIBLE_BET } from "@/lib/slot/jackpot";
 import { RankFrame } from "./RankFrame";
+import { AddToHome } from "./AddToHome";
 
 /**
  * Intro / loading screen. Only art the game already preloads (garage, scatter, ticket)
@@ -54,6 +55,7 @@ export function BootScreen({ ready, pct, booting, rank, onStart, onRank }: Props
         <img src="/symbols/tv4ka.png" alt="" className="bs-prop p-tv" decoding="async" />
         <img src="/symbols/fttb-stat.png?v=fttb3" alt="" className="bs-prop p-jp" decoding="async" />
       </div>
+      <AddToHome />
 
       <section className="bs-panel" aria-label="Ports of Parkizmus">
         <header className="bs-brand">
