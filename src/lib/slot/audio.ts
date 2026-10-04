@@ -19,6 +19,11 @@
  * ctx.destination directly, or it would skip the volume sliders: connect to audioOut() instead.
  * Fallback sounds are counted to the slot whose moment they play (withCue): e.g. zásah start
  * without its own upload plays the KONTROLA sample on the „Štart zásahu“ slider.
+ *
+ * Every sample voice also has its own "fader" gain (voice gain ▶ fader ▶ cue bus). The fader carries the
+ * per-sound cut-off (Max. dĺžka) and fade-out ramp (lib/slot/cue-fade, global like the volumes: public.sfx_fade,
+ * localStorage fallback) and the ramp used when a voice is stopped early, so nothing else that moves the voice
+ * gain (spin energy, anticipation swell) can cancel it and no stop ends in a click.
  */
 
 import { VIZ } from "./bed-viz.ts";
@@ -34,6 +39,18 @@ import {
   isLegacyVolumeKey,
   parseGlobalLevels,
 } from "./cue-volume.ts";
+import {
+  FADE_LOCAL_KEY,
+  cutPlan,
+  fadePayload,
+  isDefaultFade,
+  normFade,
+  parseFadeRows,
+  payloadRows,
+  sameFade,
+  stopFadeSec,
+  type CueFade,
+} from "./cue-fade.ts";
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -485,6 +502,207 @@ export async function saveVolumes(password: string): Promise<string | null> {
   levelsLoaded = true;
   for (const fn of volumeListeners) fn();
   return null;
+}
+
+/** Per-sound cut-off + fade-out (preview edits live here until saved). Missing = off / 0 ms. */
+let cueFades: Record<string, CueFade> = {};
+/** Last fades loaded from / saved to the server (or the localStorage fallback). */
+let savedFades: Record<string, CueFade> = {};
+/** Where savedFades came from: built-in defaults, this device's localStorage copy, or public.sfx_fade. */
+let fadesFrom: "default" | "local" | "server" = "default";
+
+function emitVolume(): void {
+  for (const fn of volumeListeners) fn();
+}
+
+function readLocalFades(): Record<string, CueFade> | null {
+  try {
+    if (typeof localStorage === "undefined") return null;
+    const raw = localStorage.getItem(FADE_LOCAL_KEY);
+    if (!raw) return null;
+    return parseFadeRows(JSON.parse(raw), new Set(Object.keys(FILES)));
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalFades(fades: Record<string, CueFade>): void {
+  try {
+    if (typeof localStorage === "undefined") return;
+    const rows = payloadRows(fadePayload(fades, Object.keys(FILES))).filter(
+      (r) => !isDefaultFade(normFade({ maxS: (r as { max_s: number | null }).max_s, fadeMs: (r as { fade_ms: number }).fade_ms })),
+    );
+    localStorage.setItem(FADE_LOCAL_KEY, JSON.stringify(rows));
+  } catch {
+    /* private mode / quota */
+  }
+}
+
+/**
+ * Global fades: the localStorage copy first (instant, and the only source while public.sfx_fade does not exist),
+ * then one public GET (public.sfx_fade, a few rows). A successful fetch wins and refreshes the local copy.
+ */
+async function loadGlobalFades(): Promise<void> {
+  const local = readLocalFades();
+  if (local) {
+    savedFades = local;
+    cueFades = { ...local };
+    fadesFrom = "local";
+    emitVolume();
+  }
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/sfx_fade?select=key,max_s,fade_ms`, {
+      headers: { apikey: SUPA_ANON, Authorization: `Bearer ${SUPA_ANON}` },
+    });
+    if (!res.ok) return;
+    savedFades = parseFadeRows(await res.json(), new Set(Object.keys(FILES)));
+    cueFades = { ...savedFades };
+    fadesFrom = "server";
+    writeLocalFades(savedFades);
+    emitVolume();
+  } catch {
+    /* local copy / defaults stay */
+  }
+}
+
+if (typeof window !== "undefined") void loadGlobalFades();
+
+/** Cut-off + fade of one slot (off / 0 ms by default). */
+export function getCueFade(key: string): CueFade {
+  return cueFades[key] ?? { maxS: null, fadeMs: 0 };
+}
+
+/** Admin: change one slot's cut-off / fade, live on this device (preview). saveFades() makes it global. */
+export function setCueFade(key: string, next: Partial<CueFade>): void {
+  if (!(key in FILES)) return;
+  const f = normFade({ ...getCueFade(key), ...next });
+  if (sameFade(f, cueFades[key])) return;
+  if (isDefaultFade(f)) delete cueFades[key];
+  else cueFades[key] = f;
+  emitVolume();
+}
+
+/** Whether a slot can be cut (the 4KA TV / zásah music beds only fade when stopped). */
+export function cueCanCut(key: string): boolean {
+  return key in FILES && !MUSIC_KEYS.has(key);
+}
+
+export function fadesDirty(): boolean {
+  return Object.keys(FILES).some((k) => !sameFade(cueFades[k], savedFades[k]));
+}
+
+export function revertFades(): void {
+  cueFades = { ...savedFades };
+  emitVolume();
+}
+
+/** "server" / "local" (this device only, sfx_fade not reachable) / "default". */
+export function fadesSource(): "default" | "local" | "server" {
+  return fadesFrom;
+}
+
+/**
+ * Admin: save every slot's cut-off + fade for all players (sfx_fade_put, admin password). While the server has
+ * no sfx_fade_put yet (migration 20261004_sfx_fade.sql not applied) or is unreachable, they are kept in this
+ * device's localStorage instead and `localOnly` says so.
+ */
+export async function saveFades(password: string): Promise<{ error: string | null; localOnly: boolean }> {
+  if (!password.trim()) return { error: "Zadaj heslo.", localOnly: false };
+  const keys = Object.keys(FILES);
+  const payload = fadePayload(cueFades, keys);
+  const next = parseFadeRows(payloadRows(payload), new Set(keys));
+  let res: Response | null = null;
+  try {
+    res = await sfxRpc("sfx_fade_put", { p_pass: password, p_fades: payload });
+  } catch {
+    res = null;
+  }
+  if (res && res.ok) {
+    savedFades = next;
+    cueFades = { ...next };
+    fadesFrom = "server";
+    writeLocalFades(next);
+    emitVolume();
+    return { error: null, localOnly: false };
+  }
+  if (res) {
+    const text = await res.text().catch(() => "");
+    if (text.includes("denied")) return { error: "Zlé heslo.", localOnly: false };
+    const missing = res.status === 404 || text.includes("PGRST202") || text.includes("sfx_fade");
+    if (!missing) return { error: "Orezanie a fade sa nepodarilo uložiť.", localOnly: false };
+  }
+  savedFades = next;
+  cueFades = { ...next };
+  fadesFrom = "local";
+  writeLocalFades(next);
+  emitVolume();
+  return { error: null, localOnly: true };
+}
+
+/** Real file length per slot (s): the decoded buffer, else the file's metadata (probed once per source). */
+const durProbe: Record<string, { src: string; dur: number | null }> = {};
+
+export function cueDuration(key: string): number | null {
+  const b = bufs[key];
+  if (b) return b.duration;
+  const src = cueSrc(key);
+  if (!src || typeof Audio === "undefined") return null;
+  const known = durProbe[key];
+  if (known && known.src === src) return known.dur;
+  const entry: { src: string; dur: number | null } = { src, dur: null };
+  durProbe[key] = entry;
+  const el = new Audio();
+  el.preload = "metadata";
+  const done = () => {
+    el.onloadedmetadata = null;
+    el.onerror = null;
+    const d = el.duration;
+    entry.dur = Number.isFinite(d) && d > 0 ? d : null;
+    el.removeAttribute("src");
+    if (durProbe[key] === entry && entry.dur !== null) emitVolume();
+  };
+  el.onloadedmetadata = done;
+  el.onerror = done;
+  el.src = src;
+  return null;
+}
+
+/** Linear ramp of a fader to silence: scheduled from full level (cut-off), or from wherever it is now (early stop). */
+function rampDown(param: AudioParam, at: number, len: number, now: boolean): void {
+  if (now) {
+    param.cancelScheduledValues(at);
+    param.setValueAtTime(param.value, at);
+  } else {
+    param.setValueAtTime(1, at);
+  }
+  param.linearRampToValueAtTime(0, at + Math.max(0.001, len));
+}
+
+/**
+ * HTMLAudio played outside a fader node (beds, preview loop): step the element volume down, then `done`.
+ * Returns a cancel (for an element that is reused before the fade ended; `done` then does not run).
+ */
+function fadeElement(el: HTMLMediaElement, sec: number, done: () => void): () => void {
+  const from = el.volume;
+  const ms = Math.max(0, sec * 1000);
+  if (ms < 20 || from <= 0 || el.paused) {
+    done();
+    return () => {};
+  }
+  const t0 = performance.now();
+  const id = window.setInterval(() => {
+    const k = Math.min(1, (performance.now() - t0) / ms);
+    try {
+      el.volume = Math.max(0, from * (1 - k));
+    } catch {
+      /* detached */
+    }
+    if (k >= 1) {
+      window.clearInterval(id);
+      done();
+    }
+  }, 16);
+  return () => window.clearInterval(id);
 }
 
 /** Soft limiter: transparent up to 100 %, a fast brick-wall-ish knee above it so 200 % does not clip. */
@@ -957,15 +1175,52 @@ function playBlob(
     return null;
   }
   elSources.set(el, node);
+  const ac = ctx;
+  const fade = getCueFade(scope ?? name);
   const g = ctx.createGain();
   const t = opts.when ?? ctx.currentTime;
   g.gain.setValueAtTime(opts.gain ?? 0.85, t);
   const p = ctx.createStereoPanner();
   p.pan.setValueAtTime(Math.max(-1, Math.min(1, opts.pan ?? 0)), t);
+  const fader = ctx.createGain();
+  fader.gain.setValueAtTime(1, t);
   node.connect(p);
   p.connect(g);
-  g.connect(bus ?? sfx);
+  g.connect(fader);
+  fader.connect(bus ?? sfx);
+  let stopped = false;
+  let cutTimer = 0;
+  const teardown = () => {
+    window.clearTimeout(cutTimer);
+    el.pause();
+    for (const n of [node, p, g, fader]) {
+      try {
+        n.disconnect();
+      } catch {
+        /* already */
+      }
+    }
+  };
+  // Cut-off: the file length is not known up front here, so it is timed from the real start of playback.
+  const plan = cutPlan(Infinity, opts.rate ?? 1, fade, true);
+  if (plan) {
+    el.addEventListener(
+      "playing",
+      () => {
+        if (stopped) return;
+        const at = ac.currentTime;
+        rampDown(fader.gain, at + plan.fadeStart, plan.fadeLen, false);
+        cutTimer = window.setTimeout(() => {
+          stopped = true;
+          teardown();
+        }, (plan.cutAt + 0.03) * 1000);
+      },
+      { once: true },
+    );
+  }
+  el.addEventListener("ended", () => !el.loop && teardown(), { once: true });
   const start = () => {
+    if (stopped) return;
     void el.play().catch(() => {});
   };
   if (opts.when && ctx) {
@@ -975,11 +1230,12 @@ function playBlob(
   const handle = {
     gain: g,
     stop: () => {
-      g.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.04);
-      window.setTimeout(() => {
-        el.pause();
-        node.disconnect();
-      }, 80);
+      if (stopped) return;
+      stopped = true;
+      window.clearTimeout(cutTimer);
+      const len = stopFadeSec(fade);
+      rampDown(fader.gain, ac.currentTime, len, true);
+      window.setTimeout(teardown, len * 1000 + 30);
     },
   };
   if (CUT_PREV.has(name)) {
@@ -997,35 +1253,50 @@ function playBuf(
   if (!ctx || !sfx) return null;
   if (!b) return custom.has(name) ? playBlob(name, opts) : null;
   const bus = cueBus(scope ?? name);
+  const ac = ctx;
+  const fade = getCueFade(scope ?? name);
+  const rate = opts.rate ?? 1;
   const t = opts.when ?? ctx.currentTime;
   const src = ctx.createBufferSource();
   src.buffer = b;
   src.loop = !!opts.loop;
-  src.playbackRate.value = opts.rate ?? 1;
+  src.playbackRate.value = rate;
   const g = ctx.createGain();
   g.gain.setValueAtTime(opts.gain ?? 0.85, t);
   const p = ctx.createStereoPanner();
   p.pan.setValueAtTime(Math.max(-1, Math.min(1, opts.pan ?? 0)), t);
+  // Own fader after the voice gain: cut-off / stop ramps live here, untouched by callers moving `gain`.
+  const fader = ctx.createGain();
+  fader.gain.setValueAtTime(1, t);
   src.connect(p);
   p.connect(g);
-  g.connect(bus ?? sfx);
+  g.connect(fader);
+  fader.connect(bus ?? sfx);
   // Visualizer reads the voice gain, i.e. before the per-sound and master volume.
   const tapped = VIZ_KEYS.has(name) && tapNode(g);
-  releaseOnEnd(src, p, g);
+  releaseOnEnd(src, p, g, fader);
   src.start(t);
-  if (!opts.loop) src.stop(t + b.duration / (opts.rate ?? 1) + 0.02);
+  const plan = cutPlan(b.duration, rate, fade, !!opts.loop);
+  if (plan) {
+    rampDown(fader.gain, t + plan.fadeStart, plan.fadeLen, false);
+    src.stop(t + plan.cutAt + 0.01);
+  } else if (!opts.loop) src.stop(t + b.duration / rate + 0.02);
+  let stopped = false;
   const handle = {
     gain: g,
     stop: () => {
+      if (stopped) return;
+      stopped = true;
       if (tapped) untapViz(g);
-      g.gain.setTargetAtTime(0.0001, ctx!.currentTime, 0.04);
-      window.setTimeout(() => {
-        try {
-          src.stop();
-        } catch {
-          /* already */
-        }
-      }, 80);
+      const now = ac.currentTime;
+      const len = stopFadeSec(fade);
+      rampDown(fader.gain, now, len, true);
+      try {
+        // Replaces an earlier scheduled end only if that one has not happened yet.
+        src.stop(Math.max(now, t) + len + 0.01);
+      } catch {
+        /* already */
+      }
     },
   };
   if (CUT_PREV.has(name)) {
@@ -1515,20 +1786,23 @@ function startCueLoop(key: string): void {
       vol();
     },
     stop: () => {
-      try {
-        el.pause();
-        el.removeAttribute("src");
-        el.load();
-      } catch {
-        /* already */
-      }
-      // The element is dropped; its MediaElementSource would otherwise stay wired to the bus for
-      // the rest of the session (one more per bed ↔ zásah switch).
-      try {
-        elSources.get(el)?.disconnect();
-      } catch {
-        /* not connected */
-      }
+      // Fade the element out (the slot's Fade out, at least the anti-click floor), then drop it.
+      fadeElement(el, stopFadeSec(getCueFade(key)), () => {
+        try {
+          el.pause();
+          el.removeAttribute("src");
+          el.load();
+        } catch {
+          /* already */
+        }
+        // The element is dropped; its MediaElementSource would otherwise stay wired to the bus for
+        // the rest of the session (one more per bed ↔ zásah switch).
+        try {
+          elSources.get(el)?.disconnect();
+        } catch {
+          /* not connected */
+        }
+      });
     },
   };
 }
@@ -1733,7 +2007,8 @@ let cuePreviewTimer = 0;
 
 /**
  * Player's per-sound preview (Settings): the slot's own sample through its per-sound bus and the
- * master volume, so it sounds exactly as in the game. Loops stop after a few seconds.
+ * master volume, with its cut-off + fade, so it sounds exactly as in the game. Loops stop (with the fade)
+ * after a few seconds; stopCuePreview() mid-sound fades out like an early stop in the game.
  * Returns false while the sample is not decoded yet (or the slot is empty).
  */
 export function previewCue(key: string): boolean {
@@ -1761,6 +2036,7 @@ export function previewCue(key: string): boolean {
 let previewEl: HTMLAudioElement | null = null;
 let previewKey = "";
 let previewGen = 0;
+let previewFadeCancel: () => void = () => {};
 
 /** Keep a direct-playing preview element in step with the sliders (routed ones follow the graph). */
 function refreshPreviewEl(): void {
@@ -1781,6 +2057,7 @@ function previewLoopEl(key: string): boolean {
     }
     const el = previewEl;
     previewKey = key;
+    previewFadeCancel();
     el.pause();
     el.loop = true;
     el.src = src;
@@ -1790,7 +2067,11 @@ function previewLoopEl(key: string): boolean {
       el.volume = muted ? 0 : elementVolume(el, LIVE_VOL, key);
       void el.play().catch(() => {});
     });
-    cuePreview = { stop: () => el.pause() };
+    cuePreview = {
+      stop: () => {
+        previewFadeCancel = fadeElement(el, stopFadeSec(getCueFade(key)), () => el.pause());
+      },
+    };
     cuePreviewTimer = window.setTimeout(stopCuePreview, 5000);
   });
   return true;

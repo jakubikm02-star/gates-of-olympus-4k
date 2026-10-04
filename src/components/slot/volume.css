@@ -391,3 +391,128 @@
   gap: 8px;
   align-items: center;
 }
+
+/* Per-sound cut-off + fade-out under each slider. Inputs at 16px so mobile browsers do not zoom in. */
+.cue-fade {
+  margin: 2px 0 6px;
+  padding: 6px 8px 8px;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.03);
+  border: 1px solid rgb(255 255 255 / 0.06);
+}
+
+.cue-fade.is-set {
+  border-color: rgb(62 198 224 / 0.45);
+}
+
+.cue-fade-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cue-fade-dur {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #c4b896;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cue-fade-dur b {
+  color: #fff6d8;
+}
+
+.cue-fade-dur .cue-fade-cut {
+  color: #bff4ff;
+}
+
+.cue-fade-btn {
+  flex: none;
+  min-width: 44px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid #3ec6e0;
+  background: #08222a;
+  color: #bff4ff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cue-fade-btn.is-stop {
+  padding: 0;
+  border-color: #c9a24a;
+  background: #261a08;
+  color: #ffe9a8;
+}
+
+.cue-fade-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.cue-fade-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  margin: 0;
+  color: #c4b896;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.cue-fade-hint {
+  justify-content: center;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.cue-fade-in {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cue-fade-in input {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid #5a4a28;
+  background: #0b0f13;
+  color: #fff6d8;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cue-fade-in input:focus {
+  outline: 2px solid #3ec6e0;
+  outline-offset: 0;
+}
+
+.cue-fade-in input::placeholder {
+  color: #6f6a5a;
+}
+
+.cue-fade-in i {
+  flex: none;
+  font-style: normal;
+  color: #9aa3ad;
+  font-size: 0.8rem;
+}
+
+.sound-dur {
+  margin-left: 6px;
+  color: #9aa3ad;
+  font-size: 0.75em;
+  font-style: normal;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}

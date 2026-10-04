@@ -3,8 +3,13 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   CUE_LEVEL_MAX,
   VOLUME_MAX,
+  cueCanCut,
+  cueDuration,
   cueSrc,
   elementVolume,
+  fadesDirty,
+  fadesSource,
+  getCueFade,
   getCueLevel,
   getVolume,
   isCustomCue,
@@ -16,8 +21,11 @@ import {
   resetCue,
   resetCueLevels,
   resetCues,
+  revertFades,
   revertVolumes,
+  saveFades,
   saveVolumes,
+  setCueFade,
   setCueLevel,
   setVolume,
   stopCuePreview,
@@ -26,6 +34,7 @@ import {
   unlockAudio,
   volumesDirty,
 } from "@/lib/slot/audio";
+import { FADE_MS_MAX, clampFadeMs, clampMaxS, formatSec, isDefaultFade, playedLength } from "@/lib/slot/cue-fade";
 import { contractCatalog } from "@/lib/slot/spend";
 import { saveContractTitles, subscribeContracts } from "@/lib/slot/job-titles";
 import { hudState, makeTapCounter, setHudEnabled } from "@/lib/slot/debug-hud";
@@ -163,6 +172,8 @@ function SoundSheet({ password }: { password: string }) {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => subscribeSfx(() => bump((n) => n + 1)), []);
+  // Durations arrive asynchronously (file metadata / decode): they notify through the volume listeners.
+  useEffect(() => subscribeVolume(() => bump((n) => n + 1)), []);
   useEffect(() => {
     return () => {
       audio.current?.pause();
@@ -232,6 +243,7 @@ function SoundSheet({ password }: { password: string }) {
           <div>
             <b>
               {cue.name}
+              <i className="sound-dur">{formatSec(cueDuration(cue.id))}</i>
               {isCustomCue(cue.id) ? <i className="sound-own">jadro</i> : null}
               {isCustomCue(cue.id) ? (
                 <button type="button" className="sound-one" onClick={() => void drop(cue.id)}>
@@ -324,6 +336,112 @@ export function VolumeControl() {
   );
 }
 
+/** "1.5" → "1,5" for the text field. */
+function maxText(v: number | null): string {
+  return v === null ? "" : String(v).replace(".", ",");
+}
+
+/**
+ * Per-sound Max. dĺžka (s, empty = vyp.) + Fade out (ms) with the real file length and a preview that plays
+ * exactly as the game will (cut + fade). Values are live on this device; ULOŽIŤ PRE VŠETKÝCH makes them global.
+ */
+function CueFadeEdit({ id, name }: { id: string; name: string }) {
+  const f = getCueFade(id);
+  const canCut = cueCanCut(id);
+  const dur = cueDuration(id);
+  const [maxTxt, setMaxTxt] = useState(() => maxText(f.maxS));
+  const [fadeTxt, setFadeTxt] = useState(() => (f.fadeMs ? String(f.fadeMs) : ""));
+  // Reverted / loaded / saved from outside: show the real value unless the field already means it.
+  useEffect(() => {
+    setMaxTxt((t) => (clampMaxS(t) === f.maxS ? t : maxText(f.maxS)));
+  }, [f.maxS]);
+  useEffect(() => {
+    setFadeTxt((t) => (clampFadeMs(t) === f.fadeMs ? t : f.fadeMs ? String(f.fadeMs) : ""));
+  }, [f.fadeMs]);
+  const played = dur !== null && canCut ? playedLength(dur, f) : null;
+  const cut = played !== null && dur !== null && played < dur - 0.005;
+  const maxId = `fade-max-${id}`;
+  const fadeId = `fade-ms-${id}`;
+  return (
+    <div className={`cue-fade ${isDefaultFade(f) ? "" : "is-set"}`}>
+      <div className="cue-fade-info">
+        <span className="cue-fade-dur" aria-label={`${name}: dĺžka súboru`}>
+          Dĺžka <b>{formatSec(dur)}</b>
+          {cut ? (
+            <>
+              {" "}→ hrá <b className="cue-fade-cut">{formatSec(played)}</b>
+            </>
+          ) : null}
+        </span>
+        <button
+          type="button"
+          className="cue-fade-btn"
+          aria-label={`Náhľad s orezaním a fade: ${name}`}
+          onClick={() => {
+            unlockAudio();
+            previewCue(id);
+          }}
+        >
+          ▶ Náhľad
+        </button>
+        <button type="button" className="cue-fade-btn is-stop" aria-label="Zastaviť náhľad (s fade)" onClick={() => stopCuePreview()}>
+          ■
+        </button>
+      </div>
+      <div className="cue-fade-fields">
+        {canCut ? (
+          <label className="cue-fade-field" htmlFor={maxId}>
+            <span>Max. dĺžka</span>
+            <span className="cue-fade-in">
+              <input
+                id={maxId}
+                type="text"
+                inputMode="decimal"
+                enterKeyHint="done"
+                autoComplete="off"
+                placeholder="vyp."
+                value={maxTxt}
+                onChange={(e) => {
+                  setMaxTxt(e.target.value);
+                  setCueFade(id, { maxS: clampMaxS(e.target.value) });
+                }}
+                onBlur={() => setMaxTxt(maxText(getCueFade(id).maxS))}
+              />
+              <i>s</i>
+            </span>
+          </label>
+        ) : (
+          <p className="cue-fade-field cue-fade-hint">Hudba sa neoreže, len pri zastavení stíchne.</p>
+        )}
+        <label className="cue-fade-field" htmlFor={fadeId}>
+          <span>Fade out</span>
+          <span className="cue-fade-in">
+            <input
+              id={fadeId}
+              type="text"
+              inputMode="numeric"
+              enterKeyHint="done"
+              autoComplete="off"
+              placeholder="0"
+              value={fadeTxt}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/[^0-9]/g, "").slice(0, 4);
+                setFadeTxt(raw);
+                setCueFade(id, { fadeMs: clampFadeMs(raw) });
+              }}
+              onBlur={() => {
+                const v = getCueFade(id).fadeMs;
+                setFadeTxt(v ? String(v) : "");
+              }}
+            />
+            <i>ms</i>
+          </span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
 function CueVolume({ id, name }: { id: string; name: string }) {
   const pct = Math.round(getCueLevel(id) * 100);
   const max = Math.round(CUE_LEVEL_MAX * 100);
@@ -370,6 +488,7 @@ function CueVolume({ id, name }: { id: string; name: string }) {
           ▶
         </button>
       </div>
+      <CueFadeEdit id={id} name={name} />
     </div>
   );
 }
@@ -379,7 +498,9 @@ export function CueVolumes() {
   const [, bump] = useState(0);
   useEffect(() => subscribeVolume(() => bump((n) => n + 1)), []);
   useEffect(() => () => stopCuePreview(), []);
-  const changed = SOUND_CUES.filter((cue) => !cue.head && Math.round(getCueLevel(cue.id) * 100) !== 100).length;
+  const changed = SOUND_CUES.filter(
+    (cue) => !cue.head && (Math.round(getCueLevel(cue.id) * 100) !== 100 || !isDefaultFade(getCueFade(cue.id))),
+  ).length;
   return (
     <details className="cue-vols" onToggle={(e) => !(e.currentTarget as HTMLDetailsElement).open && stopCuePreview()}>
       <summary>
@@ -389,6 +510,10 @@ export function CueVolumes() {
       <div className="cue-vols-body">
         <p className="vol-note cue-vols-note">
           Každý zvuk zvlášť, 0–200 %. Násobí sa s Hlasitosťou hore (50 % × 200 % = 100 %). Platí pre všetkých hráčov po uložení.
+        </p>
+        <p className="vol-note cue-vols-note">
+          Max. dĺžka (s): dlhší zvuk sa po nej plynulo stíši a utne (prázdne = vypnuté, hrá celý). Fade out (0–{FADE_MS_MAX} ms):
+          dĺžka stíšenia na konci aj vtedy, keď hra zvuk preruší skôr (ďalší spin), aby nepukal.
         </p>
         <button type="button" className="cue-vols-reset" disabled={!changed} onClick={() => resetCueLevels()}>
           Resetovať všetko na 100&nbsp;%
@@ -414,17 +539,38 @@ function VolumeSave({ password }: { password: string }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => subscribeVolume(() => bump((n) => n + 1)), []);
   // Leaving Settings without saving: back to what everybody hears.
-  useEffect(() => () => revertVolumes(), []);
-  const dirty = volumesDirty();
+  useEffect(
+    () => () => {
+      revertVolumes();
+      revertFades();
+    },
+    [],
+  );
+  const volDirty = volumesDirty();
+  const fadeDirty = fadesDirty();
+  const dirty = volDirty || fadeDirty;
   const save = async () => {
     setBusy(true);
-    const err = await saveVolumes(password);
+    const err = volDirty ? await saveVolumes(password) : null;
+    const fade = !err && fadeDirty ? await saveFades(password) : { error: null, localOnly: false };
     setBusy(false);
-    setMsg(err ? { ok: false, text: err } : { ok: true, text: "Uložené. Platí pre všetkých hráčov." });
+    if (err || fade.error) setMsg({ ok: false, text: (err || fade.error) as string });
+    else if (fade.localOnly)
+      setMsg({
+        ok: true,
+        text: `${volDirty ? "Hlasitosť uložená pre všetkých. " : ""}Orezanie a fade zatiaľ len na tomto zariadení (server ešte nemá tabuľku sfx_fade).`,
+      });
+    else setMsg({ ok: true, text: "Uložené. Platí pre všetkých hráčov." });
   };
   return (
     <div className="vol-save">
-      <p className="vol-note">{dirty ? "Neuložené zmeny počuješ len ty." : "Hlasitosti platia pre všetkých hráčov."}</p>
+      <p className="vol-note">
+        {dirty
+          ? "Neuložené zmeny počuješ len ty."
+          : fadesSource() === "local"
+            ? "Hlasitosti platia pre všetkých. Orezanie a fade sú zatiaľ len na tomto zariadení."
+            : "Hlasitosti, orezanie a fade platia pre všetkých hráčov."}
+      </p>
       <div className="vol-save-row">
         <button type="button" className="sound-reset" disabled={busy || !dirty} onClick={() => void save()}>
           {busy ? "…" : "ULOŽIŤ PRE VŠETKÝCH"}
@@ -435,6 +581,7 @@ function VolumeSave({ password }: { password: string }) {
           disabled={busy || !dirty}
           onClick={() => {
             revertVolumes();
+            revertFades();
             setMsg(null);
           }}
         >
