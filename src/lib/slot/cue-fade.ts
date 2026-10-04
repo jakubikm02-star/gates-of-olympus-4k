@@ -77,6 +77,29 @@ export function cutPlan(
   return { cutAt, fadeStart: cutAt - fadeLen, fadeLen };
 }
 
+/**
+ * How a voice ends (seconds after its start, playback time), or null when it just plays out untouched:
+ * - cut: Max. dĺžka is set and shorter than the sound → ramp to 0 ending at maxS (≥ anti-click floor), stop there;
+ * - natural end: no cut but Fade out > 0 and the length is known → ramp to 0 ending exactly at the sound's end
+ *   (so "Fade out" alone works too; a sound that would end abruptly fades instead).
+ * Loops / unknown lengths only get the cut (they have no natural end to fade into).
+ */
+export function endPlan(
+  durationS: number,
+  rate: number,
+  fade: CueFade | undefined,
+  loop = false,
+): { endAt: number; fadeStart: number; fadeLen: number; cut: boolean } | null {
+  const f = fade ?? DEFAULT_FADE;
+  const cut = cutPlan(durationS, rate, f, loop);
+  if (cut) return { endAt: cut.cutAt, fadeStart: cut.fadeStart, fadeLen: cut.fadeLen, cut: true };
+  const r = Number.isFinite(rate) && rate > 0 ? rate : 1;
+  if (loop || !Number.isFinite(durationS) || durationS <= 0 || f.fadeMs <= 0) return null;
+  const endAt = durationS / r;
+  const fadeLen = Math.min(endAt, f.fadeMs / 1000);
+  return { endAt, fadeStart: endAt - fadeLen, fadeLen, cut: false };
+}
+
 /** What actually sounds (s): min(file / rate, max) — for the label next to the duration. */
 export function playedLength(durationS: number, fade: CueFade | undefined, rate = 1): number {
   const plan = cutPlan(durationS, rate, fade);

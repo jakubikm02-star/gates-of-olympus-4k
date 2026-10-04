@@ -39,9 +39,10 @@ import {
   isLegacyVolumeKey,
   parseGlobalLevels,
 } from "./cue-volume.ts";
+import { rampOut, scheduleEnd } from "./voice-fade.ts";
 import {
   FADE_LOCAL_KEY,
-  cutPlan,
+  endPlan,
   fadePayload,
   isDefaultFade,
   normFade,
@@ -667,25 +668,66 @@ export function cueDuration(key: string): number | null {
   return null;
 }
 
-/** Linear ramp of a fader to silence: scheduled from full level (cut-off), or from wherever it is now (early stop). */
-function rampDown(param: AudioParam, at: number, len: number, now: boolean): void {
-  if (now) {
-    param.cancelScheduledValues(at);
-    param.setValueAtTime(param.value, at);
-  } else {
-    param.setValueAtTime(1, at);
-  }
-  param.linearRampToValueAtTime(0, at + Math.max(0.001, len));
-}
-
 /**
- * HTMLAudio played outside a fader node (beds, preview loop): step the element volume down, then `done`.
- * Returns a cancel (for an element that is reused before the fade ended; `done` then does not run).
+ * HTMLAudio streamed outside a voice fader (music beds, bed preview): fade out, then `done`.
+ * Routed through the graph (mediaSource): the element's source is re-wired through a temporary GainNode ramped
+ * to 0 on the AudioContext clock — sample-accurate and independent of HTMLMediaElement.volume, which mobile
+ * browsers may ignore. Only an element playing directly (context not running) steps its volume down.
+ * Returns a cancel (for an element that is reused before the fade ended; `done` then does not run and the
+ * element's routing is restored).
  */
 function fadeElement(el: HTMLMediaElement, sec: number, done: () => void): () => void {
+  if (el.paused || sec * 1000 < 1) {
+    done();
+    return () => {};
+  }
+  const node = elSources.get(el);
+  const route = elRoute.get(el);
+  const dest = node && route !== undefined ? cueBus(route, true) : null;
+  if (ctx && node && dest && ctx.state === "running") {
+    const ac = ctx;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(1, ac.currentTime);
+    // Same render quantum: connect the new path, then drop the direct one (no gap, no doubling audible).
+    node.connect(g);
+    g.connect(dest);
+    try {
+      node.disconnect(dest);
+    } catch {
+      /* not connected directly */
+    }
+    rampOut(g.gain, null, ac.currentTime, sec);
+    let live = true;
+    let rewired = false;
+    // Back to the direct route for the element's next use (preview element is reused). Not for an element whose
+    // source was dropped (the live bed), nor if something re-routed it meanwhile (mediaSource with another slot).
+    const restore = () => {
+      if (rewired) return;
+      rewired = true;
+      try {
+        node.disconnect(g);
+        g.disconnect();
+      } catch {
+        /* already */
+      }
+      if (el.getAttribute("src") && elRoute.get(el) === route) node.connect(dest);
+    };
+    const id = window.setTimeout(() => {
+      if (!live) return;
+      live = false;
+      // Pause / drop first while the gain is still at 0, re-wire a moment later (no blip at the end).
+      done();
+      window.setTimeout(restore, 80);
+    }, sec * 1000 + 30);
+    return () => {
+      live = false;
+      window.clearTimeout(id);
+      restore();
+    };
+  }
   const from = el.volume;
   const ms = Math.max(0, sec * 1000);
-  if (ms < 20 || from <= 0 || el.paused) {
+  if (ms < 20 || from <= 0) {
     done();
     return () => {};
   }
@@ -1201,23 +1243,24 @@ function playBlob(
       }
     }
   };
-  // Cut-off: the file length is not known up front here, so it is timed from the real start of playback.
-  const plan = cutPlan(Infinity, opts.rate ?? 1, fade, true);
-  if (plan) {
-    el.addEventListener(
-      "playing",
-      () => {
-        if (stopped) return;
-        const at = ac.currentTime;
-        rampDown(fader.gain, at + plan.fadeStart, plan.fadeLen, false);
-        cutTimer = window.setTimeout(() => {
-          stopped = true;
-          teardown();
-        }, (plan.cutAt + 0.03) * 1000);
-      },
-      { once: true },
-    );
-  }
+  // Fallback only (this upload could not be decoded to a buffer). Cut / end fade are scheduled on the fader once
+  // playback really runs, from the element's real length and position (duration is NaN before metadata).
+  const rate = opts.rate ?? 1;
+  el.addEventListener(
+    "playing",
+    () => {
+      if (stopped) return;
+      const plan = endPlan(Number.isFinite(el.duration) ? el.duration : Infinity, rate, fade, !!opts.loop);
+      if (!plan) return;
+      const t0 = ac.currentTime - el.currentTime / rate;
+      const stopAt = scheduleEnd(fader.gain, null, t0, plan);
+      cutTimer = window.setTimeout(() => {
+        stopped = true;
+        teardown();
+      }, Math.max(0, stopAt - ac.currentTime) * 1000 + 30);
+    },
+    { once: true },
+  );
   el.addEventListener("ended", () => !el.loop && teardown(), { once: true });
   const start = () => {
     if (stopped) return;
@@ -1233,9 +1276,8 @@ function playBlob(
       if (stopped) return;
       stopped = true;
       window.clearTimeout(cutTimer);
-      const len = stopFadeSec(fade);
-      rampDown(fader.gain, ac.currentTime, len, true);
-      window.setTimeout(teardown, len * 1000 + 30);
+      const stopAt = rampOut(fader.gain, null, ac.currentTime, stopFadeSec(fade));
+      window.setTimeout(teardown, Math.max(0, stopAt - ac.currentTime) * 1000 + 30);
     },
   };
   if (CUT_PREV.has(name)) {
@@ -1276,11 +1318,10 @@ function playBuf(
   const tapped = VIZ_KEYS.has(name) && tapNode(g);
   releaseOnEnd(src, p, g, fader);
   src.start(t);
-  const plan = cutPlan(b.duration, rate, fade, !!opts.loop);
-  if (plan) {
-    rampDown(fader.gain, t + plan.fadeStart, plan.fadeLen, false);
-    src.stop(t + plan.cutAt + 0.01);
-  } else if (!opts.loop) src.stop(t + b.duration / rate + 0.02);
+  // Cut at Max. dĺžka, or fade into the natural end when only Fade out is set (cue-fade endPlan).
+  const plan = endPlan(b.duration, rate, fade, !!opts.loop);
+  if (plan) scheduleEnd(fader.gain, src, t, plan);
+  else if (!opts.loop) src.stop(t + b.duration / rate + 0.02);
   let stopped = false;
   const handle = {
     gain: g,
@@ -1288,15 +1329,8 @@ function playBuf(
       if (stopped) return;
       stopped = true;
       if (tapped) untapViz(g);
-      const now = ac.currentTime;
-      const len = stopFadeSec(fade);
-      rampDown(fader.gain, now, len, true);
-      try {
-        // Replaces an earlier scheduled end only if that one has not happened yet.
-        src.stop(Math.max(now, t) + len + 0.01);
-      } catch {
-        /* already */
-      }
+      // Replaces a later scheduled end; the ramp starts from wherever the fader is (also mid-fade).
+      rampOut(fader.gain, src, Math.max(ac.currentTime, t), stopFadeSec(fade));
     },
   };
   if (CUT_PREV.has(name)) {
@@ -2023,6 +2057,22 @@ export function previewCue(key: string): boolean {
   const loop = key === "spin" || key === "anticipate" || key === "anticipation2" || key === "anticipation3";
   // An empty anticipation 2 / 3 previews what the game plays instead (the fallback chain, on that slot's slider).
   const src = key === "anticipation2" || key === "anticipation3" ? antiFallback(key, ownCue) : key;
+  // An upload not decoded yet: decode first, then play from the buffer (never the <audio> fallback, which can
+  // only approximate the fade), unless decoding failed for good.
+  if (custom.has(src) && !bufs[src] && !decodeFailed.has(src) && stored[src]) {
+    const token = ++previewToken;
+    void decodeCustom(src).then(() => {
+      if (token === previewToken) startPreview(src, loop);
+    });
+    return true;
+  }
+  return startPreview(src, loop);
+}
+
+let previewToken = 0;
+
+function startPreview(src: string, loop: boolean): boolean {
+  stopCuePreview();
   const handle = withCue(src, () => playBuf(src, { gain: 0.85, loop }));
   if (!handle) {
     void loadBank();
@@ -2078,6 +2128,7 @@ function previewLoopEl(key: string): boolean {
 }
 
 export function stopCuePreview(): void {
+  previewToken++;
   previewGen += 1;
   window.clearTimeout(cuePreviewTimer);
   cuePreviewTimer = 0;

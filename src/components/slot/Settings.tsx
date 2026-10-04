@@ -182,6 +182,10 @@ function SoundSheet({ password }: { password: string }) {
   }, []);
   const play = (id: string, loop = false) => {
     unlockAudio();
+    audio.current?.pause();
+    // Same path as the game (Web Audio buffer, per-sound volume, Max. dĺžka + Fade out); the raw <audio> below only
+    // while the sample is not loaded yet.
+    if (cueCanCut(id) && previewCue(id)) return;
     const src = cueSrc(id);
     if (!src) {
       if (id === "zHeart") previewHeartbeat();
@@ -199,6 +203,7 @@ function SoundSheet({ password }: { password: string }) {
   };
   const stop = () => {
     audio.current?.pause();
+    stopCuePreview();
   };
   const pick = async (id: string, file: File | undefined) => {
     if (!file || busy) return;
@@ -373,6 +378,7 @@ function CueFadeEdit({ id, name }: { id: string; name: string }) {
               {" "}→ hrá <b className="cue-fade-cut">{formatSec(played)}</b>
             </>
           ) : null}
+          {f.fadeMs > 0 ? <> · fade {formatSec(f.fadeMs / 1000)}</> : null}
         </span>
         <button
           type="button"
@@ -514,7 +520,7 @@ export function CueVolumes() {
         </p>
         <p className="vol-note cue-vols-note">
           Max. dĺžka (s): dlhší zvuk sa po nej plynulo stíši a utne (prázdne = vypnuté, hrá celý). Fade out (0–{FADE_MS_MAX} ms):
-          dĺžka stíšenia na konci aj vtedy, keď hra zvuk preruší skôr (ďalší spin), aby nepukal.
+          plynulé stíšenie na konci zvuku (aj bez Max. dĺžky), pri orezaní aj keď hra zvuk preruší skôr (ďalší spin).
         </p>
         <button type="button" className="cue-vols-reset" disabled={!changed} onClick={() => resetCueLevels()}>
           Resetovať všetko na 100&nbsp;%
