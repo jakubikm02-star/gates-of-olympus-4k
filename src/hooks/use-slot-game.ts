@@ -60,7 +60,7 @@ import { putBoard, readBestMark, readBestRecipe, readNick, saveNick, skipNick, w
 import { emptyTally, mergeTally, notePays, recipeTumbles, topCans, topPays, type SeqTally, type WinRecipe } from "@/lib/slot/win-recipe";
 import { HEAT_MAX, heatFromWin } from "@/lib/slot/heat";
 import { canEventCue, type CanEvent } from "@/lib/slot/cue-ready";
-import { canStrikeKey } from "@/lib/slot/can-sfx";
+import { canBoltKey } from "@/lib/slot/can-sfx";
 import { ReelScatterTracker, SETTLE_TIMEOUT_MS, cascadeCue, thirdScatterCue, type LandCue } from "@/lib/slot/scatter-sfx";
 import { antiAfterSpin, antiCue, antiLevel, antiStreak, type AntiCue } from "@/lib/slot/anticipation";
 import { ZASAH, applyMod, fsSpinX, fsZasahArmed, roundModScope, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, stepMod, windowCount, type ChaseMod, type ModScope, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
@@ -2555,9 +2555,8 @@ export function useSlotGame() {
         for (const orb of orbs) {
           setStrike({ r: orb.r, c: orb.c });
           setStruckUids((ids) => [...ids, orb.uid]);
-          // The bolt hits this can now (it ignites): Blesk do plechovky, once per strike (lib/slot/can-sfx).
-          // Was Plechovka per can; Hrom stays on the throw before the first strike.
-          sfx.playCanLightning(canStrikeKey(canSpin, orb.uid));
+          // Blesk do plechovky once for this spin, on the first bolt. Later cans stay silent.
+          if (orb === orbs[0]) sfx.playCanLightning(canBoltKey(canSpin));
           const key = flyKey.current++;
           setFlies((f) => [...f, { key, r: orb.r, c: orb.c, mult: orb.mult }]);
           window.setTimeout(() => setFlies((f) => f.filter((x) => x.key !== key)), 700);

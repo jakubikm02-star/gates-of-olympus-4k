@@ -72,7 +72,7 @@ const SOUND_CUES: { id: string; name: string; loop?: boolean; when?: string; hea
   { id: "pop", name: "Cluster tumble", when: "Výherné symboly zmiznú pred pádom." },
   { id: "tumble", name: "Pád", when: "Nové symboly padnú. Ďalší pád je o niečo vyšší." },
   { id: "can", name: "Plechovka", when: "Otvorenie plechovky len pri výhernom násobiči, keď sa započíta do výhry. Pri páde plechoviek nehrá." },
-  { id: "can_lightning", name: "Blesk do plechovky", when: "Čo robí: blesk zasiahne výhernú plechovku pri aktivácii násobičov, raz pri každom zásahu (zásahy idú po jednom; pri preskočení zaznie raz). Pred prvým zásahom ide Hrom. Odporúčanie: krátke elektrické prasknutie alebo výboj, 0,2–0,6 s, ostrý nástup. Kým nenahráš vlastný, hrá sa praskot Elektriky." },
+  { id: "can_lightning", name: "Blesk do plechovky", when: "Čo robí: pri výherných násobičoch zaznie raz za spin, aj keď blesk zasiahne viac plechoviek. Pred ním ide Hrom. Odporúčanie: krátke elektrické prasknutie alebo výboj, 0,2–0,6 s, ostrý nástup. Kým nenahráš vlastný, hrá sa praskot Elektriky." },
   { id: "zap", name: "Rampa", when: "Každé pustenie plechoviek rampou: po zastavení valcov aj po páde. Spolu s ňou ide aj Elektrika." },
   { id: "electric", name: "Elektrika", when: "Spolu s Rampou pri každom pustení plechoviek." },
   { id: "collect", name: "Zber", when: "Výhra lístka (pot), presne 3 scattere po dopade a +5 točení." },

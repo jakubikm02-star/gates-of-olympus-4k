@@ -7,6 +7,7 @@ import {
   CAN_STRIKE_GAP_MS,
   canDropKey,
   canLandDelay,
+  canBoltKey,
   canStrikeKey,
   createSfxGate,
 } from "./can-sfx.ts";
@@ -65,13 +66,13 @@ describe("can drop sound: once per landing moment", () => {
   });
 });
 
-describe("can lightning sound: once per strike", () => {
-  it("sequential strikes (normal 320 ms, turbo ~110 ms) each play", () => {
-    for (const step of [320, 109]) {
-      const gate = createSfxGate(CAN_STRIKE_GAP_MS);
-      const plays = [11, 12, 13].map((uid, i) => gate.take(canStrikeKey(3, uid), 1000 + i * step));
-      assert.deepEqual(plays, [true, true, true], `step ${step}`);
-    }
+describe("can lightning sound: once per spin", () => {
+  it("one key for the whole spin, a later spin plays again", () => {
+    const gate = createSfxGate(CAN_STRIKE_GAP_MS);
+    assert.equal(gate.take(canBoltKey(3), 1000), true);
+    assert.equal(gate.take(canBoltKey(3), 1000 + 320), false);
+    assert.equal(gate.take(canBoltKey(3), 1000 + 640), false);
+    assert.equal(gate.take(canBoltKey(4), 2000), true);
   });
 
   it("strikes fired in one go (skip) are one sound", () => {
@@ -115,8 +116,9 @@ describe("wiring: settings slot and no double play", () => {
     const at = hook.indexOf("for (const orb of orbs)");
     assert.ok(at > 0);
     const strike = hook.slice(at, hook.indexOf("setStrike(null)", at));
-    assert.match(strike, /sfx\.playCanLightning\(canStrikeKey\(/);
-    assert.doesNotMatch(strike, /sfx\.playMult\(\)/);
+    assert.match(strike, /sfx\.playCanLightning\(canBoltKey\(/);
+    assert.doesNotMatch(strike, /canStrikeKey|sfx\.playMult\(\)/);
+    assert.equal((strike.match(/playCanLightning/g) ?? []).length, 1);
     for (const m of hook.matchAll(/zeusDrop\(board[^\n]*\n([^\n]*\n){0,4}/g)) assert.doesNotMatch(m[0], /playMult|playCanDrop/);
     assert.equal((hook.match(/playCanDrop/g) ?? []).length, 0);
     const win = hook.slice(hook.indexOf("const willThrow"), hook.indexOf("let paidX"));

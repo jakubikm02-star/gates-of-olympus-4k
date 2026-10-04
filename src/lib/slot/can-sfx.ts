@@ -9,9 +9,8 @@
  * calls in one frame never stack). A later cascade of the same spin is a new key, so it plays again.
  *
  * Lightning (blesk): when the cans of a win are activated, the attendant's bolt hits them one after the
- * other (one `.god-bolt` per can, ~320 ms apart at normal speed, ~110 ms in turbo). Each strike is a
- * visibly separate hit, so the Blesk do plechovky slot plays once per strike, at the frame the struck can
- * ignites. Strikes fired closer than CAN_STRIKE_GAP_MS (skip, a duel's instant run) are one sound.
+ * other. The Blesk do plechovky slot plays once for that spin, on the first bolt, however many cans
+ * ignite. A later spin plays again.
  */
 
 /** `.cell.is-drop` animation length (styles.css `cell-drop 280ms`). */
@@ -29,6 +28,11 @@ export function canLandDelay(reduced: boolean): number {
 /** Key of one landing moment: `step` 0 = drop after the reels stop, n ≥ 1 = drop with the n-th tumble. */
 export function canDropKey(spin: number, step: number): string {
   return `${spin}:drop:${step}`;
+}
+
+/** One lightning sound for the whole spin, not one per can. */
+export function canBoltKey(spin: number): string {
+  return `${spin}:bolt`;
 }
 
 /** Key of one lightning strike on a can (the can's cell uid). */

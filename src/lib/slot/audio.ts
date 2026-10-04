@@ -1385,9 +1385,8 @@ export function playCanDrop(key: string): boolean {
 }
 
 /**
- * Blesk do plechovky: the bolt hits one winning can (lib/slot/can-sfx canStrikeKey). Once per visible
- * strike; strikes in one go (skip) are one sound. Own upload, else the built-in crackle (Elektrika's file),
- * else a synth zap, all on this slot's slider.
+ * Blesk do plechovky: once per spin (lib/slot/can-sfx canBoltKey), on the first bolt, however many cans
+ * ignite. Own upload, else the built-in crackle (Elektrika's file), else a synth zap, all on this slot's slider.
  */
 export function playCanLightning(key: string): boolean {
   if (!canStrikeGate.take(key, performance.now())) return false;
