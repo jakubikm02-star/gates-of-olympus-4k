@@ -2,6 +2,8 @@
 @import "tailwindcss";
 @import "./rank-frames.css";
 @import "./machine-frames.css";
+@import "./machine-ai-frames.gen.css";
+@import "./machine-ai-frames.css";
 @import "./boot-screen.css";
 
 @theme {
