@@ -22,7 +22,7 @@ const FEATS: readonly Feat[] = [
   { id: "zasah", title: "ZÁSAH", sub: "Finančná správa ide po tebe", icon: <Siren size={20} strokeWidth={2.2} /> },
   { id: "kontrola", title: "KONTROLA", sub: "Lístky na mape · pity bar", icon: <img src="/symbols/park.svg" alt="" decoding="async" /> },
   { id: "jp", title: "JACKPOTY", sub: "4 poty FTTB cez lístok", icon: <img src="/symbols/fttb-stat.png?v=fttb3" alt="" decoding="async" /> },
-  { id: "tikety", title: "TIKETY", sub: "Úlohy od kreditu 100 €", icon: <Ticket size={20} strokeWidth={2.2} /> },
+  { id: "tikety", title: "TIKETY", sub: "Úlohy pri akomkoľvek kredite", icon: <Ticket size={20} strokeWidth={2.2} /> },
   { id: "duel", title: "DUEL", sub: "Online 1 v 1 · víťaz berie oboje", icon: <Swords size={20} strokeWidth={2.2} /> },
   { id: "massive", title: "MASÍVNA VÝHRA", sub: `Ceremónia od ${WIN_POP_X.massive}× stávky`, icon: <Sparkles size={20} strokeWidth={2.2} /> },
   { id: "stats", title: "ŠTATISTIKY", sub: "Celá tvoja história hry", icon: <BarChart3 size={20} strokeWidth={2.2} /> },

@@ -168,7 +168,7 @@ export function Paytable({ open, onClose, bet, desk, mine }: Props) {
             e-shopy a čísla zásielok v hre sú fiktívne a doručené včas.
           </li>
           <li>
-            Od kreditu 100 € tikety. Dokopy je súčet, nemusí ísť po sebe. Po sebe sú len REŤAZ
+            Tikety pri akomkoľvek kredite (stávka podľa kreditu). Dokopy je súčet, nemusí ísť po sebe. Po sebe sú len REŤAZ
             (mŕtvy spin radu vynuluje) a SUCHO (výhra tiket hneď končí). Plní sa len v 4KA TV.
             Kúpená 4KA TV je POHOTOVOSŤ. Duel online točíte naraz, priebežné skóre. Víťaz berie výhry oboch.
           </li>

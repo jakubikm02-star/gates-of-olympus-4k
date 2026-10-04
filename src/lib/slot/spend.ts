@@ -253,7 +253,8 @@ export function roundStake(n: number): number {
 }
 
 export function mixJobStake(credit: number, bet: number, floor: JobFloor, rng: () => number): number {
-  const bank = Math.max(JOB_BANK, credit);
+  // Under JOB_BANK the ticket is sized from what the player actually has (payout stays a multiple of stake).
+  const bank = credit > 0 ? credit : JOB_BANK;
   const b = Math.max(0.01, bet);
   const f = FLOOR_PCT[floor];
   const spins = FLOOR_SPINS[floor];
@@ -1452,6 +1453,7 @@ export function jobLcd(job: JobCard, verdict: "run" | "ok" | "fail"): { header: 
   return { header: verdict === "ok" ? "PASS" : verdict === "fail" ? "FAIL" : "TIKET", rows };
 }
 
+/** Any credit can open tickets; takeJob still needs the stake plus one spin at the locked bet. */
 export function canSpend(credit: number, _bet = 0): boolean {
-  return credit >= JOB_BANK;
+  return credit > 0;
 }

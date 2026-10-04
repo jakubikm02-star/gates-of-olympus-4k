@@ -336,7 +336,8 @@ describe("lístok", () => {
 describe("míňať", () => {
   it("jobs open at 100 credit and scale with bank and bet", () => {
     assert.equal(JOB_BANK, 100);
-    assert.equal(canSpend(99.99), false);
+    assert.equal(canSpend(99.99), true);
+    assert.equal(canSpend(0), false);
     assert.equal(canSpend(100), true);
     assert.equal(canSpend(150, 1), true);
     let s = 1;

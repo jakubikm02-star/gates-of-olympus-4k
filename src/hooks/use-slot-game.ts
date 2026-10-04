@@ -1426,11 +1426,20 @@ export function useSlotGame() {
         }),
       );
       applyBoard(res);
-      return res;
+      // park_jackpot_spin hands out (and deletes) this player's share of someone else's 4-FTTB hit.
+      // Pay it once, here; the board snapshot must not carry it into a later payPoolHit.
+      const credit = res.credit > 0 ? +res.credit.toFixed(2) : 0;
+      if (credit > 0) {
+        boardRef.current = { ...boardRef.current, credit: 0 };
+        setBalance((b) => +(b + credit).toFixed(2));
+        bumpToday(0, credit, "LÍSTOK podiel", BETS[betIndexRef.current] ?? 0, null);
+        setSpinTape((t) => [{ label: "PODIEL", amount: formatMoney(credit) }, ...t].slice(0, 8));
+      }
+      return { ...res, credit: 0 };
     } catch {
       return { ...boardRef.current, ticket: null, force: false };
     }
-  }, [applyBoard]);
+  }, [applyBoard, bumpToday]);
 
   const closeBanner = useCallback(() => {
     if (!bannerOpen.current && !bannerWait.current) return;
@@ -1929,6 +1938,8 @@ export function useSlotGame() {
         await wait(260);
       }
       if (!escrow) setBalance((b) => +(b + cash).toFixed(2));
+      // Board / desk: KONTROLA is real credit, count it as paid (no stake of its own).
+      if (!escrow) bumpToday(0, cash, "KONTROLA", betNow, null);
       if (!escrow) noteHeat(cash, betNow);
       setDisplayWin(cash);
       setSpinWin(cash);
@@ -1985,7 +1996,7 @@ export function useSlotGame() {
       spun: false,
       bonus: { mode: "kontrola", x: pickTotalXRef.current, safes, cleared: pickClearRef.current, canSum: 0, rounds: 0 },
     });
-  }, [waitForPick, pushRank, noteResult, noteHeat, noteStat, settleJob]);
+  }, [waitForPick, pushRank, noteResult, noteHeat, noteStat, settleJob, bumpToday]);
 
   /** Mode strip done (auto after ~2 s, or tapped). */
   const finishModeStrip = useCallback(() => {
@@ -2030,6 +2041,8 @@ export function useSlotGame() {
       bonusPendingRef.current = null;
       if (cash > 0) {
         setBalance((b) => +(b + cash).toFixed(2));
+        // Board / desk: Ž-BOX is real credit like KONTROLA; counted once here (the spin that filled the bar counted only its own win).
+        bumpToday(0, cash, "Ž-BOX", betNow, null);
         noteHeat(cash, betNow);
         setDisplayWin(cash);
         setSpinWin(cash);
@@ -2084,7 +2097,7 @@ export function useSlotGame() {
         bonus: { mode: "zbox", x: play.totalX, safes: parcels, cleared: play.full, canSum: play.canSum, rounds: play.rounds.length },
       });
     },
-    [pushRank, noteResult, noteHeat, noteStat, persistNow, settleJob],
+    [pushRank, noteResult, noteHeat, noteStat, persistNow, settleJob, bumpToday],
   );
 
   /**
@@ -2828,7 +2841,9 @@ export function useSlotGame() {
               }
             : null;
         // A held-back duel win is not paid yet: count the stake now, the payout only when the duel settles.
-        bumpToday(cost, opts?.buy || escrow ? 0 : cash, escrow ? "" : how, currentBet, escrow ? null : recipe);
+        // A 4KA TV trigger spin's win is part of the bonus total (sess.triggerCash) that closeFs counts once at the end.
+        const countNow = !(opts?.buy || escrow || pendingFs);
+        bumpToday(cost, countNow ? cash : 0, countNow ? how : "", currentBet, countNow ? recipe : null);
       }
 
       {
