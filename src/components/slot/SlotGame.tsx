@@ -1117,6 +1117,8 @@ export function SlotGame() {
         onSwap={g.swapDuel}
         onEnd={g.endDuel}
         depositNote={g.depositNote}
+        nick={g.nick}
+        anteMul={g.perk.anteMul}
       />
       {g.duelLink ? (
         <DuelLink

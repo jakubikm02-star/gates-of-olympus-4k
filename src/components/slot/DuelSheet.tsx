@@ -14,6 +14,7 @@ import {
 } from "@/lib/slot/duel";
 import { BETS } from "@/lib/slot/symbols";
 import { DUEL_DEPOSIT_MULT, depositAmount, duelEntryCost, type DepositSettlement } from "@/lib/slot/duel-deposit";
+import { cleanRoomCode, duelSummary } from "@/lib/slot/duel-setup";
 
 interface Props {
   open: boolean;
@@ -30,6 +31,10 @@ interface Props {
   onEnd: () => void;
   /** Last kaucia settlement (shown on the result card). */
   depositNote?: DepositSettlement | null;
+  /** Saved leaderboard nick: the default name in the setup (empty = none saved). */
+  nick?: string;
+  /** This player's ante multiplier (rank perk): the stake shown in the summary when ANTE is on. */
+  anteMul?: number;
 }
 
 /** No heartbeat from the peer for this long while it still owes spins: the peer is out. */
@@ -38,28 +43,6 @@ const PEER_SILENT_MS = 90_000;
 const ROOM_NET_FAIL_MS = 30_000;
 /** Consecutive "room not found" polls mid-duel before the duel is aborted as a room failure. */
 const ROOM_GONE_POLLS = 3;
-
-function stepBet(value: number, dir: -1 | 1): number {
-  const i = BETS.reduce((best, v, idx) => (Math.abs(v - value) < Math.abs(BETS[best] - value) ? idx : best), 0);
-  return BETS[Math.min(BETS.length - 1, Math.max(0, i + dir))] ?? value;
-}
-
-function BetPick({ value, onChange }: { value: number; onChange: (n: number) => void }) {
-  return (
-    <label className="duel-field">
-      Stávka na točenie
-      <span className="duel-bet">
-        <button type="button" className="chip-btn" onClick={() => onChange(stepBet(value, -1))}>
-          −
-        </button>
-        <b>{formatMoney(value)}</b>
-        <button type="button" className="chip-btn" onClick={() => onChange(stepBet(value, 1))}>
-          +
-        </button>
-      </span>
-    </label>
-  );
-}
 
 function modeLabel(need: number): string {
   return `${need} TOČENÍ`;
@@ -70,7 +53,41 @@ function seatCost(need: number, bet: number): number {
   return duelEntryCost({ bet, need }).perSeat;
 }
 
-const DEPOSIT_RULE = `Kaucia ${DUEL_DEPOSIT_MULT}× stávka: po dohraní (aj remíza) sa vráti, pri odchode / VZDAŤ / neaktivite prepadne. Chyba hry alebo odchod súpera = vrátená.`;
+/** Kaucia rules, one line each: shown behind the (i) button instead of a wall of small print. */
+const DEPOSIT_RULES = [
+  `Kaucia = ${DUEL_DEPOSIT_MULT}× stávka na točenie, platí každý hráč.`,
+  "Vráti sa po dohraní (aj pri remíze), keď súper odíde, alebo keď zlyhá hra / spojenie.",
+  "Prepadne, keď odídeš, dáš VZDAŤ alebo prestaneš hrať (neaktivita).",
+  "Min. kredit = rezerva na stávky (1,2× stávka × točenia) + kaucia.",
+  "V dueli je zamknutá stávka, Ante aj Buy. KONTROLA ani ZÁSAH sa nespúšťajú.",
+];
+
+/** (i) button + popover with the kaucia rules. */
+function DepositInfo({ id }: { id: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="duel-info">
+      <button
+        type="button"
+        className={`duel-info-btn ${open ? "is-open" : ""}`}
+        aria-expanded={open}
+        aria-controls={id}
+        aria-label="Pravidlá kaucie"
+        onClick={() => setOpen((v) => !v)}
+      >
+        i
+      </button>
+      {open ? (
+        <span className="duel-info-pop" id={id} role="note" onClick={() => setOpen(false)}>
+          <b>Kaucia</b>
+          {DEPOSIT_RULES.map((r) => (
+            <span key={r}>{r}</span>
+          ))}
+        </span>
+      ) : null}
+    </span>
+  );
+}
 
 /** Seat colours, the same in lobby, panel and result: seat 0 (host / HRÁČ 1) gold, seat 1 (guest / HRÁČ 2) cyan. */
 export const SEAT_CLASS = ["p1", "p2"] as const;
@@ -447,16 +464,15 @@ export function DuelLink({
             <dd>{formatMoney(seatCost(need, stake))}</dd>
           </div>
         </dl>
-        <p className={`duel-status ${err ? "is-err" : ""}`}>{err || status}</p>
-        <p className="duel-rule">{DEPOSIT_RULE}</p>
-        <div className="duel-actions">
+        <p className={`duel-status ${err ? "is-err" : ""}`}>
+          {err || status} <DepositInfo id="duel-lobby-info" />
+        </p>
+        <div className={`duel-actions ${link.role === "host" ? "" : "is-guest"}`}>
           {link.role === "host" ? (
             <button type="button" className="chip-btn gold duel-go" disabled={!guest} onClick={launch}>
               {guest ? "ŠTART" : "ČAKÁM SÚPERA…"}
             </button>
-          ) : (
-            <span className="duel-status">Čakám na ŠTART od hosťa.</span>
-          )}
+          ) : null}
           <button type="button" className="chip-btn duel-leave" onClick={leave}>
             ODÍSŤ · kaucia späť
           </button>
@@ -465,6 +481,54 @@ export function DuelLink({
     </div>
   );
 }
+
+/** Stake presets offered under the stepper (all are BETS values); only the affordable ones show. */
+const STAKE_PRESETS = [1, 5, 20, 100, 500, 1000] as const;
+
+function nearestBetIndex(value: number): number {
+  return BETS.reduce((best, v, idx) => (Math.abs(v - value) < Math.abs(BETS[best] - value) ? idx : best), 0);
+}
+
+function stepBet(value: number, dir: -1 | 1): number {
+  const i = nearestBetIndex(value);
+  return BETS[Math.min(BETS.length - 1, Math.max(0, i + dir))] ?? value;
+}
+
+function Seg<T extends string | number>({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: T;
+  options: readonly { v: T; label: string; sub?: string }[];
+  onChange: (v: T) => void;
+  label: string;
+}) {
+  return (
+    <div className="duel-seg2" role="radiogroup" aria-label={label}>
+      {options.map((o) => (
+        <button
+          key={String(o.v)}
+          type="button"
+          role="radio"
+          aria-checked={value === o.v}
+          className={value === o.v ? "is-on" : ""}
+          onClick={() => onChange(o.v)}
+        >
+          <b>{o.label}</b>
+          {o.sub ? <small>{o.sub}</small> : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+type JoinState =
+  | { kind: "idle" }
+  | { kind: "loading"; code: string }
+  | { kind: "error"; code: string; msg: string }
+  | { kind: "ok"; snap: DuelSnap };
 
 export function DuelSheet({
   open,
@@ -479,26 +543,55 @@ export function DuelSheet({
   credit,
   bet,
   depositNote,
+  nick = "",
+  anteMul = 1,
 }: Props) {
-  const [a, setA] = useState("HRÁČ 1");
+  const [a, setA] = useState(nick || "HRÁČ 1");
   const [b, setB] = useState("HRÁČ 2");
+  const nameTouched = useRef(false);
   const [need, setNeed] = useState(10);
   const [anteOn, setAnteOn] = useState(false);
-  const [tab, setTab] = useState<"hotseat" | "online">("hotseat");
+  const [tab, setTab] = useState<"create" | "join">("create");
+  const [where, setWhere] = useState<"online" | "hotseat">("online");
   const [code, setCode] = useState("");
   const [stake, setStake] = useState(bet);
-  const [invite, setInvite] = useState<DuelSnap | null>(null);
-  const [peekErr, setPeekErr] = useState("");
+  const [join, setJoin] = useState<JoinState>({ kind: "idle" });
+  const lookupId = useRef(0);
   const [block, setBlock] = useState("");
   useEffect(() => {
     if (!open) {
-      setInvite(null);
-      setPeekErr("");
+      setJoin({ kind: "idle" });
+      setBlock("");
     }
   }, [open]);
   useEffect(() => {
     setStake(bet);
   }, [bet]);
+  // The saved leaderboard nick is the default name, until the player edits the field.
+  useEffect(() => {
+    if (nick && !nameTouched.current) setA(nick);
+  }, [nick, open]);
+
+  const lookup = (raw: string) => {
+    const room = cleanRoomCode(raw);
+    if (room.length < 4) return;
+    const id = ++lookupId.current;
+    setJoin({ kind: "loading", code: room });
+    void (async () => {
+      try {
+        const snap = await duelPoll(room);
+        if (id !== lookupId.current) return;
+        if (snap.phase !== "wait") {
+          setJoin({ kind: "error", code: room, msg: "Tento duel už beží." });
+          return;
+        }
+        setJoin({ kind: "ok", snap });
+      } catch (e) {
+        if (id !== lookupId.current) return;
+        setJoin({ kind: "error", code: room, msg: e instanceof Error ? e.message : "Kód neexistuje" });
+      }
+    })();
+  };
 
   if (duel?.phase === "swap") {
     return (
@@ -567,196 +660,275 @@ export function DuelSheet({
   }
 
   if (link || !open) return null;
+
+  const seats: 1 | 2 = where === "hotseat" ? 2 : 1;
+  const sum = duelSummary({ bet: stake, need, ante: anteOn, anteMul, seats });
+  const createShort = credit < sum.minCredit;
+  const presets = STAKE_PRESETS.filter((v) => seatCost(need, v) * seats <= credit);
+  const maxed = nearestBetIndex(stake) >= BETS.length - 1;
+  const minned = nearestBetIndex(stake) <= 0;
+
+  const invite = join.kind === "ok" ? join.snap : null;
+  const inviteSum = invite ? duelSummary({ bet: invite.bet, need: invite.need, ante: invite.ante, anteMul, seats: 1 }) : null;
+  const joinShort = inviteSum ? credit < inviteSum.minCredit : false;
+  const codeOk = code.length === 4;
+
+  const editName = (v: string) => {
+    nameTouched.current = true;
+    setA(v);
+  };
+  const nameInput = (label: string, value: string, set: (v: string) => void, id: string) => (
+    <label className="duel-in" htmlFor={id}>
+      <span>{label}</span>
+      <input
+        id={id}
+        value={value}
+        onChange={(e) => set(e.target.value)}
+        maxLength={16}
+        autoComplete="nickname"
+        autoCapitalize="characters"
+        spellCheck={false}
+        enterKeyHint="done"
+      />
+    </label>
+  );
+
+  let cta: { label: string; disabled: boolean; run: () => void };
+  if (tab === "create") {
+    cta =
+      where === "online"
+        ? { label: "VYTVORIŤ DUEL", disabled: createShort, run: () => setBlock(onHost("spins", a, stake, need, anteOn)) }
+        : { label: "ZAČAŤ PRI STOLE", disabled: createShort, run: () => setBlock(onStart("spins", a, b, stake, need, anteOn)) };
+  } else if (invite) {
+    cta = {
+      label: "PRIPOJIŤ SA",
+      disabled: joinShort,
+      run: () => setBlock(onJoin(invite.mode, a, invite.code, invite.bet, invite.need, invite.ante)),
+    };
+  } else {
+    cta = {
+      label: join.kind === "loading" ? "HĽADÁM DUEL…" : "PRIPOJIŤ SA",
+      disabled: !codeOk || join.kind === "loading",
+      run: () => lookup(code),
+    };
+  }
+
+  const note =
+    block ||
+    (tab === "create" && createShort ? `Málo kreditu · treba ${formatMoney(sum.minCredit)}` : "") ||
+    (tab === "join" && joinShort && inviteSum ? `Málo kreditu · treba ${formatMoney(inviteSum.minCredit)}` : "");
+
   return (
-    <div className="modal-back" onClick={onClose} role="presentation">
+    <div className="modal-back duel-setup-back" onClick={onClose} role="presentation">
       <div
         className="modal-card spend-card duel-card duel-setup"
         role="dialog"
         aria-labelledby="duel-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="modal-head">
-          <h2 id="duel-title">DUEL</h2>
+        <header className="duel-setup-head">
+          <div>
+            <h2 id="duel-title">DUEL</h2>
+            <p>Rovnaká stávka aj točenia · víťaz berie výhry oboch</p>
+          </div>
           <button type="button" className="icon-btn" onClick={onClose} aria-label="Zavrieť">
             ×
           </button>
         </header>
-        <p className="duel-kicker">Dvaja hráči, rovnaká stávka, rovnaký počet točení. Víťaz berie výhry oboch.</p>
-        <div className="duel-tabs duel-seg">
-          <button type="button" className={`chip-btn ${tab === "hotseat" ? "gold" : ""}`} onClick={() => setTab("hotseat")}>
-            PRI STOLE
+        <div className="duel-tabs2" role="tablist" aria-label="Duel">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "create"}
+            className={tab === "create" ? "is-on" : ""}
+            onClick={() => {
+              setTab("create");
+              setBlock("");
+            }}
+          >
+            Vytvoriť duel
           </button>
-          <button type="button" className={`chip-btn ${tab === "online" ? "gold" : ""}`} onClick={() => setTab("online")}>
-            NA DIAĽKU
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "join"}
+            className={tab === "join" ? "is-on" : ""}
+            onClick={() => {
+              setTab("join");
+              setBlock("");
+            }}
+          >
+            Pripojiť sa
           </button>
         </div>
-        {invite ? (
-          <>
-            <p className="modal-lead">POZVÁNKA OD {invite.hostName}</p>
-            <div className="otrs-note">
-              <em>{modeLabel(invite.need)}</em>
-              <span>
-                Stávka {formatMoney(invite.bet)} na točenie{invite.ante ? " · ANTE" : ""}. Každý platí zo svojho kreditu.
-              </span>
-              <strong>
-                {invite.need} točení · min. kredit {formatMoney(seatCost(invite.need, invite.bet))}
-              </strong>
-              <b>Víťaz berie výhry oboch. Remíza vracia každému jeho výhru.</b>
-            </div>
-            <dl className="duel-facts">
-              <div>
-                <dt>Točenia</dt>
-                <dd>
-                  <DuelPips have={0} need={invite.need} />
-                </dd>
-              </div>
-              <div className="is-deposit">
-                <dt>Kaucia</dt>
-                <dd>{formatMoney(depositAmount(invite.bet))}</dd>
-              </div>
-              <div>
-                <dt>Min. kredit</dt>
-                <dd>{formatMoney(seatCost(invite.need, invite.bet))}</dd>
-              </div>
-            </dl>
-            <p className="duel-rule">{DEPOSIT_RULE}</p>
-            {credit < seatCost(invite.need, invite.bet) ? (
-              <p className="spend-active is-late">Málo kreditu na tento duel.</p>
-            ) : null}
-            <div className="duel-tabs">
-              <button
-                type="button"
-                className="chip-btn gold duel-go"
-                disabled={credit < seatCost(invite.need, invite.bet)}
-                onClick={() => setBlock(onJoin(invite.mode, a, invite.code, invite.bet, invite.need, invite.ante))}
-              >
-                PRIJAŤ
-              </button>
-              <button
-                type="button"
-                className="chip-btn"
-                onClick={() => {
-                  setInvite(null);
-                  setPeekErr("");
-                }}
-              >
-                ODMIETNUŤ
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="duel-tabs duel-seg">
-              {[5, 10, 20].map((n) => (
-                <button key={n} type="button" className={`chip-btn ${need === n ? "gold" : ""}`} onClick={() => setNeed(n)}>
-                  {n} SPINOV
-                </button>
-              ))}
-            </div>
-            <BetPick value={stake} onChange={setStake} />
-            <button type="button" className={`chip-btn ${anteOn ? "gold" : ""}`} onClick={() => setAnteOn((v) => !v)}>
-              ANTE {anteOn ? "ON" : "OFF"}
-            </button>
-            <dl className="duel-facts">
-              <div>
-                <dt>Točenia</dt>
-                <dd>
-                  <DuelPips have={0} need={need} />
-                </dd>
-              </div>
-              <div className="is-deposit">
-                <dt>Kaucia</dt>
-                <dd>
-                  {formatMoney(depositAmount(stake))}
-                  {tab === "hotseat" ? ` × 2 = ${formatMoney(depositAmount(stake) * 2)}` : ""}
-                </dd>
-              </div>
-              <div>
-                <dt>Min. kredit</dt>
-                <dd>{formatMoney(seatCost(need, stake) * (tab === "hotseat" ? 2 : 1))}</dd>
-              </div>
-            </dl>
-            <p className="duel-rule">
-              Stávky + kaucia. Rovnaká stávka aj Ante, Buy je v dueli zamknutý. {DEPOSIT_RULE}
-            </p>
-            {credit < seatCost(need, stake) ? <p className="spend-active is-late">Málo kreditu.</p> : null}
-            {tab === "hotseat" ? (
-              <>
-                <label className="duel-field">
-                  Hráč 1
-                  <input value={a} onChange={(e) => setA(e.target.value)} maxLength={16} />
-                </label>
-                <label className="duel-field">
-                  Hráč 2
-                  <input value={b} onChange={(e) => setB(e.target.value)} maxLength={16} />
-                </label>
-                {credit >= seatCost(need, stake) && credit < seatCost(need, stake) * 2 ? (
-                  <p className="spend-active is-late">Pri stole točia obaja z jedného kreditu · min. {formatMoney(seatCost(need, stake) * 2)}</p>
+
+        <div className="duel-setup-body">
+          {tab === "create" ? (
+            <>
+              <section className="duel-sec">
+                <h3>Kde hráte</h3>
+                <Seg
+                  label="Kde hráte"
+                  value={where}
+                  onChange={(v) => {
+                    setWhere(v);
+                    setBlock("");
+                  }}
+                  options={[
+                    { v: "online", label: "Na diaľku", sub: "pošleš kód" },
+                    { v: "hotseat", label: "Pri stole", sub: "1 telefón" },
+                  ]}
+                />
+              </section>
+              <section className="duel-sec">
+                <h3>Točenia na hráča</h3>
+                <Seg
+                  label="Točenia"
+                  value={need}
+                  onChange={setNeed}
+                  options={[
+                    { v: 5, label: "5" },
+                    { v: 10, label: "10" },
+                    { v: 20, label: "20" },
+                  ]}
+                />
+              </section>
+              <section className="duel-sec">
+                <h3>Stávka na točenie</h3>
+                <div className="duel-stake">
+                  <button type="button" disabled={minned} onClick={() => setStake(stepBet(stake, -1))} aria-label="Nižšia stávka">
+                    −
+                  </button>
+                  <b aria-live="polite">{formatMoney(stake)}</b>
+                  <button type="button" disabled={maxed} onClick={() => setStake(stepBet(stake, 1))} aria-label="Vyššia stávka">
+                    +
+                  </button>
+                </div>
+                {presets.length > 1 ? (
+                  <div className="duel-presets">
+                    {presets.map((v) => (
+                      <button key={v} type="button" className={stake === v ? "is-on" : ""} onClick={() => setStake(v)}>
+                        {v >= 1000 ? `${v / 1000}K` : v}
+                      </button>
+                    ))}
+                  </div>
                 ) : null}
-                <button
-                  type="button"
-                  className="chip-btn gold duel-go"
-                  disabled={credit < seatCost(need, stake) * 2}
-                  onClick={() => setBlock(onStart("spins", a, b, stake, need, anteOn))}
-                >
-                  ZAČNI PRI STOLE
-                </button>
-              </>
-            ) : (
-              <>
-                <label className="duel-field">
-                  Tvoje meno
-                  <input value={a} onChange={(e) => setA(e.target.value)} maxLength={16} />
-                </label>
-                <button
-                  type="button"
-                  className="chip-btn gold duel-go"
-                  disabled={credit < seatCost(need, stake)}
-                  onClick={() => setBlock(onHost("spins", a, stake, need, anteOn))}
-                >
-                  VYTVORIŤ KÓD
-                </button>
-                <label className="duel-field">
-                  Kód od kamoša
+              </section>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={anteOn}
+                className={`duel-ante ${anteOn ? "is-on" : ""}`}
+                onClick={() => setAnteOn((v) => !v)}
+              >
+                <span>
+                  <b>ANTE pre oboch</b>
+                  <small>
+                    stávka {anteMul.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}× · 4KA TV častejšie · súper hrá rovnako
+                  </small>
+                </span>
+                <i aria-hidden="true">{anteOn ? "ON" : "OFF"}</i>
+              </button>
+              <section className="duel-sec">
+                {where === "online" ? (
+                  nameInput("Tvoje meno", a, editName, "duel-name")
+                ) : (
+                  <div className="duel-names">
+                    {nameInput("Hráč 1", a, editName, "duel-name")}
+                    {nameInput("Hráč 2", b, setB, "duel-name-2")}
+                  </div>
+                )}
+              </section>
+            </>
+          ) : (
+            <>
+              <section className="duel-sec">
+                <label className="duel-in duel-code-in" htmlFor="duel-code">
+                  <span>Kód od kamoša</span>
                   <input
+                    id="duel-code"
                     value={code}
                     onChange={(e) => {
-                      setCode(e.target.value.toUpperCase());
-                      setInvite(null);
-                      setPeekErr("");
+                      const next = cleanRoomCode(e.target.value);
+                      setCode(next);
+                      setBlock("");
+                      lookupId.current += 1;
+                      if (next.length === 4) lookup(next);
+                      else setJoin({ kind: "idle" });
                     }}
-                    maxLength={4}
                     placeholder="A7K2"
+                    inputMode="text"
+                    autoCapitalize="characters"
+                    autoComplete="one-time-code"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    enterKeyHint="go"
+                    aria-describedby="duel-code-hint"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !cta.disabled) cta.run();
+                    }}
                   />
                 </label>
-                <button
-                  type="button"
-                  className="chip-btn"
-                  disabled={code.replace(/[^A-Z0-9]/g, "").length < 4}
-                  onClick={() => {
-                    void (async () => {
-                      try {
-                        const snap = await duelPoll(code.replace(/[^A-Z0-9]/g, "").toUpperCase());
-                        if (snap.phase !== "wait") {
-                          setPeekErr("Už beží.");
-                          return;
-                        }
-                        setInvite(snap);
-                        setPeekErr("");
-                      } catch (e) {
-                        setPeekErr(e instanceof Error ? e.message : "Kód neexistuje");
-                      }
-                    })();
-                  }}
-                >
-                  POZRIEŤ POZVÁNKU
-                </button>
-                {peekErr ? <p className="spend-active is-late">{peekErr}</p> : null}
-              </>
-            )}
-            {block ? <p className="spend-active is-late">{block}</p> : null}
-          </>
-        )}
+                <p className={`duel-hint ${join.kind === "error" ? "is-err" : ""}`} id="duel-code-hint">
+                  {join.kind === "error"
+                    ? join.msg
+                    : join.kind === "loading"
+                      ? "Hľadám duel…"
+                      : invite
+                        ? ""
+                        : "4 znaky, ktoré ti poslal hosť. Pozvánka sa ukáže hneď."}
+                </p>
+              </section>
+              {invite && inviteSum ? (
+                <section className="duel-invite" aria-live="polite">
+                  <p className="duel-invite-from">
+                    <small>Pozýva ťa</small>
+                    <b>{invite.hostName}</b>
+                  </p>
+                  <dl>
+                    <div>
+                      <dt>Točenia</dt>
+                      <dd>{invite.need}</dd>
+                    </div>
+                    <div>
+                      <dt>Stávka</dt>
+                      <dd>{formatMoney(invite.bet)}</dd>
+                    </div>
+                    <div>
+                      <dt>Ante</dt>
+                      <dd>{invite.ante ? "ÁNO" : "NIE"}</dd>
+                    </div>
+                  </dl>
+                </section>
+              ) : null}
+              <section className="duel-sec">{nameInput("Tvoje meno", a, editName, "duel-name-join")}</section>
+            </>
+          )}
+        </div>
+
+        <footer className="duel-setup-foot">
+          {tab === "create" || inviteSum ? (
+            <div className="duel-sum">
+              <span>
+                Spolu <b>{formatMoney((tab === "create" ? sum : inviteSum!).total)}</b>
+                <small>
+                  stávky {formatMoney((tab === "create" ? sum : inviteSum!).stakes)} + kaucia{" "}
+                  {formatMoney((tab === "create" ? sum : inviteSum!).deposit)}
+                  {tab === "create" && seats === 2 ? " · za oboch" : ""}
+                </small>
+              </span>
+              <span className="duel-sum-min">
+                <small>min. kredit</small>
+                <b>{formatMoney((tab === "create" ? sum : inviteSum!).minCredit)}</b>
+              </span>
+              <DepositInfo id="duel-setup-info" />
+            </div>
+          ) : null}
+          {note ? <p className="duel-note">{note}</p> : null}
+          <button type="button" className="duel-cta" disabled={cta.disabled} onClick={cta.run}>
+            {cta.label}
+          </button>
+        </footer>
       </div>
     </div>
   );
