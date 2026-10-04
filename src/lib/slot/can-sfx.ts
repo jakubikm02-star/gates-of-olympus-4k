@@ -2,7 +2,8 @@
  * Can (plechovka) sound timing. Pure, no Web Audio here, so node:test can cover it (audio.ts plays).
  *
  * Drop: cans dropped by the rampa fall in with `.cell.is-drop` (styles.css `cell-drop`, 280 ms). One drop
- * of 1–4+ cans is ONE landing moment and plays the Plechovka slot ONCE, when the cans visually land.
+ * of 1–4+ cans is ONE landing moment. The Plechovka slot does not play on the drop; it plays only when a
+ * winning multiplier is counted into the win. The drop key is still one moment so a later cascade is distinct.
  * Every landing moment has a key (spin + step: the land after the reels stop, or tumble n); a key plays
  * at most once, and anything inside CAN_DROP_WINDOW_MS of the last play is the same moment too (two
  * calls in one frame never stack). A later cascade of the same spin is a new key, so it plays again.

@@ -1370,14 +1370,11 @@ const canDropGate = createSfxGate(CAN_DROP_WINDOW_MS);
 const canStrikeGate = createSfxGate(CAN_STRIKE_GAP_MS);
 
 /**
- * Plechovka for a can drop: call when the cans visually land. `key` is the landing moment
- * (lib/slot/can-sfx canDropKey): 1–4+ cans of one drop play once, a later cascade plays again.
+ * Dedupes a can-drop key. The Plechovka slot itself plays only when a winning multiplier is counted
+ * (playMult), not while the cans are falling.
  */
 export function playCanDrop(key: string): boolean {
-  if (!canDropGate.take(key, performance.now())) return false;
-  wake();
-  playMult();
-  return true;
+  return canDropGate.take(key, performance.now());
 }
 
 /**

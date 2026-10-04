@@ -58,7 +58,7 @@ import { putBoard, readBestMark, readBestRecipe, readNick, saveNick, skipNick, w
 import { emptyTally, mergeTally, notePays, recipeTumbles, topCans, topPays, type SeqTally, type WinRecipe } from "@/lib/slot/win-recipe";
 import { HEAT_MAX, heatFromWin } from "@/lib/slot/heat";
 import { canEventCue, type CanEvent } from "@/lib/slot/cue-ready";
-import { canDropKey, canLandDelay, canStrikeKey } from "@/lib/slot/can-sfx";
+import { canStrikeKey } from "@/lib/slot/can-sfx";
 import { ReelScatterTracker, SETTLE_TIMEOUT_MS, cascadeCue, thirdScatterCue, type LandCue } from "@/lib/slot/scatter-sfx";
 import { antiAfterSpin, antiCue, antiLevel, antiStreak, type AntiCue } from "@/lib/slot/anticipation";
 import { ZASAH, applyMod, fsSpinX, fsZasahArmed, roundModScope, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, stepMod, windowCount, type ChaseMod, type ModScope, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
@@ -191,16 +191,8 @@ function playCanCue(event: CanEvent): void {
   else sfx.playThunder();
 }
 
-/** Spin counter for the can sound keys (lib/slot/can-sfx): one landing moment / strike plays once. */
+/** Spin counter for the can sound keys (lib/slot/can-sfx): one lightning strike plays once. */
 let canSpinSeq = 0;
-
-/** Plechovka once for a can drop, when the cans visually land (`.cell.is-drop`, instant with reduced motion). */
-function playCanDropLanded(key: string): void {
-  const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  const delay = canLandDelay(Boolean(reduced));
-  if (delay <= 0) sfx.playCanDrop(key);
-  else window.setTimeout(() => sfx.playCanDrop(key), delay);
-}
 
 function afterPaint(): Promise<void> {
   return new Promise((resolve) => {
@@ -2153,8 +2145,6 @@ export function useSlotGame() {
         const dropped = zeusDrop(board, rng, landN, isFree || inFsRef.current);
         board = dropped.grid;
         setGrid(cloneGrid(board));
-        // Rampa (above) is the release; Plechovka once when this drop's cans land, however many fell.
-        playCanDropLanded(canDropKey(canSpin, 0));
         await wait(dur(480), abort.current);
         setThrowBolt(false);
       }
@@ -2296,7 +2286,6 @@ export function useSlotGame() {
           const dropped = zeusDrop(board, rng, moreN, isFree || inFsRef.current);
           board = dropped.grid;
         }
-        const canStep = tumbleN + 1;
         setPhase("tumble");
         sfx.playTumble(tumbleN);
         setGrid(cloneGrid(board));
@@ -2304,8 +2293,6 @@ export function useSlotGame() {
         await wait(280);
         // Refill drop (cell-drop, 280 ms) just landed: scatters that dropped in sound now.
         playLandCue(cascadeCue(scattersBefore, countScatters(board)));
-        // Cans of this cascade landed with it: Plechovka once for this landing moment.
-        if (moreN > 0) sfx.playCanDrop(canDropKey(canSpin, canStep));
         setThrowBolt(false);
         setGrid((g) =>
           g.map((row) => row.map((c) => (c.fall || c.gone ? { ...c, fall: 0, gone: false } : c))),

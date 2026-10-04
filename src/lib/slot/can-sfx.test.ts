@@ -109,15 +109,18 @@ describe("wiring: settings slot and no double play", () => {
     assert.match(s, /\{ id: "can_lightning", name: "Blesk do plechovky", when: "[^"]+" \}/);
   });
 
-  it("the strike plays the lightning slot, not Plechovka; drops play Plechovka once via playCanDrop", () => {
+  it("the strike plays the lightning slot, not Plechovka; the can slot plays only when a winning multiplier is counted", () => {
     const hook = src("../../hooks/use-slot-game.ts");
+    const audio = src("./audio.ts");
     const at = hook.indexOf("for (const orb of orbs)");
     assert.ok(at > 0);
     const strike = hook.slice(at, hook.indexOf("setStrike(null)", at));
     assert.match(strike, /sfx\.playCanLightning\(canStrikeKey\(/);
     assert.doesNotMatch(strike, /sfx\.playMult\(\)/);
-    // Both can-drop paths: no direct Plechovka next to zeusDrop any more.
-    for (const m of hook.matchAll(/zeusDrop\(board[^\n]*\n([^\n]*\n){0,4}/g)) assert.doesNotMatch(m[0], /playMult/);
-    assert.equal((hook.match(/playCanDrop(Landed)?\(canDropKey\(/g) ?? []).length, 2);
+    for (const m of hook.matchAll(/zeusDrop\(board[^\n]*\n([^\n]*\n){0,4}/g)) assert.doesNotMatch(m[0], /playMult|playCanDrop/);
+    assert.equal((hook.match(/playCanDrop/g) ?? []).length, 0);
+    const win = hook.slice(hook.indexOf("const willThrow"), hook.indexOf("let paidX"));
+    assert.match(win, /sfx\.playMult\(\)/);
+    assert.doesNotMatch(audio.slice(audio.indexOf("export function playCanDrop"), audio.indexOf("export function playCanLightning")), /playMult\(/);
   });
 });
