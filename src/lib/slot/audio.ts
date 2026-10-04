@@ -21,9 +21,10 @@
  * without its own upload plays the KONTROLA sample on the „Štart zásahu“ slider.
  */
 
-import { VIZ } from "./bed-viz";
-import { antiFallback, type AntiCue } from "./anticipation";
-import { CUE_WAIT_MS, cueRoute } from "./cue-ready";
+import { VIZ } from "./bed-viz.ts";
+import { antiFallback, type AntiCue } from "./anticipation.ts";
+import { CUE_WAIT_MS, cueRoute } from "./cue-ready.ts";
+import { CAN_DROP_WINDOW_MS, CAN_STRIKE_GAP_MS, createSfxGate } from "./can-sfx.ts";
 import {
   CUE_LEVEL_MAX,
   MASTER_KEY,
@@ -32,7 +33,7 @@ import {
   globalLevelsPayload,
   isLegacyVolumeKey,
   parseGlobalLevels,
-} from "./cue-volume";
+} from "./cue-volume.ts";
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -107,6 +108,8 @@ const FILES: Record<string, string> = {
   anticipation2: "",
   anticipation3: "",
   can: "/sfx/can-open.mp3?v=open2",
+  /** Blesk do plechovky: the bolt hits a winning can (activation). Until the admin uploads one, Elektrika's crackle. */
+  can_lightning: "/sfx/electric.mp3?v=park1",
   bed: "/sfx/fs-bed.mp3?v=moon2",
   zasah: "/sfx/fs-bed.mp3?v=zasah1",
   /** Zásah one-shots. Empty until the admin uploads; the game keeps the old cue. */
@@ -1361,6 +1364,37 @@ export function playThunder(): void {
       noise("white", 0.12, 0.16, 900, 6000);
     }
   });
+}
+
+const canDropGate = createSfxGate(CAN_DROP_WINDOW_MS);
+const canStrikeGate = createSfxGate(CAN_STRIKE_GAP_MS);
+
+/**
+ * Plechovka for a can drop: call when the cans visually land. `key` is the landing moment
+ * (lib/slot/can-sfx canDropKey): 1–4+ cans of one drop play once, a later cascade plays again.
+ */
+export function playCanDrop(key: string): boolean {
+  if (!canDropGate.take(key, performance.now())) return false;
+  wake();
+  playMult();
+  return true;
+}
+
+/**
+ * Blesk do plechovky: the bolt hits one winning can (lib/slot/can-sfx canStrikeKey). Once per visible
+ * strike; strikes in one go (skip) are one sound. Own upload, else the built-in crackle (Elektrika's file),
+ * else a synth zap, all on this slot's slider.
+ */
+export function playCanLightning(key: string): boolean {
+  if (!canStrikeGate.take(key, performance.now())) return false;
+  wake();
+  withCue("can_lightning", () =>
+    playSoon("can_lightning", { gain: 0.8, rate: 0.97 + Math.random() * 0.06 }, () => {
+      noise("white", 0.09, 0.22, 2200, 9000);
+      tone("sawtooth", 880, 0.12, 0.05, 140);
+    }),
+  );
+  return true;
 }
 
 export function playMult(): void {

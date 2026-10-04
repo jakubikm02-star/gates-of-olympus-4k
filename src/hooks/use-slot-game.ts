@@ -58,6 +58,7 @@ import { putBoard, readBestMark, readBestRecipe, readNick, saveNick, skipNick, w
 import { emptyTally, mergeTally, notePays, recipeTumbles, topCans, topPays, type SeqTally, type WinRecipe } from "@/lib/slot/win-recipe";
 import { HEAT_MAX, heatFromWin } from "@/lib/slot/heat";
 import { canEventCue, type CanEvent } from "@/lib/slot/cue-ready";
+import { canDropKey, canLandDelay, canStrikeKey } from "@/lib/slot/can-sfx";
 import { ReelScatterTracker, SETTLE_TIMEOUT_MS, cascadeCue, thirdScatterCue, type LandCue } from "@/lib/slot/scatter-sfx";
 import { antiAfterSpin, antiCue, antiLevel, antiStreak, type AntiCue } from "@/lib/slot/anticipation";
 import { ZASAH, applyMod, fsSpinX, fsZasahArmed, roundModScope, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, stepMod, windowCount, type ChaseMod, type ModScope, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
@@ -188,6 +189,17 @@ function settleWithin<T>(p: Promise<T>, ms: number): Promise<T | null> {
 function playCanCue(event: CanEvent): void {
   if (canEventCue(event) === "zap") sfx.playZap();
   else sfx.playThunder();
+}
+
+/** Spin counter for the can sound keys (lib/slot/can-sfx): one landing moment / strike plays once. */
+let canSpinSeq = 0;
+
+/** Plechovka once for a can drop, when the cans visually land (`.cell.is-drop`, instant with reduced motion). */
+function playCanDropLanded(key: string): void {
+  const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const delay = canLandDelay(Boolean(reduced));
+  if (delay <= 0) sfx.playCanDrop(key);
+  else window.setTimeout(() => sfx.playCanDrop(key), delay);
 }
 
 function afterPaint(): Promise<void> {
@@ -2128,6 +2140,7 @@ export function useSlotGame() {
       if (wantId) {
         for (const row of next) for (const cell of row) if (cell.kind === "pay" && cell.payId === wantId) shownCount += 1;
       }
+      const canSpin = ++canSpinSeq;
       const landDrop = zeusDropCount(rng, isFree || inFsRef.current, false);
       const inDuel = Boolean(duelRef.current && duelRef.current.phase !== "done");
       const bonusCan = !inDuel && perk.orbBonus > 0 && rng() < 0.2 ? perk.orbBonus : 0;
@@ -2140,7 +2153,8 @@ export function useSlotGame() {
         const dropped = zeusDrop(board, rng, landN, isFree || inFsRef.current);
         board = dropped.grid;
         setGrid(cloneGrid(board));
-        sfx.playMult();
+        // Rampa (above) is the release; Plechovka once when this drop's cans land, however many fell.
+        playCanDropLanded(canDropKey(canSpin, 0));
         await wait(dur(480), abort.current);
         setThrowBolt(false);
       }
@@ -2281,8 +2295,8 @@ export function useSlotGame() {
           playCanCue("tumble");
           const dropped = zeusDrop(board, rng, moreN, isFree || inFsRef.current);
           board = dropped.grid;
-          sfx.playMult();
         }
+        const canStep = tumbleN + 1;
         setPhase("tumble");
         sfx.playTumble(tumbleN);
         setGrid(cloneGrid(board));
@@ -2290,6 +2304,8 @@ export function useSlotGame() {
         await wait(280);
         // Refill drop (cell-drop, 280 ms) just landed: scatters that dropped in sound now.
         playLandCue(cascadeCue(scattersBefore, countScatters(board)));
+        // Cans of this cascade landed with it: Plechovka once for this landing moment.
+        if (moreN > 0) sfx.playCanDrop(canDropKey(canSpin, canStep));
         setThrowBolt(false);
         setGrid((g) =>
           g.map((row) => row.map((c) => (c.fall || c.gone ? { ...c, fall: 0, gone: false } : c))),
@@ -2364,7 +2380,9 @@ export function useSlotGame() {
         for (const orb of orbs) {
           setStrike({ r: orb.r, c: orb.c });
           setStruckUids((ids) => [...ids, orb.uid]);
-          sfx.playMult();
+          // The bolt hits this can now (it ignites): Blesk do plechovky, once per strike (lib/slot/can-sfx).
+          // Was Plechovka per can; Hrom stays on the throw before the first strike.
+          sfx.playCanLightning(canStrikeKey(canSpin, orb.uid));
           const key = flyKey.current++;
           setFlies((f) => [...f, { key, r: orb.r, c: orb.c, mult: orb.mult }]);
           window.setTimeout(() => setFlies((f) => f.filter((x) => x.key !== key)), 700);
