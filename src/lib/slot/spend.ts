@@ -1013,7 +1013,13 @@ export interface JobEvent {
   bought?: boolean;
   buyOver?: boolean;
   liveSpin?: boolean;
+  /** Legacy: landed count of the ticket's first-goal symbol (`payId`) only. Prefer `shownBy`. */
   shown?: number;
+  /**
+   * Landed count of every pay symbol on the spin's reel stop. A NEVÝHERNÝ goal reads its own symbol here,
+   * so it also counts as the OTRS second goal (`payIdB`), where `shown` holds the first goal's symbol.
+   */
+  shownBy?: Partial<Record<PayId, number>>;
   /** Cans on the resolved grid. PLECHOVKY caps a spin at 6. */
   orbCount?: number;
   /** Paid euros this spin. ODPIS adds them up. */
@@ -1109,6 +1115,25 @@ function tickFeature(job: JobCard, ev: JobEvent): JobCard {
   return next;
 }
 
+/** Pay symbols per id on a landed grid (scatters, cans, tickets skipped). Feeds `JobEvent.shownBy`. */
+export function shownOnGrid(grid: readonly (readonly { kind: string; payId?: PayId }[])[]): Partial<Record<PayId, number>> {
+  const out: Partial<Record<PayId, number>> = {};
+  for (const row of grid) {
+    for (const cell of row) {
+      if (cell.kind === "pay" && cell.payId) out[cell.payId] = (out[cell.payId] ?? 0) + 1;
+    }
+  }
+  return out;
+}
+
+/** NEVÝHERNÝ goal: landed pieces of its symbol, none when that symbol paid this spin. */
+function collectAdd(job: JobCard, ev: JobEvent): number {
+  if (!job.payId) return 0;
+  if (ev.pays?.includes(job.payId)) return 0;
+  const seen = ev.shownBy ? (ev.shownBy[job.payId] ?? 0) : (ev.shown ?? 0);
+  return Math.max(0, Math.floor(seen));
+}
+
 function jobOnThisSpin(job: JobCard, ev: JobEvent): boolean {
   const live = Boolean(ev.liveSpin || ev.bought);
   const scope = job.scope ?? (job.kind === "buy" ? "live" : "base");
@@ -1139,10 +1164,7 @@ function countOne(job: JobCard, ev: JobEvent): { have: number; haveB: number } {
   if (job.kind === "pdf" && ev.pdf) add = 1;
   if (job.kind === "signal") add = Math.max(0, Math.floor(ev.orbSum ?? 0));
   if (job.kind === "symbol" && job.payId && ev.pays?.includes(job.payId)) add = 1;
-  if (job.kind === "collect") {
-    const won = Boolean(job.payId && ev.pays?.includes(job.payId));
-    add = won ? 0 : Math.max(0, Math.floor(ev.shown ?? 0));
-  }
+  if (job.kind === "collect") add = collectAdd(job, ev);
   if (job.kind === "buy" && ev.win) add = 1;
   if (job.kind === "cash") add = Math.max(0, +(ev.cash ?? 0).toFixed(2));
   let haveB = job.haveB ?? 0;
@@ -1291,10 +1313,7 @@ export function tickJob(job: JobCard, ev: JobEvent): JobCard {
   if (job.kind === "pdf" && ev.pdf) add = 1;
   if (job.kind === "signal") add = Math.max(0, Math.floor(ev.orbSum ?? 0));
   if (job.kind === "symbol" && job.payId && ev.pays?.includes(job.payId)) add = 1;
-  if (job.kind === "collect") {
-    const won = Boolean(job.payId && ev.pays?.includes(job.payId));
-    add = won ? 0 : Math.max(0, Math.floor(ev.shown ?? 0));
-  }
+  if (job.kind === "collect") add = collectAdd(job, ev);
   if (job.kind === "buy" && ev.win) add = 1;
   if (job.kind === "cash") add = Math.max(0, +(ev.cash ?? 0).toFixed(2));
   let haveB = job.haveB ?? 0;

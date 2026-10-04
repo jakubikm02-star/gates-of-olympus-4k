@@ -89,6 +89,7 @@ import {
   jobShownGoal,
   jobSplit,
   jobStatus,
+  shownOnGrid,
   stampDaily,
   tickJob,
   freeSpinsLabel,
@@ -2305,11 +2306,10 @@ export function useSlotGame() {
       abort.current.skip = false;
 
       let board = next;
+      // Every pay symbol on the reel stop: a NEVÝHERNÝ goal can be either OTRS goal (payId or payIdB).
+      const shownBy = shownOnGrid(next);
       const wantId = jobRef.current?.payId;
-      let shownCount = 0;
-      if (wantId) {
-        for (const row of next) for (const cell of row) if (cell.kind === "pay" && cell.payId === wantId) shownCount += 1;
-      }
+      const shownCount = wantId ? (shownBy[wantId] ?? 0) : 0;
       const canSpin = ++canSpinSeq;
       const landDrop = zeusDropCount(rng, isFree || inFsRef.current, false);
       const inDuel = Boolean(duelRef.current && duelRef.current.phase !== "done");
@@ -2805,6 +2805,7 @@ export function useSlotGame() {
           bought: boughtFs,
           liveSpin,
           shown: shownCount,
+          shownBy,
           cash,
           chasing: Boolean(chasing),
           chaseStart: chaseStartSpin,
