@@ -15,6 +15,7 @@ import { jobClock, jobMeter, jobProgress, jobShownGoal, sayCluster, type JobCard
 import { rankPeekIds } from "@/lib/slot/pick-bonus";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { useShell } from "@/hooks/use-shell";
+import { useContainerVars } from "@/hooks/use-container-vars";
 import { SlotGrid } from "./Grid";
 import { CanValue } from "./Can";
 import { Paytable } from "./Paytable";
@@ -180,6 +181,9 @@ function FsChip({ sym, full }: { sym: FsSymId; full?: boolean }) {
 export function SlotGame() {
   const g = useSlotGame();
   const shell = useShell();
+  // Board containers publish their size as px vars (see hooks/use-container-vars): no cq re-resolve per layout.
+  const boardStageRef = useContainerVars();
+  const reelHostRef = useContainerVars();
   const [reducedMotion, setReducedMotion] = useState(false);
   const [deskOpen, setDeskOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -362,7 +366,7 @@ export function SlotGame() {
             {g.duel && g.duel.phase === "play" && shell !== "pc" ? (
               <DuelBar duel={g.duel} onForfeit={g.foldDuel} canFold={g.canFold} deposit={depositTotal(g.duelDeposit)} />
             ) : null}
-            <div className="board-stage">
+            <div className="board-stage" ref={boardStageRef}>
             <div className="board-stage-inner">
             <div className="board-meter">
               {g.inFs ? (
@@ -442,7 +446,7 @@ export function SlotGame() {
                 g.topLine
               ) : null}
             </div>
-            <div className="reel-host">
+            <div className="reel-host" ref={reelHostRef}>
             {g.inFs ? <BedVisualizer muted={g.muted} reduced={reducedMotion} /> : null}
             <SlotGrid
               grid={g.grid}

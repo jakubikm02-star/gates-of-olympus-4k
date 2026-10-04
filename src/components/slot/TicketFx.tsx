@@ -5,6 +5,7 @@ import { jobShownGoal, sayCluster, type JobCard } from "@/lib/slot/spend";
 import { ticketBonus } from "@/lib/slot/ticket-bonus";
 import { BonusIcon } from "./TicketBonus";
 import "./ticket-fx.css";
+import { frameNow, onFrame } from "@/lib/slot/frame-loop";
 
 /**
  * One-shot ticket animations, display only (the hook already moved the money):
@@ -94,16 +95,14 @@ export function TicketFx({
     else timers.push(window.setTimeout(() => sfx.playCoin(), 1050), window.setTimeout(() => sfx.playCoin(), 1180));
     // Payout amount counts up over 0.15–0.75 s (text only).
     if (fx.kind === "payout") {
-      const t0 = performance.now();
-      let raf = 0;
-      const step = () => {
-        const k = Math.min(1, Math.max(0, (performance.now() - t0 - 150) / 600));
+      const t0 = frameNow();
+      const stop = onFrame((now) => {
+        const k = Math.min(1, Math.max(0, (now - t0 - 150) / 600));
         setShown(+(fx.job.payout * (1 - Math.pow(1 - k, 3))).toFixed(2));
-        if (k < 1) raf = requestAnimationFrame(step);
-      };
-      raf = requestAnimationFrame(step);
+        return k < 1;
+      });
       return () => {
-        cancelAnimationFrame(raf);
+        stop();
         timers.forEach(clearTimeout);
       };
     }

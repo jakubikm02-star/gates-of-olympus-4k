@@ -1,3 +1,4 @@
+import { onFrame } from "./frame-loop";
 import {
   COLS,
   ROWS,
@@ -530,13 +531,18 @@ export function wait(ms: number, signal?: { aborted?: boolean; skip?: boolean })
   return new Promise((resolve) => {
     let done = false;
     let timer = 0;
+    let stop = () => {};
     const finish = () => {
       if (done) return;
       done = true;
       window.clearTimeout(timer);
+      stop();
       resolve();
     };
     const limit = () => (signal?.skip || signal?.aborted ? Math.min(ms, 40) : ms);
+    // Shared frame loop (lib/slot/frame-loop): a wait is one job in the single rAF callback, not its own
+    // rAF chain. Start/end rules are unchanged (start = call time), so sound cues timed by waits keep
+    // exactly the old timing.
     let start = performance.now();
     let forgiven = false;
     let prev = start;
@@ -545,16 +551,18 @@ export function wait(ms: number, signal?: { aborted?: boolean; skip?: boolean })
       timer = window.setTimeout(finish, Math.max(16, left) + 48);
     };
     arm(limit());
-    const tick = (now: number) => {
-      if (done) return;
+    const tick = (now: number): boolean => {
+      if (done) return false;
       if (signal?.aborted) {
         finish();
-        return;
+        return false;
       }
       if (signal?.skip) {
-        if (now - start >= Math.min(ms, 40)) finish();
-        else requestAnimationFrame(tick);
-        return;
+        if (now - start >= Math.min(ms, 40)) {
+          finish();
+          return false;
+        }
+        return true;
       }
       const elapsed = now - start;
       const need = limit();
@@ -567,17 +575,16 @@ export function wait(ms: number, signal?: { aborted?: boolean; skip?: boolean })
         forgiven = true;
         start = now;
         arm(need);
-        requestAnimationFrame(tick);
-        return;
+        return true;
       }
       // Ending on the frame nearest to `need` (not the first one after it) keeps the average
       // wait on time at any refresh rate; at 30 Hz the old rule added ~17 ms to every wait.
       if (elapsed + Math.min(gap, 50) / 2 >= need) {
         finish();
-        return;
+        return false;
       }
-      requestAnimationFrame(tick);
+      return true;
     };
-    requestAnimationFrame(tick);
+    stop = onFrame(tick);
   });
 }

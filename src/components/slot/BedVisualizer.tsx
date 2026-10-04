@@ -27,6 +27,7 @@ import {
   tileNoise,
 } from "@/lib/slot/bed-viz";
 import "./bed-viz.css";
+import { onFrame } from "@/lib/slot/frame-loop";
 
 /**
  * 4KA TV light show, driven by the bed loop ("Podklad 4KA TV").
@@ -646,7 +647,7 @@ export function BedVisualizer({ muted, reduced }: Props) {
     let bins: { bass: [number, number]; mid: [number, number]; high: [number, number] } | null =
       null;
     let lastAn: AnalyserNode | null = null;
-    let raf = 0;
+    let off: (() => void) | null = null;
     let prevT = 0;
     let quietFor = 0;
     let comp = 0;
@@ -657,7 +658,6 @@ export function BedVisualizer({ muted, reduced }: Props) {
 
     const tick = (t: number) => {
       const t0 = performance.now();
-      raf = requestAnimationFrame(tick);
       const dt = prevT ? Math.min(100, t - prevT) : 16.7;
       prevT = t;
       const an = mutedRef.current ? null : bedAnalyser();
@@ -804,14 +804,15 @@ export function BedVisualizer({ muted, reduced }: Props) {
     };
 
     const start = () => {
-      if (!raf && document.visibilityState === "visible") {
+      if (!off && document.visibilityState === "visible") {
         prevT = 0;
-        raf = requestAnimationFrame(tick);
+        // One job in the shared frame loop (lib/slot/frame-loop), not its own rAF chain.
+        off = onFrame((t) => void tick(t));
       }
     };
     const stop = () => {
-      cancelAnimationFrame(raf);
-      raf = 0;
+      off?.();
+      off = null;
     };
     const onVis = () => (document.visibilityState === "visible" ? start() : stop());
     document.addEventListener("visibilitychange", onVis);

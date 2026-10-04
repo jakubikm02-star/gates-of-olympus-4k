@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { formatMoney } from "@/lib/slot/format";
 import type { TaxFly } from "@/hooks/use-slot-game";
 import { TaxChip } from "./TaxChip";
+import { frameNow, onFrame } from "@/lib/slot/frame-loop";
 
 /** Count-up length. The card never auto-closes (autoplay too): first tap finishes the count, the next one closes. */
 const COUNT_MS = 4200;
@@ -122,18 +123,18 @@ export function MassiveWin({
   );
   const [k, setK] = useState(reduced ? 1 : 0);
   const done = k >= 1;
-  const raf = useRef(0);
+  const stopCount = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (reduced) return;
-    const t0 = performance.now();
-    const tick = (t: number) => {
-      const p = Math.min(1, (t - t0) / COUNT_MS);
+    const t0 = frameNow();
+    const stop = onFrame((t) => {
+      const p = Math.min(1, Math.max(0, (t - t0) / COUNT_MS));
       setK(p);
-      if (p < 1) raf.current = requestAnimationFrame(tick);
-    };
-    raf.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf.current);
+      return p < 1;
+    });
+    stopCount.current = stop;
+    return stop;
   }, [reduced]);
 
   const shown = done ? amount : amount * easeOut(k);
@@ -143,7 +144,7 @@ export function MassiveWin({
   const hitCls = reduced || hits === 0 ? "" : done ? "is-drop" : hits % 2 ? "is-hit-a" : "is-hit-b";
   const skip = () => {
     if (!done) {
-      cancelAnimationFrame(raf.current);
+      stopCount.current();
       setK(1);
       return;
     }

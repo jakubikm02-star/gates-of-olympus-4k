@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { nextFrame } from "@/lib/slot/frame-loop";
 
 type FsEl = HTMLElement & {
   webkitRequestFullscreen?: () => Promise<void> | void;
@@ -100,7 +101,7 @@ export function useTheater() {
       wake.current = null;
     }
     setOn(true);
-    requestAnimationFrame(syncViewport);
+    nextFrame(() => syncViewport());
   }, [syncViewport]);
 
   const exit = useCallback(async () => {

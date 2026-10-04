@@ -12,6 +12,7 @@ import {
   type FrameSummary,
 } from "@/lib/slot/debug-hud";
 import { BUILD_ID } from "@/lib/slot/release";
+import { frameLoop, nominalHz, onFrame, type FrameLoopStats } from "@/lib/slot/frame-loop";
 
 const SAMPLE = 120;
 
@@ -27,32 +28,32 @@ export function DebugOverlay({ busy, perfLite, reduced }: { busy: boolean; perfL
   const [mode, setMode] = useState("?");
   const [min, setMin] = useState(false);
 
-  // Own rAF sampler, only while the HUD is open. It counts as one of the loops shown.
+  const [loop, setLoop] = useState<FrameLoopStats | null>(null);
+
+  // Sampler = one job in the shared frame loop (lib/slot/frame-loop), only while the HUD is open.
   useEffect(() => {
     if (!s.enabled) return;
-    let raf = 0;
     let last = 0;
     const buf: number[] = [];
     let shown = 0;
-    const tick = (t: number) => {
+    const off = onFrame((t) => {
       if (last) buf.push(t - last);
       if (buf.length > SAMPLE) buf.shift();
       last = t;
       if (t - shown > 500) {
         shown = t;
         setFrames(summarizeFrames(buf));
+        setLoop(frameLoop.stats());
         setMode(displayMode());
       }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
+    });
     // A hidden page gets no frames; drop the gap so the next reading is not one huge interval.
     const onVis = () => {
       last = 0;
     };
     document.addEventListener("visibilitychange", onVis);
     return () => {
-      cancelAnimationFrame(raf);
+      off();
       document.removeEventListener("visibilitychange", onVis);
     };
   }, [s.enabled]);
@@ -68,9 +69,16 @@ export function DebugOverlay({ busy, perfLite, reduced }: { busy: boolean; perfL
     <div className={`debug-hud${min ? " is-min" : ""}`} role="status" aria-live="off">
       <div className="debug-hud-head">
         <button type="button" onClick={() => setMin((v) => !v)}>
-          {f ? `${f.hz.toFixed(0)} Hz` : "… Hz"} · loops {s.loopsNow}
+          {loop && loop.hz ? `${nominalHz(loop.hz)} Hz` : f ? `${f.hz.toFixed(0)} Hz` : "… Hz"} · rAF {s.loopsNow} · jobs {loop?.ranLast ?? "…"}
         </button>
-        <button type="button" onClick={resetLoopMax} title="Reset max">
+        <button
+          type="button"
+          onClick={() => {
+            frameLoop.resetMax();
+            resetLoopMax();
+          }}
+          title="Reset max"
+        >
           ↺
         </button>
         <button type="button" onClick={() => setHudEnabled(false)} aria-label="Zavrieť debug">
@@ -84,7 +92,11 @@ export function DebugOverlay({ busy, perfLite, reduced }: { busy: boolean; perfL
               ? `rAF ${f.hz.toFixed(1)} Hz  avg ${f.meanMs.toFixed(1)} min ${f.minMs.toFixed(1)} p95 ${f.p95Ms.toFixed(1)} max ${f.maxMs.toFixed(0)} ms`
               : "rAF …",
             f ? `>34ms frames ${(f.over34 * 100).toFixed(0)} %` : "",
-            `rAF cb/frame ${s.loopsNow}  max ${s.loopsMax}  (HUD 1 + reels 1 + wait 1 počas spinu; bed 1 vo FS)`,
+            loop && loop.hz
+              ? `obnova ~${loop.hz.toFixed(1)} Hz (medián ${loop.medianMs.toFixed(2)} ms → ${nominalHz(loop.hz)} Hz)`
+              : "obnova …",
+            `rAF cb/frame ${s.loopsNow}  max ${s.loopsMax}  (cieľ 1: jedna zdieľaná slučka)`,
+            loop ? `slučka: úlohy/snímka ${loop.ranLast}  max ${loop.ranMax}  aktívne ${loop.jobs}  (HUD + valce + čakanie + bed…)` : "",
             r
               ? `reels ${Math.round(r.reelMs)} ms  ${r.cellsPerSec.toFixed(1)} cells/s  ${r.frames} fr  avg ${r.meanFrameMs.toFixed(1)} max ${r.maxFrameMs.toFixed(0)} ms`
               : "reel —",

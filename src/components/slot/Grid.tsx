@@ -1,8 +1,10 @@
 import { createContext, memo, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { noteReelSpin } from "@/lib/slot/debug-hud";
+import { nextFrame, onFrame } from "@/lib/slot/frame-loop";
+import { predecode } from "@/lib/slot/predecode";
 import { reportSpinFrames } from "@/lib/slot/perf-guard";
 import { emptySettle, settleReports, type SettleState } from "@/lib/slot/scatter-sfx";
-import { COLS, ROWS, symbolSrc, ticketArt, canTier, FS_SYMBOL, PAY_SYMBOLS, TICKETS, type Cell, type PayId } from "@/lib/slot/symbols";
+import { COLS, ROWS, symbolSrc, ticketArt, canTier, CAN_ART, FS_SYMBOL, PAY_SYMBOLS, SCATTER, TICKETS, type Cell, type PayId } from "@/lib/slot/symbols";
 import { isFsCell, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
 import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
 import { CanFx, CanValue } from "./Can";
@@ -157,12 +159,14 @@ const CellView = memo(function CellView({
   );
 });
 
-function symbolAt(filler: Cell[], oldCol: Cell[], index: number): Cell {
-  const n = filler.length;
-  const oldStart = n * 3;
-  if (index >= oldStart && index < oldStart + oldCol.length) return oldCol[index - oldStart];
-  return filler[((index % n) + n) % n];
-}
+/** Every bitmap a reel cell can show; kept decoded between spins (lib/slot/predecode). */
+const REEL_ART: readonly string[] = [
+  ...PAY_SYMBOLS.map((p) => p.src),
+  SCATTER.src,
+  FS_SYMBOL.src,
+  ...Object.values(TICKETS).flatMap((t) => [t.src, t.blank]),
+  ...CAN_ART,
+];
 
 /**
  * Longest frame step the reels may take (ms ≈ 10 fps); longer gaps stall the clock.
@@ -172,105 +176,89 @@ function symbolAt(filler: Cell[], oldCol: Cell[], index: number): Cell {
  */
 const STEP_MAX = 100;
 
+/**
+ * Reel speed changes (anticipation ×4, fast/turbo pace) ease in over ~this time constant instead of
+ * jumping in one frame. Exponential, so it is the same at 60, 90, 120 or 144 Hz.
+ */
+const SPEED_TAU_MS = 45;
+
+/** Cells the strip runs on after a stop before the final symbols arrive (plus the current fraction). */
+const LEAD = 2;
+
+type LandPlan = { t0: number; from: number; to: number; linearPx: number; v: number; easeMs: number; p: number };
+
 type DriverCol = {
   el: HTMLDivElement | null;
   n: number;
-  mode: "spin" | "arm" | "land" | "done";
+  mode: "spin" | "land" | "done";
   y: number;
   stop: boolean;
-  finals: Cell[] | null;
   ms: number;
-  land: { t0: number; prev: number; from: number; linearPx: number; v: number; easeMs: number } | null;
+  land: LandPlan | null;
+  hidden: HTMLElement[];
   onDone: () => void;
-  setCells: (cells: Cell[]) => void;
-  filler: Cell[];
-  old: Cell[];
 };
 
-function TravelColumn({
-  filler,
-  oldCol,
-  finalCol,
-  stop,
-  msPerCell,
-  onDone,
-  bind,
-}: {
-  filler: Cell[];
-  oldCol: Cell[];
-  finalCol: Cell[] | null;
-  stop: boolean;
-  msPerCell: number;
-  onDone: () => void;
-  bind: (col: DriverCol | null) => void;
-}) {
-  const n = filler.length;
-  const stripRef = useRef<HTMLDivElement>(null);
-  const api = useRef<DriverCol | null>(null);
-  const [cells, setCells] = useState<Cell[]>(() => [...filler, ...filler, ...filler, ...oldCol]);
+const xf = (y: number) => `translate3d(0,${y}px,0)`;
 
-  if (!api.current) {
-    api.current = {
-      el: null,
-      n,
-      mode: "spin",
-      y: 0,
-      stop,
-      finals: finalCol,
-      ms: msPerCell,
-      land: null,
-      onDone,
-      setCells,
-      filler,
-      old: oldCol,
-    };
+/** requestIdleCallback with a deadline (setTimeout where it is missing, e.g. older Safari). Returns a canceller. */
+function whenIdle(fn: () => void, timeout: number, fallbackMs: number): () => void {
+  if (typeof window.requestIdleCallback === "function") {
+    const id = window.requestIdleCallback(fn, { timeout });
+    return () => window.cancelIdleCallback(id);
   }
-  const col = api.current;
-  col.stop = stop;
-  col.finals = finalCol;
-  col.ms = msPerCell;
-  col.onDone = onDone;
-  col.el = stripRef.current;
-
-  useLayoutEffect(() => {
-    col.el = stripRef.current;
-    bind(col);
-    return () => bind(null);
-  }, [bind, col]);
-
-  useLayoutEffect(() => {
-    const node = stripRef.current;
-    if (!node || col.mode !== "arm" || !col.land) return;
-    col.land.t0 = performance.now();
-    col.land.prev = col.land.t0;
-    col.mode = "land";
-    col.y = col.land.from;
-    node.style.transform = `translate3d(0,${col.y}px,0)`;
-  });
-
-  return (
-    <div ref={stripRef} className="strip strip-travel" style={{ ["--reel-n" as string]: String(n) }}>
-      {cells.map((cell, i) => (
-        <CellView
-          key={`t-${i}-${cell.uid}`}
-          cell={cell}
-          r={i % ROWS}
-          c={0}
-          win={false}
-          popping={false}
-          reduced
-          dumping={false}
-          hot={false}
-          dormant={false}
-          tease={false}
-          slam={false}
-          expired={false}
-          tumbleFall={0}
-        />
-      ))}
-    </div>
-  );
+  const id = window.setTimeout(fn, fallbackMs);
+  return () => window.clearTimeout(id);
 }
+
+/**
+ * Travel strip: 3× the spin filler + the previous board, rendered ONCE per spin and moved only with a
+ * compositor transform. The stop does not rebuild it (that was a React commit + a ~800-object layout per
+ * reel stop, with the column frozen meanwhile): the final symbols are the column's normal board strip,
+ * already mounted under it and carried in lockstep by the driver (see SlotGrid).
+ */
+const TravelColumn = memo(
+  function TravelColumn({
+    filler,
+    oldCol,
+    bind,
+  }: {
+    filler: Cell[];
+    oldCol: Cell[];
+    bind: (el: HTMLDivElement | null, n: number) => void;
+  }) {
+    const n = filler.length;
+    const stripRef = useRef<HTMLDivElement>(null);
+    const [cells] = useState<Cell[]>(() => [...filler, ...filler, ...filler, ...oldCol]);
+    useLayoutEffect(() => {
+      bind(stripRef.current, n);
+      return () => bind(null, n);
+    }, [bind, n]);
+    return (
+      <div ref={stripRef} className="strip strip-travel" style={{ ["--reel-n" as string]: String(n) }}>
+        {cells.map((cell, i) => (
+          <CellView
+            key={`t-${i}-${cell.uid}`}
+            cell={cell}
+            r={i % ROWS}
+            c={0}
+            win={false}
+            popping={false}
+            reduced
+            dumping={false}
+            hot={false}
+            dormant={false}
+            tease={false}
+            slam={false}
+            expired={false}
+            tumbleFall={0}
+          />
+        ))}
+      </div>
+    );
+  },
+  (a, b) => a.filler === b.filler && a.oldCol === b.oldCol && a.bind === b.bind,
+);
 
 export function SlotGrid({
   grid,
@@ -307,20 +295,32 @@ export function SlotGrid({
   const cascading = spinning || landing;
   const [landed, setLanded] = useState<boolean[]>(() => Array(COLS).fill(true));
   const [token, setToken] = useState(0);
-  const cache = useRef<{ token: number; hold: Cell[][]; strips: Cell[][] } | null>(null);
+  /** Token whose travel strips were unmounted after every reel landed (deferred to idle time). */
+  const [swept, setSwept] = useState(0);
+  const cache = useRef<{ token: number; hold: Cell[][]; strips: Cell[][]; olds: Cell[][] } | null>(null);
   const spinToken = holdGrid?.[0]?.[0]?.uid ?? 0;
-  if (holdGrid && spinStrips && spinStrips.length === COLS) {
-    cache.current = { token: spinToken, hold: holdGrid, strips: spinStrips };
+  if (holdGrid && spinStrips && spinStrips.length === COLS && (cache.current?.token !== spinToken || cache.current.strips !== spinStrips)) {
+    cache.current = {
+      token: spinToken,
+      hold: holdGrid,
+      strips: spinStrips,
+      // Built once per spin so the memoized travel strips keep stable props through every re-render.
+      olds: Array.from({ length: COLS }, (_, c) => Array.from({ length: ROWS }, (_, r) => holdGrid[r][c])),
+    };
   }
   if (cache.current && cache.current.token !== token) {
     setToken(cache.current.token);
     setLanded(Array(COLS).fill(false));
   }
   const frozen = cache.current && cache.current.token === token ? cache.current : null;
+  const allLanded = landed.every(Boolean);
+  /** Travel strips stay mounted (hidden once their reel landed) until every reel is down, then go in one idle commit. */
+  const travelOn = !reduced && Boolean(frozen) && swept !== token;
+  const colTravel = (c: number) => travelOn && Boolean(frozen && frozen.strips[c]?.length >= ROWS);
   // Reel settle report (scatter land sound): a column must be seen spinning in this spin, then settled.
   const settledCols = Array.from({ length: COLS }, (_, c) => {
     const pending = cascading && c >= stoppedCols;
-    const travel = !reduced && Boolean(frozen && frozen.strips[c]?.length >= ROWS && !landed[c]);
+    const travel = colTravel(c) && !landed[c];
     return !pending && !travel;
   });
   const settleRef = useRef<SettleState>(emptySettle());
@@ -332,25 +332,84 @@ export function SlotGrid({
     for (const c of done) onSettledRef.current?.(c);
   }, [token, settledKey]);
   const windowRef = useRef<HTMLDivElement>(null);
-  const colsRef = useRef<(DriverCol | null)[]>(Array(COLS).fill(null));
+
+  // Driver state per column. Render only writes plain values here (stop flag, pace); the frame job owns the DOM.
+  const colsRef = useRef<DriverCol[]>(
+    Array.from({ length: COLS }, () => ({ el: null, n: 0, mode: "done", y: 0, stop: false, ms: 84, land: null, hidden: [], onDone: () => {} })),
+  );
+  const finalRefs = useRef<(HTMLDivElement | null)[]>(Array(COLS).fill(null));
   const binds = useRef(
-    Array.from({ length: COLS }, (_, i) => (col: DriverCol | null) => {
-      colsRef.current[i] = col;
+    Array.from({ length: COLS }, (_, i) => (el: HTMLDivElement | null, n: number) => {
+      const col = colsRef.current[i];
+      col.el = el;
+      col.n = n;
     }),
   );
+  const finalBinds = useRef(
+    Array.from({ length: COLS }, (_, i) => (el: HTMLDivElement | null) => {
+      finalRefs.current[i] = el;
+    }),
+  );
+  const landedSetters = useRef(
+    Array.from({ length: COLS }, (_, c) => () =>
+      setLanded((prev) => {
+        if (prev[c]) return prev;
+        const next = prev.slice();
+        next[c] = true;
+        return next;
+      }),
+    ),
+  );
+
+  // Cell height from a ResizeObserver (no forced layout at spin start). Cells are 20% of the column.
+  const cellH = useRef(0);
+  useLayoutEffect(() => {
+    const win = windowRef.current;
+    const col = win?.querySelector<HTMLElement>(":scope > .reel-col");
+    if (!win || !col || typeof ResizeObserver === "undefined") return;
+    const apply = (colH: number) => {
+      if (colH <= 0) return;
+      // Exact 20% of the column (layout-unit precision), identical to the static 20cqh cells, so the landing
+      // hand-off has no sub-pixel jump and rows fill the column exactly; motion itself is composited.
+      const h = Math.round((colH / ROWS) * 64) / 64;
+      if (h === cellH.current) return;
+      cellH.current = h;
+      win.style.setProperty("--cell-h", `${h}px`);
+    };
+    const ro = new ResizeObserver((entries) => {
+      const e = entries[entries.length - 1];
+      apply(e.contentBoxSize?.[0]?.blockSize ?? e.contentRect.height);
+    });
+    ro.observe(col);
+    return () => ro.disconnect();
+  }, []);
+
+  // Board idle: keep every reel bitmap decoded and referenced for the next spin.
+  useEffect(() => {
+    if (cascading) return;
+    return whenIdle(() => void predecode(REEL_ART), 1500, 300);
+  }, [cascading]);
+
+  // Every reel landed: drop the hidden travel strips (~300 cells) in one commit when the main thread is idle.
+  useEffect(() => {
+    if (!token || !allLanded || swept === token) return;
+    return whenIdle(() => setSwept(token), 700, 250);
+  }, [token, allLanded, swept]);
 
   useLayoutEffect(() => {
     if (!token || reduced) return;
-    let raf = 0;
-    let last = performance.now();
+    const strips = cache.current?.token === token ? cache.current.strips : null;
+    if (strips) void predecode(strips.flatMap((st) => st.map(symbolSrc)));
+    const cols = colsRef.current;
+    for (const col of cols) {
+      col.mode = col.el ? "spin" : "done";
+      col.land = null;
+      col.hidden = [];
+    }
     let h = 0;
     let scroll = 0;
     let primed = false;
-
-    const place = (col: DriverCol, y: number) => {
-      col.y = y;
-      col.el!.style.transform = `translate3d(0,${y}px,0)`;
-    };
+    let v = 0;
 
     const sharedY = (col: DriverCol) => {
       const span = col.n * h;
@@ -368,7 +427,10 @@ export function SlotGrid({
     let frameMax = 0;
     let cellsRun = 0;
     let spinMs = 0;
+    let reported = false;
     const report = () => {
+      if (reported) return;
+      reported = true;
       if (frameN > 0) {
         reportSpinFrames(frameSum / frameN, frameN);
         noteReelSpin({
@@ -379,119 +441,130 @@ export function SlotGrid({
           reelMs: performance.now() - t0,
         });
       }
-      frameSum = 0;
-      frameN = 0;
-      frameMax = 0;
-      cellsRun = 0;
-      spinMs = 0;
     };
 
-    const tick = (now: number) => {
-      const raw = now - last;
-      const dt = Math.min(STEP_MAX, Math.max(0, raw));
-      last = now;
+    const finish = (c: number, col: DriverCol) => {
+      col.mode = "done";
+      const fin = finalRefs.current[c];
+      if (fin) {
+        fin.style.transform = "";
+        fin.style.visibility = "visible";
+      }
+      if (col.el) {
+        col.el.style.visibility = "hidden";
+        for (const cell of col.hidden) cell.style.visibility = "";
+      }
+      col.hidden = [];
+      col.onDone();
+    };
+
+    const job = (now: number, raw: number): boolean => {
+      const dt = Math.min(STEP_MAX, raw);
       if (primed && raw > 0 && raw < 1000) {
         frameSum += raw;
         frameN++;
         if (raw > frameMax) frameMax = raw;
       }
-      const cols = colsRef.current;
       if (!primed) {
-        const sample = cols.find((c) => c?.el)?.el?.firstElementChild as HTMLElement | undefined;
-        const raw = sample?.getBoundingClientRect().height ?? 0;
-        if (raw <= 0) {
-          raf = requestAnimationFrame(tick);
-          return;
-        }
-        const dpr = window.devicePixelRatio || 1;
-        h = Math.round(raw * dpr) / dpr;
-        windowRef.current?.style.setProperty("--cell-h", `${h}px`);
-        for (const col of cols) {
-          if (!col?.el) continue;
-          place(col, -3 * col.n * h);
-        }
+        h = cellH.current;
+        if (h <= 0) return true;
+        for (const col of cols) if (col.el && col.mode === "spin") col.el.style.transform = xf((col.y = -3 * col.n * h));
         primed = true;
-        last = now;
-        raf = requestAnimationFrame(tick);
-        return;
+        return true;
       }
 
-      let ms = 84;
+      // Shared spin speed: the first still-spinning column's pace, eased toward (never a one-frame jump).
+      let ms = 0;
       for (const col of cols) {
-        if (col?.mode === "spin") {
+        if (col.el && col.mode === "spin") {
           ms = col.ms;
           break;
         }
       }
-      scroll += (h / Math.max(16, ms)) * dt;
-      cellsRun += dt / Math.max(16, ms);
-      spinMs += dt;
+      if (ms > 0) {
+        const target = h / Math.max(16, ms);
+        v = v === 0 ? target : v + (target - v) * (1 - Math.exp(-dt / SPEED_TAU_MS));
+        scroll += v * dt;
+        cellsRun += (v * dt) / h;
+        spinMs += dt;
+      }
 
       let alive = false;
-      for (const col of cols) {
-        if (!col?.el || col.mode === "done") continue;
+      for (let c = 0; c < cols.length; c++) {
+        const col = cols[c];
+        if (!col.el || col.mode === "done") continue;
         alive = true;
-        if (col.mode === "arm") continue;
         if (col.mode === "spin") {
           const y = sharedY(col);
-          if (col.stop && col.finals) {
+          const fin = col.stop ? finalRefs.current[c] : null;
+          if (fin) {
+            // Stop: the final board strip goes LEAD cells (+ the current fraction) above the window, at
+            // strip index p, and rides with the strip from here. The travel cells it covers are hidden.
             const top = -y / h;
-            const base = Math.floor(top);
-            const frac = top - base;
-            const lead = 2;
-            const leadCells: Cell[] = [];
-            for (let i = lead; i >= 1; i--) leadCells.push(symbolAt(col.filler, col.old, base - i));
-            const visible: Cell[] = [];
-            for (let i = 0; i < ROWS + 1; i++) visible.push(symbolAt(col.filler, col.old, base + i));
-            const v = h / Math.max(16, col.ms);
-            const brakePx = 1.5 * h;
-            const from = -((ROWS + lead) * h + frac * h);
-            col.land = {
-              t0: now,
-              prev: now,
-              from,
-              linearPx: Math.max(0, -from - brakePx),
-              v,
-              easeMs: Math.max(1, Math.round((2 * brakePx) / v)),
-            };
+            const p = Math.floor(top) - LEAD - ROWS;
+            if (p >= 0) {
+              const to = -p * h;
+              const dist = to - y;
+              const brakePx = 1.5 * h;
+              const vv = v > 0 ? v : h / Math.max(16, col.ms);
+              col.land = {
+                t0: now,
+                from: y,
+                to,
+                linearPx: Math.max(0, dist - brakePx),
+                v: vv,
+                easeMs: Math.max(1, (2 * Math.min(brakePx, dist)) / vv),
+                p,
+              };
+              const kids = col.el.children;
+              for (let i = p; i < p + ROWS && i < kids.length; i++) {
+                const k = kids[i] as HTMLElement;
+                k.style.visibility = "hidden";
+                col.hidden.push(k);
+              }
+              fin.style.visibility = "visible";
+              col.mode = "land";
+            }
+          }
+          if (col.mode === "spin") {
             col.y = y;
-            col.mode = "arm";
-            col.setCells([...col.finals, ...leadCells, ...visible]);
+            col.el.style.transform = xf(y);
             continue;
           }
-          place(col, y);
-        } else if (col.mode === "land" && col.land) {
+        }
+        if (col.mode === "land" && col.land) {
           const plan = col.land;
           // A long frame (GC, React commit, thermal throttling) must not teleport the strip: past
           // STEP_MAX the landing clock stalls instead, so the reel slows for a frame, never skips.
-          const gap = now - plan.prev;
-          if (gap > STEP_MAX) plan.t0 += gap - STEP_MAX;
-          plan.prev = now;
-          const elapsed = now - plan.t0;
+          if (raw > STEP_MAX) plan.t0 += raw - STEP_MAX;
+          const elapsed = Math.max(0, now - plan.t0);
           const linearMs = plan.v > 0 ? plan.linearPx / plan.v : 0;
           let ny: number;
           if (elapsed <= linearMs) ny = plan.from + plan.v * elapsed;
           else {
+            // Quadratic ease-out from the spin speed to rest: velocity is continuous at the switch.
             const u = Math.min(1, (elapsed - linearMs) / plan.easeMs);
             const eased = 1 - (1 - u) * (1 - u);
             const easeFrom = plan.from + plan.linearPx;
-            ny = easeFrom + (0 - easeFrom) * eased;
+            ny = easeFrom + (plan.to - easeFrom) * eased;
           }
-          place(col, ny);
-          if (elapsed >= linearMs + plan.easeMs) {
-            place(col, 0);
-            col.mode = "done";
-            col.onDone();
-          }
+          col.y = ny;
+          col.el.style.transform = xf(ny);
+          const fin = finalRefs.current[c];
+          if (fin) fin.style.transform = xf(ny + plan.p * h);
+          if (elapsed >= linearMs + plan.easeMs) finish(c, col);
         }
       }
-      if (alive) raf = requestAnimationFrame(tick);
-      else report();
+      if (!alive) {
+        report();
+        return false;
+      }
+      return true;
     };
 
-    raf = requestAnimationFrame(tick);
+    const stop = onFrame(job);
     return () => {
-      cancelAnimationFrame(raf);
+      stop();
       report();
     };
   }, [token, reduced]);
@@ -520,41 +593,34 @@ export function SlotGrid({
           const justLand = landing && c === stoppedCols - 1;
           const colAnti = anticipate && pending;
           const filler = frozen?.strips[c];
-          const oldCol = frozen ? Array.from({ length: ROWS }, (_, r) => frozen.hold[r][c]) : null;
-          const finalCol = Array.from({ length: ROWS }, (_, r) => grid[r][c]);
-          const showTravel = !reduced && Boolean(filler && filler.length >= ROWS && oldCol && !landed[c]);
-          const showHold = !showTravel && pending && Boolean(oldCol);
-          const showNew = !showTravel && !pending;
+          const oldCol = frozen ? frozen.olds[c] : null;
+          const travel = colTravel(c) && Boolean(filler && oldCol);
+          const moving = travel && !landed[c];
+          // Final symbols known (landing phase or later): the board strip is mounted, and while this reel
+          // still travels it is "staged" (hidden, then carried by the driver into place).
+          const finalsKnown = landing || !pending;
+          const showHold = !travel && pending && Boolean(oldCol);
+          const showNew = travel ? finalsKnown : !pending;
+          const staged = moving && showNew;
+          const shown = !moving;
           const msPerCell = colAnti ? 22 : fast ? 44 : turbo ? 30 : quick ? 52 : spinPace === "up" ? 156 : 84;
+          const drv = colsRef.current[c];
+          drv.stop = !pending && (landing || !cascading);
+          drv.ms = msPerCell;
+          drv.onDone = landedSetters.current[c];
           return (
             <div
               key={c}
               className={[
                 "reel-col",
-                showTravel ? "is-charging" : "",
+                moving ? "is-charging" : "",
                 justLand ? "is-landing" : "",
                 colAnti ? "is-anticipate" : "",
               ].join(" ")}
               style={{ ["--c" as string]: String(c) } as CSSProperties}
             >
-              {showTravel && filler && oldCol ? (
-                <TravelColumn
-                  key={`${token}-${c}`}
-                  filler={filler}
-                  oldCol={oldCol}
-                  finalCol={landing || !pending ? finalCol : null}
-                  stop={!pending && (landing || !cascading)}
-                  msPerCell={msPerCell}
-                  bind={binds.current[c]}
-                  onDone={() =>
-                    setLanded((prev) => {
-                      if (prev[c]) return prev;
-                      const next = prev.slice();
-                      next[c] = true;
-                      return next;
-                    })
-                  }
-                />
+              {travel && filler && oldCol ? (
+                <TravelColumn key={`${token}-${c}`} filler={filler} oldCol={oldCol} bind={binds.current[c]} />
               ) : null}
               {showHold && oldCol ? (
                 <div className="strip">
@@ -579,7 +645,7 @@ export function SlotGrid({
                 </div>
               ) : null}
               {showNew ? (
-                <div className="strip">
+                <div ref={travel ? finalBinds.current[c] : undefined} className={`strip${staged ? " is-staged" : ""}`}>
                   {Array.from({ length: ROWS }, (_, r) => {
                     const cell = grid[r][c];
                     return (
@@ -594,8 +660,8 @@ export function SlotGrid({
                         dumping={false}
                         hot={struckUids.includes(cell.uid)}
                         dormant={cell.kind === "mult" && !struckUids.includes(cell.uid) && !cascading}
-                        tease={anticipate && !pending && cell.kind === "scatter"}
-                        slam={justLand && cell.kind === "scatter"}
+                        tease={shown && anticipate && !pending && cell.kind === "scatter"}
+                        slam={shown && justLand && cell.kind === "scatter"}
                         expired={expiredUids.includes(cell.uid)}
                         tumbleFall={cell.fall ?? 0}
                         ticketLock={ticketLock}
@@ -665,13 +731,13 @@ function HackFrame({
   const [launched, setLaunched] = useState(state !== "travel");
   useLayoutEffect(() => {
     if (state !== "travel" || launched) return;
-    let b = 0;
-    const a = requestAnimationFrame(() => {
-      b = requestAnimationFrame(() => setLaunched(true));
+    let b = () => {};
+    const a = nextFrame(() => {
+      b = nextFrame(() => setLaunched(true));
     });
     return () => {
-      cancelAnimationFrame(a);
-      cancelAnimationFrame(b);
+      a();
+      b();
     };
   }, [state, launched]);
   if (state === "pending") return null;

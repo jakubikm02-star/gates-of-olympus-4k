@@ -541,8 +541,9 @@
 
 .board-stage-inner {
   --bz: 12px;
-  --avail-w: max(0px, calc(100cqw - 2 * var(--bz)));
-  --avail-h: max(0px, calc(100cqh - 2 * var(--bz)));
+  /* --cq-w/--cq-h: px mirror of the container box (hooks/use-container-vars); cq only before it lands. */
+  --avail-w: max(0px, calc(var(--cq-w, 100cqw) - 2 * var(--bz)));
+  --avail-h: max(0px, calc(var(--cq-h, 100cqh) - 2 * var(--bz)));
   --ww: min(var(--avail-w), calc(var(--avail-h) * 6 / 5));
   position: relative;
   display: flex;
@@ -1631,7 +1632,9 @@
   container-type: size;
   height: 100%;
   box-shadow: inset -1px 0 0 rgb(0 0 0 / 0.45);
-  filter: brightness(1);
+  /* No idle filter: even brightness(1) makes every column an offscreen render pass each frame while the
+     strips scroll. `none` interpolates to the anticipation brightness like brightness(1) did. */
+  filter: none;
   transition: filter 0.55s ease, box-shadow 0.55s ease;
 }
 
@@ -1643,6 +1646,14 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  /* Own stacking context like the old permanent will-change gave it, without a permanent GPU layer. */
+  isolation: isolate;
+}
+
+/* Final board strip of a reel that is still travelling: mounted with the landing commit, invisible until
+   the reel driver (Grid.tsx) carries it in on the compositor. Only moving strips get their own layer. */
+.strip.is-staged {
+  visibility: hidden;
   will-change: transform;
 }
 
@@ -1654,7 +1665,7 @@
   z-index: 2;
   height: auto;
   will-change: transform;
-  transform: translate3d(0, calc(var(--reel-n, 15) * -3 * 20cqh), 0);
+  transform: translate3d(0, calc(var(--reel-n, 15) * -3 * var(--cell-h, 20cqh)), 0);
 }
 
 .strip-travel .cell {
@@ -1912,8 +1923,9 @@
 
 .cell {
   position: relative;
-  flex: 0 0 20cqh;
-  height: 20cqh;
+  /* --cell-h: px cell height from the reel driver's ResizeObserver (Grid.tsx); same value the travel strip uses. */
+  flex: 0 0 var(--cell-h, 20cqh);
+  height: var(--cell-h, 20cqh);
   width: 100%;
   display: grid;
   place-items: center;
@@ -2437,14 +2449,13 @@
   }
 }
 
+/* Transform only (it had a 0.4px blur): a filter keyframe repaints each dropping cell every frame. */
 @keyframes cell-drop {
   0% {
     transform: translateY(calc(var(--fall, 5.2) * -100%));
-    filter: blur(0.4px);
   }
   82% {
     transform: translateY(2px) scaleY(0.96);
-    filter: blur(0);
   }
   100% {
     transform: none;
@@ -4755,7 +4766,7 @@
     flex: none;
     display: flex;
     flex-direction: column;
-    width: min(100%, calc(100cqh * 1.22));
+    width: min(100%, calc(var(--cq-h, 100cqh) * 1.22));
     height: 100%;
     max-width: 100%;
     max-height: 100%;
@@ -7635,8 +7646,8 @@ html:-webkit-full-screen {
 .stage.shell-mw .reel-frame,
 .stage.shell-pwa .reel-frame {
   flex: none;
-  width: min(100cqw, calc(100cqh * 6 / 5.45));
-  height: min(100cqh, calc(100cqw * 5.45 / 6));
+  width: min(var(--cq-w, 100cqw), calc(var(--cq-h, 100cqh) * 6 / 5.45));
+  height: min(var(--cq-h, 100cqh), calc(var(--cq-w, 100cqw) * 5.45 / 6));
   max-width: 100%;
   max-height: 100%;
 }

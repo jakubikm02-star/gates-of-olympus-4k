@@ -95,6 +95,7 @@ import {
   type JobCard,
   type JobEvent,
 } from "@/lib/slot/spend";
+import { nextFrame } from "@/lib/slot/frame-loop";
 
 type Phase =
   | "boot"
@@ -202,7 +203,7 @@ function afterPaint(): Promise<void> {
       done = true;
       resolve();
     };
-    requestAnimationFrame(() => requestAnimationFrame(finish));
+    nextFrame(() => nextFrame(finish));
     window.setTimeout(finish, 48);
   });
 }

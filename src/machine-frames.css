@@ -412,8 +412,8 @@
 .stage.shell-mw .reel-frame:has(> .mf),
 .stage.shell-pwa .reel-frame:has(> .mf) {
   --bz: 10px;
-  width: calc(min(100cqw, calc(100cqh * 6 / 5.45)) + 8px);
-  height: calc(min(100cqh, calc(100cqw * 5.45 / 6)) + 8px);
+  width: calc(min(var(--cq-w, 100cqw), calc(var(--cq-h, 100cqh) * 6 / 5.45)) + 8px);
+  height: calc(min(var(--cq-h, 100cqh), calc(var(--cq-w, 100cqw) * 5.45 / 6)) + 8px);
   max-width: none;
   max-height: none;
   margin: -4px;

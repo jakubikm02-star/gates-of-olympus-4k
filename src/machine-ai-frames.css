@@ -30,7 +30,7 @@
 }
 
 .stage .reel-frame:has(> .mf.is-ai) {
-  --mai-t: clamp(14px, min(3.6cqw, 4.4cqh), 42px);
+  --mai-t: clamp(14px, min(calc(var(--cq-w, 100cqw) * 0.036), calc(var(--cq-h, 100cqh) * 0.044)), 42px);
   --mai-k: calc(var(--mai-t) / var(--mai-ref, 150));
   --mai-pt: calc(var(--mai-k) * (var(--mai-bt) + var(--mai-d)));
   --mai-pr: calc(var(--mai-k) * (var(--mai-br) + var(--mai-d)));
@@ -46,7 +46,7 @@
    (the reel window gives up ~3 % of its width; height is free there). */
 .stage.shell-mw .reel-frame:has(> .mf.is-ai),
 .stage.shell-pwa .reel-frame:has(> .mf.is-ai) {
-  --mai-t: clamp(15px, 4.2cqw, 24px);
+  --mai-t: clamp(15px, calc(var(--cq-w, 100cqw) * 0.042), 24px);
 }
 
 .stage .reel-frame:has(> .mf.is-ai)::before,
