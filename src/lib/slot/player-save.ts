@@ -310,6 +310,42 @@ function ticketSave(raw: unknown): TierId | null {
   return TIERS.includes(id as TierId) ? (id as TierId) : null;
 }
 
+
+/**
+ * Free-spin cash still sitting on a save whose bonus is no longer running
+ * (inFs false / fsLeft 0). That is the leave-mid-celebration case: closeFs
+ * cleared the live flag before the overlays, then the page went away before
+ * setBalance. Fold it into balance so the next boot recovers the win.
+ * Trigger cash was already paid on the trigger spin; only fsCash × modMul is due.
+ */
+export function claimEndedFsCash(s: PlayerSave): { save: PlayerSave; claimed: number } {
+  if (s.inFs && s.fsLeft > 0) return { save: s, claimed: 0 };
+  const mul = s.fsBought ? 1 : s.fsModMul === 1.23 || s.fsModMul === 0.77 ? s.fsModMul : 1;
+  const claimed = +(s.fsCash * mul).toFixed(2);
+  if (claimed <= 0 && s.fsCash <= 0 && s.fsTriggerCash <= 0 && s.fsTotal <= 0 && s.fsPlayed <= 0) {
+    return { save: s, claimed: 0 };
+  }
+  const next: PlayerSave = {
+    ...s,
+    balance: +(s.balance + Math.max(0, claimed)).toFixed(2),
+    bestWin: Math.max(s.bestWin, claimed > 0 ? claimed : s.bestWin),
+    inFs: false,
+    fsLeft: 0,
+    fsTotal: 0,
+    fsCash: 0,
+    fsPlayed: 0,
+    fsExtra: 0,
+    fsPeak: 0,
+    fsBought: false,
+    fsTriggerCash: 0,
+    fsModMul: 1,
+    fsTaxDelta: 0,
+    fsZasah: false,
+    globalMult: 0,
+  };
+  return { save: next, claimed: Math.max(0, claimed) };
+}
+
 export function sanitizePlayerSave(raw: unknown): PlayerSave {
   const s = emptyPlayerSave();
   if (!raw || typeof raw !== "object") return s;
@@ -381,9 +417,12 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   // A pause only makes sense next to its ticket.
   if (s.ticketPause && (!s.job || s.job.id !== s.ticketPause.jobId)) s.ticketPause = null;
   if (!s.inFs || s.fsLeft <= 0) {
+    // Ended (or never started) bonus: recover any unpaid free-spin cash, then clear the session.
+    // Keep pendingLiveTicket — a stashed ticket from the bonus must still be claimable after reload.
+    const folded = claimEndedFsCash(s);
+    Object.assign(s, folded.save);
     s.inFs = false;
     s.fsLeft = 0;
-    s.pendingLiveTicket = null;
     s.fsZasah = false;
   }
   return s;

@@ -2944,7 +2944,10 @@ export function useSlotGame() {
       await wait(dur(400));
       const escrow = roundEscrowRef.current;
       if (cash > 0 && !isFree && !inFsRef.current && !escrow) {
-        setBalance((b) => +(b + cash).toFixed(2));
+        // Sync the ref and save before any celebration wait: leaving mid-banner must not lose the win.
+        balanceRef.current = +(balanceRef.current + cash).toFixed(2);
+        setBalance(balanceRef.current);
+        persistNow();
         sfx.playPayout();
       }
       const x = lastPaidXRef.current;
@@ -3466,59 +3469,40 @@ export function useSlotGame() {
         const featureX = betNow > 0 ? featureTotal / betNow : 0;
         // 4KA TV pops no per-spin banners, so a massive bonus is announced once, at the end, before the summary.
         const massive = featureX >= WIN_POP_X.massive;
-        if (massive) {
-          bannerOpen.current = true;
-          setBanner("massive");
-          setBannerAmount(featureTotal);
-          setBannerTax(fsTax);
-          setBannerX(featureX);
-          setPhase("big");
-          setTopLine("MASÍVNA VÝHRA");
-          sfx.playMassiveWin();
-          // Never auto-closes: autoplay waits here (paused) until the player taps it away. In a duel it does.
-          await waitForBanner(roundEscrowRef.current ? duelBannerMs("massive") : "click");
-        }
-        setBannerMeta({
-          spins: sess.played,
-          extra: sess.extra,
-          peakMult: sess.peak,
-          terminated: hitCap,
-          zasah: sess.zasah || undefined,
-        });
-        bannerOpen.current = true;
-        setBanner("fsTotal");
-        setBannerAmount(featureTotal);
-        setBannerTax(fsTax);
-        setPhase(hitCap ? "max" : "big");
-        setTopLine("4KA TV SKONČILA");
-        setMessage(featureTotal > 0 ? `VÝHRA ${formatMoney(featureTotal)}` : "4KA TV SKONČILA");
-        if (massive) sfx.playPayout();
-        else if (featureTotal > 0 || hitCap) sfx.playBigWin();
-        else sfx.playPayout();
-        sfx.stopLiveBed();
         const escrow = roundEscrowRef.current;
-        if (fsPaid > 0 && !escrow) setBalance((b) => +(b + fsPaid).toFixed(2));
+        const bought = sess.bought;
+        const peak = sess.peak;
+        const extra = sess.extra;
+        const played = sess.played;
+        const triggerCash = sess.triggerCash;
+        const wasZasah = sess.zasah || undefined;
+        // Credit + board + clear session + persist BEFORE any celebration wait.
+        // Leaving mid-MASÍVNA / mid-fsTotal previously dropped fsPaid (KREDIT never moved; board best never updated).
+        if (fsPaid > 0 && !escrow) {
+          balanceRef.current = +(balanceRef.current + fsPaid).toFixed(2);
+          setBalance(balanceRef.current);
+        }
         if (featureTotal > 0 && !escrow) {
           bumpToday(
             0,
             featureTotal,
             winHow({
               mode: "PARKNET",
-              spins: sess.played,
-              mult: sess.peak,
+              spins: played,
+              mult: peak,
             }),
             betNow,
             {
               v: 1,
-              mode: sess.bought ? "buy" : "fs",
+              mode: bought ? "buy" : "fs",
               pays: topPays(fsTallyRef.current),
               cans: topCans(fsTallyRef.current.cans),
-              mult: sess.peak > 1 ? sess.peak : undefined,
+              mult: peak > 1 ? peak : undefined,
               scatters: fsTallyRef.current.scatters >= 3 ? fsTallyRef.current.scatters : undefined,
               tumbles: recipeTumbles(fsTallyRef.current.tumbles),
-              spins: sess.played || undefined,
-              extra: sess.extra || undefined,
-              ante: (!sess.bought && fsAnteRef.current) || undefined,
+              spins: played || undefined,
+              extra: extra || undefined,
+              ante: (!bought && fsAnteRef.current) || undefined,
               mod: mul !== 1 ? mul : undefined,
             },
           );
@@ -3527,35 +3511,31 @@ export function useSlotGame() {
         noteStat({
           t: "fsEnd",
           total: fsPaid,
-          trigger: sess.triggerCash,
-          played: sess.played,
-          extra: sess.extra,
-          peak: sess.peak,
-          bought: sess.bought,
-          buyCost: sess.bought ? +(betNow * buyXOf(standing(rankRef.current.rp).id)).toFixed(2) : 0,
+          trigger: triggerCash,
+          played,
+          extra,
+          peak,
+          bought,
+          buyCost: bought ? +(betNow * buyXOf(standing(rankRef.current.rp).id)).toFixed(2) : 0,
           modMul: mul,
           gross: sess.cash,
           ms: Math.max(0, Date.now() - (fsStartedAtRef.current || Date.now())),
           empty: featureTotal <= 0,
-          zasah: sess.zasah || undefined,
+          zasah: wasZasah,
           recipe: {
             v: 1,
-            mode: sess.bought ? "buy" : "fs",
+            mode: bought ? "buy" : "fs",
             pays: topPays(fsTallyRef.current),
             cans: topCans(fsTallyRef.current.cans),
-            mult: sess.peak > 1 ? sess.peak : undefined,
+            mult: peak > 1 ? peak : undefined,
             scatters: fsTallyRef.current.scatters >= 3 ? fsTallyRef.current.scatters : undefined,
             tumbles: recipeTumbles(fsTallyRef.current.tumbles),
-            spins: sess.played || undefined,
-            extra: sess.extra || undefined,
-            ante: (!sess.bought && fsAnteRef.current) || undefined,
+            spins: played || undefined,
+            extra: extra || undefined,
+            ante: (!bought && fsAnteRef.current) || undefined,
             mod: mul !== 1 ? mul : undefined,
           },
         });
-        const bought = sess.bought;
-        const peak = sess.peak;
-        const extra = sess.extra;
-        const triggerCash = sess.triggerCash;
         fsSessionRef.current = {
           left: 0,
           total: 0,
@@ -3571,7 +3551,39 @@ export function useSlotGame() {
         };
         setFsZasah(false);
         persistNow();
+        if (massive) {
+          bannerOpen.current = true;
+          setBanner("massive");
+          setBannerAmount(featureTotal);
+          setBannerTax(fsTax);
+          setBannerX(featureX);
+          setPhase("big");
+          setTopLine("MASÍVNA VÝHRA");
+          sfx.playMassiveWin();
+          // Never auto-closes: autoplay waits here (paused) until the player taps it away. In a duel it does.
+          // Win is already in the save — dismiss / navigate / reload cannot lose it.
+          await waitForBanner(roundEscrowRef.current ? duelBannerMs("massive") : "click");
+        }
+        setBannerMeta({
+          spins: played,
+          extra,
+          peakMult: peak,
+          terminated: hitCap,
+          zasah: wasZasah,
+        });
+        bannerOpen.current = true;
+        setBanner("fsTotal");
+        setBannerAmount(featureTotal);
+        setBannerTax(fsTax);
+        setPhase(hitCap ? "max" : "big");
+        setTopLine("4KA TV SKONČILA");
+        setMessage(featureTotal > 0 ? `VÝHRA ${formatMoney(featureTotal)}` : "4KA TV SKONČILA");
+        if (massive) sfx.playPayout();
+        else if (featureTotal > 0 || hitCap) sfx.playBigWin();
+        else sfx.playPayout();
+        sfx.stopLiveBed();
         await waitForBanner(escrow ? duelBannerMs("fsTotal") : "click");
+
         setBannerMeta(null);
         const stashed = pendingLiveTicketRef.current;
         pendingLiveTicketRef.current = null;
