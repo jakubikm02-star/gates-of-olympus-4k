@@ -161,7 +161,7 @@ function featureFor(floor: JobFloor, rng: () => number): Template {
 const FEATURE_TEMPLATES: Template[] = [
   { id: "zasah", titles: ["ZÁSAH", "RAZIA", "NÁLET"], kind: "zasah", scope: "base", need: [1, 2], until: [150, 300], line: "spustiť ZÁSAH", feat: "zasah" },
   { id: "hack", titles: ["HACKER", "ZAMERANÉ", "PRIELOM"], kind: "zasahBest", scope: "base", need: [2, 4], until: [150, 300], line: "HACK v jednom ZÁSAHU", feat: "zasah" },
-  { id: "lup", titles: ["LÚP ZO ZÁSAHU", "ČIERNA KASA", "ZÁSAH PLATÍ"], kind: "zasahBest", scope: "base", need: [3, 8], until: [150, 300], line: "× stávky v jednom ZÁSAHU", feat: "zasah" },
+  { id: "lup", titles: ["LÚP ZO ZÁSAHU", "ČIERNA KASA", "ZÁSAH PLATÍ"], kind: "zasahBest", scope: "base", need: [5, 14], until: [150, 300], line: "× stávky v jednom ZÁSAHU", feat: "zasah" },
   { id: "kvota", titles: ["KVÓTA", "PAPIERE", "UDANIE"], kind: "bar", scope: "base", need: [70, 100], until: [40, 60], line: "bodov do bonus baru", feat: "bar" },
   { id: "urad", titles: ["BONUS Z BARU", "NÁHODNÁ KONTROLA", "LOTÉRIA ÚRADU"], kind: "bonus", scope: "base", need: [1, 2], until: [60, 160], line: "bonus z bonus baru", feat: "bar" },
   { id: "uradvyhra", titles: ["ÚRADNÁ VÝPLATA", "DOTÁCIA", "VRATKA"], kind: "bonusBest", scope: "base", need: [3, 6], until: [60, 200], line: "× stávky v jednom bonuse z baru", feat: "bar" },
@@ -590,10 +590,10 @@ export const JOB_RANGES: Record<string, Record<JobFloor, { need: Span; window: S
   // bonus bar ≈ 1.93 points per spin (bar bonus every ~54 spins). Since KOLESO joined the draw (1/3 each), a
   // given mode is ~1 in 162 (was 1 in 108): the KONTROLA / Ž-BOX-only cells (listky … okna) were re-tuned with
   // lower goals so their windows stay ≤ 400 spins (tune.ts NEEDS). priplatok ×2 needs ~295–440: capped at 400 (~37 %).
-  // ZÁSAH every ~170 spins (10 spins, 4× HACK = únik in ~47 %).
+  // ZÁSAH every ~170 spins (10 spins, 4× HACK = únik in ~47 %). lup needs raised with BOOST 1.15→2.
   zasah: { lacna: { need: [1, 1], window: [110, 170] }, stred: { need: [1, 2], window: [160, 245] }, draha: { need: [2, 2], window: [190, 290] } },
   hack: { lacna: { need: [2, 3], window: [165, 250] }, stred: { need: [3, 4], window: [160, 240] }, draha: { need: [4, 4], window: [115, 175] } },
-  lup: { lacna: { need: [2, 3], window: [225, 340] }, stred: { need: [3, 5], window: [200, 295] }, draha: { need: [5, 8], window: [185, 280] } },
+  lup: { lacna: { need: [3, 5], window: [210, 315] }, stred: { need: [5, 9], window: [210, 310] }, draha: { need: [9, 14], window: [185, 280] } },
   kvota: { lacna: { need: [45, 65], window: [30, 50] }, stred: { need: [70, 100], window: [40, 60] }, draha: { need: [120, 155], window: [55, 80] } },
   urad: { lacna: { need: [1, 1], window: [35, 50] }, stred: { need: [1, 2], window: [50, 80] }, draha: { need: [2, 3], window: [75, 115] } },
   uradvyhra: { lacna: { need: [2, 3], window: [125, 185] }, stred: { need: [3, 4], window: [110, 170] }, draha: { need: [4, 6], window: [95, 140] } },

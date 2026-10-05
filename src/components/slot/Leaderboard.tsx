@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchBoard, publicId, type BoardRow } from "@/lib/slot/board-api";
 import { canSrc, PAY_SYMBOLS, SCATTER, TICKETS, type PayId } from "@/lib/slot/symbols";
 import { cascadeWord, recipeSentence, type WinRecipe } from "@/lib/slot/win-recipe";
+import { ZASAH } from "@/lib/slot/zasah";
 
 /* ---------- 7-segment LED ---------- */
 
@@ -398,7 +399,7 @@ export function PriceBoard({
               <ModeIcon mode="zasah" />
               ZÁSAH
             </span>
-            <span>výhra počas ZÁSAHU (bonus 1,15×)</span>
+            <span>výhra počas ZÁSAHU (bonus {String(ZASAH.BOOST).replace(".", ",")}×)</span>
           </li>
           <li>
             <span className="fb-mode is-buy">

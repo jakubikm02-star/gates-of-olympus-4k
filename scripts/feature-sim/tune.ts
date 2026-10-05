@@ -15,7 +15,7 @@ type Floor = keyof typeof TARGET;
 export const NEEDS: Record<string, Partial<Record<Floor, [number, number]>>> = {
   zasah: { lacna: [1, 1], stred: [1, 2], draha: [2, 2] },
   hack: { lacna: [2, 3], stred: [3, 4], draha: [4, 4] },
-  lup: { lacna: [2, 3], stred: [3, 5], draha: [5, 8] },
+  lup: { lacna: [3, 5], stred: [5, 9], draha: [9, 14] },
   kvota: { lacna: [45, 65], stred: [65, 100], draha: [115, 155] },
   urad: { lacna: [1, 1], stred: [1, 2], draha: [2, 3] },
   uradvyhra: { lacna: [2, 3], stred: [3, 4], draha: [4, 6] },

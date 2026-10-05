@@ -1,10 +1,10 @@
 import { COLS, FS_SYMBOL, PAY_SYMBOLS, SCATTER, type Cell, type PayId } from "./symbols.ts";
 
-/** Chase boost is 1.15 so the feature lands near 98% RTP. */
+/** Chase boost is 2×: every ZÁSAH spin win (tumble/cascade included) pays double. */
 export const ZASAH = {
   SPINS: 10,
   COST_X: 1,
-  BOOST: 1.15,
+  BOOST: 2,
   HITS: 4,
   STRIKES: 3,
   LOCK_P: 0.105,
@@ -238,7 +238,7 @@ export function fsZasahArmed(r: { triggerChasing: boolean; bought: boolean; duel
 /**
  * One free spin's payout in bet multiples. Order (fixed, tested):
  * gross X (clusters × Mbps) → ×2 ZÁSAH → MAX WIN cap → tax period ±23 % (applyMod, on the capped amount).
- * The ×2 is applied once per free spin; the trigger spin keeps its own ZÁSAH BOOST 1.15 instead.
+ * The ×2 is applied once per free spin; the trigger spin keeps its own ZÁSAH BOOST (also 2×) instead.
  */
 export function fsSpinX(x: number, zasah: boolean, remainX: number): { paidX: number; hitMax: boolean } {
   let paidX = Math.max(0, x) * (zasah ? ZASAH_FS_MUL : 1);

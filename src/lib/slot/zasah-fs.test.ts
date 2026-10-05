@@ -7,6 +7,7 @@ import { applyStat, emptyStats } from "./stats.ts";
 describe("4KA TV spustena v ZASAHU (x2)", () => {
   it("is armed only by a ZÁSAH trigger spin, never bought, never in a duel", () => {
     assert.equal(ZASAH_FS_MUL, 2);
+    assert.equal(ZASAH.BOOST, 2, "ZÁSAH base spins also pay ×2 (same as triggered 4KA TV)");
     assert.equal(fsZasahArmed({ triggerChasing: true, bought: false, duel: false }), true);
     assert.equal(fsZasahArmed({ triggerChasing: false, bought: false, duel: false }), false);
     assert.equal(fsZasahArmed({ triggerChasing: true, bought: true, duel: false }), false);

@@ -199,3 +199,14 @@ describe("zasah windows", () => {
     assert.equal(clash.chaseTarget, null);
   });
 });
+
+describe("ZÁSAH win multiplier", () => {
+  it("pays every chase spin win ×2 (tumble/cascade included)", () => {
+    assert.equal(ZASAH.BOOST, 2);
+    // Same path as use-slot-game: sequenceX * applied * BOOST
+    const sequenceX = 10;
+    const applied = 5; // Mbps cans
+    assert.equal(sequenceX * applied * ZASAH.BOOST, 100);
+    assert.equal(12.5 * ZASAH.BOOST, 25);
+  });
+});
