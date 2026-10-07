@@ -16,8 +16,13 @@ https://mixkit.co/license/#sfxFree
                https://mixkit.co/free-sound-effects/game/
   fs-start.mp3 Mixkit 811 — Sci-fi construction complete (GRATULUJEME FS)
                https://mixkit.co/free-sound-effects/game/
-  fs-bed.mp3   Boris Brejcha — To The Moon And Back (feat. Ginger)
-               PARKNET LIVE / 4kaTV feature bed, random in-point each run
+  fs-bed.flac  4KA TV bonus bed. The loop that was uploaded for the bed slot
+               (Bountyhunter, Dimitri Vegas — Woops, Junkie Kid remix,
+               Vinyl Only, Live at Tomorrowland). Replaces the previous
+               built-in Boris Brejcha — To The Moon And Back.
+  zasah-bed.mp3  ZÁSAH bed. The loop that was uploaded for the zásah slot
+               (Bond Factory — Battlefield Hardline Main Menu Theme).
+               Replaces the previous built-in, which was the same Boris Brejcha file.
   tumble.mp3   Mixkit 2166 — Cinematic whoosh fast transition
                https://mixkit.co/free-sound-effects/whoosh/
   win-full.mp3 Mixkit 2017 — Clinking coins

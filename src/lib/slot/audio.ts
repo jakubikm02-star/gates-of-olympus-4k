@@ -128,8 +128,8 @@ const FILES: Record<string, string> = {
   can: "/sfx/can-open.mp3?v=open2",
   /** Blesk do plechovky: the bolt hits a winning can (activation). Until the admin uploads one, Elektrika's crackle. */
   can_lightning: "/sfx/electric.mp3?v=park1",
-  bed: "/sfx/fs-bed.mp3?v=moon2",
-  zasah: "/sfx/fs-bed.mp3?v=zasah1",
+  bed: "/sfx/fs-bed.flac?v=woops1",
+  zasah: "/sfx/zasah-bed.mp3?v=hardline1",
   /** Zásah one-shots. Empty until the admin uploads; the game keeps the old cue. */
   zStart: "/sfx/kontrola.mp3?v=ignition1",
   zTravel: "/sfx/zap.mp3?v=park1",
