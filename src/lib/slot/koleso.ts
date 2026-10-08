@@ -133,6 +133,23 @@ export const KOLESO_PHRASES: readonly { id: number; cat: string; text: string }[
   { id: 812, cat: "RODINA", text: "Babka pri kostole s názorom na všetko." },
   { id: 548, cat: "RODINA", text: "Pôžička od rodičov, čo sa nikdy nevráti." },
   { id: 796, cat: "TELEKOM", text: "Roaming poplatok vyšší ako celá dovolenka." },
+  /* Slovné spojenia z Všeobecných podmienok SWAN na mobilné služby (platné od 1. 7. 2024). */
+  { id: 9001, cat: "PODMIENKY", text: "Zmluva na dobu neurčitú." },
+  { id: 9002, cat: "PODMIENKY", text: "Výpovedná lehota je jeden mesiac." },
+  { id: 9003, cat: "PODMIENKY", text: "Vrátiť všetky SIM karty." },
+  { id: 9004, cat: "PODMIENKY", text: "Nová SIM karta podľa cenníka." },
+  { id: 9005, cat: "PODMIENKY", text: "Aktivácia do dvoch dní." },
+  { id: 9006, cat: "PODMIENKY", text: "Rýchlosť klesne na 256 kbit." },
+  { id: 9007, cat: "PODMIENKY", text: "Podnik nezodpovedá za signál." },
+  { id: 9008, cat: "PODMIENKY", text: "Nezakladá právo odstúpiť." },
+  { id: 9009, cat: "PODMIENKY", text: "Konečné vyúčtovanie treba uhradiť." },
+  { id: 9010, cat: "PODMIENKY", text: "Podnik môže zablokovať SIM kartu." },
+  { id: 9011, cat: "PODMIENKY", text: "Kredit môže podnik znížiť." },
+  { id: 9012, cat: "PODMIENKY", text: "Roaming až po zábezpeke." },
+  { id: 9013, cat: "PODMIENKY", text: "Prenos čísla do jedného dňa." },
+  { id: 9014, cat: "PODMIENKY", text: "Faktúra po zúčtovacom období." },
+  { id: 9015, cat: "PODMIENKY", text: "Zariadenia treba vrátiť podniku." },
+  { id: 9016, cat: "PODMIENKY", text: "Ceny stanovuje platný cenník." },
 ];
 
 const FOLD: Record<string, string> = {

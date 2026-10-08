@@ -43,6 +43,7 @@ import { playZbox, zboxVipOf, type ZPlay } from "@/lib/slot/zbox";
 import { setZboxHelpOff, zboxHelpOff } from "@/lib/slot/zbox-help";
 import { pauseTicket, resumePlan, ticketCounts, tickUnlessPaused, ticketReserve, type TicketPause } from "@/lib/slot/ticket-pause";
 import { playKoleso, kolesoVipOf, type KPlay } from "@/lib/slot/koleso";
+import { postLiveHit } from "@/lib/slot/live-hit";
 import { kolesoHelpOff, setKolesoHelpOff } from "@/lib/slot/koleso-help";
 import { freshRpDay, rollRpDay, rpParts, scaleSpinGain, scaledParts, suchoLeague, suchoStep, ticketRp, type RpDay } from "@/lib/slot/rp-tickets";
 import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision, fsSpinsOf, nextRebate, perkOf, rpFromDead, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
@@ -3146,6 +3147,7 @@ export function useSlotGame() {
       }
 
       if (kind && !isFree && !inFsRef.current) {
+        if ((kind === "massive" || kind === "max") && !escrow) postLiveHit(playerIdRef.current, x, cash);
         bannerOpen.current = true;
         setBanner(kind);
         setBannerAmount(cash);
@@ -3551,6 +3553,7 @@ export function useSlotGame() {
         };
         setFsZasah(false);
         persistNow();
+        if ((massive || hitCap) && !roundEscrowRef.current) postLiveHit(playerIdRef.current, featureX, featureTotal);
         if (massive) {
           bannerOpen.current = true;
           setBanner("massive");

@@ -30,6 +30,7 @@ import { CountUp } from "./CountUp";
 import { RankBadge } from "./RankBadge";
 import { BootScreen } from "./BootScreen";
 import { ContestBanner } from "./ContestBanner";
+import { LiveHits } from "./LiveHits";
 import { MachineFrame } from "./MachineFrame";
 import { RankPanel } from "./RankPanel";
 import { RankToast } from "./RankToast";
@@ -1201,6 +1202,7 @@ export function SlotGame() {
           inFs={g.inFs || g.busy}
         />
       ) : null}
+      {g.started ? <LiveHits selfId={g.deviceId} on paused={Boolean(g.duel)} /> : null}
       {g.jpHit && (
         <div className="ticket-banner" aria-live="assertive">
           <strong>
