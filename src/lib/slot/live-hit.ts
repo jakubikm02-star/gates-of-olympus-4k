@@ -49,7 +49,7 @@ async function rpc(name: string, body: Record<string, unknown>): Promise<unknown
 /** Fire and forget. A missing RPC or a duel must not affect the spin. */
 export function postLiveHit(playerId: string, mult: number, amount: number, inDuel = false): void {
   if (!liveHitOk(mult, amount, inDuel) || playerId.length < 8) return;
-  let nick = "Hráč";
+  let nick = "Niekto";
   try {
     const saved = localStorage.getItem("park-nick")?.trim();
     if (saved) nick = saved.slice(0, 24);
