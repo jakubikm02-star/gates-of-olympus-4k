@@ -10835,7 +10835,9 @@ html:-webkit-full-screen {
 }
 
 .jp-event .cb-copy {
+  flex: 1;
   min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -10853,14 +10855,35 @@ html:-webkit-full-screen {
   text-overflow: ellipsis;
 }
 
-.jp-event .cb-copy small {
-  color: #d5dee6;
+.jp-event .cb-crawl {
+  display: block;
+  overflow: hidden;
+  min-width: 0;
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+
+.jp-event .cb-crawl span {
+  display: inline-block;
+  white-space: nowrap;
+  color: #e8eef3;
   font-size: 0.62rem;
   line-height: 1.15;
   font-weight: 560;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  animation: cb-crawl 16s linear infinite;
+}
+
+.jp-event .cb-crawl i {
+  font-style: normal;
+  color: #3ec6e0;
+}
+
+@keyframes cb-crawl {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 @keyframes jp-bill {
