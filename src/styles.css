@@ -10778,6 +10778,32 @@ html:-webkit-full-screen {
 /* Contest line inside the jackpot strip. Same box, so the reels do not move. */
 .jp-stack.is-strip.is-event {
   justify-content: flex-start;
+  border-color: #3ec6e0;
+  box-shadow:
+    0 0 6px #3ec6e0,
+    0 0 14px rgb(62 198 224 / 0.65),
+    inset 0 0 8px rgb(240 196 25 / 0.28);
+  animation: jp-neon 1.8s ease-in-out infinite;
+}
+
+.jp-stack.is-strip.is-event::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  padding: 2px;
+  background: linear-gradient(110deg, #3ec6e0, #f0c419, #ffe56a, #3ec6e0, #f0c419);
+  background-size: 240% 100%;
+  animation: jp-neon-run 2.2s linear infinite;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
 }
 
 .stage.shell-mw .jp-stack.is-strip.is-event,
@@ -10843,5 +10869,39 @@ html:-webkit-full-screen {
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes jp-neon {
+  0%,
+  100% {
+    box-shadow:
+      0 0 6px #3ec6e0,
+      0 0 14px rgb(62 198 224 / 0.7),
+      inset 0 0 8px rgb(62 198 224 / 0.35);
+    border-color: #3ec6e0;
+  }
+  50% {
+    box-shadow:
+      0 0 8px #f0c419,
+      0 0 18px rgb(240 196 25 / 0.75),
+      inset 0 0 8px rgb(240 196 25 / 0.4);
+    border-color: #f0c419;
+  }
+}
+
+@keyframes jp-neon-run {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 240% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jp-stack.is-strip.is-event,
+  .jp-stack.is-strip.is-event::after {
+    animation: none;
   }
 }
