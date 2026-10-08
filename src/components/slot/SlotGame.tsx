@@ -29,6 +29,7 @@ import { PickBonus } from "./PickBonus";
 import { CountUp } from "./CountUp";
 import { RankBadge } from "./RankBadge";
 import { BootScreen } from "./BootScreen";
+import { ContestBanner } from "./ContestBanner";
 import { MachineFrame } from "./MachineFrame";
 import { RankPanel } from "./RankPanel";
 import { RankToast } from "./RankToast";
@@ -336,6 +337,8 @@ export function SlotGame() {
             </button>
             </div>
           </div>
+
+        <ContestBanner />
 
         <div className="arena">
           <aside

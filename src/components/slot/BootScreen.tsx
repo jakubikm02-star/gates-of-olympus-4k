@@ -5,6 +5,7 @@ import { WIN_POP_X } from "@/lib/slot/symbols";
 import { POOL_ELIGIBLE_BET } from "@/lib/slot/jackpot";
 import { RankFrame } from "./RankFrame";
 import { AddToHome } from "./AddToHome";
+import { ContestBanner } from "./ContestBanner";
 
 /**
  * Intro / loading screen. Only art the game already preloads (garage, scatter, ticket)
@@ -75,6 +76,8 @@ export function BootScreen({ ready, pct, booting, rank, onStart, onRank }: Props
           <b data-text="5 000×">5 000×</b>
           <span className="bs-max-k">STÁVKY</span>
         </div>
+
+        <ContestBanner />
 
         <ul className="bs-feats">
           {FEATS.map((f) => (

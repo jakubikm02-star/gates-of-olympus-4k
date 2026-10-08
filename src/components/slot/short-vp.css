@@ -197,3 +197,19 @@
   min-height: 26px;
   max-height: 26px;
 }
+
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .contest-banner {
+  margin: 1px 0 2px;
+  padding: 3px 8px 3px 4px;
+  gap: 7px;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .cb-soon {
+  padding: 3px 7px;
+  font-size: 0.58rem;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .cb-copy b {
+  font-size: 0.62rem;
+}
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .cb-copy small {
+  font-size: 0.6rem;
+}
