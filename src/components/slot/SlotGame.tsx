@@ -203,6 +203,7 @@ export function SlotGame() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [manFocus, setManFocus] = useState<string | null>(null);
   const [boardOpen, setBoardOpen] = useState(false);
+  const [autoMenu, setAutoMenu] = useState(false);
   const [jobOpen, setJobOpen] = useState(false);
   const [, names] = useState(0);
   useEffect(() => subscribeTicketNames(() => names((n) => n + 1)), []);
@@ -718,33 +719,46 @@ export function SlotGame() {
                 STOP {g.autoLeft}
               </button>
             ) : (
-              <details className={`auto-menu${g.chase ? " is-locked" : ""}`}>
-                <summary>
+              <div className={`auto-menu${g.chase ? " is-locked" : ""}`}>
+                <button
+                  type="button"
+                  className="auto-pill"
+                  onClick={() => setAutoMenu((v) => !v)}
+                  disabled={Boolean(g.chase)}
+                  aria-expanded={autoMenu}
+                >
                   <Menu size={12} /> AUTO
-                </summary>
-                <div>
-                  {AUTO_OPTS.map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      disabled={g.busy || !g.started || Boolean(g.chase)}
-                      onClick={() => g.startAuto(n)}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                  <p className="auto-hint">
-                    {g.autoHalt ? "STOP: FS · BIG WIN · 50% kredit. Banner ostane." : "Bez zastávky do konca AUTO."}
-                  </p>
-                  <button
-                    type="button"
-                    className={g.autoHalt ? "on" : ""}
-                    onClick={() => g.setAutoHalt(!g.autoHalt)}
-                  >
-                    BIG WIN STOP {g.autoHalt ? "ON" : "OFF"}
-                  </button>
-                </div>
-              </details>
+                </button>
+                {autoMenu ? (
+                  <>
+                    <button type="button" className="auto-back" aria-label="Zavrieť" onClick={() => setAutoMenu(false)} />
+                    <div className="auto-pop" role="menu">
+                      {AUTO_OPTS.map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => {
+                            setAutoMenu(false);
+                            g.startAuto(n);
+                          }}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                      <p className="auto-hint">
+                        {g.autoHalt ? "STOP: FS · BIG WIN · 50% kredit. Banner ostane." : "Bez zastávky do konca AUTO."}
+                      </p>
+                      <button
+                        type="button"
+                        className={g.autoHalt ? "on" : ""}
+                        onClick={() => g.setAutoHalt(!g.autoHalt)}
+                      >
+                        BIG WIN STOP {g.autoHalt ? "ON" : "OFF"}
+                      </button>
+                    </div>
+                  </>
+                ) : null}
+              </div>
             )}
           </div>
         </footer>

@@ -4083,16 +4083,32 @@ export function useSlotGame() {
   }, []);
 
   const startAuto = useCallback((n: number) => {
-    if (busyRef.current || inFsRef.current || chaseRef.current) {
-      if (chaseRef.current) setJobToast("Počas ZÁSAHU zamknuté");
+    if (busyRef.current) {
+      setJobToast("Počkaj, kým dotočí");
       return;
     }
-    if (inDuelLobby()) return;
+    if (inFsRef.current) {
+      setJobToast("Počas 4KA TV zamknuté");
+      return;
+    }
+    if (chaseRef.current) {
+      setJobToast("Počas ZÁSAHU zamknuté");
+      return;
+    }
+    if (inDuelLobby()) {
+      setJobToast("Najprv spusti VERSUS");
+      return;
+    }
     const d = duelRef.current;
-    if (d && d.phase !== "play") return;
-    if (d && !canDuelSpin(d)) return;
+    if (d && (d.phase !== "play" || !canDuelSpin(d))) {
+      setJobToast("Teraz nie si na ťahu");
+      return;
+    }
     const capped = d ? Math.min(n, duelLeft(d)) : n;
-    if (capped <= 0) return;
+    if (capped <= 0) {
+      setJobToast("VERSUS je dohraný");
+      return;
+    }
     autoFloorRef.current = balanceRef.current * 0.5;
     setAutoReason(null);
     setAutoOn(true);
