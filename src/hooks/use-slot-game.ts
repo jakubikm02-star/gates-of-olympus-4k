@@ -86,7 +86,7 @@ import {
   type DuelDeposit,
 } from "@/lib/slot/duel-deposit";
 import { clampPlayers, versusMode, abortDuel, startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, forfeitDuel, reconcileDuel, duelSettleKey, duelOutcome, blankStep, duelBannerMs, duelHoldsReload, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
-import { duelForfeitIf, duelLeave, duelPoll, duelTick, type DuelSnap } from "@/lib/slot/duel-api";
+import { duelForfeitIf, duelLeave, duelPoll, duelRematch, duelTick, type DuelSnap } from "@/lib/slot/duel-api";
 import {
   canSpend,
   dealJobs,
@@ -408,6 +408,11 @@ export function useSlotGame() {
   const checkReleaseRef = useRef<() => void>(() => {});
   /** An online duel result is being confirmed with the room row (credit not yet applied). */
   const settlingRef = useRef(false);
+  /** Odveta: the player asked, or the room already moved to the next match. */
+  const wantRematchRef = useRef(false);
+  const pendingRematchRef = useRef<{ names: string[]; round?: number; ante?: boolean } | null>(null);
+  const rematchLockRef = useRef(false);
+  const rematchFlushRef = useRef<() => void>(() => {});
   const duelBlankTotal = useRef(0);
   const autoFloorRef = useRef(0);
   const bannerWait = useRef<(() => void) | null>(null);
@@ -3261,6 +3266,7 @@ export function useSlotGame() {
         { toast: false },
       );
     }
+    rematchFlushRef.current();
   }, [bumpToday, noteStat, settleDeposit]);
 
   const settleDuel = useCallback((d: Duel) => {
@@ -3285,7 +3291,7 @@ export function useSlotGame() {
           name: link.name,
           ante: Boolean(link.ante),
           net: false,
-        }),
+        }, d.round ?? link.round ?? 1),
         timeout,
       ])
         .then((snap) => reconcileDuel(d, snap))
@@ -4209,6 +4215,118 @@ export function useSlotGame() {
     return () => window.clearTimeout(t);
   }, [duelSpinOpen, duelMyHave, settleDuel, forfeitSelf]);
 
+  const flushRematch = useCallback(() => {
+    const cur = duelRef.current;
+    const pending = pendingRematchRef.current;
+    const want = wantRematchRef.current;
+    if (!want && !pending) return;
+    if (cur && cur.phase === "play" && pending && (cur.round ?? 1) >= (pending.round ?? 1)) {
+      pendingRematchRef.current = null;
+      wantRematchRef.current = false;
+      return;
+    }
+    if (!cur || cur.phase !== "done" || cur.aborted) return;
+    if (rematchLockRef.current || settlingRef.current || depositRef.current || roundRunning()) return;
+    const seatsN = cur.kind === "hotseat" ? cur.seats.length : 1;
+    const tj = jobRef.current;
+    const reserve = tj ? ticketReserve(tj, buyXOf(standing(rankRef.current.rp).id)) : 0;
+    if (!canAffordDuel(+(balanceRef.current - reserve).toFixed(2), { bet: cur.bet, need: cur.need, seats: seatsN })) {
+      wantRematchRef.current = false;
+      pendingRematchRef.current = null;
+      setJobToast(tj ? `Málo kreditu na odvetu + rezervu tiketu ${formatMoney(reserve)}.` : "Málo kreditu na odvetu.");
+      return;
+    }
+    const startLocal = (round: number, ante: boolean) => {
+      rematchLockRef.current = false;
+      wantRematchRef.current = false;
+      pendingRematchRef.current = null;
+      settleGen.current += 1;
+      duelSettled.current = false;
+      duelBlanks.current = 0;
+      duelBlankTotal.current = 0;
+      duelStartedAtRef.current = Date.now();
+      duelPaidRef.current = false;
+      forfeitCauseRef.current = null;
+      abortReasonRef.current = "roomFailure";
+      setAnte(ante);
+      anteRef.current = ante;
+      const i = BETS.reduce((best, v, idx) => (Math.abs(v - cur.bet) < Math.abs(BETS[best] - cur.bet) ? idx : best), 0);
+      setBetIndex(i);
+      betIndexRef.current = i;
+      const link = duelLinkRef.current;
+      if (cur.kind === "online" && link) {
+        const nextLink: DuelLink = { ...link, round };
+        duelLinkRef.current = nextLink;
+        setDuelLink(nextLink);
+        payDeposit(newDeposit({ kind: "online", room: link.room, bet: cur.bet, now: Date.now(), started: true }));
+      } else {
+        payDeposit(newDeposit({ kind: "hotseat", bet: cur.bet, now: Date.now(), seats: cur.seats.length, started: true }));
+      }
+      const next = startDuel({
+        mode: cur.mode === "live" ? "spins" : cur.mode,
+        names: cur.seats.map((s) => s.name),
+        bet: cur.bet,
+        kind: cur.kind,
+        you: cur.you,
+        room: cur.room,
+        need: cur.need,
+        round: cur.kind === "online" ? round : undefined,
+      });
+      duelRef.current = next;
+      setDuel(next);
+      setDuelOpen(false);
+      setTopLine(`${versusMode(next.seats.length).label} · ODVETA`);
+      sfx.playClick();
+    };
+    if (cur.kind !== "online") {
+      rematchLockRef.current = true;
+      startLocal(1, anteRef.current);
+      return;
+    }
+    const link = duelLinkRef.current;
+    if (!link) return;
+    const ante = pending?.ante ?? link.ante;
+    if (pending && !want) {
+      if (pending.names.some((n) => !n)) {
+        pendingRematchRef.current = null;
+        setJobToast("Niekto odišiel z miestnosti.");
+        return;
+      }
+      rematchLockRef.current = true;
+      startLocal(pending.round ?? (cur.round ?? 1) + 1, ante);
+      return;
+    }
+    rematchLockRef.current = true;
+    wantRematchRef.current = false;
+    const fromRound = cur.round ?? link.round ?? 1;
+    void duelRematch(link.room, fromRound, cur.seats.length)
+      .then(async (snap) => {
+        const live = snap ?? (await duelPoll(link.room).catch(() => null));
+        if (!live || live.round <= fromRound) {
+          rematchLockRef.current = false;
+          pendingRematchRef.current = null;
+          setJobToast("Odveta sa nepodarila.");
+          return;
+        }
+        if (!live.seats.every((s) => s.name)) {
+          rematchLockRef.current = false;
+          setJobToast("Niekto odišiel z miestnosti.");
+          return;
+        }
+        if (duelRef.current?.phase === "play" && (duelRef.current.round ?? 1) === live.round) {
+          rematchLockRef.current = false;
+          pendingRematchRef.current = null;
+          return;
+        }
+        startLocal(live.round, live.ante);
+      })
+      .catch(() => {
+        rematchLockRef.current = false;
+        setJobToast("Odveta sa nepodarila.");
+      });
+  }, [payDeposit]);
+  rematchFlushRef.current = flushRematch;
+
   return {
     started,
     bootReady,
@@ -4553,7 +4671,7 @@ export function useSlotGame() {
       sfx.playClick();
       return "";
     },
-    beginOnline: (info: { names: string[]; you: number; bet: number; mode: DuelMode; need?: number; ante?: boolean }) => {
+    beginOnline: (info: { names: string[]; you: number; bet: number; mode: DuelMode; need?: number; ante?: boolean; round?: number }) => {
       if (chaseRef.current) return "Počas ZÁSAHU zamknuté";
       const link = duelLinkRef.current;
       if (!link) return;
@@ -4562,13 +4680,14 @@ export function useSlotGame() {
       const names = info.names.map((n, k) => (k === you ? link.name : n || (k === 0 ? "HOSŤ" : `HRÁČ ${k + 1}`)));
       const need = info.need ?? 10;
       const spins = need > 0 ? Math.round(need) : link.need || 10;
+      const matchRound = info.round ?? link.round ?? 1;
       const i = BETS.reduce((best, v, idx) => (Math.abs(v - info.bet) < Math.abs(BETS[best] - info.bet) ? idx : best), 0);
       setBetIndex(i);
       betIndexRef.current = i;
       const anteMatch = Boolean(info.ante) || link.ante;
       setAnte(anteMatch);
       anteRef.current = anteMatch;
-      const nextLink: DuelLink = { ...link, seat: you, players: names.length };
+      const nextLink: DuelLink = { ...link, seat: you, players: names.length, round: matchRound };
       duelLinkRef.current = nextLink;
       setDuelLink(nextLink);
       const next = startDuel({
@@ -4579,6 +4698,7 @@ export function useSlotGame() {
         you,
         room: link.room,
         need: spins,
+        round: matchRound,
       });
       duelSettled.current = false;
       duelBlanks.current = 0;
@@ -4748,6 +4868,9 @@ export function useSlotGame() {
       else if (cur.phase === "done" && !settlingRef.current) settleDeposit(cur.aborted ? "roomFailure" : "finish");
       settleGen.current += 1;
       duelSettled.current = false;
+      wantRematchRef.current = false;
+      pendingRematchRef.current = null;
+      rematchLockRef.current = false;
       duelBlanks.current = 0;
       duelFastRef.current = false;
       duelRef.current = null;
@@ -4758,6 +4881,16 @@ export function useSlotGame() {
       setAutoReason(null);
       setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
       if (reloadDeferredRef.current) window.setTimeout(() => checkReleaseRef.current(), 800);
+    },
+    rematchDuel: () => {
+      const cur = duelRef.current;
+      if (!cur || cur.phase !== "done" || cur.aborted) return;
+      wantRematchRef.current = true;
+      flushRematch();
+    },
+    followRematch: (info: { names: string[]; you: number; bet: number; mode: DuelMode; need: number; ante: boolean; round?: number }) => {
+      pendingRematchRef.current = { names: info.names, round: info.round, ante: info.ante };
+      flushRematch();
     },
   };
 }

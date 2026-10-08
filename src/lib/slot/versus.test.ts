@@ -18,7 +18,7 @@ import {
   tickDuel,
   type Duel,
 } from "./duel.ts";
-import { claimQuery, forfeitQuery, roomFull, seatPrefix } from "./duel-api.ts";
+import { claimQuery, forfeitQuery, rematchQuery, roomFull, seatPrefix } from "./duel-api.ts";
 import { newDeposit, settleDeposit } from "./duel-deposit.ts";
 import { duelSummary } from "./duel-setup.ts";
 
@@ -186,6 +186,10 @@ describe("versus: room queries + money", () => {
     );
     // 2 seats unchanged
     assert.equal(forfeitQuery("AB12", "host", 5, "self"), "duel_rooms?code=eq.AB12&phase=eq.play&or=(host_have.lt.5,guest_have.lt.5)");
+  });
+  it("odveta patches the same code only while the finished round is still current", () => {
+    assert.equal(rematchQuery("AB12", 1), "duel_rooms?code=eq.AB12&round=eq.1");
+    assert.equal(rematchQuery("ZZ99", 3.8), "duel_rooms?code=eq.ZZ99&round=eq.3");
   });
   it("room is full when every seat has a name", () => {
     assert.equal(roomFull({ seats: [{ name: "A" }, { name: "B" }, { name: "" }] as never }), false);

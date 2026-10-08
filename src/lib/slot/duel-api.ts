@@ -32,6 +32,8 @@ export type DuelSnap = {
   guestHave: number;
   need: number;
   ante: boolean;
+  /** Match number in this room. Odveta bumps it so the same code starts a fresh match. */
+  round: number;
   forfeit: 0 | 1 | null;
   hostNet: boolean;
   guestNet: boolean;
@@ -53,6 +55,8 @@ type Row = {
   guest_have: number | string;
   need: number | string;
   updated_at?: string;
+  /** Odveta counter. Missing on rows from before the column existed: treated as 1. */
+  round?: number | string | null;
   /** VERSUS columns (supabase/migrations/20261004_versus_multi.sql); absent on 2-seat rooms / old schema. */
   players?: number | string | null;
   host_out?: boolean | null;
@@ -143,6 +147,7 @@ function snap(r: Row): DuelSnap {
     guestHave: guest.have,
     need,
     ante: host.ante,
+    round: Math.max(1, Math.floor(num(r.round)) || 1),
     forfeit,
     hostNet: host.net,
     guestNet: guest.net,
@@ -287,13 +292,17 @@ export async function duelTick(
   have: number,
   score: number,
   pulse?: { name: string; ante: boolean; net: boolean },
+  round = 0,
 ): Promise<DuelSnap> {
   const p = seatPrefix(role);
   const patch: Record<string, unknown> = { [`${p}_have`]: have, [`${p}_score`]: score, updated_at: new Date().toISOString() };
   if (pulse) patch[`${p}_name`] = pack(pulse.name, pulse.ante, pulse.net, Date.now());
   // An out seat has its have pinned at `need` by the forfeit, so its own late ticks never land again.
+  // `round` keeps a tick from the previous match off the odveta (the have filter alone would accept it,
+  // because the reset row sits at 0).
   const haveCol = `${p}_have`;
-  const rows = await rest(`duel_rooms?code=eq.${encodeURIComponent(code)}&${haveCol}=lte.${have}`, {
+  const roundFilter = round > 0 ? `&round=eq.${Math.floor(round)}` : "";
+  const rows = await rest(`duel_rooms?code=eq.${encodeURIComponent(code)}&${haveCol}=lte.${have}${roundFilter}`, {
     method: "PATCH",
     body: JSON.stringify(patch),
   });
@@ -399,4 +408,38 @@ export async function duelPoll(code: string): Promise<DuelSnap> {
   const rows = await rest(`duel_rooms?code=eq.${encodeURIComponent(code)}&select=*`);
   if (!rows[0]) throw new Error("miestnosť neexistuje");
   return snap(rows[0]);
+}
+
+/** Patch that starts odveta: same code, names, bet, spins and ante; scores go back to zero. */
+export function rematchQuery(code: string, round: number): string {
+  return `duel_rooms?code=eq.${encodeURIComponent(code)}&round=eq.${Math.max(1, Math.floor(round))}`;
+}
+
+/**
+ * Next match in the same room. Lands only while `round` is still the one that just finished, so two
+ * phones tapping ODVETA at once start a single match. Returns null when the other phone already did it.
+ */
+export async function duelRematch(code: string, round: number, players = 2): Promise<DuelSnap | null> {
+  const n = Math.max(1, Math.floor(round));
+  const patch: Record<string, unknown> = {
+    round: n + 1,
+    phase: "play",
+    host_have: 0,
+    host_score: 0,
+    host_out: false,
+    guest_have: 0,
+    guest_score: 0,
+    guest_out: false,
+    updated_at: new Date().toISOString(),
+  };
+  if (players > 2) {
+    patch.p3_have = 0;
+    patch.p3_score = 0;
+    patch.p3_out = false;
+    patch.p4_have = 0;
+    patch.p4_score = 0;
+    patch.p4_out = false;
+  }
+  const rows = await rest(rematchQuery(code, n), { method: "PATCH", body: JSON.stringify(patch) });
+  return rows[0] ? snap(rows[0]) : null;
 }

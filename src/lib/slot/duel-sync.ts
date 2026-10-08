@@ -54,6 +54,8 @@ export interface GoInfo {
   mode: DuelMode;
   need: number;
   ante: boolean;
+  /** Room match number. Odveta calls onRematch with the next one instead of onGo. */
+  round?: number;
 }
 
 export interface RoomSyncHooks {
@@ -65,6 +67,8 @@ export interface RoomSyncHooks {
   onPeerNet: (net: boolean, seat?: number) => void;
   onPeerName: (name: string) => void;
   onRoomFail?: (kind: "gone" | "net" | "both") => void;
+  /** The room started another match on the same code (odveta). */
+  onRematch?: (info: GoInfo) => void;
   setErr: (msg: string) => void;
   setStatus: (msg: string) => void;
   setNames: (names: string[]) => void;
@@ -89,6 +93,8 @@ export interface RoomSyncState {
   players: number;
   /** Boots that ran the join / create (for tests and diagnostics). */
   joins: number;
+  /** Match number this seat is playing. 0 until the first start. */
+  round: number;
 }
 
 export function newRoomSyncState(link: Pick<DuelLink, "role" | "seat" | "players">): RoomSyncState {
@@ -105,6 +111,7 @@ export function newRoomSyncState(link: Pick<DuelLink, "role" | "seat" | "players
     seat: link.seat ?? (link.role === "host" ? 0 : 1),
     players: link.players ?? 2,
     joins: 0,
+    round: 0,
   };
 }
 
@@ -150,6 +157,7 @@ export function startRoomSync(opts: RoomSyncOptions): () => void {
 
   const go = (snap: DuelSnap) => {
     st.started = true;
+    st.round = snap.round || 1;
     h.onGo({
       names: snap.seats.map((x, i) => x.name || (i === 0 ? "HOSŤ" : `HRÁČ ${i + 1}`)),
       you: st.seat,
@@ -157,6 +165,7 @@ export function startRoomSync(opts: RoomSyncOptions): () => void {
       mode: snap.mode,
       need: snap.need,
       ante: snap.ante,
+      round: st.round,
     });
   };
 
@@ -233,6 +242,28 @@ export function startRoomSync(opts: RoomSyncOptions): () => void {
             go(started2);
           })
           .catch(() => {});
+      }
+      // Odveta: same room, next match number, scores already zero. Do not feed those zeros into the
+      // finished match; the game starts a new one.
+      const round = snap.round || 1;
+      if (st.started && st.round > 0 && round > st.round && snap.phase === "play") {
+        st.round = round;
+        st.gaveUp = false;
+        st.outSeen.clear();
+        st.playSince = now();
+        st.peerAt = [];
+        st.peerHave = [];
+        st.goneRun = 0;
+        h.onRematch?.({
+          names: snap.seats.map((x, i) => x.name || (i === 0 ? "HOSŤ" : `HRÁČ ${i + 1}`)),
+          you: st.seat,
+          bet: snap.bet,
+          mode: snap.mode,
+          need: snap.need,
+          ante: snap.ante,
+          round,
+        });
+        return;
       }
       if (!many && snap.forfeit != null && !st.gaveUp) {
         st.gaveUp = true;

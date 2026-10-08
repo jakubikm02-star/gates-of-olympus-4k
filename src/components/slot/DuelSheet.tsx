@@ -41,6 +41,8 @@ interface Props {
   onJoin: (mode: DuelMode, name: string, code: string, bet: number, need: number, ante: boolean) => string;
   onSwap: () => void;
   onEnd: () => void;
+  /** Same room and the same bet, spins and ante. Online keeps the code. */
+  onRematch?: () => void;
   /** Last kaucia settlement (shown on the result card). */
   depositNote?: DepositSettlement | null;
   /** Saved leaderboard nick: the default name in the setup (empty = none saved). */
@@ -237,6 +239,7 @@ export function DuelLink({
   onForfeit,
   onPeerNet,
   onEnd,
+  onRematch,
   onRoomFail,
   inFs,
   peerName = "",
@@ -257,6 +260,8 @@ export function DuelLink({
   onForfeit: (who: number) => void;
   onPeerNet: (net: boolean, seat?: number) => void;
   onEnd: () => void;
+  /** The room bumped its match number: same code, a fresh match. */
+  onRematch?: (info: { names: string[]; you: number; bet: number; mode: DuelMode; need: number; ante: boolean; round?: number }) => void;
   /** Room vanished mid-duel / polls+writes failing / all seats were away: the game's fault (kaucia back). */
   onRoomFail?: (kind: "gone" | "net" | "both") => void;
   /** Opponent name as far as known (host name for a guest). */
@@ -276,6 +281,7 @@ export function DuelLink({
   const onTickRef = useRef(onTick);
   const onForfeitRef = useRef(onForfeit);
   const onPeerNetRef = useRef(onPeerNet);
+  const onRematchRef = useRef(onRematch);
   const inFsRef = useRef(inFs);
   const onRoomFailRef = useRef(onRoomFail);
   const tickOk = useRef(0);
@@ -291,6 +297,7 @@ export function DuelLink({
   onTickRef.current = onTick;
   onForfeitRef.current = onForfeit;
   onPeerNetRef.current = onPeerNet;
+  onRematchRef.current = onRematch;
   inFsRef.current = inFs;
 
   useEffect(() => {
@@ -313,6 +320,7 @@ export function DuelLink({
         onPeerNet: (net, seat) => onPeerNetRef.current(net, seat),
         onPeerName: (name) => onPeerNameRef.current(name),
         onRoomFail: (kind) => onRoomFailRef.current?.(kind),
+        onRematch: (info) => onRematchRef.current?.(info),
         setErr,
         setStatus,
         setNames,
@@ -333,7 +341,7 @@ export function DuelLink({
         name: link.name,
         ante: Boolean(link.ante),
         net: inFsRef.current,
-      })
+      }, link.round ?? duel.round ?? 1)
         .then((snap) => {
           tickOk.current = Date.now();
           // Safety net: the PATCH returns the room row, so a peer's progress lands even if the poll stalls.
@@ -536,6 +544,7 @@ export function DuelSheet({
   onJoin,
   onSwap,
   onEnd,
+  onRematch,
   credit,
   bet,
   depositNote,
@@ -685,7 +694,19 @@ export function DuelSheet({
           <p className="duel-take">{gain > 0 ? `+${formatMoney(gain)}` : "0,00"}</p>
           {ticketPaused ? <TicketPausedChip text="TIKET POZASTAVENÝ · pokračuje po zatvorení" /> : null}
           {dep ? <p className={`duel-deposit-note ${depositNote && depositNote.burned > 0 ? "is-burn" : ""}`}>{dep}</p> : null}
-          <button type="button" className="chip-btn gold duel-go" onClick={onEnd}>
+          {!duel.aborted && onRematch ? (
+            <>
+              <button type="button" className="chip-btn gold duel-go" onClick={onRematch}>
+                ODVETA
+              </button>
+              <p className="duel-rematch-note">
+                Rovnaká stávka {formatMoney(duel.bet)} · {duel.need} točení
+                {duel.kind === "online" && duel.room ? ` · kód ${duel.room}` : ""}
+                {" · kaucia znova"}
+              </p>
+            </>
+          ) : null}
+          <button type="button" className={`chip-btn duel-go ${duel.aborted || !onRematch ? "gold" : ""}`} onClick={onEnd}>
             PORT
           </button>
         </div>

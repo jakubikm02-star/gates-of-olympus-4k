@@ -223,6 +223,55 @@ describe("duel room sync (hotfix: guest poll survives the start)", () => {
     }
   });
 
+  it("odveta on the same code starts the next match once and does not re-join", async () => {
+    const room = fakeRoom(2, 1);
+    const c = clock();
+    const rematches: number[] = [];
+    const link = hostLink(2);
+    const st = newRoomSyncState(link);
+    const stop = startRoomSync({
+      api: room.api,
+      state: st,
+      setInterval: c.setInterval,
+      clearInterval: c.clearInterval,
+      hooks: {
+        getLink: () => link,
+        getBet: () => 10,
+        onGo: () => {},
+        onTick: () => {},
+        onForfeit: () => {},
+        onPeerNet: () => {},
+        onPeerName: () => {},
+        onRematch: (info) => rematches.push(info.round ?? 0),
+        setErr: () => {},
+        setStatus: () => {},
+        setNames: () => {},
+      },
+    });
+    await c.tick(2);
+    const guest = seat(guestLink("Noizra"), room, c);
+    await c.tick(2);
+    assert.equal(room.row.phase, "play");
+    room.spin(0, 1, 5);
+    room.spin(1, 1, 8);
+    await c.tick();
+    room.row.round = 2;
+    room.row.phase = "play";
+    room.row.host_have = 0;
+    room.row.guest_have = 0;
+    room.row.host_score = 0;
+    room.row.guest_score = 0;
+    const joins = room.calls.join;
+    await c.tick();
+    assert.deepEqual(rematches, [2]);
+    await c.tick();
+    assert.deepEqual(rematches, [2], "the same odveta is not announced twice");
+    assert.equal(room.calls.join, joins);
+    assert.equal(room.calls.create, 1);
+    stop();
+    guest.stop();
+  });
+
   for (const n of [3, 4]) {
     it(`${n} seats: every guest keeps polling and sees every other seat finish`, async () => {
       const room = fakeRoom(n);

@@ -42,6 +42,8 @@ export interface Duel {
   phase: DuelPhase;
   bet: number;
   room?: string;
+  /** Online match number in this room (odveta bumps it). */
+  round?: number;
   /** My last spin, hidden until the opponent reaches the same k. */
   held: number;
   /** Last seat that forfeited (2 seats: the forfeit that ended the duel). */
@@ -66,6 +68,8 @@ export interface DuelLink {
   bet: number;
   need: number;
   ante: boolean;
+  /** Online match number. Odveta keeps the room and bumps this. */
+  round?: number;
 }
 
 const CODE = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -97,6 +101,7 @@ export function startDuel(opts: {
   you?: number;
   room?: string;
   need?: number;
+  round?: number;
 }): Duel {
   const need = opts.need && opts.need > 0 ? Math.round(opts.need) : opts.mode === "live" ? 1 : 10;
   const list = opts.names && opts.names.length >= 2 ? opts.names.slice(0, MAX_SEATS) : [opts.a ?? "", opts.b ?? ""];
@@ -111,6 +116,7 @@ export function startDuel(opts: {
     phase: "play",
     bet: Math.max(0.01, opts.bet),
     room: opts.room,
+    round: opts.round,
     held: 0,
     forfeit: null,
     peerNet: false,
