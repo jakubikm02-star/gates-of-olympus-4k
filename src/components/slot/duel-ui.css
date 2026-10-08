@@ -1889,50 +1889,124 @@
   }
 }
 
-/* Result: one Clash-style bar of the whole sum, split by seat, plus the winner's lead. */
+/* Result: beam clash. Each stack is an energy beam; they meet in a white burst. */
 .clash-bar {
-  margin: 2px 0 12px;
+  margin: 4px 0 14px;
 }
 
 .clash-track {
+  position: relative;
   display: flex;
-  height: 22px;
-  border-radius: 999px;
+  align-items: center;
+  height: 54px;
+  padding: 0 6px;
+  border-radius: 8px;
   overflow: hidden;
-  background: rgb(255 255 255 / 0.06);
+  background:
+    radial-gradient(70% 140% at 50% 50%, rgb(255 255 255 / 0.06), transparent 62%),
+    linear-gradient(180deg, #05070c, #10141c 55%, #07090d);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.28),
-    inset 0 -2px 0 rgb(0 0 0 / 0.35),
-    0 0 0 1px rgb(255 255 255 / 0.1);
+    inset 0 0 0 1px rgb(255 255 255 / 0.08),
+    inset 0 0 24px rgb(0 0 0 / 0.65);
 }
 
 .clash-track i {
+  --hot: #fff;
+  position: relative;
   display: block;
   flex-basis: 0;
-  min-width: 0;
-  height: 100%;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 78%, white), var(--c) 42%, color-mix(in srgb, var(--c) 70%, black));
-  box-shadow: inset 0 0 12px var(--g);
+  min-width: 4px;
+  height: 16px;
+  background:
+    linear-gradient(180deg, transparent 30%, rgb(255 255 255 / 0.95) 50%, transparent 70%),
+    repeating-linear-gradient(90deg, transparent 0 14px, rgb(255 255 255 / 0.55) 14px 16px, transparent 16px 28px),
+    linear-gradient(90deg, var(--tail), var(--c) 46%, var(--hot));
+  background-size: 100% 100%, 56px 100%, 100% 100%;
+  filter: drop-shadow(0 0 6px var(--g));
+  animation: beam-to-right 0.38s linear infinite;
+}
+
+.clash-track i:last-child {
+  background:
+    linear-gradient(180deg, transparent 30%, rgb(255 255 255 / 0.95) 50%, transparent 70%),
+    repeating-linear-gradient(90deg, transparent 0 14px, rgb(255 255 255 / 0.55) 14px 16px, transparent 16px 28px),
+    linear-gradient(270deg, var(--tail), var(--c) 46%, var(--hot));
+  background-size: 100% 100%, 56px 100%, 100% 100%;
+  animation-name: beam-to-left;
+}
+
+.clash-track i:not(:first-child):not(:last-child) {
+  background:
+    linear-gradient(180deg, transparent 30%, rgb(255 255 255 / 0.95) 50%, transparent 70%),
+    repeating-linear-gradient(90deg, transparent 0 14px, rgb(255 255 255 / 0.55) 14px 16px, transparent 16px 28px),
+    linear-gradient(90deg, var(--hot), var(--c) 50%, var(--hot));
+  background-size: 100% 100%, 56px 100%, 100% 100%;
+}
+
+.clash-track i:only-child {
+  background:
+    linear-gradient(180deg, transparent 30%, rgb(255 255 255 / 0.95) 50%, transparent 70%),
+    repeating-linear-gradient(90deg, transparent 0 14px, rgb(255 255 255 / 0.55) 14px 16px, transparent 16px 28px),
+    linear-gradient(90deg, var(--tail), var(--c) 70%, var(--hot));
+  background-size: 100% 100%, 56px 100%, 100% 100%;
+  animation-name: beam-to-right;
+}
+
+.clash-track i:not(:last-child)::before,
+.clash-track i:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  pointer-events: none;
+}
+
+.clash-track i:not(:last-child)::after {
+  z-index: 2;
+  width: 42px;
+  height: 42px;
+  transform: translate(50%, -50%);
+  background: radial-gradient(circle, #fff 0 16%, rgb(255 244 210 / 0.95) 28%, rgb(255 196 70 / 0.55) 46%, transparent 70%);
+  mix-blend-mode: screen;
+  animation: clash-core 0.55s ease-in-out infinite;
+}
+
+.clash-track i:not(:last-child)::before {
+  z-index: 3;
+  width: 64px;
+  height: 48px;
+  transform: translate(50%, -50%);
+  background:
+    linear-gradient(18deg, transparent 47%, #fff 50%, transparent 53%),
+    linear-gradient(-24deg, transparent 47%, #ffe08a 50%, transparent 53%),
+    linear-gradient(72deg, transparent 48%, rgb(255 255 255 / 0.9) 50%, transparent 52%),
+    linear-gradient(90deg, transparent, #fff, transparent);
+  mix-blend-mode: screen;
+  animation: clash-spark 0.32s steps(2, end) infinite;
 }
 
 .clash-track i.p1 {
   --c: var(--p1);
   --g: var(--p1-glow);
+  --tail: rgb(120 78 0 / 0.15);
 }
 
 .clash-track i.p2 {
   --c: var(--p2);
   --g: var(--p2-glow);
+  --tail: rgb(0 70 110 / 0.15);
 }
 
 .clash-track i.p3 {
   --c: var(--p3);
   --g: var(--p3-glow);
+  --tail: rgb(90 10 6 / 0.15);
 }
 
 .clash-track i.p4 {
   --c: var(--p4);
   --g: var(--p4-glow);
+  --tail: rgb(10 70 16 / 0.15);
 }
 
 .clash-sum {
@@ -1943,4 +2017,33 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #fff;
+}
+
+@keyframes beam-to-right {
+  from { background-position: 0 0, 0 0, 0 0; }
+  to { background-position: 0 0, 56px 0, 0 0; }
+}
+
+@keyframes beam-to-left {
+  from { background-position: 0 0, 0 0, 0 0; }
+  to { background-position: 0 0, -56px 0, 0 0; }
+}
+
+@keyframes clash-core {
+  0%, 100% { transform: translate(50%, -50%) scale(0.82); opacity: 0.8; }
+  50% { transform: translate(50%, -50%) scale(1.18); opacity: 1; }
+}
+
+@keyframes clash-spark {
+  0% { transform: translate(50%, -50%) rotate(0deg); opacity: 1; }
+  50% { transform: translate(50%, -50%) rotate(16deg) scale(1.08); opacity: 0.75; }
+  100% { transform: translate(50%, -50%) rotate(-8deg); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clash-track i,
+  .clash-track i::before,
+  .clash-track i::after {
+    animation: none;
+  }
 }

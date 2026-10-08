@@ -246,9 +246,11 @@ function ClashBar({ duel }: { duel: Duel }) {
   return (
     <div className="clash-bar">
       <div className="clash-track" role="img" aria-label={line}>
-        {duel.seats.map((s, i) => (
-          <i key={i} className={SEAT_CLASS[i] ?? "p1"} style={{ flexGrow: empty ? 1 : Math.max(0, s.score) }} />
-        ))}
+        {duel.seats.map((s, i) => {
+          const grow = empty ? 1 : Math.max(0, s.score);
+          if (!empty && grow <= 0) return null;
+          return <i key={i} className={SEAT_CLASS[i] ?? "p1"} style={{ flexGrow: grow }} />;
+        })}
       </div>
       <p className="clash-sum">{line}</p>
     </div>
