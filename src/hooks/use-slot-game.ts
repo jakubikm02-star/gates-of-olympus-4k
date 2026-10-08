@@ -374,6 +374,7 @@ export function useSlotGame() {
   const lastPaidXRef = useRef(0);
   const roundCashRef = useRef(0);
   const [duel, setDuel] = useState<Duel | null>(null);
+  const [duelAlone, setDuelAlone] = useState(false);
   const [duelVotes, setDuelVotes] = useState<SeatVote[]>([]);
   const duelRef = useRef<Duel | null>(null);
   const [duelOpen, setDuelOpen] = useState(false);
@@ -4354,6 +4355,7 @@ export function useSlotGame() {
     duelFastRef.current = false;
     duelRef.current = null;
     setDuel(null);
+    setDuelAlone(false);
     setDuelLink(null);
     setDuelPeer("");
     setDuelOpen(false);
@@ -4853,6 +4855,34 @@ export function useSlotGame() {
       }
       forfeitSelf(cur);
     },
+    /**
+     * The other seats stopped answering. Leaving here is not a forfeit: the kaucia comes back and
+     * nobody takes the bank. The room is removed so a peer that wakes up gets the same refund.
+     */
+    leaveAlone: () => {
+      const cur = duelRef.current;
+      if (!cur || cur.kind !== "online" || cur.phase !== "play" || duelSettled.current) return;
+      if (roundRunning()) {
+        setJobToast("ODÍSŤ až po dotočení");
+        return;
+      }
+      abortReasonRef.current = "roomFailure";
+      duelSettled.current = true;
+      autoRef.current = false;
+      setAutoOn(false);
+      setAutoLeft(0);
+      setAutoReason(null);
+      const next = abortDuel(cur);
+      duelRef.current = next;
+      setDuel(next);
+      setDuelAlone(false);
+      setTopLine("SÚPER ODIŠIEL · KAÚCIA SPÄŤ");
+      payDuel(next);
+      const link = duelLinkRef.current;
+      if (link) void duelLeave(link.room, "host").catch(() => {});
+    },
+    noteAlone: (alone: boolean) => setDuelAlone(alone),
+    duelAlone,
     canFold: Boolean(duel && duel.phase === "play" && !busy && !inFs && !pickOpen && !banner),
     /** Hot-seat VERSUS: 2-4 names, all seats play from this phone, one after another. */
     beginDuel: (mode: DuelMode, names: string[], betAmt?: number, need = 10, anteOn = false) => {

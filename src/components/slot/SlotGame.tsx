@@ -400,7 +400,7 @@ export function SlotGame() {
                 Phones: a versus strip laid over the KÚPIŤ / ANTE row (both locked during a duel). It never
                 takes height from the board, so the reels stay exactly as big as in normal play. */}
             {g.duel && g.duel.phase === "play" ? (
-              <DuelBar duel={g.duel} onForfeit={g.foldDuel} canFold={g.canFold} deposit={depositTotal(g.duelDeposit)} ticketPaused={g.ticketPaused} variant={shell === "pc" ? "card" : "strip"} />
+              <DuelBar duel={g.duel} onForfeit={g.duelAlone ? g.leaveAlone : g.foldDuel} alone={g.duelAlone} canFold={g.canFold} deposit={depositTotal(g.duelDeposit)} ticketPaused={g.ticketPaused} variant={shell === "pc" ? "card" : "strip"} />
             ) : null}
           </aside>
 
@@ -1211,6 +1211,7 @@ export function SlotGame() {
           onEnd={g.endDuel}
           onRematch={g.followRematch}
           onVotes={g.noteVotes}
+          onAlone={g.noteAlone}
           onRoomFail={g.noteRoomFail}
           peerName={g.duelPeer}
           ticketPaused={g.ticketPaused}

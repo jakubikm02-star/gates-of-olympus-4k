@@ -6,6 +6,7 @@ import {
   duelCreditDelta,
   duelLeaders,
   duelPot,
+  duelMargin,
   nextSeat,
   versusMode,
   VERSUS_MODES,
@@ -232,6 +233,28 @@ function depositLine(st: DepositSettlement | null | undefined): string {
   return `Kaucia vrátená: ${formatMoney(st.refund)}`;
 }
 
+/** Clash-style total: one bar of every stack, and by how much the winner is ahead. */
+function ClashBar({ duel }: { duel: Duel }) {
+  const { leader, by, total } = duelMargin(duel);
+  const empty = total <= 0;
+  const line =
+    leader == null
+      ? duel.aborted
+        ? `SPOLU ${formatMoney(total)}`
+        : `REMÍZA · SPOLU ${formatMoney(total)}`
+      : `${duel.seats[leader]!.name} o ${formatMoney(by)} · SPOLU ${formatMoney(total)}`;
+  return (
+    <div className="clash-bar">
+      <div className="clash-track" role="img" aria-label={line}>
+        {duel.seats.map((s, i) => (
+          <i key={i} className={SEAT_CLASS[i] ?? "p1"} style={{ flexGrow: empty ? 1 : Math.max(0, s.score) }} />
+        ))}
+      </div>
+      <p className="clash-sum">{line}</p>
+    </div>
+  );
+}
+
 export function DuelLink({
   link,
   duel,
@@ -244,6 +267,7 @@ export function DuelLink({
   onEnd,
   onRematch,
   onVotes,
+  onAlone,
   onRoomFail,
   inFs,
   peerName = "",
@@ -268,6 +292,8 @@ export function DuelLink({
   onRematch?: (info: { names: string[]; you: number; bet: number; mode: DuelMode; need: number; ante: boolean; round?: number }) => void;
   /** Votes on the finished match, one per seat. */
   onVotes?: (votes: SeatVote[]) => void;
+  /** The other seats stopped answering, or the room was reset. */
+  onAlone?: (alone: boolean) => void;
   /** Room vanished mid-duel / polls+writes failing / all seats were away: the game's fault (kaucia back). */
   onRoomFail?: (kind: "gone" | "net" | "both") => void;
   /** Opponent name as far as known (host name for a guest). */
@@ -289,6 +315,7 @@ export function DuelLink({
   const onPeerNetRef = useRef(onPeerNet);
   const onRematchRef = useRef(onRematch);
   const onVotesRef = useRef(onVotes);
+  const onAloneRef = useRef(onAlone);
   const inFsRef = useRef(inFs);
   const onRoomFailRef = useRef(onRoomFail);
   const tickOk = useRef(0);
@@ -306,6 +333,7 @@ export function DuelLink({
   onPeerNetRef.current = onPeerNet;
   onRematchRef.current = onRematch;
   onVotesRef.current = onVotes;
+  onAloneRef.current = onAlone;
   inFsRef.current = inFs;
 
   useEffect(() => {
@@ -330,6 +358,7 @@ export function DuelLink({
         onRoomFail: (kind) => onRoomFailRef.current?.(kind),
         onRematch: (info) => onRematchRef.current?.(info),
         onVotes: (votes) => onVotesRef.current?.(votes),
+        onAlone: (alone) => onAloneRef.current?.(alone),
         setErr,
         setStatus,
         setNames,
@@ -686,6 +715,7 @@ export function DuelSheet({
             <h2 id="duel-title">{title}</h2>
           </header>
           <p className="duel-verdict">{verdict}</p>
+          <ClashBar duel={duel} />
           <div className={`duel-seats ${many ? "is-multi is-podium" : ""}`}>
             {order.map((i, rank) => (
               <DuelSeatRow
@@ -1077,6 +1107,7 @@ export function DuelSheet({
 export function DuelBar({
   duel,
   onForfeit,
+  alone = false,
   canFold = true,
   deposit = 0,
   variant = "bar",
@@ -1086,6 +1117,8 @@ export function DuelBar({
   ticketPaused?: boolean;
   duel: Duel;
   onForfeit?: () => void;
+  /** Opponent is gone: this exit refunds the kaucia instead of burning it. */
+  alone?: boolean;
   canFold?: boolean;
   /** Kaucia still held for this duel (0 = none / settled). */
   deposit?: number;
@@ -1126,9 +1159,9 @@ export function DuelBar({
         className="duel-fold"
         onClick={onForfeit}
         disabled={!canFold}
-        title={canFold ? (deposit > 0 ? "Vzdaním kaucia prepadne" : undefined) : "VZDAŤ až po dotočení"}
+        title={alone ? "Súper sa odpojil. Odchod vráti kauciu." : canFold ? (deposit > 0 ? "Vzdaním kaucia prepadne" : undefined) : "VZDAŤ až po dotočení"}
       >
-        VZDAŤ{variant === "card" && deposit > 0 ? " · kaucia prepadne" : ""}
+        {alone ? (variant === "strip" ? "ODÍSŤ" : "SÚPER ODIŠIEL · KAÚCIA SPÄŤ") : `VZDAŤ${variant === "card" && deposit > 0 ? " · kaucia prepadne" : ""}`}
       </button>
     ) : null;
   const sr = (

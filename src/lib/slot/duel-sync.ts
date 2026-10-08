@@ -17,6 +17,12 @@ import { peerFrozen, type DuelLink, type DuelMode } from "./duel.ts";
 
 /** No heartbeat from the peer for this long while it still owes spins: the peer is out. */
 export const PEER_SILENT_MS = 90_000;
+/**
+ * No heartbeat for this long: the other seats are treated as gone, so the player who is still here
+ * may leave. This does not award the bank (a locked phone can look the same); it only unlocks a
+ * refund exit. The 90 s silence still forfeits the peer if nobody leaves first.
+ */
+export const PEER_GONE_MS = 20_000;
 /** Room polls failing this long mid-duel: the network/room is at fault (a later timeout refunds the kaucia). */
 export const ROOM_NET_FAIL_MS = 30_000;
 /** Consecutive "room not found" polls mid-duel before the duel is aborted as a room failure. */
@@ -71,6 +77,8 @@ export interface RoomSyncHooks {
   onRematch?: (info: GoInfo) => void;
   /** Votes on the finished match. Called on each poll until the next match or the room closes. */
   onVotes?: (votes: SeatVote[]) => void;
+  /** Every other seat that still owes spins has gone quiet, or the room was reset under us. */
+  onAlone?: (alone: boolean) => void;
   setErr: (msg: string) => void;
   setStatus: (msg: string) => void;
   setNames: (names: string[]) => void;
@@ -97,6 +105,8 @@ export interface RoomSyncState {
   joins: number;
   /** Match number this seat is playing. 0 until the first start. */
   round: number;
+  /** Last value reported to onAlone, so a quiet peer does not re-render every poll. */
+  alone: boolean;
 }
 
 export function newRoomSyncState(link: Pick<DuelLink, "role" | "seat" | "players">): RoomSyncState {
@@ -114,10 +124,39 @@ export function newRoomSyncState(link: Pick<DuelLink, "role" | "seat" | "players
     players: link.players ?? 2,
     joins: 0,
     round: 0,
+    alone: false,
   };
 }
 
-/** The only link fields that restart the sync (React effect deps). */
+/** My seat still in a live match, and every other seat that owes spins has stopped answering (or left). */
+export function peersAlone(opts: {
+  started: boolean;
+  playSince: number;
+  now: number;
+  phase: "wait" | "play" | "done";
+  me: number;
+  need: number;
+  seats: { name: string; have: number; out?: boolean; seen: number }[];
+  goneMs?: number;
+}): boolean {
+  if (!opts.started || opts.phase === "done") return false;
+  if (opts.phase === "wait") return true;
+  const limit = opts.goneMs ?? PEER_GONE_MS;
+  const peers = opts.seats.map((_, i) => i).filter((i) => i !== opts.me);
+  if (peers.length === 0) return false;
+  if (peers.every((i) => !opts.seats[i]?.name)) return true;
+  const owing = peers.filter((i) => {
+    const s = opts.seats[i]!;
+    return !s.out && s.have < opts.need;
+  });
+  if (owing.length === 0) return false;
+  if (!(opts.playSince > 0)) return false;
+  return owing.every((i) => {
+    const seen = opts.seats[i]!.seen;
+    const last = seen > opts.playSince ? seen : opts.playSince;
+    return opts.now - last > limit;
+  });
+}
 export function roomSyncKey(link: Pick<DuelLink, "room" | "role">): string {
   return `${link.room}|${link.role}`;
 }
@@ -256,6 +295,7 @@ export function startRoomSync(opts: RoomSyncOptions): () => void {
         st.peerAt = [];
         st.peerHave = [];
         st.goneRun = 0;
+        st.alone = false;
         h.onRematch?.({
           names: snap.seats.map((x, i) => x.name || (i === 0 ? "HOSŤ" : `HRÁČ ${i + 1}`)),
           you: st.seat,
@@ -266,6 +306,12 @@ export function startRoomSync(opts: RoomSyncOptions): () => void {
           round,
         });
         return;
+      }
+      if (st.started && snap.phase === "wait") {
+        if (!st.alone) {
+          st.alone = true;
+          h.onAlone?.(true);
+        }
       }
       if (st.started && snap.phase === "done") h.onVotes?.(snap.votes);
       if (!many && snap.forfeit != null && !st.gaveUp) {
@@ -278,6 +324,19 @@ export function startRoomSync(opts: RoomSyncOptions): () => void {
       if (snap.phase === "play" || snap.phase === "done") {
         if (!st.started) go(snap);
         if (snap.phase === "play" && st.playSince === 0) st.playSince = now();
+        const alone = peersAlone({
+          started: st.started,
+          playSince: st.playSince,
+          now: now(),
+          phase: snap.phase,
+          me,
+          need: snap.need,
+          seats: snap.seats,
+        });
+        if (alone !== st.alone) {
+          st.alone = alone;
+          h.onAlone?.(alone);
+        }
         const need = snap.need;
         const mine = snap.seats[me]?.have ?? 0;
         const peers = snap.seats.map((_, i) => i).filter((i) => i !== me);

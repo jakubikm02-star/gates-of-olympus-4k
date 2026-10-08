@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { rowToSnap, type DuelSnap } from "./duel-api.ts";
-import { newRoomSyncState, peerTicksFromSnap, roomSyncKey, startRoomSync, type RoomSyncApi, type RoomSyncState } from "./duel-sync.ts";
+import { newRoomSyncState, peerTicksFromSnap, peersAlone, roomSyncKey, startRoomSync, type RoomSyncApi, type RoomSyncState } from "./duel-sync.ts";
 import type { DuelLink } from "./duel.ts";
 
 const PREFIX = ["host", "guest", "p3", "p4"] as const;
@@ -297,6 +297,25 @@ describe("duel room sync (hotfix: guest poll survives the start)", () => {
       assert.deepEqual(host.seen[n - 1], { have: 3, score: 10 * n });
     });
   }
+});
+
+describe("peersAlone", () => {
+  const seats = (seen: number, have = 0) => [
+    { name: "A", have: 1, seen: 1_000 },
+    { name: "B", have, seen },
+  ];
+  const base = { started: true, playSince: 1_000, now: 30_000, phase: "play" as const, me: 0, need: 5, goneMs: 20_000 };
+  it("is false while the other seat still answers", () => {
+    assert.equal(peersAlone({ ...base, seats: seats(25_000) }), false);
+  });
+  it("is true once the other seat has been quiet, and when the room dropped back to the lobby", () => {
+    assert.equal(peersAlone({ ...base, seats: seats(1_000) }), true);
+    assert.equal(peersAlone({ ...base, phase: "wait", seats: seats(25_000) }), true);
+    assert.equal(peersAlone({ ...base, seats: [{ name: "A", have: 1, seen: 1_000 }, { name: "", have: 0, seen: 0 }] }), true);
+  });
+  it("is false when the other seat already finished its spins", () => {
+    assert.equal(peersAlone({ ...base, seats: seats(1_000, 5) }), false);
+  });
 });
 
 describe("peerTicksFromSnap (heartbeat safety net)", () => {
