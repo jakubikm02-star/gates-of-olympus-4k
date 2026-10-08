@@ -71,7 +71,7 @@ export function LiveHits({ selfId, on, paused }: Props) {
     <div className="live-hit" role="status" aria-live="polite" key={hit.id}>
       <i className="lh-bar" aria-hidden="true" />
       <span className="lh-kicker">
-        4KA <em>MASÍVNA</em>
+        4KA <em>{hit.mult >= 250 ? "MASÍVNA" : "VÝHRA"}</em>
       </span>
       <b className="lh-nick">{hit.nick}</b>
       <span className="lh-pay">

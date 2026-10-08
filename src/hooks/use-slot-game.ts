@@ -3147,7 +3147,7 @@ export function useSlotGame() {
       }
 
       if (kind && !isFree && !inFsRef.current) {
-        if ((kind === "massive" || kind === "max") && !escrow) postLiveHit(playerIdRef.current, x, cash);
+        if (!escrow) postLiveHit(playerIdRef.current, x, cash);
         bannerOpen.current = true;
         setBanner(kind);
         setBannerAmount(cash);
@@ -3553,7 +3553,7 @@ export function useSlotGame() {
         };
         setFsZasah(false);
         persistNow();
-        if ((massive || hitCap) && !roundEscrowRef.current) postLiveHit(playerIdRef.current, featureX, featureTotal);
+        if (!roundEscrowRef.current) postLiveHit(playerIdRef.current, featureX, featureTotal);
         if (massive) {
           bannerOpen.current = true;
           setBanner("massive");

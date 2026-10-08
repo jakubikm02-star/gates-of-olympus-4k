@@ -1,6 +1,6 @@
 /**
  * Live MASÍVNA VÝHRA ping for everyone playing the normal game (not VERSUS).
- * A hit is posted when a spin pays 250× or more. Other phones poll and show a
+ * A hit is posted when a spin pays 100× or more. Other phones poll and show a
  * small card for 3 seconds. Own hits are filtered out.
  */
 
@@ -8,8 +8,8 @@ const SUPA_URL = "https://xgpnmxkquxzbhgktjipa.supabase.co";
 const SUPA_ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhncG5teGtxdXh6Ymhna3RqaXBhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzMzI1MDgsImV4cCI6MjEwMTkwODUwOH0.KrNERJS8gxc1663oN73CaZ2ZqXZOQTX-AnoMwCmWQUo";
 
-/** Same floor as the MASÍVNA VÝHRA banner. */
-export const LIVE_HIT_MIN_X = 250;
+/** Floor for the live card other players see. The winner's own MASÍVNA banner stays at 250×. */
+export const LIVE_HIT_MIN_X = 100;
 export const LIVE_HIT_MS = 3000;
 
 export interface LiveHit {

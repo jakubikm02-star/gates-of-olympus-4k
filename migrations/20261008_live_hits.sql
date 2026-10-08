@@ -28,7 +28,7 @@ begin
   if pid !~ '^[A-Za-z0-9-]{8,64}$' then
     return;
   end if;
-  if nick = '' or p_mult < 250 or p_mult > 5000 or p_amount <= 0 or p_amount > 100000000 then
+  if nick = '' or p_mult < 100 or p_mult > 5000 or p_amount <= 0 or p_amount > 100000000 then
     return;
   end if;
   if exists (
