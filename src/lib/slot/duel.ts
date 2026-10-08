@@ -217,6 +217,18 @@ export function duelPot(d: Duel): number {
   return +d.seats.reduce((a, s) => a + s.score, 0).toFixed(2);
 }
 
+/** Result-bar numbers: the sum of every stack, and how far the winner is ahead of the next standing seat. */
+export function duelMargin(d: Duel): { leader: number | null; by: number; total: number } {
+  const total = duelPot(d);
+  if (d.aborted || d.phase !== "done") return { leader: null, by: 0, total };
+  const leaders = duelLeaders(d);
+  if (leaders.length !== 1) return { leader: null, by: 0, total };
+  const w = leaders[0]!;
+  const others = liveSeats(d).filter((i) => i !== w);
+  const next = others.length ? Math.max(...others.map((i) => d.seats[i]!.score)) : 0;
+  return { leader: w, by: +Math.max(0, d.seats[w]!.score - next).toFixed(2), total };
+}
+
 /**
  * Wins were not paid into credit. The winner takes the whole bank (every seat's wins). A tie at the top
  * splits the bank between the tied seats (2 seats: each gets its own back, as before). A forfeited seat

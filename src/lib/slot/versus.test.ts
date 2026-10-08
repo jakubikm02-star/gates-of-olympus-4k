@@ -8,6 +8,7 @@ import {
   confirmSwap,
   duelCreditDelta,
   duelLeaders,
+  duelMargin,
   duelOutcome,
   duelPot,
   duelWinner,
@@ -114,6 +115,14 @@ describe("versus: payout split", () => {
     assert.equal(duelWinner(d), 1);
     assert.equal(duelCreditDelta(d, 1), 105);
     assert.equal(duelCreditDelta(d, 0), 0);
+  });
+  it("the clash bar is the sum, and the lead is over the next standing seat", () => {
+    const win = done([10, 4]);
+    assert.deepEqual(duelMargin(win), { leader: 0, by: 6, total: 14 });
+    const tie = done([5, 5, 1]);
+    assert.deepEqual(duelMargin(tie), { leader: null, by: 0, total: 11 });
+    const fold = done([100, 3, 2], [0]);
+    assert.deepEqual(duelMargin(fold), { leader: 1, by: 1, total: 105 });
   });
 });
 
