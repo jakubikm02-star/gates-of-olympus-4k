@@ -199,12 +199,18 @@ export function SlotGame() {
   const reelHostRef = useContainerVars();
   const [reducedMotion, setReducedMotion] = useState(false);
   const [deskOpen, setDeskOpen] = useState(false);
+  const [jpEvent, setJpEvent] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [manFocus, setManFocus] = useState<string | null>(null);
   const [boardOpen, setBoardOpen] = useState(false);
   const [jobOpen, setJobOpen] = useState(false);
   const [, names] = useState(0);
   useEffect(() => subscribeTicketNames(() => names((n) => n + 1)), []);
+  useEffect(() => {
+    const id = window.setInterval(() => setJpEvent((on) => !on), 20_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const showJpEvent = jpEvent && !g.jpHit;
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     const apply = () => setReducedMotion(mq.matches);
@@ -305,10 +311,14 @@ export function SlotGame() {
           <div className="head-end">
             <button
               type="button"
-              className={`jp-stack is-strip ${g.jpHit ? "is-hit" : ""} ${g.poolEligible ? "is-live" : "is-feed"}`}
-              aria-label="Park jackpoty · dnešný desk"
+              className={`jp-stack is-strip ${g.jpHit ? "is-hit" : ""} ${g.poolEligible ? "is-live" : "is-feed"} ${showJpEvent ? "is-event" : ""}`}
+              aria-label={showJpEvent ? "Týždenná súťaž, čoskoro" : "Park jackpoty · dnešný desk"}
               onClick={() => setDeskOpen(true)}
             >
+              {showJpEvent ? (
+                <ContestBanner />
+              ) : (
+                <>
               <span className="jp-mark">{g.inFs ? "4KA TV" : "PARKIZMUS"}</span>
               {(["stat", "kraj", "okres", "ulica"] as const).map((id) => {
                 const t = g.pots[id];
@@ -335,11 +345,11 @@ export function SlotGame() {
               ) : g.poolEligible ? null : (
                 <em>100+</em>
               )}
+                </>
+              )}
             </button>
             </div>
           </div>
-
-        <ContestBanner />
 
         <div className="arena">
           <aside
