@@ -7532,6 +7532,20 @@ html:-webkit-full-screen {
   color: #9aa3ad;
 }
 
+.duel-vote-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  text-align: center;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: #d5dee6;
+}
+
+.duel-vote-list li {
+  margin: 2px 0;
+}
+
 @media (max-width: 720px) {
   .modal-back {
     padding: 8px 8px calc(8px + env(safe-area-inset-bottom));

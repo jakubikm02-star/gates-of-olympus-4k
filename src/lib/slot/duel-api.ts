@@ -15,6 +15,9 @@ export type DuelSnapSeat = {
   out: boolean;
 };
 
+/** A seat's call after the match. Null means that phone has not tapped yet. */
+export type SeatVote = "rematch" | "port" | null;
+
 export type DuelSnap = {
   code: string;
   /** Room size: 2 (DUEL, also every room of an older build), 3 (TRIPLE THREAT), 4 (FANTASTIC FOUR). */
@@ -34,6 +37,8 @@ export type DuelSnap = {
   ante: boolean;
   /** Match number in this room. Odveta bumps it so the same code starts a fresh match. */
   round: number;
+  /** One vote per seat after the match. Null until that phone taps ODVETA or PORT. */
+  votes: SeatVote[];
   forfeit: 0 | 1 | null;
   hostNet: boolean;
   guestNet: boolean;
@@ -69,6 +74,10 @@ type Row = {
   p4_score?: number | string | null;
   p4_have?: number | string | null;
   p4_out?: boolean | null;
+  host_vote?: string | null;
+  guest_vote?: string | null;
+  p3_vote?: string | null;
+  p4_vote?: string | null;
 };
 
 /** Column prefix of a seat: 0 host, 1 guest, 2 p3, 3 p4. */
@@ -98,6 +107,18 @@ function unpack(raw: string): { name: string; ante: boolean; net: boolean; seen:
   const m = /^(.*)\|([01])$/.exec(raw || "");
   if (!m) return { name: raw || "", ante: false, net: false, seen: 0 };
   return { name: m[1] || "HRÁČ", ante: m[2] === "1", net: false, seen: 0 };
+}
+
+function voteOf(v: unknown): SeatVote {
+  return v === "rematch" || v === "port" ? v : null;
+}
+
+/**
+ * Odveta starts only when every seat voted for it. Any PORT ends it, but not before the last phone has voted.
+ */
+export function voteOutcome(votes: SeatVote[]): "wait" | "go" | "stop" {
+  if (votes.length < 2 || votes.some((v) => v == null)) return "wait";
+  return votes.every((v) => v === "rematch") ? "go" : "stop";
 }
 
 function pack(name: string, ante: boolean, net = false, seen = Date.now()): string {
@@ -148,6 +169,7 @@ function snap(r: Row): DuelSnap {
     need,
     ante: host.ante,
     round: Math.max(1, Math.floor(num(r.round)) || 1),
+    votes: PREFIX.slice(0, players).map((p) => voteOf((r as unknown as Record<string, unknown>)[`${p}_vote`])),
     forfeit,
     hostNet: host.net,
     guestNet: guest.net,
@@ -430,6 +452,10 @@ export async function duelRematch(code: string, round: number, players = 2): Pro
     guest_have: 0,
     guest_score: 0,
     guest_out: false,
+    host_vote: null,
+    guest_vote: null,
+    p3_vote: null,
+    p4_vote: null,
     updated_at: new Date().toISOString(),
   };
   if (players > 2) {
@@ -442,4 +468,13 @@ export async function duelRematch(code: string, round: number, players = 2): Pro
   }
   const rows = await rest(rematchQuery(code, n), { method: "PATCH", body: JSON.stringify(patch) });
   return rows[0] ? snap(rows[0]) : null;
+}
+
+/** One seat's ODVETA / PORT. Lands only on the match that just finished. */
+export async function duelVote(code: string, seat: number, round: number, vote: "rematch" | "port"): Promise<void> {
+  const p = seatPrefix(seat);
+  await rest(rematchQuery(code, round), {
+    method: "PATCH",
+    body: JSON.stringify({ [`${p}_vote`]: vote, updated_at: new Date().toISOString() }),
+  });
 }

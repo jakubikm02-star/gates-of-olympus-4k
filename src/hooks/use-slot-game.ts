@@ -86,7 +86,7 @@ import {
   type DuelDeposit,
 } from "@/lib/slot/duel-deposit";
 import { clampPlayers, versusMode, abortDuel, startDuel, tickDuel, confirmSwap, duelLeft, applyPeerTick, makeRoomCode, canDuelSpin, duelWinner, forfeitDuel, reconcileDuel, duelSettleKey, duelOutcome, blankStep, duelBannerMs, duelHoldsReload, type Duel, type DuelMode, type DuelLink } from "@/lib/slot/duel";
-import { duelForfeitIf, duelLeave, duelPoll, duelRematch, duelTick, type DuelSnap } from "@/lib/slot/duel-api";
+import { duelForfeitIf, duelLeave, duelPoll, duelRematch, duelTick, duelVote, voteOutcome, type DuelSnap, type SeatVote } from "@/lib/slot/duel-api";
 import {
   canSpend,
   dealJobs,
@@ -374,6 +374,7 @@ export function useSlotGame() {
   const lastPaidXRef = useRef(0);
   const roundCashRef = useRef(0);
   const [duel, setDuel] = useState<Duel | null>(null);
+  const [duelVotes, setDuelVotes] = useState<SeatVote[]>([]);
   const duelRef = useRef<Duel | null>(null);
   const [duelOpen, setDuelOpen] = useState(false);
   const [duelLink, setDuelLink] = useState<DuelLink | null>(null);
@@ -413,6 +414,10 @@ export function useSlotGame() {
   const pendingRematchRef = useRef<{ names: string[]; round?: number; ante?: boolean } | null>(null);
   const rematchLockRef = useRef(false);
   const rematchFlushRef = useRef<() => void>(() => {});
+  const rematchVoteFired = useRef(false);
+  const dissolveFired = useRef(false);
+  const endDuelRef = useRef<() => void>(() => {});
+  const resolveVotesRef = useRef<(votes: SeatVote[]) => void>(() => {});
   const duelBlankTotal = useRef(0);
   const autoFloorRef = useRef(0);
   const bannerWait = useRef<(() => void) | null>(null);
@@ -4274,6 +4279,9 @@ export function useSlotGame() {
       });
       duelRef.current = next;
       setDuel(next);
+      setDuelVotes([]);
+      rematchVoteFired.current = false;
+      dissolveFired.current = false;
       setDuelOpen(false);
       setTopLine(`${versusMode(next.seats.length).label} · ODVETA`);
       sfx.playClick();
@@ -4304,8 +4312,8 @@ export function useSlotGame() {
         const live = snap ?? (await duelPoll(link.room).catch(() => null));
         if (!live || live.round <= fromRound) {
           rematchLockRef.current = false;
+          rematchVoteFired.current = false;
           pendingRematchRef.current = null;
-          setJobToast("Odveta sa nepodarila.");
           return;
         }
         if (!live.seats.every((s) => s.name)) {
@@ -4326,6 +4334,52 @@ export function useSlotGame() {
       });
   }, [payDeposit]);
   rematchFlushRef.current = flushRematch;
+
+  const closeFinishedDuel = () => {
+    const cur = duelRef.current;
+    const link = duelLinkRef.current;
+    if (cur && cur.phase === "play") return;
+    if (link && !cur) void duelLeave(link.room, link.seat ?? link.role, link.players ?? 2).catch(() => {});
+    if (!cur) settleDeposit(depositRef.current?.started ? "roomFailure" : "notStarted");
+    else if (cur.phase === "done" && !settlingRef.current) settleDeposit(cur.aborted ? "roomFailure" : "finish");
+    settleGen.current += 1;
+    duelSettled.current = false;
+    wantRematchRef.current = false;
+    pendingRematchRef.current = null;
+    rematchLockRef.current = false;
+    rematchVoteFired.current = false;
+    dissolveFired.current = false;
+    setDuelVotes([]);
+    duelBlanks.current = 0;
+    duelFastRef.current = false;
+    duelRef.current = null;
+    setDuel(null);
+    setDuelLink(null);
+    setDuelPeer("");
+    setDuelOpen(false);
+    setAutoReason(null);
+    setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
+    if (reloadDeferredRef.current) window.setTimeout(() => checkReleaseRef.current(), 800);
+  };
+  endDuelRef.current = closeFinishedDuel;
+
+  resolveVotesRef.current = (votes) => {
+    const cur = duelRef.current;
+    if (!cur || cur.kind !== "online" || cur.phase !== "done" || cur.aborted) return;
+    const outcome = voteOutcome(votes);
+    if (outcome === "wait") return;
+    if (outcome === "go") {
+      if (rematchVoteFired.current || rematchLockRef.current) return;
+      rematchVoteFired.current = true;
+      wantRematchRef.current = true;
+      flushRematch();
+      return;
+    }
+    if (dissolveFired.current) return;
+    dissolveFired.current = true;
+    setJobToast("Odveta neprešla");
+    closeFinishedDuel();
+  };
 
   return {
     started,
@@ -4852,7 +4906,6 @@ export function useSlotGame() {
     },
     endDuel: () => {
       const cur = duelRef.current;
-      const link = duelLinkRef.current;
       if (cur && cur.phase === "play") {
         if (roundRunning()) {
           setJobToast("VZDAŤ až po dotočení");
@@ -4861,26 +4914,37 @@ export function useSlotGame() {
         forfeitSelf(cur);
         return;
       }
-      if (link && !cur) void duelLeave(link.room, link.seat ?? link.role, link.players ?? 2).catch(() => {});
-      // Kaucia: a lobby that never became a duel returns it; a finished duel whose payout is still in
-      // flight is settled by payDuel, anything else left pending here is refunded as a game failure.
-      if (!cur) settleDeposit(depositRef.current?.started ? "roomFailure" : "notStarted");
-      else if (cur.phase === "done" && !settlingRef.current) settleDeposit(cur.aborted ? "roomFailure" : "finish");
-      settleGen.current += 1;
-      duelSettled.current = false;
-      wantRematchRef.current = false;
-      pendingRematchRef.current = null;
-      rematchLockRef.current = false;
-      duelBlanks.current = 0;
-      duelFastRef.current = false;
-      duelRef.current = null;
-      setDuel(null);
-      setDuelLink(null);
-      setDuelPeer("");
-      setDuelOpen(false);
-      setAutoReason(null);
-      setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
-      if (reloadDeferredRef.current) window.setTimeout(() => checkReleaseRef.current(), 800);
+      closeFinishedDuel();
+    },
+    duelVotes,
+    voteDuel: (vote: "rematch" | "port") => {
+      const cur = duelRef.current;
+      const link = duelLinkRef.current;
+      if (!cur || cur.kind !== "online" || cur.phase !== "done" || cur.aborted || !link) return;
+      const me = cur.you;
+      setDuelVotes((prev) => {
+        const next = Array.from({ length: cur.seats.length }, (_, i) => prev[i] ?? null);
+        if (next[me]) return prev;
+        next[me] = vote;
+        return next;
+      });
+      void duelVote(link.room, me, cur.round ?? link.round ?? 1, vote).catch(() => {
+        setDuelVotes((prev) => {
+          const next = [...prev];
+          if (next[me] === vote) next[me] = null;
+          return next;
+        });
+        setJobToast("Hlas sa nepodarilo odoslať.");
+      });
+    },
+    noteVotes: (votes: SeatVote[]) => {
+      const me = duelRef.current?.you ?? -1;
+      setDuelVotes((prev) => {
+        const next = votes.map((v, i) => v ?? (i === me ? prev[i] ?? null : null));
+        if (next.length === prev.length && next.every((v, i) => v === prev[i])) return prev;
+        return next;
+      });
+      resolveVotesRef.current(votes);
     },
     rematchDuel: () => {
       const cur = duelRef.current;

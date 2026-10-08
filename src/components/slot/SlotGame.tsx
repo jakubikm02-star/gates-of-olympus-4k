@@ -1189,6 +1189,8 @@ export function SlotGame() {
         onSwap={g.swapDuel}
         onEnd={g.endDuel}
         onRematch={g.rematchDuel}
+        onVote={g.voteDuel}
+        votes={g.duelVotes}
         depositNote={g.depositNote}
         nick={g.nick}
         anteMul={g.perk.anteMul}
@@ -1208,6 +1210,7 @@ export function SlotGame() {
           onPeerNet={g.notePeerNet}
           onEnd={g.endDuel}
           onRematch={g.followRematch}
+          onVotes={g.noteVotes}
           onRoomFail={g.noteRoomFail}
           peerName={g.duelPeer}
           ticketPaused={g.ticketPaused}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { formatMoney } from "@/lib/slot/format";
-import { duelCreate, duelForfeitIf, duelJoinSeat, duelLeave, duelPoll, duelStart, duelTick, roomFull, type DuelSnap } from "@/lib/slot/duel-api";
+import { duelCreate, duelForfeitIf, duelJoinSeat, duelLeave, duelPoll, duelStart, duelTick, roomFull, type DuelSnap, type SeatVote } from "@/lib/slot/duel-api";
 import {
   canDuelSpin,
   duelCreditDelta,
@@ -41,8 +41,11 @@ interface Props {
   onJoin: (mode: DuelMode, name: string, code: string, bet: number, need: number, ante: boolean) => string;
   onSwap: () => void;
   onEnd: () => void;
-  /** Same room and the same bet, spins and ante. Online keeps the code. */
+  /** Same room and the same bet, spins and ante. Hot-seat starts at once. */
   onRematch?: () => void;
+  /** Online: ODVETA or PORT is a vote. The match waits until every seat has voted. */
+  onVote?: (vote: "rematch" | "port") => void;
+  votes?: SeatVote[];
   /** Last kaucia settlement (shown on the result card). */
   depositNote?: DepositSettlement | null;
   /** Saved leaderboard nick: the default name in the setup (empty = none saved). */
@@ -240,6 +243,7 @@ export function DuelLink({
   onPeerNet,
   onEnd,
   onRematch,
+  onVotes,
   onRoomFail,
   inFs,
   peerName = "",
@@ -262,6 +266,8 @@ export function DuelLink({
   onEnd: () => void;
   /** The room bumped its match number: same code, a fresh match. */
   onRematch?: (info: { names: string[]; you: number; bet: number; mode: DuelMode; need: number; ante: boolean; round?: number }) => void;
+  /** Votes on the finished match, one per seat. */
+  onVotes?: (votes: SeatVote[]) => void;
   /** Room vanished mid-duel / polls+writes failing / all seats were away: the game's fault (kaucia back). */
   onRoomFail?: (kind: "gone" | "net" | "both") => void;
   /** Opponent name as far as known (host name for a guest). */
@@ -282,6 +288,7 @@ export function DuelLink({
   const onForfeitRef = useRef(onForfeit);
   const onPeerNetRef = useRef(onPeerNet);
   const onRematchRef = useRef(onRematch);
+  const onVotesRef = useRef(onVotes);
   const inFsRef = useRef(inFs);
   const onRoomFailRef = useRef(onRoomFail);
   const tickOk = useRef(0);
@@ -298,6 +305,7 @@ export function DuelLink({
   onForfeitRef.current = onForfeit;
   onPeerNetRef.current = onPeerNet;
   onRematchRef.current = onRematch;
+  onVotesRef.current = onVotes;
   inFsRef.current = inFs;
 
   useEffect(() => {
@@ -321,6 +329,7 @@ export function DuelLink({
         onPeerName: (name) => onPeerNameRef.current(name),
         onRoomFail: (kind) => onRoomFailRef.current?.(kind),
         onRematch: (info) => onRematchRef.current?.(info),
+        onVotes: (votes) => onVotesRef.current?.(votes),
         setErr,
         setStatus,
         setNames,
@@ -545,6 +554,8 @@ export function DuelSheet({
   onSwap,
   onEnd,
   onRematch,
+  onVote,
+  votes = [],
   credit,
   bet,
   depositNote,
@@ -694,21 +705,49 @@ export function DuelSheet({
           <p className="duel-take">{gain > 0 ? `+${formatMoney(gain)}` : "0,00"}</p>
           {ticketPaused ? <TicketPausedChip text="TIKET POZASTAVENÝ · pokračuje po zatvorení" /> : null}
           {dep ? <p className={`duel-deposit-note ${depositNote && depositNote.burned > 0 ? "is-burn" : ""}`}>{dep}</p> : null}
-          {!duel.aborted && onRematch ? (
+          {!duel.aborted && duel.kind !== "online" && onRematch ? (
             <>
               <button type="button" className="chip-btn gold duel-go" onClick={onRematch}>
                 ODVETA
               </button>
               <p className="duel-rematch-note">
-                Rovnaká stávka {formatMoney(duel.bet)} · {duel.need} točení
-                {duel.kind === "online" && duel.room ? ` · kód ${duel.room}` : ""}
-                {" · kaucia znova"}
+                Rovnaká stávka {formatMoney(duel.bet)} · {duel.need} točení · kaucia znova
               </p>
             </>
           ) : null}
-          <button type="button" className={`chip-btn duel-go ${duel.aborted || !onRematch ? "gold" : ""}`} onClick={onEnd}>
-            PORT
-          </button>
+          {!duel.aborted && duel.kind === "online" && onVote ? (
+            votes[duel.you] ? (
+              <>
+                <p className="duel-rematch-note">
+                  Čakám na ostatných · {votes.filter(Boolean).length}/{duel.seats.length}
+                </p>
+                <ul className="duel-vote-list">
+                  {duel.seats.map((s, i) => (
+                    <li key={i}>
+                      {s.name} · {votes[i] === "rematch" ? "ODVETA" : votes[i] === "port" ? "PORT" : "ČAKÁ"}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <>
+                <button type="button" className="chip-btn gold duel-go" onClick={() => onVote("rematch")}>
+                  ODVETA
+                </button>
+                <p className="duel-rematch-note">
+                  Rovnaká stávka {formatMoney(duel.bet)} · {duel.need} točení
+                  {duel.room ? ` · kód ${duel.room}` : ""}. Zahlasovať musí každý.
+                </p>
+                <button type="button" className="chip-btn duel-go" onClick={() => onVote("port")}>
+                  PORT
+                </button>
+              </>
+            )
+          ) : (
+            <button type="button" className={`chip-btn duel-go ${duel.aborted || !onRematch ? "gold" : ""}`} onClick={onEnd}>
+              PORT
+            </button>
+          )}
         </div>
       </div>
     );

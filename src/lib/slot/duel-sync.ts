@@ -12,7 +12,7 @@
  * - a boot after the duel started skips the join / create and goes straight to polling;
  * - peerTicksFromSnap lets the heartbeat PATCH response (the same row) refresh the peers too.
  */
-import { roomFull, type DuelSnap } from "./duel-api.ts";
+import { roomFull, type DuelSnap, type SeatVote } from "./duel-api.ts";
 import { peerFrozen, type DuelLink, type DuelMode } from "./duel.ts";
 
 /** No heartbeat from the peer for this long while it still owes spins: the peer is out. */
@@ -69,6 +69,8 @@ export interface RoomSyncHooks {
   onRoomFail?: (kind: "gone" | "net" | "both") => void;
   /** The room started another match on the same code (odveta). */
   onRematch?: (info: GoInfo) => void;
+  /** Votes on the finished match. Called on each poll until the next match or the room closes. */
+  onVotes?: (votes: SeatVote[]) => void;
   setErr: (msg: string) => void;
   setStatus: (msg: string) => void;
   setNames: (names: string[]) => void;
@@ -265,6 +267,7 @@ export function startRoomSync(opts: RoomSyncOptions): () => void {
         });
         return;
       }
+      if (st.started && snap.phase === "done") h.onVotes?.(snap.votes);
       if (!many && snap.forfeit != null && !st.gaveUp) {
         st.gaveUp = true;
         const other = me === 0 ? 1 : 0;

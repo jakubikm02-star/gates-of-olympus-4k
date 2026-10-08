@@ -18,7 +18,7 @@ import {
   tickDuel,
   type Duel,
 } from "./duel.ts";
-import { claimQuery, forfeitQuery, rematchQuery, roomFull, seatPrefix } from "./duel-api.ts";
+import { claimQuery, forfeitQuery, rematchQuery, roomFull, seatPrefix, voteOutcome } from "./duel-api.ts";
 import { newDeposit, settleDeposit } from "./duel-deposit.ts";
 import { duelSummary } from "./duel-setup.ts";
 
@@ -190,6 +190,15 @@ describe("versus: room queries + money", () => {
   it("odveta patches the same code only while the finished round is still current", () => {
     assert.equal(rematchQuery("AB12", 1), "duel_rooms?code=eq.AB12&round=eq.1");
     assert.equal(rematchQuery("ZZ99", 3.8), "duel_rooms?code=eq.ZZ99&round=eq.3");
+  });
+  it("odveta waits until every seat has voted", () => {
+    assert.equal(voteOutcome([null, null]), "wait");
+    assert.equal(voteOutcome(["rematch", null]), "wait");
+    assert.equal(voteOutcome(["rematch", "rematch"]), "go");
+    assert.equal(voteOutcome(["rematch", "rematch", "rematch", "rematch"]), "go");
+    assert.equal(voteOutcome(["rematch", "port"]), "stop");
+    assert.equal(voteOutcome(["port", null]), "wait");
+    assert.equal(voteOutcome(["port", "port"]), "stop");
   });
   it("room is full when every seat has a name", () => {
     assert.equal(roomFull({ seats: [{ name: "A" }, { name: "B" }, { name: "" }] as never }), false);
