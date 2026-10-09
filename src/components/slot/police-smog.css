@@ -178,6 +178,31 @@
   }
 }
 
+/* Wide windows: the mask plus rotating 92vmax layers is a main-thread repaint on desktop
+   Chromium (fine on a phone, where the same layers are a fraction of the pixels). Keep the
+   red/blue pulse, drop the drift, the sweep and the mask. */
+@media (min-width: 721px) {
+  .police-smog {
+    -webkit-mask-image: none;
+    mask-image: none;
+    --ps-lo: 0.1;
+    --ps-hi: 0.34;
+  }
+  .police-smog.is-full {
+    --ps-lo: 0.16;
+    --ps-hi: 0.5;
+  }
+  .police-smog .ps-fog,
+  .police-smog .ps-beam {
+    animation: none;
+    will-change: auto;
+  }
+  .police-smog .ps-beam,
+  .police-smog .ps-f2 {
+    display: none;
+  }
+}
+
 /* Reduced motion: one static soft glow, red left / blue right. */
 .police-smog.is-static,
 .police-smog.is-static * {

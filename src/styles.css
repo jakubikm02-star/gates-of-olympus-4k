@@ -826,8 +826,11 @@
   color: #fff6c8;
 }
 
-.stage.in-chase .stage-bg {
-  filter: saturate(0.55) brightness(0.42) contrast(1.08);
+.stage.in-chase .stage-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.5);
 }
 
 /* The police lights during ZÁSAH are <PoliceSmog /> (police-smog.css). */
@@ -10764,7 +10767,19 @@ html:-webkit-full-screen {
   -webkit-backdrop-filter: none;
 }
 
-.stage.perf-lite .police-smog .ps-beam {
+.stage.perf-lite .police-smog {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.stage.perf-lite .police-smog,
+.stage.perf-lite .police-smog * {
+  animation: none;
+}
+.stage.perf-lite .police-smog .ps-side {
+  opacity: 0.22;
+}
+.stage.perf-lite .police-smog .ps-beam,
+.stage.perf-lite .police-smog .ps-f2 {
   display: none;
 }
 
