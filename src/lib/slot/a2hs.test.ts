@@ -132,7 +132,7 @@ describe("installGuide", () => {
   it("desktop: Chrome/Edge/Safari get a route, Firefox none", () => {
     assert.equal(guide(UA.winChrome)!.id, "desktop-chrome");
     assert.equal(guide(UA.winOpera)!.id, "desktop-opera");
-    assert.match(allText(UA.winOpera), /logo \*\*Opera\*\*/);
+    assert.match(allText(UA.winOpera), /PONUKA/);
     assert.equal(guide(UA.winEdge)!.id, "desktop-edge");
     assert.equal(guide(UA.macSafari)!.id, "mac-safari");
     assert.equal(guide(UA.winFirefox), null);

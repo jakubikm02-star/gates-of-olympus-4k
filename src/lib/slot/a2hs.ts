@@ -442,11 +442,11 @@ export function installGuide(env: InstallEnv): Guide | null {
       label,
       title: "Nainštaluj Parkizmus",
       steps: [
-        { icon: "monitor", text: "Vpravo v adresnom riadku klikni na ikonu **Inštalovať** (obrazovka so šípkou)" },
-        { icon: "menu", text: "Ak tam nie je: logo **Opera** vľavo hore → **Inštalovať Ports of Parkizmus**" },
-        { icon: "check", text: "Potvrď **Inštalovať**. Hra sa otvorí vo vlastnom okne, bez kariet." },
+        { icon: "monitor", text: "Dole vľavo v hre klikni na ikonu **obrazovky**" },
+        { icon: "menu", text: "V menu **PONUKA** tá položka nie je. Pri veľa kartách Opera schová aj adresný riadok." },
+        { icon: "check", text: "Klikni na **kartu** hry a vpravo v adrese hľadaj ikonu **Inštalovať**, potom potvrď." },
       ],
-      note: "Ikona sa ukáže až po načítaní stránky. V Opere GX ju hľadaj vpravo od adresy, pred posuvníkmi Easy Setup.",
+      note: "Otvorí sa vlastné okno bez kariet. Ak nič nevyskočí, daj tvrdý refresh (Ctrl+Shift+R) a klikni na ikonu v hre znova.",
       pointer: null,
     };
   }

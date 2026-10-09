@@ -29,6 +29,8 @@ import { PickBonus } from "./PickBonus";
 import { CountUp } from "./CountUp";
 import { RankBadge } from "./RankBadge";
 import { BootScreen } from "./BootScreen";
+import { AddToHome } from "./AddToHome";
+import { registerInstallSw } from "@/lib/slot/a2hs-client";
 import { ContestBanner } from "./ContestBanner";
 import { LiveHits } from "./LiveHits";
 import { MachineFrame } from "./MachineFrame";
@@ -193,6 +195,9 @@ function FsChip({ sym, full }: { sym: FsSymId; full?: boolean }) {
 
 export function SlotGame() {
   const g = useSlotGame();
+  useEffect(() => {
+    registerInstallSw();
+  }, []);
   const shell = useShell();
   // Board containers publish their size as px vars (see hooks/use-container-vars): no cq re-resolve per layout.
   const boardStageRef = useContainerVars();
@@ -609,6 +614,7 @@ export function SlotGame() {
         <footer className="bottom-hud">
           <div className="hud-left">
             <div className="hud-icons">
+            <AddToHome place="hud" />
             <button
               type="button"
               className="icon-btn"

@@ -147,6 +147,11 @@ export function AddToHome({ place = "boot" }: { place?: "boot" | "menu" }) {
 
   return (
     <>
+      {place === "hud" ? (
+        <button type="button" className="icon-btn" onClick={() => void onTap()} aria-label="Nainštalovať na počítač" title="Nainštalovať na počítač">
+          <MonitorDown size={15} strokeWidth={2.2} />
+        </button>
+      ) : (
       <button type="button" className={`a2hs-pill ${place === "menu" ? "is-menu" : ""} ${canPrompt ? "is-native" : ""}`} onClick={() => void onTap()} aria-haspopup={canPrompt ? undefined : "dialog"}>
         <span className="a2hs-pill-ico" aria-hidden="true">
           {place === "menu" ? <MonitorDown size={17} strokeWidth={2.2} /> : <Smartphone size={17} strokeWidth={2.2} />}
@@ -157,6 +162,7 @@ export function AddToHome({ place = "boot" }: { place?: "boot" | "menu" }) {
           <small>{canPrompt ? "inštalácia na 1 klik" : "vlastné okno, bez kariet"}</small>
         </span>
       </button>
+      )}
       {open && guide
         ? createPortal(
             <div className="a2hs-back" role="presentation" onClick={() => setOpen(false)}>

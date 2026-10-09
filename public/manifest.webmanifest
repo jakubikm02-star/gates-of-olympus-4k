@@ -1,7 +1,7 @@
 {
   "name": "Ports of Parkizmus",
   "short_name": "Parkizmus",
-  "id": "/parkizmus",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
