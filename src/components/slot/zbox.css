@@ -849,7 +849,7 @@
 @keyframes zb-scanline { from { transform: translateY(0); } to { transform: translateY(300%); } }
 .zb-cell.is-fresh .zb-in { animation: zb-in-glow 1.2s ease-out both; }
 @keyframes zb-in-glow { 0% { filter: brightness(1.8) saturate(1.2); } 100% { filter: none; } }
-.zb-cell.is-test .zb-scanline::before { animation-duration: 0.16s; }
+.zb-cell.is-test .zb-scanline::before { animation-duration: 0.32s; }
 .zb-cell.is-hit .zb-scanline::before { animation-duration: 0.42s; }
 
 .zb-fly {

@@ -439,7 +439,7 @@ export function ZboxBonus({ play, bet, gross, net, tax, turbo, reduced, onDone }
         }
         const hits = new Map(r.parcels.map((p) => [p.id, p]));
         const fxBy = new Map(r.fx.filter((f) => !f.tick).map((f) => [f.by, f]));
-        const step = Math.max(70, Math.min(150, 1200 / Math.max(1, closed.length)));
+        const step = Math.max(140, Math.min(300, 2400 / Math.max(1, closed.length)));
         hurryRef.current = false;
         sweepRef.current = true;
         let found = 0;
@@ -448,7 +448,7 @@ export function ZboxBonus({ play, bet, gross, net, tax, turbo, reduced, onDone }
           setTest(id);
           if (!p) {
             if (!hurryRef.current && !fastRef.current) {
-              if (loud()) sfx.playZboxBeep(0.7);
+              if (loud()) sfx.playZboxScan();
               await wait(step);
             }
             setNil((n) => [...n, id]);

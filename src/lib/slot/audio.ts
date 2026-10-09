@@ -173,6 +173,10 @@ const FILES: Record<string, string> = {
   massive: "/sfx/pack/massive.flac?v=pack1",
   /** Ž-BOX (PAKEŤÁK). Synth when the file is empty. The roof can reuses Hrom + Plechovka. */
   zbox_beep: "/sfx/pack/zbox_beep.mp3?v=pack1",
+  /** Sken zatvorenej schránky. Three slots, shuffled, one per scan. Empty until the admin uploads; the beep plays. */
+  zbox_scan: "",
+  zbox_scan2: "",
+  zbox_scan3: "",
   zbox_open: "/sfx/pack/zbox_open.mp3?v=pack1",
   zbox_miss: "",
   zbox_slam: "/sfx/land2.mp3?v=keys1",
@@ -2201,6 +2205,35 @@ export function playZboxBeep(pitch = 1): void {
     if (playOwn("zbox_beep", { gain: 0.7, rate: pitch })) return;
     tone("square", 1568 * pitch, 0.06, 0.05);
     tone("square", 2093 * pitch, 0.07, 0.04, undefined, (ctx?.currentTime ?? 0) + 0.07);
+  });
+}
+
+const ZBOX_SCAN_SLOTS = ["zbox_scan", "zbox_scan2", "zbox_scan3"] as const;
+let zboxScanBag: string[] = [];
+
+/** Next scan cue: a fresh shuffle every three scans, so the three slots take turns in random order. */
+function nextZboxScan(): string {
+  if (!zboxScanBag.length) {
+    zboxScanBag = [...ZBOX_SCAN_SLOTS];
+    for (let i = zboxScanBag.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = zboxScanBag[i];
+      zboxScanBag[i] = zboxScanBag[j];
+      zboxScanBag[j] = tmp;
+    }
+  }
+  return zboxScanBag.pop() as string;
+}
+
+/** One sound per locker scan. Own upload on that slot, else the Ž-BOX beep. */
+export function playZboxScan(): void {
+  wake();
+  const key = nextZboxScan();
+  withCue(key, () => {
+    if (playOwn(key, { gain: 0.7 })) return;
+    if (playOwn("zbox_beep", { gain: 0.7, rate: 0.7 })) return;
+    tone("square", 1568 * 0.7, 0.06, 0.05);
+    tone("square", 2093 * 0.7, 0.07, 0.04, undefined, (ctx?.currentTime ?? 0) + 0.07);
   });
 }
 
