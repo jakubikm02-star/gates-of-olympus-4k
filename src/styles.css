@@ -10767,19 +10767,7 @@ html:-webkit-full-screen {
   -webkit-backdrop-filter: none;
 }
 
-.stage.perf-lite .police-smog {
-  -webkit-mask-image: none;
-  mask-image: none;
-}
-.stage.perf-lite .police-smog,
-.stage.perf-lite .police-smog * {
-  animation: none;
-}
-.stage.perf-lite .police-smog .ps-side {
-  opacity: 0.22;
-}
-.stage.perf-lite .police-smog .ps-beam,
-.stage.perf-lite .police-smog .ps-f2 {
+.stage.perf-lite .police-smog .ps-beam {
   display: none;
 }
 

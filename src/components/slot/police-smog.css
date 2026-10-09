@@ -120,40 +120,40 @@
 }
 @keyframes ps-drift-a {
   0% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(var(--ps-cover, 1));
   }
   50% {
-    transform: translate3d(7vmax, 5vmax, 0) rotate(48deg) scale(1.12);
+    transform: translate3d(7vmax, 5vmax, 0) rotate(48deg) scale(calc(var(--ps-cover, 1) * 1.12));
   }
   100% {
-    transform: translate3d(3vmax, 11vmax, 0) rotate(105deg) scale(0.95);
+    transform: translate3d(3vmax, 11vmax, 0) rotate(105deg) scale(calc(var(--ps-cover, 1) * 0.95));
   }
 }
 @keyframes ps-drift-b {
   0% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(1.05);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(calc(var(--ps-cover, 1) * 1.05));
   }
   50% {
-    transform: translate3d(5vmax, -6vmax, 0) rotate(-40deg) scale(0.92);
+    transform: translate3d(5vmax, -6vmax, 0) rotate(-40deg) scale(calc(var(--ps-cover, 1) * 0.92));
   }
   100% {
-    transform: translate3d(9vmax, -2vmax, 0) rotate(-85deg) scale(1.1);
+    transform: translate3d(9vmax, -2vmax, 0) rotate(-85deg) scale(calc(var(--ps-cover, 1) * 1.1));
   }
 }
 @keyframes ps-sweep-l {
   from {
-    transform: rotate(14deg);
+    transform: rotate(14deg) scale(var(--ps-beam-s, 1));
   }
   to {
-    transform: rotate(72deg);
+    transform: rotate(72deg) scale(var(--ps-beam-s, 1));
   }
 }
 @keyframes ps-sweep-r {
   from {
-    transform: rotate(166deg);
+    transform: rotate(166deg) scale(var(--ps-beam-s, 1));
   }
   to {
-    transform: rotate(108deg);
+    transform: rotate(108deg) scale(var(--ps-beam-s, 1));
   }
 }
 
@@ -178,28 +178,41 @@
   }
 }
 
-/* Wide windows: the mask plus rotating 92vmax layers is a main-thread repaint on desktop
-   Chromium (fine on a phone, where the same layers are a fraction of the pixels). Keep the
-   red/blue pulse, drop the drift, the sweep and the mask. */
+/* Wide windows keep the same haze, mask, drift and beams. The bitmaps are painted at a fixed
+   size and scaled up on the GPU, so a 1440p window does not rasterize four 2000px rotating layers. */
 @media (min-width: 721px) {
   .police-smog {
-    -webkit-mask-image: none;
-    mask-image: none;
-    --ps-lo: 0.1;
-    --ps-hi: 0.34;
+    --ps-cover: max(1, calc(92vmax / 720px));
+    --ps-beam-s: max(1, calc(125vmax / 960px));
   }
-  .police-smog.is-full {
-    --ps-lo: 0.16;
-    --ps-hi: 0.5;
+  .ps-fog {
+    width: 720px;
+    height: 720px;
   }
-  .police-smog .ps-fog,
-  .police-smog .ps-beam {
-    animation: none;
-    will-change: auto;
+  .ps-red .ps-f1 {
+    left: calc(-4vmax - 360px);
+    top: calc(12vmax - 360px);
   }
-  .police-smog .ps-beam,
-  .police-smog .ps-f2 {
-    display: none;
+  .ps-red .ps-f2 {
+    left: -360px;
+    top: calc(26vh + 46vmax - 360px);
+  }
+  .ps-blue .ps-f1 {
+    right: auto;
+    bottom: auto;
+    left: calc(100% + 4vmax - 360px);
+    top: calc(100% - 12vmax - 360px);
+  }
+  .ps-blue .ps-f2 {
+    right: auto;
+    bottom: auto;
+    left: calc(100% - 360px);
+    top: calc(100% - 26vh - 46vmax - 360px);
+  }
+  .ps-beam {
+    width: 960px;
+    height: 322px;
+    margin-top: -161px;
   }
 }
 

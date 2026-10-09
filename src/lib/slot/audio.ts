@@ -74,15 +74,46 @@ const playing: Partial<Record<string, { stop: () => void }>> = {};
 const CUT_PREV = new Set(["win", "winFull", "payout", "bigwin", "tumble", "pop", "tableA", "tableB", "massive"]);
 /** Player master volume, 0 … 2 (0 % … 200 %). Above 1 the limiter engages. */
 export const VOLUME_MAX = 2;
-/** Global master volume (admin-set, loaded from Supabase). 100 % until loaded or if the fetch fails. */
-let volume = 1;
+/** Global master volume (admin-set, loaded from Supabase). These are the saved mix until the fetch returns. */
+const DEFAULT_LEVELS: Record<string, number> = {
+  _master: 2,
+  anticipate: 1.1,
+  anticipation2: 1.1,
+  anticipation3: 1.1,
+  bed: 0.69,
+  collect: 0.1,
+  fsStart: 0.34,
+  harp: 0.5,
+  koleso_bankrot: 0.11,
+  koleso_solve: 0,
+  kontrola: 1.46,
+  land: 0.05,
+  land2: 0.42,
+  land3: 0.11,
+  massive: 1.69,
+  payout: 0,
+  spin: 0.35,
+  tableA: 0.59,
+  tableB: 0.61,
+  thunder: 0.8,
+  ticketOk: 1.4,
+  winFull: 1.5,
+  zap: 2,
+  zasah: 2,
+  zNeutral: 2,
+  zStart: 2,
+  zTax: 2,
+};
+let volume = DEFAULT_LEVELS._master;
 let out: GainNode | null = null;
 let limiter: DynamicsCompressorNode | null = null;
 const elSources = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
 /** Which per-sound bus an element routed by mediaSource() feeds ("" = straight to out). */
 const elRoute = new WeakMap<HTMLMediaElement, string>();
 /** Global per-sound volume, 0 … 2 (missing = 100 %). */
-const cueLevels: Record<string, number> = {};
+const cueLevels: Record<string, number> = Object.fromEntries(
+  Object.entries(DEFAULT_LEVELS).filter(([k]) => k !== "_master"),
+);
 /** Per-sound gain nodes: "fx:<key>" feeds sfx, "el:<key>" (HTMLAudio) feeds out. */
 const cueBuses = new Map<string, GainNode>();
 /** Slot that owns the sounds started right now (fallbacks play on the event's slider). */
@@ -102,52 +133,50 @@ const FILES: Record<string, string> = {
   land3: "/sfx/land3.mp3?v=keys1",
   click: "/sfx/click.mp3",
   win: "/sfx/win.mp3?v=phaser1",
-  winFull: "/sfx/win-full.mp3?v=tumble2",
-  payout: "/sfx/payout.mp3",
+  winFull: "/sfx/pack/winFull.mp3?v=pack1",
+  payout: "/sfx/pack/payout.mp3?v=pack1",
   coin: "/sfx/coin.mp3",
-  ticketOk: "/sfx/ticket-ok.mp3?v=garand1",
-  scatter: "/sfx/scatter.mp3",
+  ticketOk: "/sfx/pack/ticketOk.mp3?v=pack1",
+  scatter: "/sfx/pack/scatter.mp3?v=pack1",
   collect: "/sfx/collect.mp3",
   tumble: "/sfx/tumble.mp3?v=mech1",
   pop: "/sfx/pop.mp3?v=pneumatic1",
-  zap: "/sfx/zap.mp3?v=park1",
+  zap: "/sfx/pack/zap.mp3?v=pack1",
   electric: "/sfx/electric.mp3?v=park1",
-  thunder: "/sfx/thunder.mp3?v=park1",
+  thunder: "/sfx/pack/thunder.mp3?v=pack1",
   bigwin: "/sfx/bigwin.mp3",
-  tableA: "/sfx/table-a.mp3?v=glitch1",
-  tableB: "/sfx/table-b.mp3?v=fail1",
+  tableA: "/sfx/pack/tableA.mp3?v=pack1",
+  tableB: "/sfx/pack/tableB.mp3?v=pack1",
   siren: "/sfx/siren.mp3",
-  harp: "/sfx/harp.mp3",
-  kontrola: "/sfx/kontrola.mp3?v=ignition1",
-  fsStart: "/sfx/fs-start.mp3?v=build1",
-  anticipate: "/sfx/bonus-loop.mp3?v=4ka1",
-  /** Anticipation 2 (5th–9th tease in a row without a bonus) and 3 (10th+). Empty until the admin uploads;
-   *  an empty slot falls back anticipation3 → anticipation2 → anticipate (lib/slot/anticipation antiFallback). */
-  anticipation2: "",
-  anticipation3: "",
+  harp: "/sfx/pack/harp.mp3?v=pack1",
+  kontrola: "/sfx/pack/kontrola.mp3?v=pack1",
+  fsStart: "/sfx/pack/fsStart.mp3?v=pack1",
+  anticipate: "/sfx/pack/anticipate.flac?v=pack1",
+  /** Anticipation 2 (5th–9th tease in a row without a bonus) and 3 (10th+). */
+  anticipation2: "/sfx/pack/anticipation2.flac?v=pack1",
+  anticipation3: "/sfx/pack/anticipation3.flac?v=pack1",
   can: "/sfx/can-open.mp3?v=open2",
-  /** Blesk do plechovky: the bolt hits a winning can (activation). Until the admin uploads one, Elektrika's crackle. */
-  can_lightning: "/sfx/electric.mp3?v=park1",
-  bed: "/sfx/fs-bed.flac?v=woops1",
-  zasah: "/sfx/zasah-bed.mp3?v=hardline1",
-  /** Zásah one-shots. Empty until the admin uploads; the game keeps the old cue. */
-  zStart: "/sfx/kontrola.mp3?v=ignition1",
-  zTravel: "/sfx/zap.mp3?v=park1",
-  zHit: "/sfx/coin.mp3",
-  zFs: "/sfx/thunder.mp3?v=park1",
+  /** Blesk do plechovky: the bolt hits a winning can (activation). */
+  can_lightning: "/sfx/pack/can_lightning.mp3?v=pack1",
+  bed: "/sfx/pack/bed.flac?v=pack1",
+  zasah: "/sfx/pack/zasah.mp3?v=pack1",
+  /** Zásah one-shots. */
+  zStart: "/sfx/pack/zStart.mp3?v=pack1",
+  zTravel: "/sfx/pack/zTravel.mp3?v=pack1",
+  zHit: "/sfx/pack/zHit.mp3?v=pack1",
+  zFs: "/sfx/pack/zFs.mp3?v=pack1",
   zHeart: "",
-  zEscape: "/sfx/ticket-ok.mp3?v=garand1",
-  zTax: "/sfx/table-b.mp3?v=fail1",
-  zNeutral: "",
-  /** MASÍVNA VÝHRA (250×+). Until the admin uploads one, the game plays the big-win fanfare (A/B). */
-  massive: "/sfx/table-a.mp3?v=glitch1",
-  /** Ž-BOX (PAKEŤÁK). Built-in defaults until the admin uploads: synth keypad beep / synth buzzer when the file
-   *  is empty, existing files otherwise — never silent. The roof can reuses Hrom + Plechovka. */
-  zbox_beep: "",
-  zbox_open: "/sfx/collect.mp3",
+  zEscape: "/sfx/pack/zEscape.mp3?v=pack1",
+  zTax: "/sfx/pack/zTax.mp3?v=pack1",
+  zNeutral: "/sfx/pack/zNeutral.mp3?v=pack1",
+  /** MASÍVNA VÝHRA (250×+). */
+  massive: "/sfx/pack/massive.flac?v=pack1",
+  /** Ž-BOX (PAKEŤÁK). Synth when the file is empty. The roof can reuses Hrom + Plechovka. */
+  zbox_beep: "/sfx/pack/zbox_beep.mp3?v=pack1",
+  zbox_open: "/sfx/pack/zbox_open.mp3?v=pack1",
   zbox_miss: "",
   zbox_slam: "/sfx/land2.mp3?v=keys1",
-  zbox_full: "/sfx/ticket-ok.mp3?v=garand1",
+  zbox_full: "/sfx/pack/zbox_full.mp3?v=pack1",
   /** KOLESO NEŠŤASTIA. Effects: synth when empty (pointer tick, tile ding, buzzer), existing files otherwise. */
   koleso_tick: "",
   koleso_letter: "",
@@ -155,19 +184,19 @@ const FILES: Record<string, string> = {
   koleso_bankrot: "/sfx/table-b.mp3?v=fail1",
   koleso_solve: "/sfx/ticket-ok.mp3?v=garand1",
   /** Host lines (Peter Marcipán, fictional): original TTS takes v2 in public/sfx/koleso (scripts/koleso-vo/make_vo_v2.sh). */
-  koleso_vo_welcome: "/sfx/koleso/vo-welcome.mp3?v=k2",
-  koleso_vo_spin: "/sfx/koleso/vo-spin.mp3?v=k2",
-  koleso_vo_bankrot: "/sfx/koleso/vo-bankrot.mp3?v=k2",
-  koleso_vo_vowel: "/sfx/koleso/vo-vowel.mp3?v=k2",
-  koleso_vo_solve: "/sfx/koleso/vo-solve.mp3?v=k2",
-  koleso_vo_lost: "/sfx/koleso/vo-lost.mp3?v=k2",
+  koleso_vo_welcome: "/sfx/pack/koleso_vo_welcome.mp3?v=pack1",
+  koleso_vo_spin: "/sfx/pack/koleso_vo_spin.mp3?v=pack1",
+  koleso_vo_bankrot: "/sfx/pack/koleso_vo_bankrot.mp3?v=pack1",
+  koleso_vo_vowel: "/sfx/pack/koleso_vo_vowel.mp3?v=pack1",
+  koleso_vo_solve: "/sfx/pack/koleso_vo_solve.mp3?v=pack1",
+  koleso_vo_lost: "/sfx/pack/koleso_vo_lost.mp3?v=pack1",
   koleso_vo_tax: "/sfx/koleso/vo-tax.mp3?v=k2",
-  koleso_vo_exek: "/sfx/koleso/vo-exek.mp3?v=k2",
+  koleso_vo_exek: "/sfx/pack/koleso_vo_exek.mp3?v=pack1",
   koleso_vo_courier: "/sfx/koleso/vo-courier.mp3?v=k2",
-  koleso_vo_extra: "/sfx/koleso/vo-extra.mp3?v=k2",
-  koleso_vo_x2: "/sfx/koleso/vo-x2.mp3?v=k2",
-  koleso_vo_none: "/sfx/koleso/vo-none.mp3?v=k2",
-  koleso_vo_end: "/sfx/koleso/vo-end.mp3?v=k2",
+  koleso_vo_extra: "/sfx/pack/koleso_vo_extra.mp3?v=pack1",
+  koleso_vo_x2: "/sfx/pack/koleso_vo_x2.mp3?v=pack1",
+  koleso_vo_none: "/sfx/pack/koleso_vo_none.mp3?v=pack1",
+  koleso_vo_end: "/sfx/pack/koleso_vo_end.mp3?v=pack1",
 };
 
 const CUE_MAX = 50 * 1024 * 1024;
@@ -451,7 +480,7 @@ function dropLegacyVolumes(): void {
 }
 
 /** Last levels loaded from / saved to the server (what every player hears). */
-let savedLevels: Record<string, number> = {};
+let savedLevels: Record<string, number> = { ...DEFAULT_LEVELS };
 let levelsLoaded = false;
 
 function applyLevels(levels: Record<string, number>): void {
@@ -526,9 +555,9 @@ export async function saveVolumes(password: string): Promise<string | null> {
 }
 
 /** Per-sound cut-off + fade-out (preview edits live here until saved). Missing = off / 0 ms. */
-let cueFades: Record<string, CueFade> = {};
+let cueFades: Record<string, CueFade> = { fsStart: { maxS: null, fadeMs: 3000 } };
 /** Last fades loaded from / saved to the server (or the localStorage fallback). */
-let savedFades: Record<string, CueFade> = {};
+let savedFades: Record<string, CueFade> = { fsStart: { maxS: null, fadeMs: 3000 } };
 /** Where savedFades came from: built-in defaults, this device's localStorage copy, or public.sfx_fade. */
 let fadesFrom: "default" | "local" | "server" = "default";
 
