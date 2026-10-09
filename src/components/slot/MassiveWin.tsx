@@ -96,12 +96,15 @@ export function MassiveWin({
   x,
   tax = null,
   onClose,
+  resume = 0,
 }: {
   amount: number;
   x: number;
   /** BEZ DANE / DAŇOVÝ ÚNIK step behind `amount` (display only; `amount` is already what is credited). */
   tax?: TaxFly | null;
   onClose: () => void;
+  /** Remaining autospins. 0 = not in auto. Shown on the VIDENÉ tap so the pause is obvious. */
+  resume?: number;
 }) {
   const reduced = useMemo(
     () =>
@@ -270,7 +273,7 @@ export function MassiveWin({
             )}
           </div>
           {done ? (
-            <p key="go" className="mw-hint is-go">Ťukni pre pokračovanie</p>
+            <p key="go" className="mw-hint is-go">VIDENÉ{resume > 0 ? ` · AUTO ${resume}` : ""}</p>
           ) : (
             <p key="skip" className="mw-hint">ťukni a preskoč</p>
           )}

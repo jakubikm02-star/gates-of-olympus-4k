@@ -173,10 +173,11 @@ const FILES: Record<string, string> = {
   massive: "/sfx/pack/massive.flac?v=pack1",
   /** Ž-BOX (PAKEŤÁK). Synth when the file is empty. The roof can reuses Hrom + Plechovka. */
   zbox_beep: "/sfx/pack/zbox_beep.mp3?v=pack1",
-  /** Sken zatvorenej schránky. Three slots, shuffled, one per scan. Empty until the admin uploads; the beep plays. */
+  /** Sken zatvorenej schránky. Slots 1–3 are shuffled, one per scan. Slot 4 is the echo at the end of every wave, not in the shuffle. Empty until the admin uploads; the beep plays. */
   zbox_scan: "",
   zbox_scan2: "",
   zbox_scan3: "",
+  zbox_scan4: "",
   zbox_open: "/sfx/pack/zbox_open.mp3?v=pack1",
   zbox_miss: "",
   zbox_slam: "/sfx/land2.mp3?v=keys1",
@@ -2225,7 +2226,7 @@ function nextZboxScan(): string {
   return zboxScanBag.pop() as string;
 }
 
-/** One sound per locker scan. Own upload on that slot, else the Ž-BOX beep. */
+/** One sound per locker scan. Own upload on that slot, else the Ž-BOX beep. Slot 4 is not in this bag. */
 export function playZboxScan(): void {
   wake();
   const key = nextZboxScan();
@@ -2235,6 +2236,19 @@ export function playZboxScan(): void {
     tone("square", 1568 * 0.7, 0.06, 0.05);
     tone("square", 2093 * 0.7, 0.07, 0.04, undefined, (ctx?.currentTime ?? 0) + 0.07);
   });
+}
+
+/** Echo of the last shot. Every scan wave ends on this slot, after the last locker's own sound. */
+export function playZboxScanTail(): void {
+  window.setTimeout(() => {
+    wake();
+    withCue("zbox_scan4", () => {
+      if (playOwn("zbox_scan4", { gain: 0.62 })) return;
+      if (playOwn("zbox_beep", { gain: 0.4, rate: 0.55 })) return;
+      tone("square", 1568 * 0.5, 0.09, 0.04);
+      tone("square", 2093 * 0.5, 0.12, 0.03, undefined, (ctx?.currentTime ?? 0) + 0.1);
+    });
+  }, 160);
 }
 
 /** Mode strip tick (quiet beep while the tiles pass). */

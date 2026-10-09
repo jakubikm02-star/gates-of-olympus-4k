@@ -42,6 +42,7 @@ import { contractCatalog } from "@/lib/slot/spend";
 import { saveContractTitles, subscribeContracts } from "@/lib/slot/job-titles";
 import { hudState, makeTapCounter, setHudEnabled } from "@/lib/slot/debug-hud";
 import { BUILD_ID } from "@/lib/slot/release";
+import { changeDayLabel, recentChanges } from "@/lib/slot/changelog";
 
 /** Build label; five quick taps toggle the hidden debug HUD. */
 function BuildTag() {
@@ -103,10 +104,11 @@ const SOUND_CUES: { id: string; name: string; loop?: boolean; when?: string; hea
   { id: "zNeutral", name: "Koniec bez ničoho", when: "Čo robí: zásah skončí bez úniku aj bez dane. Odporúčanie: krátke povzdychnutie. Kým nenahráš vlastný, nehrá nič." },
   { id: "kontrola", name: "Kontrola", when: "Štart KONTROLA." },
   { id: "zb-head", name: "Ž-BOX (Pakeťák)", head: true },
-  { id: "zbox_beep", name: "Ž-BOX pípnutie", when: "Čo robí: pípnutie displeja Ž-BOXu: výber režimu, štart a nájdený balík. Sken zatvorenej schránky má tri vlastné sloty. Odporúčanie: krátke pípnutie klávesnice, do 0,3 s. Kým nenahráš vlastný, hrá sa syntetické dvojpípnutie." },
-  { id: "zbox_scan", name: "Ž-BOX sken 1", when: "Čo robí: sken zatvorenej schránky. Tri skeny sa striedajú v náhodnom poradí, každý sken jeden. Odporúčanie: krátky sken, do 0,6 s. Kým nenahráš vlastný, hrá sa pípnutie." },
+  { id: "zbox_beep", name: "Ž-BOX pípnutie", when: "Čo robí: pípnutie displeja Ž-BOXu: výber režimu, štart a nájdený balík. Sken zatvorenej schránky má tri vlastné sloty a štvrtý ako ozvenu na konci vlny. Odporúčanie: krátke pípnutie klávesnice, do 0,3 s. Kým nenahráš vlastný, hrá sa syntetické dvojpípnutie." },
+  { id: "zbox_scan", name: "Ž-BOX sken 1", when: "Čo robí: sken zatvorenej schránky. Skeny 1–3 sa striedajú v náhodnom poradí, každý sken jeden. Štvrtý slot v tom poradí nie je. Odporúčanie: krátky sken, do 0,6 s. Kým nenahráš vlastný, hrá sa pípnutie." },
   { id: "zbox_scan2", name: "Ž-BOX sken 2", when: "Druhý sken. Strieda sa so skenom 1 a 3, každý prechod schránkou jeden, v náhodnom poradí." },
   { id: "zbox_scan3", name: "Ž-BOX sken 3", when: "Tretí sken. Strieda sa so skenom 1 a 2." },
+  { id: "zbox_scan4", name: "Ž-BOX sken 4", when: "Čo robí: ozvena na konci každej vlny. Posledná schránka vo vlne vždy dohrá týmto slotom, po svojom skene alebo zásahu. Nie je v náhodnom poradí skenov 1–3. Odporúčanie: krátka ozvena toho istého výstrelu, do 0,8 s. Kým nenahráš vlastný, hrá sa tichšie pípnutie." },
   { id: "zbox_open", name: "Ž-BOX otvorenie", when: "Čo robí: dvierka sa otvoria, vyskočí balík a cvakne zelený zámok. Odporúčanie: cvak zámku + krátke ťuknutie, 0,3–0,8 s. Kým nenahráš vlastný, hrá sa Zber." },
   { id: "zbox_miss", name: "Ž-BOX nedoručené", when: "Čo robí: pokus bez balíka, NEDORUČENÉ (zhasne jedno doručovacie okno). Odporúčanie: suchý bzučiak „mimo prevádzky“, do 0,6 s. Kým nenahráš vlastný, hrá sa syntetický bzučiak." },
   { id: "zbox_slam", name: "Ž-BOX zatvorenie", when: "Čo robí: na konci sa dvierka zabuchnú rad po rade (Ž-BOX SA ZATVÁRA), raz na rad. Odporúčanie: tupé buchnutie plechových dvierok, do 0,4 s. Kým nenahráš vlastný, hrá sa Dopad 2." },
@@ -625,6 +627,30 @@ function VolumeSave({ password }: { password: string }) {
   );
 }
 
+function ChangeLog() {
+  const groups = recentChanges();
+  if (!groups.length) return <p className="sound-note">Za posledný týždeň žiadna zmena.</p>;
+  return (
+    <div className="change-log">
+      <p className="sound-note">Čo sa v hre zmenilo. Drží sa len posledný týždeň, po dňoch.</p>
+      {groups.map((group) => (
+        <section key={group.day}>
+          <h3>{changeDayLabel(group.day)}</h3>
+          <table>
+            <tbody>
+              {group.items.map((text) => (
+                <tr key={text}>
+                  <td>{text}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 export function Settings({
   open,
   onClose,
@@ -641,6 +667,7 @@ export function Settings({
   const [zboxHelp, setZboxHelp] = useState(() => !zboxHelpOff());
   const [kolesoHelp, setKolesoHelp] = useState(() => !kolesoHelpOff());
   const [kolesoEnv, setKolesoEnv] = useState(() => kolesoEnvelopes());
+  const [tab, setTab] = useState<"hra" | "zmeny">("hra");
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -660,6 +687,7 @@ export function Settings({
     setPass("");
     setGate("");
     setBusy(false);
+    setTab("hra");
   }, [open]);
   if (!open) return null;
   const enter = async () => {
@@ -678,6 +706,18 @@ export function Settings({
             ×
           </button>
         </header>
+        <div className="set-tabs" role="tablist" aria-label="Nastavenia">
+          <button type="button" role="tab" aria-selected={tab === "hra"} className={tab === "hra" ? "on" : ""} onClick={() => setTab("hra")}>
+            Hra
+          </button>
+          <button type="button" role="tab" aria-selected={tab === "zmeny"} className={tab === "zmeny" ? "on" : ""} onClick={() => setTab("zmeny")}>
+            Zmeny
+          </button>
+        </div>
+        {tab === "zmeny" ? (
+          <ChangeLog />
+        ) : (
+          <>
         <div className="settings-privacy">
           <AddToHome place="menu" />
           <p className="sound-note">
@@ -775,6 +815,8 @@ export function Settings({
               {busy ? "…" : "VSTÚPIŤ"}
             </button>
           </form>
+        )}
+          </>
         )}
         <BuildTag />
       </div>

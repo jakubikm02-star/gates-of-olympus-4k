@@ -250,11 +250,15 @@ describe("stats + sfx + copy", () => {
   it("Ž-BOX sound cues exist, are listed in Settings and have a default", () => {
     const keys = cueKeys();
     const settings = src("../../components/slot/Settings.tsx");
-    for (const k of ["zbox_beep", "zbox_scan", "zbox_scan2", "zbox_scan3", "zbox_open", "zbox_miss", "zbox_slam", "zbox_full"]) {
+    const audio = src("./audio.ts");
+    for (const k of ["zbox_beep", "zbox_scan", "zbox_scan2", "zbox_scan3", "zbox_scan4", "zbox_open", "zbox_miss", "zbox_slam", "zbox_full"]) {
       assert.ok(keys.includes(k), k);
       assert.ok(settings.includes(`"${k}"`), `Settings lists ${k}`);
       assert.equal(typeof cueSrc(k), "string");
     }
+    assert.match(audio, /const ZBOX_SCAN_SLOTS = \["zbox_scan", "zbox_scan2", "zbox_scan3"\]/);
+    assert.ok(audio.includes("playZboxScanTail"));
+    assert.ok(src("../../components/slot/ZboxBonus.tsx").includes("playZboxScanTail"));
   });
   it("Ž-BOX copy is Slovak", () => {
     const ui = src("../../components/slot/ZboxBonus.tsx");

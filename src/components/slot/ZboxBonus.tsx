@@ -443,13 +443,18 @@ export function ZboxBonus({ play, bet, gross, net, tax, turbo, reduced, onDone }
         hurryRef.current = false;
         sweepRef.current = true;
         let found = 0;
-        for (const id of closed) {
+        for (let idx = 0; idx < closed.length; idx++) {
+          const id = closed[idx];
+          const tail = idx === closed.length - 1;
           const p = hits.get(id);
           setTest(id);
           if (!p) {
             if (!hurryRef.current && !fastRef.current) {
               if (loud()) sfx.playZboxScan();
+              if (tail && loud()) sfx.playZboxScanTail();
               await wait(step);
+            } else if (tail && loud()) {
+              sfx.playZboxScanTail();
             }
             setNil((n) => [...n, id]);
             continue;
@@ -457,6 +462,7 @@ export function ZboxBonus({ play, bet, gross, net, tax, turbo, reduced, onDone }
           setTest(null);
           setHit(id);
           if (loud()) sfx.playZboxBeep(1.2);
+          if (tail && loud()) sfx.playZboxScanTail();
           sweepRef.current = false;
           await wait(420);
           setHit(null);

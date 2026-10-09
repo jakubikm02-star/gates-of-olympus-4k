@@ -76,7 +76,7 @@ function store(): Storage | null {
  * Install affordance. `boot` is the intro pill. `menu` is a row inside Settings, so a desktop
  * player who is already in the game can still install (Opera hides its own icon until we ask).
  */
-export function AddToHome({ place = "boot" }: { place?: "boot" | "menu" }) {
+export function AddToHome({ place = "boot" }: { place?: "boot" | "menu" | "hud" }) {
   const [env, setEnv] = useState<InstallEnv | null>(null);
   const [canPrompt, setCanPrompt] = useState(false);
   const [hidden, setHidden] = useState(true);

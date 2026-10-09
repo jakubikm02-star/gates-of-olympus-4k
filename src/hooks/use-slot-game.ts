@@ -366,6 +366,13 @@ export function useSlotGame() {
   const balanceRef = useRef(balance);
   const betIndexRef = useRef(betIndex);
   const autoRef = useRef(false);
+  /** Spins still queued. The ceremony must not zero this. */
+  const autoLeftRef = useRef(0);
+  /** Big win / jackpot is on screen during auto: keep the queue and resume after VIDENÉ. */
+  const autoHoldRef = useRef(false);
+  /** Spins still queued when the ceremony opened. VIDENÉ restores this if the counter was wiped. */
+  const autoHoldLeftRef = useRef(0);
+  const playRoundRef = useRef<() => Promise<void>>(async () => {});
   const autoHaltRef = useRef(true);
   const busyRef = useRef(false);
   const extraFsRef = useRef(0);
@@ -423,6 +430,9 @@ export function useSlotGame() {
   const autoFloorRef = useRef(0);
   const bannerWait = useRef<(() => void) | null>(null);
   const bannerOpen = useRef(false);
+  const jpWait = useRef<(() => void) | null>(null);
+  /** Ignore STOP for a moment after VIDENÉ, so the same tap cannot clear the remaining spins. */
+  const ceremonyUntil = useRef(0);
   const pickWait = useRef<(() => void) | null>(null);
   const pickOpenRef = useRef(false);
   const pickEndedRef = useRef(false);
@@ -507,7 +517,8 @@ export function useSlotGame() {
   inFsRef.current = inFs;
   balanceRef.current = balance;
   betIndexRef.current = betIndex;
-  autoRef.current = autoOn;
+  autoRef.current = autoHoldRef.current || autoOn;
+  if (!autoHoldRef.current) autoLeftRef.current = autoLeft;
   statsOpenRef.current = statsOpen;
   autoHaltRef.current = autoHalt;
   busyRef.current = busy;
@@ -1332,7 +1343,10 @@ export function useSlotGame() {
       return;
     }
     setBustAsk(false);
+    autoHoldRef.current = false;
+    autoHoldLeftRef.current = 0;
     autoRef.current = false;
+    autoLeftRef.current = 0;
     setAutoOn(false);
     setAutoLeft(0);
     if (chaseRef.current) {
@@ -1554,16 +1568,61 @@ export function useSlotGame() {
     }
   }, [applyBoard, bumpToday]);
 
+  const killAuto = useCallback((reason: string | null) => {
+    autoHoldRef.current = false;
+    autoHoldLeftRef.current = 0;
+    autoRef.current = false;
+    autoLeftRef.current = 0;
+    setAutoOn(false);
+    setAutoLeft(0);
+    setAutoReason(reason);
+  }, []);
+
+  /** Win / jackpot screen. Does not clear the queue. ZÁSAH and a duel are not paused, they stay manual. */
+  const pauseAutoForCeremony = useCallback(() => {
+    if (chaseRef.current || duelRef.current) return;
+    if (!autoRef.current) return;
+    autoHoldRef.current = true;
+    autoHoldLeftRef.current = Math.max(0, autoLeftRef.current);
+  }, []);
+
+  /** VIDENÉ. Puts the remaining spins back and lets the queue continue. */
+  const resumeAutoAfterCeremony = useCallback(() => {
+    if (!autoHoldRef.current) return;
+    const left = Math.max(autoLeftRef.current, autoHoldLeftRef.current);
+    autoHoldRef.current = false;
+    autoHoldLeftRef.current = 0;
+    if (chaseRef.current || left <= 0) return;
+    autoLeftRef.current = left;
+    autoRef.current = true;
+    setAutoLeft(left);
+    setAutoOn(true);
+    setAutoReason(null);
+  }, []);
+
   const closeBanner = useCallback(() => {
     if (!bannerOpen.current && !bannerWait.current) return;
     bannerOpen.current = false;
+    ceremonyUntil.current = Date.now() + 1200;
     setBanner(null);
     const done = bannerWait.current;
     bannerWait.current = null;
     noteStat({ t: "ui", what: "skipBanner" });
     sfx.playClick();
+    resumeAutoAfterCeremony();
     done?.();
-  }, [noteStat]);
+  }, [noteStat, resumeAutoAfterCeremony]);
+
+  /** Jackpot ceremony: the player taps VIDENÉ. Auto is only paused, the remaining spins stay. */
+  const dismissJp = useCallback(() => {
+    const done = jpWait.current;
+    if (!done) return;
+    jpWait.current = null;
+    ceremonyUntil.current = Date.now() + 1200;
+    sfx.playClick();
+    resumeAutoAfterCeremony();
+    done();
+  }, [resumeAutoAfterCeremony]);
 
   const armChase = useCallback((stake: number): boolean => {
     if (chaseRef.current || heatRef.current < HEAT_MAX) return false;
@@ -1578,10 +1637,7 @@ export function useSlotGame() {
     chaseRef.current = next;
     setChase(next);
     setHackWindows([]);
-    autoRef.current = false;
-    setAutoOn(false);
-    setAutoLeft(0);
-    setAutoReason("AUTO STOP · ZÁSAH");
+    killAuto("AUTO STOP · ZÁSAH");
     setTopLine("ZÁSAH · 10 SPINOV");
     setMessage("ZÁSAH");
     chaseArmedAtRef.current = Date.now();
@@ -1589,7 +1645,7 @@ export function useSlotGame() {
     noteStat({ t: "ui", what: "autoStop", why: "zasah" });
     sfx.playSiren();
     return true;
-  }, [noteStat]);
+  }, [noteStat, killAuto]);
 
   const closeFsReveal = useCallback(() => {
     const done = fsRevealWait.current;
@@ -1708,6 +1764,7 @@ export function useSlotGame() {
       const share = main.share > 0 ? main.share : TIER_BY_ID[main.id].winnerShare;
       const shown: JackpotHit = { ...main, payout: main.payout, poolBefore, share };
       jpShowRef.current = true;
+      pauseAutoForCeremony();
       setJpHit(shown);
       setDisplayWin((w) => +(w + payout).toFixed(2));
       setSpinWin((w) => +(w + payout).toFixed(2));
@@ -1720,27 +1777,32 @@ export function useSlotGame() {
       }
       if (credit > 0) noteStat({ t: "jackpot", tier: main.id, payout: credit, poolBefore, credit });
       setSpinTape((t) => [{ label: shown.name, amount: formatMoney(payout) }, ...t].slice(0, 8));
-      if (autoRef.current && !duelRef.current) {
-        autoRef.current = false;
-        setAutoOn(false);
-        setAutoLeft(0);
-        setAutoReason("AUTO STOP · JACKPOT");
-        noteStat({ t: "ui", what: "autoStop", why: "jackpot" });
-      }
       setPhase("max");
       setTopLine(
         `${shown.name} ${formatMoney(poolBefore)} · ${Math.round(share * 100)} % = ${formatMoney(shown.payout)}`,
       );
       sfx.playMaxWin();
+      const duelJp = Boolean(duelRef.current);
       try {
-        await wait(2400);
+        await new Promise<void>((resolve) => {
+          jpWait.current = resolve;
+          // A duel must not wait on a tap. Outside a duel the player dismisses VIDENÉ and auto continues.
+          if (duelJp) {
+            window.setTimeout(() => {
+              if (jpWait.current !== resolve) return;
+              jpWait.current = null;
+              resolve();
+            }, 2400);
+          }
+        });
       } finally {
+        jpWait.current = null;
         setJpHit(null);
         jpShowRef.current = false;
         setPots(board.pots);
       }
     },
-    [bumpToday, noteHeat, noteStat],
+    [bumpToday, noteHeat, noteStat, pauseAutoForCeremony],
   );
 
   const runTicket = useCallback(
@@ -1829,9 +1891,7 @@ export function useSlotGame() {
       const tr = ticketRp(next, standing(rankRef.current.rp).id);
       if (tr.fail) pushRank(tr.fail, rpParts(tr.fail, "fromTicket"), "ticket");
       setSpinTape((t) => [{ label: "TIKET", amount: `−${formatMoney(next.stake)} · −${Math.abs(tr.fail)} RP` }, ...t].slice(0, 8));
-      autoRef.current = false;
-      setAutoOn(false);
-      setAutoLeft(0);
+      killAuto(null);
       setLcdFlash({ job: next, verdict: "fail" });
       setTicketSeal({ job: next, verdict: "fail" });
       stampDailyJob(next, "fail");
@@ -1857,7 +1917,7 @@ export function useSlotGame() {
       jobRef.current = next;
       setJob(next);
     }
-  }, [pushRank, rollRpDayNow, stampDailyJob, noteTicket, noteHeat, noteStat]);
+  }, [pushRank, rollRpDayNow, stampDailyJob, noteTicket, noteHeat, noteStat, killAuto]);
 
   const failParknetJob = useCallback((cur: JobCard, line = "NEÚSPEŠNÝ TIKET · MÁLO KREDITU NA 4KA TV") => {
     const burned = { ...cur, seal: false, spun: cur.limit };
@@ -1867,9 +1927,7 @@ export function useSlotGame() {
     const tr = ticketRp(burned, standing(rankRef.current.rp).id);
     if (tr.fail) pushRank(tr.fail, rpParts(tr.fail, "fromTicket"), "ticket");
     setSpinTape((t) => [{ label: "TIKET", amount: `−${formatMoney(burned.stake)} · −${Math.abs(tr.fail)} RP` }, ...t].slice(0, 8));
-    autoRef.current = false;
-    setAutoOn(false);
-    setAutoLeft(0);
+    killAuto(null);
     setLcdFlash({ job: burned, verdict: "fail" });
     setTicketSeal({ job: burned, verdict: "fail" });
     stampDailyJob(burned, "fail");
@@ -1892,7 +1950,7 @@ export function useSlotGame() {
       reason: "parknet",
     });
     sfx.playThunder();
-  }, [pushRank, stampDailyJob, noteTicket, noteStat]);
+  }, [pushRank, stampDailyJob, noteTicket, noteStat, killAuto]);
 
   /** ZÁSAH that can no longer be paid ends quietly: no outcome, no RP, no klienti. */
   const voidChase = useCallback(() => {
@@ -1930,11 +1988,8 @@ export function useSlotGame() {
       setJobToast(why);
     };
     const haltAuto = () => {
-      if (!autoRef.current && !autoOn) return;
-      autoRef.current = false;
-      setAutoOn(false);
-      setAutoLeft(0);
-      setAutoReason("AUTO STOP · MÁLO KREDITU");
+      if (!autoRef.current && !autoOn && autoLeftRef.current <= 0) return;
+      killAuto("AUTO STOP · MÁLO KREDITU");
     };
     const cur = jobRef.current;
     if (cur && !cur.seal) {
@@ -1976,7 +2031,7 @@ export function useSlotGame() {
     }
     // Not even the smallest bet: a chase cannot go on, EXEKÚCIA opens.
     if (chaseRef.current) voidChase();
-  }, [hydrated, started, busy, inFs, duel, duelLink, ticketPause, balance, betIndex, ante, job, rp, chase, autoOn, failParknetJob, voidChase]);
+  }, [hydrated, started, busy, inFs, duel, duelLink, ticketPause, balance, betIndex, ante, job, rp, chase, autoOn, failParknetJob, voidChase, killAuto]);
 
   /**
    * Duel over (any end: result closed, VZDAŤ, lobby left, room failure, or a reload during the duel):
@@ -3172,9 +3227,11 @@ export function useSlotGame() {
           autoRef.current &&
           autoHaltRef.current &&
           (kind === "big" || kind === "mega" || kind === "epic" || kind === "massive" || kind === "max");
+        const clickWait = !escrow && (halt || kind === "massive");
+        if (clickWait) pauseAutoForCeremony();
         // MASÍVNA VÝHRA never auto-closes (also in autoplay): it waits for the taps (finish count, close).
         // In a duel nothing waits for a tap: the round must not stall the opponent or the duel clocks.
-        await waitForBanner(escrow ? duelBannerMs(kind) : halt || kind === "massive" ? "click" : 2800);
+        await waitForBanner(escrow ? duelBannerMs(kind) : clickWait ? "click" : 2800);
       }
 
       setWinMask(null);
@@ -3201,7 +3258,7 @@ export function useSlotGame() {
       if (pendingPick) return "pick";
       return "ok";
     },
-    [dur, waitForBanner, pushRank, noteResult, feedPool, runTicket, settleJob, armChase, endChase, noteHeat, persistNow, showFsReveal],
+    [dur, waitForBanner, pushRank, noteResult, feedPool, runTicket, settleJob, armChase, endChase, noteHeat, persistNow, showFsReveal, pauseAutoForCeremony],
   );
 
   /** Credit a finished duel once per duel and seat, show the result and record it. */
@@ -3278,10 +3335,7 @@ export function useSlotGame() {
   const settleDuel = useCallback((d: Duel) => {
     if (d.phase !== "done" || duelSettled.current) return;
     duelSettled.current = true;
-    autoRef.current = false;
-    setAutoOn(false);
-    setAutoLeft(0);
-    setAutoReason(null);
+    killAuto(null);
     const link = duelLinkRef.current;
     if (d.kind === "online" && link) {
       const gen = settleGen.current;
@@ -3577,6 +3631,7 @@ export function useSlotGame() {
           setPhase("big");
           setTopLine("MASÍVNA VÝHRA");
           sfx.playMassiveWin();
+          if (!roundEscrowRef.current) pauseAutoForCeremony();
           // Never auto-closes: autoplay waits here (paused) until the player taps it away. In a duel it does.
           // Win is already in the save — dismiss / navigate / reload cannot lose it.
           await waitForBanner(roundEscrowRef.current ? duelBannerMs("massive") : "click");
@@ -3599,6 +3654,7 @@ export function useSlotGame() {
         else if (featureTotal > 0 || hitCap) sfx.playBigWin();
         else sfx.playPayout();
         sfx.stopLiveBed();
+        if (!escrow) pauseAutoForCeremony();
         await waitForBanner(escrow ? duelBannerMs("fsTotal") : "click");
 
         setBannerMeta(null);
@@ -3758,12 +3814,7 @@ export function useSlotGame() {
       const r = await runSequence(opts);
       if (r === "skip") {
         // Nothing was charged or played: no rank, no buy settle, no duel tick. Auto must not burn its count.
-        if (autoRef.current) {
-          autoRef.current = false;
-          setAutoOn(false);
-          setAutoLeft(0);
-          setAutoReason("AUTO STOP · MÁLO KREDITU");
-        }
+        if (autoRef.current) killAuto("AUTO STOP · MÁLO KREDITU");
         return;
       }
       const betNow = BETS[betIndexRef.current];
@@ -3849,10 +3900,7 @@ export function useSlotGame() {
       }
 
       if (autoRef.current && autoHaltRef.current && !duelRef.current && !chaseRef.current && balanceRef.current <= autoFloorRef.current) {
-        autoRef.current = false;
-        setAutoOn(false);
-        setAutoLeft(0);
-        setAutoReason("AUTO STOP · 50% KREDIT");
+        killAuto("AUTO STOP · 50% KREDIT");
         noteStat({ t: "ui", what: "autoStop", why: "credit" });
       }
 
@@ -3872,12 +3920,7 @@ export function useSlotGame() {
         duelRef.current = next;
         setDuel(next);
         duelBlanks.current = 0;
-        if (next.phase === "swap" || next.phase === "done") {
-          autoRef.current = false;
-          setAutoOn(false);
-          setAutoLeft(0);
-          setAutoReason(null);
-        }
+        if (next.phase === "swap" || next.phase === "done") killAuto(null);
         if (next.phase === "done") settleDuel(next);
       }
     } catch {
@@ -4090,39 +4133,45 @@ export function useSlotGame() {
       return;
     }
     autoFloorRef.current = balanceRef.current * 0.5;
+    autoHoldRef.current = false;
+    autoHoldLeftRef.current = 0;
+    autoRef.current = true;
+    autoLeftRef.current = capped;
     setAutoReason(null);
     setAutoOn(true);
-    autoRef.current = true;
     setAutoLeft(capped);
   }, []);
 
   const stopAuto = useCallback(() => {
-    setAutoOn(false);
-    autoRef.current = false;
-    setAutoLeft(0);
-  }, []);
+    // A win or jackpot screen owns the tap (VIDENÉ). That click must not also hit STOP.
+    if (bannerOpen.current || jpShowRef.current || autoHoldRef.current || Date.now() < ceremonyUntil.current) return;
+    killAuto(null);
+  }, [killAuto]);
+
+  useEffect(() => {
+    playRoundRef.current = () => playRound();
+  }, [playRound]);
 
   useEffect(() => {
     if (!autoOn || busy || inFs || !started) return;
+    if (bannerOpen.current || jpShowRef.current || autoHoldRef.current) return;
     if (autoLeft <= 0) {
       setAutoOn(false);
       autoRef.current = false;
       return;
     }
-    let cancel = false;
-    void (async () => {
-      await wait(200);
-      if (cancel || !autoRef.current) return;
+    const timer = window.setTimeout(() => {
+      if (!autoRef.current || busyRef.current || bannerOpen.current || jpShowRef.current || autoHoldRef.current) return;
       if (inDuelLobby()) return;
       const live = duelRef.current;
       if (live && !canDuelSpin(live)) return;
-      setAutoLeft((n) => n - 1);
-      await playRound();
-    })();
-    return () => {
-      cancel = true;
-    };
-  }, [autoOn, autoLeft, busy, inFs, started, playRound, duel]);
+      const next = Math.max(0, autoLeftRef.current - 1);
+      autoLeftRef.current = next;
+      setAutoLeft(next);
+      void playRoundRef.current();
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [autoOn, autoLeft, busy, inFs, started, duel]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -4142,6 +4191,10 @@ export function useSlotGame() {
         return;
       }
       if (zboxWait.current || kolesoWait.current) return;
+      if (jpWait.current) {
+        dismissJp();
+        return;
+      }
       if (bannerOpen.current) {
         closeBanner();
         return;
@@ -4169,7 +4222,7 @@ export function useSlotGame() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [started, playRound, stopReels, closeBanner, finishPick, finishModeStrip, closeFsReveal]);
+  }, [started, playRound, stopReels, closeBanner, dismissJp, finishPick, finishModeStrip, closeFsReveal]);
 
   /** A deposit left pending with no duel or lobby around it (should not happen): refund it before a new one. */
   const clearStaleDeposit = () => {
@@ -4428,6 +4481,7 @@ export function useSlotGame() {
     bannerMeta,
     bannerTax,
     closeBanner,
+    dismissJp,
     pickOpen,
     pickTiles,
     pickRevealed,
@@ -4832,10 +4886,7 @@ export function useSlotGame() {
       abortReasonRef.current = kind === "both" ? "bothDropped" : "roomFailure";
       // The game failed, not a player: each seat keeps its own stack, the deposit comes back.
       duelSettled.current = true;
-      autoRef.current = false;
-      setAutoOn(false);
-      setAutoLeft(0);
-      setAutoReason(null);
+      killAuto(null);
       const next = abortDuel(cur);
       duelRef.current = next;
       setDuel(next);
@@ -4864,10 +4915,7 @@ export function useSlotGame() {
       }
       abortReasonRef.current = "roomFailure";
       duelSettled.current = true;
-      autoRef.current = false;
-      setAutoOn(false);
-      setAutoLeft(0);
-      setAutoReason(null);
+      killAuto(null);
       const next = abortDuel(cur);
       duelRef.current = next;
       setDuel(next);

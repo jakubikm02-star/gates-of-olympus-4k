@@ -752,14 +752,16 @@ export function SlotGame() {
                         </button>
                       ))}
                       <p className="auto-hint">
-                        {g.autoHalt ? "Banner ostane. Po odkliknutí AUTO pokračuje. ZÁSAH ručne. Pod 50 % kreditu stop." : "Bez zastávky do konca AUTO. ZÁSAH ručne."}
+                        {g.autoHalt
+                          ? "Výhra len pozastaví AUTO. Po VIDENÉ pokračuje. Jackpot tiež. ZÁSAH ručne. Pod 50 % kreditu stop."
+                          : "Bez zastávky do konca AUTO. Jackpot aj tak čaká na VIDENÉ. ZÁSAH ručne."}
                       </p>
                       <button
                         type="button"
-                        className={g.autoHalt ? "on" : ""}
+                        className={`auto-halt${g.autoHalt ? " on" : ""}`}
                         onClick={() => g.setAutoHalt(!g.autoHalt)}
                       >
-                        BIG WIN STOP {g.autoHalt ? "ON" : "OFF"}
+                        PAUZA PRI VÝHRE {g.autoHalt ? "ON" : "OFF"}
                       </button>
                     </div>
                   </>
@@ -980,7 +982,7 @@ export function SlotGame() {
         </div>
       ) : null}
       {g.banner === "massive" ? (
-        <MassiveWin key={`${g.bannerAmount}-${g.bannerX}`} amount={g.bannerAmount} x={g.bannerX} tax={g.bannerTax} onClose={g.closeBanner} />
+        <MassiveWin key={`${g.bannerAmount}-${g.bannerX}`} amount={g.bannerAmount} x={g.bannerX} tax={g.bannerTax} onClose={g.closeBanner} resume={g.autoOn && g.autoLeft > 0 ? g.autoLeft : 0} />
       ) : null}
       {g.banner && g.banner !== "massive" && (
         <div className="banner" onClick={g.closeBanner} role="presentation">
@@ -1080,9 +1082,15 @@ export function SlotGame() {
               )}
               <p className="wb-line">
                 [admin@parkizmus] {'>'}{" "}
-                <span className="wb-hint">
-                  {g.banner === "fsTotal" ? "ťukni — 4KA TV ostane, kým neklikneš" : "ťukni sem"}
-                </span>
+                {g.banner === "fsTotal" ? (
+                  <span className="wb-hint">ťukni — 4KA TV ostane, kým neklikneš</span>
+                ) : g.banner === "fs" ? (
+                  <span className="wb-hint">ťukni sem</span>
+                ) : (
+                  <button type="button" className="wb-seen">
+                    VIDENÉ{g.autoOn && g.autoLeft > 0 ? ` · AUTO ${g.autoLeft}` : ""}
+                  </button>
+                )}
                 <span className="wb-caret" aria-hidden="true" />
               </p>
             </div>
@@ -1240,13 +1248,16 @@ export function SlotGame() {
       ) : null}
       {g.started ? <LiveHits selfId={g.deviceId} on paused={Boolean(g.duel)} /> : null}
       {g.jpHit && (
-        <div className="ticket-banner" aria-live="assertive">
+        <div className="ticket-banner" onClick={g.dismissJp}>
           <strong>
             <b>{ticketLabel(g.jpHit.id)}</b>
             {g.jpHit.poolBefore > 0 ? <em>{formatMoney(g.jpHit.poolBefore)}</em> : null}
             <span>
               tvoj podiel {Math.round((g.jpHit.share || 1) * 100)} % = {formatMoney(g.jpHit.payout)}
             </span>
+            <button type="button" className="jp-seen" onClick={g.dismissJp}>
+              VIDENÉ{g.autoOn && g.autoLeft > 0 ? ` · AUTO ${g.autoLeft}` : ""}
+            </button>
           </strong>
         </div>
       )}
