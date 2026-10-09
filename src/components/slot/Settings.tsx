@@ -121,7 +121,7 @@ const SOUND_CUES: { id: string; name: string; loop?: boolean; when?: string; hea
   { id: "koleso_vo_vowel", name: "Hláška: samohláska", when: "Predvolená: „Samohláska za peniaze!“" },
   { id: "koleso_vo_solve", name: "Hláška: vyriešené", when: "Predvolená: „Tajnička je vyriešená!“" },
   { id: "koleso_vo_lost", name: "Hláška: stratený ťah", when: "Predvolená: „Stratili ste ťah!“" },
-  { id: "koleso_vo_tax", name: "Hláška: daňová kontrola", when: "Predvolená: „Daňová kontrola!“ (Daňová Danka)" },
+  { id: "koleso_vo_tax", name: "Hláška: daňová kontrola", when: "Nehraje. Daňová kontrola používa slot Daňový úrad, rovnaký ako neúspešný únik po zásahu." },
   { id: "koleso_vo_exek", name: "Hláška: exekúcia", when: "Predvolená: „Exekúcia!“ (JUDr. Zabavil)" },
   { id: "koleso_vo_courier", name: "Hláška: kuriér", when: "Predvolená: „Kuriér vás nezastihol!“ (Kuriér Nezastihol)" },
   { id: "koleso_vo_extra", name: "Hláška: extra ťah", when: "Predvolená: „Extra ťah!“" },

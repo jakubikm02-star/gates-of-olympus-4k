@@ -62,7 +62,7 @@ const CAST: Record<KSegKind, { who: string; title: string; vo: sfx.KolesoVo | nu
   x2: { who: "Lukáš Adapter", title: "DVOJNÁSOBOK", vo: "x2", pose: "cheer" },
   bankrot: { who: "Peter Marcipán", title: "BANKROT!", vo: "bankrot", pose: "shock" },
   lost: { who: "Peter Marcipán", title: "STRATILI STE ŤAH", vo: "lost", pose: "sad" },
-  tax: { who: "Daňová Danka", title: "DAŇOVÁ KONTROLA", vo: "tax", pose: "shock" },
+  tax: { who: "Daňová Danka", title: "DAŇOVÁ KONTROLA", vo: null, pose: "shock" },
   exek: { who: "JUDr. Zabavil", title: "EXEKÚCIA", vo: "exek", pose: "shock" },
   courier: { who: "Kuriér Nezastihol", title: "KURIÉR", vo: "courier", pose: "point" },
   vowel: { who: "Jožo Pročkár", title: "SAMOHLÁSKA ZA PENIAZE", vo: "vowel", pose: "point" },
