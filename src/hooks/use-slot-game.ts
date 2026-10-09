@@ -3385,6 +3385,8 @@ export function useSlotGame() {
         return;
       }
       if (opts?.buy && duelRef.current) return;
+      // Full hlásenie: the buy button plays an ordinary spin and that spin starts ZÁSAH.
+      if (opts?.buy && heatRef.current >= HEAT_MAX && !chaseRef.current && !inFsRef.current) opts = undefined;
       busyRef.current = true;
       setBusy(true);
       abort.current.aborted = false;
@@ -3984,8 +3986,13 @@ export function useSlotGame() {
     }
     if (!started || busyRef.current || inFsRef.current) return;
     if (duelRef.current || duelLinkRef.current) return;
+    if (heatRef.current >= HEAT_MAX) {
+      setBuyAsk(false);
+      void playRound();
+      return;
+    }
     setBuyAsk(true);
-  }, [started]);
+  }, [started, playRound]);
 
   const cancelBuy = useCallback(() => setBuyAsk(false), []);
 
@@ -3995,6 +4002,11 @@ export function useSlotGame() {
       return;
     }
     if (!started || busyRef.current || inFsRef.current || duelRef.current) return;
+    if (heatRef.current >= HEAT_MAX) {
+      setBuyAsk(false);
+      await playRound();
+      return;
+    }
     setBuyAsk(false);
     await playRound({ buy: true });
   }, [started, playRound]);
@@ -4629,7 +4641,7 @@ export function useSlotGame() {
       !duel &&
       !duelLink &&
       !chase &&
-      balance >= +(bet * buyX).toFixed(2),
+      balance >= (heat >= HEAT_MAX ? stake : +(bet * buyX).toFixed(2)),
     surplus: canSpend(balance),
     spendOpen,
     setSpendOpen,
