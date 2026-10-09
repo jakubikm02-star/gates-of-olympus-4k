@@ -746,7 +746,7 @@ export function SlotGame() {
                         </button>
                       ))}
                       <p className="auto-hint">
-                        {g.autoHalt ? "STOP: FS · BIG WIN · 50% kredit. Banner ostane." : "Bez zastávky do konca AUTO."}
+                        {g.autoHalt ? "Banner ostane. Po odkliknutí AUTO pokračuje. ZÁSAH ručne. Pod 50 % kreditu stop." : "Bez zastávky do konca AUTO. ZÁSAH ručne."}
                       </p>
                       <button
                         type="button"

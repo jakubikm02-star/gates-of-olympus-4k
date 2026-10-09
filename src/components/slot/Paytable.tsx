@@ -586,7 +586,7 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
                 "stlmí alebo zapne všetky zvuky",
               ],
               ["QUICK / TURBO", "rýchlejšie spiny; zapnutie jedného vypne druhé (Ž-BOX aj KOLESO v TURBO bežia asi 2× rýchlejšie)"],
-              ["AUTO", `10, 25, 50 alebo 100 spinov. BIG WIN STOP zastaví AUTO pri 4KA TV, pri výhre od ${WIN_POP_X.big}× a keď kredit klesne na polovicu. ZÁSAH, bonus z baru a jackpot zastavia AUTO vždy.`],
+              ["AUTO", `10, 25, 50 alebo 100 spinov. Výhra a bonus AUTO len pozastavia, po odkliknutí pokračuje. ZÁSAH zostane na ručnom točení. Pod polovicou kreditu, jackpot a málo kreditu AUTO zastavia.`],
               [
                 <span className="man-ico" key="s">
                   <SettingsIcon size={14} /> Nastavenia

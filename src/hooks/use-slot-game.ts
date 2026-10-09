@@ -3775,39 +3775,6 @@ export function useSlotGame() {
       const fsCount = fsTriggerSpins(triggerScatterRef.current, fsSpinsOf(mathRank));
       const applyBoughtRank = makeApplyBought(betNow, buyCost, buyXNow, rankIdNow);
 
-      if (autoRef.current && autoHaltRef.current && !duelRef.current) {
-        if (r === "fs") {
-          autoRef.current = false;
-          setAutoOn(false);
-          setAutoLeft(0);
-          setAutoReason("AUTO STOP · 4KA TV");
-          noteStat({ t: "ui", what: "autoStop", why: "fs" });
-        } else if (r === "pick") {
-          autoRef.current = false;
-          setAutoOn(false);
-          setAutoLeft(0);
-          setAutoReason("AUTO STOP · BONUS");
-          noteStat({ t: "ui", what: "autoStop", why: "pick" });
-        } else if (lastPaidXRef.current >= 20) {
-          autoRef.current = false;
-          setAutoOn(false);
-          setAutoLeft(0);
-          setAutoReason("AUTO STOP · BIG WIN");
-          noteStat({ t: "ui", what: "autoStop", why: "big" });
-        } else if (balanceRef.current <= autoFloorRef.current) {
-          autoRef.current = false;
-          setAutoOn(false);
-          setAutoLeft(0);
-          setAutoReason("AUTO STOP · 50% KREDIT");
-          noteStat({ t: "ui", what: "autoStop", why: "credit" });
-        }
-      } else if (autoRef.current && r === "pick") {
-        autoRef.current = false;
-        setAutoOn(false);
-        setAutoLeft(0);
-        setAutoReason("AUTO STOP · BONUS");
-      }
-
       if (r === "fs") {
         await wait(300);
         fsTallyRef.current = { ...emptyTally(), scatters: triggerScatterRef.current };
@@ -3853,7 +3820,6 @@ export function useSlotGame() {
           spins: fsCount,
           zasah: zasahFs || undefined,
         });
-        if (r === "fs") noteStat({ t: "ui", what: "autoStop", why: "fs" });
         persistNow();
         sfx.playFsStart();
         sfx.startLiveBed();
@@ -3879,13 +3845,15 @@ export function useSlotGame() {
         }
       } else if (r === "pick" || kontrolaArmedRef.current) {
         kontrolaArmedRef.current = false;
-        if (autoRef.current) {
-          autoRef.current = false;
-          setAutoOn(false);
-          setAutoLeft(0);
-          setAutoReason("AUTO STOP · BONUS");
-        }
         await runBonus();
+      }
+
+      if (autoRef.current && autoHaltRef.current && !duelRef.current && !chaseRef.current && balanceRef.current <= autoFloorRef.current) {
+        autoRef.current = false;
+        setAutoOn(false);
+        setAutoLeft(0);
+        setAutoReason("AUTO STOP · 50% KREDIT");
+        noteStat({ t: "ui", what: "autoStop", why: "credit" });
       }
 
       const live = duelRef.current;
