@@ -1,4 +1,5 @@
 import { setZboxHelpOff, zboxHelpOff } from "@/lib/slot/zbox-help";
+import { AddToHome } from "./AddToHome";
 import { kolesoEnvelopes, kolesoHelpOff, setKolesoEnvelopes, setKolesoHelpOff } from "@/lib/slot/koleso-help";
 import "./volume.css";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
@@ -675,6 +676,7 @@ export function Settings({
           </button>
         </header>
         <div className="settings-privacy">
+          <AddToHome place="menu" />
           <p className="sound-note">
             Osobné štatistiky sú doživotné (prežijú EXEKÚCIU) a predvolene len na tomto zariadení.
             Cloudová záloha je vypnutá, kým ju nezapneš. Ukladajú sa herné udalosti a časy — nie IP, poloha ani nick.

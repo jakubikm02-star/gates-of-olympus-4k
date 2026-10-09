@@ -436,7 +436,21 @@ export function installGuide(env: InstallEnv): Guide | null {
     }
   }
   // desktop
-  if (env.browser === "chrome" || env.browser === "brave" || env.browser === "opera" || env.browser === "yandex") {
+  if (env.browser === "opera") {
+    return {
+      id: "desktop-opera",
+      label,
+      title: "Nainštaluj Parkizmus",
+      steps: [
+        { icon: "monitor", text: "Vpravo v adresnom riadku klikni na ikonu **Inštalovať** (obrazovka so šípkou)" },
+        { icon: "menu", text: "Ak tam nie je: logo **Opera** vľavo hore → **Inštalovať Ports of Parkizmus**" },
+        { icon: "check", text: "Potvrď **Inštalovať**. Hra sa otvorí vo vlastnom okne, bez kariet." },
+      ],
+      note: "Ikona sa ukáže až po načítaní stránky. V Opere GX ju hľadaj vpravo od adresy, pred posuvníkmi Easy Setup.",
+      pointer: null,
+    };
+  }
+  if (env.browser === "chrome" || env.browser === "brave" || env.browser === "yandex") {
     return {
       id: "desktop-chrome",
       label,

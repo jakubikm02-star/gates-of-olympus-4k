@@ -73,11 +73,10 @@ function store(): Storage | null {
 }
 
 /**
- * "PRIDAŤ NA PLOCHU" pill on the intro screen. Chromium browsers that hand us `beforeinstallprompt`
- * get the native dialog; everything else opens a Slovak step-by-step sheet for the detected
- * browser / phone. Hidden in the installed app, after appinstalled, and for a few days after "Neskôr".
+ * Install affordance. `boot` is the intro pill. `menu` is a row inside Settings, so a desktop
+ * player who is already in the game can still install (Opera hides its own icon until we ask).
  */
-export function AddToHome() {
+export function AddToHome({ place = "boot" }: { place?: "boot" | "menu" }) {
   const [env, setEnv] = useState<InstallEnv | null>(null);
   const [canPrompt, setCanPrompt] = useState(false);
   const [hidden, setHidden] = useState(true);
@@ -88,7 +87,11 @@ export function AddToHome() {
     registerInstallSw();
     const sync = () => {
       setCanPrompt(Boolean(deferredPrompt()));
-      setHidden(isStandalone() || Boolean(window.__parkInstalled) || isSnoozed(store(), Date.now()));
+      setHidden(
+        isStandalone() ||
+          Boolean(window.__parkInstalled) ||
+          (place === "boot" && isSnoozed(store(), Date.now())),
+      );
       if (window.__parkInstalled) markInstalled(store(), Date.now());
     };
     setEnv(readEnv());
@@ -96,7 +99,7 @@ export function AddToHome() {
     const ua = (navigator as Navigator & { userAgentData?: UaData }).userAgentData;
     ua?.getHighEntropyValues?.(["model"]).then((v) => v.model && setEnv(readEnv(v.model))).catch(() => {});
     return onInstallChange(sync);
-  }, []);
+  }, [place]);
 
   const guide: Guide | null = env ? installGuide(env) : null;
 
@@ -136,20 +139,22 @@ export function AddToHome() {
   }, []);
 
   if (!env || hidden) return null;
-  // Desktop without a native prompt or a menu route (Firefox): nothing to offer.
+  // No route at all (desktop Firefox): nothing to offer.
   if (!canPrompt && !guide) return null;
-  if (env.os === "desktop" && !canPrompt && env.browser !== "safari") return null;
+  // The intro pill stays quiet on a PC until the browser is ready, except Safari which has no prompt.
+  // Settings always shows the row, so Opera has a button even when its address-bar icon is missing.
+  if (place === "boot" && env.os === "desktop" && !canPrompt && env.browser !== "safari") return null;
 
   return (
     <>
-      <button type="button" className={`a2hs-pill ${canPrompt ? "is-native" : ""}`} onClick={() => void onTap()} aria-haspopup={canPrompt ? undefined : "dialog"}>
+      <button type="button" className={`a2hs-pill ${place === "menu" ? "is-menu" : ""} ${canPrompt ? "is-native" : ""}`} onClick={() => void onTap()} aria-haspopup={canPrompt ? undefined : "dialog"}>
         <span className="a2hs-pill-ico" aria-hidden="true">
-          <Smartphone size={17} strokeWidth={2.2} />
-          <i>+</i>
+          {place === "menu" ? <MonitorDown size={17} strokeWidth={2.2} /> : <Smartphone size={17} strokeWidth={2.2} />}
+          {place === "menu" ? null : <i>+</i>}
         </span>
         <span className="a2hs-pill-txt">
-          <b>PRIDAŤ NA PLOCHU</b>
-          <small>{canPrompt ? "inštalácia na 1 ťuk" : "hraj ako appka"}</small>
+          <b>{place === "menu" && env.os === "desktop" ? "NAINŠTALOVAŤ NA POČÍTAČ" : "PRIDAŤ NA PLOCHU"}</b>
+          <small>{canPrompt ? "inštalácia na 1 klik" : "vlastné okno, bez kariet"}</small>
         </span>
       </button>
       {open && guide

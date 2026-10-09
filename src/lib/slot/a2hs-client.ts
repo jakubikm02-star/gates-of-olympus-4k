@@ -19,7 +19,7 @@ declare global {
 
 /** Inline (pre-hydration) capture, rendered as a classic <script> in <head>. Keep it ES5-small. */
 export const A2HS_HEAD_SCRIPT =
-  "(function(){try{window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__parkBip=e;window.dispatchEvent(new Event('park:bip'))});" +
+  "(function(){try{window.addEventListener('beforeinstallprompt',function(e){var mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);if(mobile)e.preventDefault();window.__parkBip=e;window.dispatchEvent(new Event('park:bip'))});" +
   "window.addEventListener('appinstalled',function(){window.__parkBip=null;window.__parkInstalled=true;window.dispatchEvent(new Event('park:bip'))})}catch(_){}})();";
 
 export function isStandalone(): boolean {
@@ -42,7 +42,8 @@ export function onInstallChange(fn: () => void): () => void {
   if (typeof window === "undefined") return () => {};
   // Fallback when the head script did not run (e.g. stripped by a proxy).
   const bip = (e: Event) => {
-    e.preventDefault();
+    // On a phone we draw our own button. On a PC, swallowing the event hides Opera/Chrome's install icon.
+    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) e.preventDefault();
     window.__parkBip = e as BeforeInstallPromptEvent;
     fn();
   };
@@ -86,6 +87,6 @@ export function registerInstallSw(): void {
   const go = () => {
     navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" }).catch(() => {});
   };
-  if (document.readyState === "complete") window.setTimeout(go, 1500);
-  else window.addEventListener("load", () => window.setTimeout(go, 1500), { once: true });
+  if (document.readyState === "complete") window.setTimeout(go, 0);
+  else window.addEventListener("load", () => window.setTimeout(go, 0), { once: true });
 }
