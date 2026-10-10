@@ -11,7 +11,12 @@ create table if not exists public.player_stats (
 );
 
 alter table public.player_stats enable row level security;
-revoke all on public.player_stats from anon, authenticated;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    revoke all on public.player_stats from anon, authenticated;
+  end if;
+end $$;
 
 -- Merge two stats jsonb blobs: c/hi = greatest per key; lo/first = least; hours/weekdays element-wise greatest.
 create or replace function public.stats_merge(a jsonb, b jsonb)
@@ -174,9 +179,15 @@ as $$
   delete from player_stats where player_id = p_id
 $$;
 
-grant execute on function public.stats_put(text, jsonb) to anon, authenticated;
-grant execute on function public.stats_get(text) to anon, authenticated;
-grant execute on function public.stats_drop(text) to anon, authenticated;
+do $$
+begin
+  -- Preview PGLite has no Supabase roles. Production already does; grants stay.
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    grant execute on function public.stats_put(text, jsonb) to anon, authenticated;
+    grant execute on function public.stats_get(text) to anon, authenticated;
+    grant execute on function public.stats_drop(text) to anon, authenticated;
+  end if;
+end $$;
 
 -- Optional retention: drop rows idle 180 days (run via cron later).
 -- delete from public.player_stats where updated_at < now() - interval '180 days';

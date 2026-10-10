@@ -50,6 +50,8 @@ import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision,
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
+import { carryStamp } from "@/lib/slot/mirror-bridge";
+import { flushMirrorPush, pullMirrorSave, scheduleMirrorPush } from "@/lib/slot/mirror-cloud";
 import {
   applyStat,
   isStatsBackupEnabled,
@@ -145,6 +147,7 @@ function readLocal(): PlayerSave | null {
 
 function writeLocal(s: PlayerSave): void {
   writeLocalSave(s);
+  scheduleMirrorPush(s);
 }
 
 
@@ -506,6 +509,7 @@ export function useSlotGame() {
   const [taxFly, setTaxFly] = useState<TaxFly | null>(null);
   const [taxKey, setTaxKey] = useState(0);
   const staleRef = useRef(false);
+  const startedRef = useRef(false);
   const [stale, setStale] = useState(false);
   const [nick, setNick] = useState("");
   const [deviceId, setDeviceId] = useState("");
@@ -517,6 +521,7 @@ export function useSlotGame() {
   inFsRef.current = inFs;
   balanceRef.current = balance;
   betIndexRef.current = betIndex;
+  startedRef.current = started;
   autoRef.current = autoHoldRef.current || autoOn;
   if (!autoHoldRef.current) autoLeftRef.current = autoLeft;
   statsOpenRef.current = statsOpen;
@@ -985,29 +990,66 @@ export function useSlotGame() {
   }, [noteStat]);
 
   useEffect(() => {
+    let cancel = false;
     let cached = readLocal();
     // Kaucia left pending by the previous page: settle it once, before anything else is saved.
     const marker = takeAppReloadMarker();
+    const bootAt = cached?.updatedAt ?? 0;
     let bootDeposit: DepositSettlement | null = null;
-    if (cached?.duelDeposit) {
-      const reason = bootDepositReason(cached.duelDeposit, marker, Date.now());
-      bootDeposit = reason ? settleOnce(cached.duelDeposit, reason).settlement : null;
-      cached = {
-        ...cached,
-        balance: +(cached.balance + (bootDeposit?.refund ?? 0)).toFixed(2),
+    const foldDeposit = (save: PlayerSave | null) => {
+      if (!save?.duelDeposit) return save;
+      const reason = bootDepositReason(save.duelDeposit, marker, Date.now());
+      const dep = reason ? settleOnce(save.duelDeposit, reason).settlement : null;
+      bootDeposit = dep;
+      return {
+        ...save,
+        balance: +(save.balance + (dep?.refund ?? 0)).toFixed(2),
         duelDeposit: null,
       };
-    }
+    };
+    cached = foldDeposit(cached);
     depositRef.current = null;
     if (cached) applySave(cached);
-    readySave.current = true;
-    if (bootDeposit) {
-      flushSave();
-      reportDeposit(bootDeposit, true);
-    }
-    runWeeklyDecay();
-    rollRpDayRef.current();
-    setHydrated(true);
+
+    const finish = () => {
+      if (cancel || readySave.current) return;
+      readySave.current = true;
+      if (bootDeposit) {
+        flushSave();
+        reportDeposit(bootDeposit, true);
+      }
+      runWeeklyDecay();
+      rollRpDayRef.current();
+      setHydrated(true);
+      flushMirrorPush();
+    };
+
+    // The other link may hold a newer save. Wait briefly so opening this page cannot stamp
+    // over it. The hop in the document head has usually copied it into this origin already.
+    const timer = window.setTimeout(finish, 1600);
+    void pullMirrorSave(cached).then((remote) => {
+      if (cancel) return;
+      window.clearTimeout(timer);
+      if (remote && remote.updatedAt > bootAt && !startedRef.current && !busyRef.current) {
+        bootDeposit = null;
+        cached = foldDeposit(remote);
+        depositRef.current = null;
+        if (cached) {
+          applySave(cached);
+          writeLocalSave(cached);
+          scheduleMirrorPush(cached);
+        }
+      }
+      finish();
+    }).catch(() => {
+      if (cancel) return;
+      window.clearTimeout(timer);
+      finish();
+    });
+    return () => {
+      cancel = true;
+      window.clearTimeout(timer);
+    };
   }, [applySave, runWeeklyDecay, flushSave, reportDeposit]);
 
   useEffect(() => {
@@ -1074,8 +1116,9 @@ export function useSlotGame() {
       rpDay: rpDayRef.current,
       duelDeposit: depositRef.current,
     };
-    saveSnapRef.current = payload;
-    writeLocal(payload);
+    const stamped = carryStamp(saveSnapRef.current, payload);
+    saveSnapRef.current = stamped;
+    writeLocal(stamped);
   }, [hydrated, balance, betIndex, muted, turbo, quick, ante, autoHalt, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pots, reloadStreak, weekDue, fsLeft, inFs, globalMult, job, ticketPause, daily, heat, klienti, chase, chaseMod]);
 
   useEffect(() => {

@@ -3,6 +3,7 @@ import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import appCss from "../styles.css?url";
 import { A2HS_HEAD_SCRIPT } from "@/lib/slot/a2hs-client";
+import { MIRROR_HEAD_SCRIPT } from "@/lib/slot/mirror-bridge";
 
 const APP_NAME = "Ports of Parkizmus";
 
@@ -48,7 +49,7 @@ export const Route = createRootRoute({
       { rel: "preload", as: "image", href: "/art/paas-idle.png?v=3" },
     ],
     // PRIDAŤ NA PLOCHU: keep Chromium's beforeinstallprompt even when it fires before hydration.
-    scripts: [{ children: A2HS_HEAD_SCRIPT }],
+    scripts: [{ children: MIRROR_HEAD_SCRIPT }, { children: A2HS_HEAD_SCRIPT }],
   }),
   component: () => (
     <html lang="sk" suppressHydrationWarning>

@@ -13,7 +13,12 @@ create table if not exists public.live_hits (
 create index if not exists live_hits_created_idx on public.live_hits (created_at desc);
 
 alter table public.live_hits enable row level security;
-revoke all on public.live_hits from anon, authenticated;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    revoke all on public.live_hits from anon, authenticated;
+  end if;
+end $$;
 
 create or replace function public.live_hit_put(p_id text, p_nick text, p_mult numeric, p_amount numeric)
 returns void
@@ -70,6 +75,11 @@ $$;
 revoke all on function public.live_hit_put(text, text, numeric, numeric) from public;
 revoke all on function public.live_hit_head() from public;
 revoke all on function public.live_hit_poll(bigint, text) from public;
-grant execute on function public.live_hit_put(text, text, numeric, numeric) to anon, authenticated;
-grant execute on function public.live_hit_head() to anon, authenticated;
-grant execute on function public.live_hit_poll(bigint, text) to anon, authenticated;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    grant execute on function public.live_hit_put(text, text, numeric, numeric) to anon, authenticated;
+    grant execute on function public.live_hit_head() to anon, authenticated;
+    grant execute on function public.live_hit_poll(bigint, text) to anon, authenticated;
+  end if;
+end $$;
