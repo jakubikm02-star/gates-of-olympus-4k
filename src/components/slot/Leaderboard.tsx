@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchBoard, publicId, type BoardRow } from "@/lib/slot/board-api";
+import { fetchBoard, publicId, boardNickLabel, isAnonNick, type BoardRow } from "@/lib/slot/board-api";
 import { canSrc, PAY_SYMBOLS, SCATTER, TICKETS, type PayId } from "@/lib/slot/symbols";
 import { cascadeWord, recipeSentence, type WinRecipe } from "@/lib/slot/win-recipe";
 import { ZASAH } from "@/lib/slot/zasah";
@@ -292,7 +292,7 @@ function Grade({ row, rank, mine }: { row: BoardRow; rank: number; mine: boolean
         <span className="fb-rank" aria-label={`${rank}. miesto`}>
           {rank}
         </span>
-        <span className="fb-nick">{row.nick}</span>
+        <span className={`fb-nick${isAnonNick(row.nick) ? " is-anon" : ""}`}>{boardNickLabel(row.nick)}</span>
         {mine ? <em className="fb-me">TY</em> : null}
       </div>
       <div className="fb-price">
@@ -501,7 +501,7 @@ export function Leaderboard({
     };
   }, [deviceId]);
   useEffect(() => {
-    if (!open || !nick) return;
+    if (!open) return;
     let stop = false;
     setErr("");
     void fetchBoard(scope)
@@ -514,7 +514,7 @@ export function Leaderboard({
     return () => {
       stop = true;
     };
-  }, [open, scope, nick]);
+  }, [open, scope]);
   if (!open) return null;
   const isMine = (row: BoardRow) => Boolean(deviceId) && (row.id === deviceId || (Boolean(pub) && row.id === pub));
   return (
@@ -546,17 +546,17 @@ export function Leaderboard({
           </button>
         </form>
         {nickErr ? <p className="sound-err">{nickErr}</p> : null}
-        {!nick ? <p className="sound-note">Najprv meno. Potom uvidíš dnešné tabule.</p> : null}
-        {err ? <p className="sound-err">{err}</p> : null}
-        {nick ? (
-          <PriceBoard
-            rows={rows}
-            scope={scope}
-            onScope={setScope}
-            isMine={isMine}
-            note={rows.length === 0 && !err ? "Zatiaľ tu nikto nie je." : undefined}
-          />
+        {!nick ? (
+          <p className="sound-note">Bez mena si na tabuli Anonym. Výhra, stávka, stavené aj vyhrané sa zapíšu aj tak.</p>
         ) : null}
+        {err ? <p className="sound-err">{err}</p> : null}
+        <PriceBoard
+          rows={rows}
+          scope={scope}
+          onScope={setScope}
+          isMine={isMine}
+          note={rows.length === 0 && !err ? "Zatiaľ tu nikto nie je." : undefined}
+        />
       </div>
     </div>
   );

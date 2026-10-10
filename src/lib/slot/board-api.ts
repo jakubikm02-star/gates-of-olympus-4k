@@ -12,6 +12,18 @@ const RECIPE_KEY = "park-best-recipe";
 /** null = not tried yet; false = server has no board_put2 yet. */
 let put2: boolean | null = null;
 
+/** Placeholder written by the server when the phone has no saved name. */
+export const ANON_NICK = "Anonym";
+
+export function isAnonNick(nick: string): boolean {
+  const n = nick.trim().toLowerCase();
+  return n === "" || n === ANON_NICK.toLowerCase();
+}
+
+export function boardNickLabel(nick: string): string {
+  return isAnonNick(nick) ? ANON_NICK : nick.trim();
+}
+
 export interface BoardRow {
   id: string;
   nick: string;
@@ -202,7 +214,7 @@ export async function putBoard(
   stake = 0,
   recipe: WinRecipe | null = null,
 ): Promise<void> {
-  if (!id || !readNick()) return;
+  if (!id) return;
   const body = {
     p_id: id,
     p_wagered: wagered,

@@ -8775,6 +8775,13 @@ html:-webkit-full-screen {
   text-transform: uppercase;
 }
 
+.fb-nick.is-anon {
+  text-transform: none;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  color: #9aa3ad;
+}
+
 .fb-me {
   flex: none;
   padding: 1px 6px;

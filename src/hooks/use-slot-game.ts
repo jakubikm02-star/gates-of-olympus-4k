@@ -715,6 +715,17 @@ export function useSlotGame() {
     bestRecipeRef.current = readBestRecipe(mineDay.day);
     setNick(readNick());
     setMine(mineDay);
+    if (playerIdRef.current && (mineDay.wagered > 0 || mineDay.paid > 0 || mineDay.best > 0)) {
+      void putBoard(
+        playerIdRef.current,
+        mineDay.wagered,
+        mineDay.paid,
+        mineDay.best,
+        bestHowRef.current,
+        bestStakeRef.current,
+        bestRecipeRef.current,
+      ).catch(() => {});
+    }
     saveSnapRef.current = {
       ...s,
       job: dead ? null : s.job,
@@ -776,7 +787,7 @@ export function useSlotGame() {
     void bumpDesk(wager, win)
       .then(setDesk)
       .catch(() => {});
-    if (readNick() && playerIdRef.current) {
+    if (playerIdRef.current) {
       void putBoard(
         playerIdRef.current,
         nextMine.wagered,
