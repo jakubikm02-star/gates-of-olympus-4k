@@ -833,6 +833,17 @@
   background: rgb(0 0 0 / 0.5);
 }
 
+/* Under the 50 % ZÁSAH dim the ±4 % colour filter of the garage is invisible, but the full-screen filter
+   and the overlay blend of the parking lines were re-applied every frame while the police haze moves
+   above them (measured: blend ≈ −15 fps, filter ≈ −2 fps at 1080p without GPU). Plain layers instead. */
+.stage.in-chase:not(.in-fs) .stage-bg {
+  filter: none;
+}
+.stage.in-chase .park-lines {
+  mix-blend-mode: normal;
+  opacity: 0.3;
+}
+
 /* The police lights during ZÁSAH are <PoliceSmog /> (police-smog.css). */
 
 .chase-ticket {
@@ -10837,7 +10848,8 @@ html:-webkit-full-screen {
   pointer-events: none;
   background: radial-gradient(circle at 50% 50%, rgb(57 255 136 / 0.2) 0%, rgb(57 255 136 / 0.09) 48%, transparent 74%);
   box-shadow: inset 0 0 12px rgb(57 255 136 / 0.12);
-  animation: aim-in 0.22s ease-out both;
+  /* backwards, not both: once it has played the glow is a plain painted box, not a GPU layer per target. */
+  animation: aim-in 0.22s ease-out backwards;
 }
 .cell .aim-lock::after {
   content: "";
@@ -10874,6 +10886,19 @@ html:-webkit-full-screen {
 }
 .chase-pins i.is-hit {
   background: #2fd872;
+}
+/* Phones and lite FX: the target glow holds still. An endless breathing animation keeps every target
+   cell (and each symbol drawn over it) on its own GPU layer for the whole ZÁSAH result; on Android that
+   pushed the board past the GPU memory limit and the symbols stopped painting (blank reels). */
+@media (max-width: 720px) {
+  .cell .aim-lock::after {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+.stage.perf-lite .cell .aim-lock::after {
+  animation: none;
+  opacity: 0.7;
 }
 @keyframes aim-breathe {
   0% { opacity: 0.3; }
@@ -10943,7 +10968,7 @@ html:-webkit-full-screen {
 /* ── perf-lite (lib/slot/perf-guard): the reels ran below ~38 fps for several spins in a row ──
    Only decoration goes: the reel-window edge mask on wide screens (phones already drop it),
    the idle per-column filter layers (anticipation keeps its glow), main-thread glow animations (box-shadow keyframes repaint every frame,
-   even when idle), the win-log blur and the police beams. Gameplay visuals stay. */
+   even when idle), the win-log blur and the ZÁSAH loops below. Gameplay visuals stay. */
 .stage.perf-lite .reel-window.is-spinning,
 .stage.perf-lite .reel-window.is-landing {
   mask-image: none;
@@ -10965,8 +10990,16 @@ html:-webkit-full-screen {
   -webkit-backdrop-filter: none;
 }
 
-.stage.perf-lite .police-smog .ps-beam {
-  display: none;
+/* ZÁSAH in lite: the police lights drop to a smaller canvas at ~30 fps (PoliceSmog), and the endless
+   HUD loops (code rain, scan sweep, blinking dots, battery scanline/glitch) hold still. Targets, HACK
+   frames, hits and the battery level all stay. */
+.stage.perf-lite .hw-rain::before,
+.stage.perf-lite .hw-sweep,
+.stage.perf-lite .hw-dots i,
+.stage.perf-lite .hw-chev,
+.stage.perf-lite .zbat::after,
+.stage.perf-lite .zbat-cell {
+  animation: none;
 }
 
 /* Hidden debug HUD (?debug=1 or 5× tap on the build label). */

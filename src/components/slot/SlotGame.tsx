@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from "react";
-import { isPerfLite, subscribePerfLite } from "@/lib/slot/perf-guard";
+import { isFxStill, isPerfLite, subscribePerfLite } from "@/lib/slot/perf-guard";
 import { Volume2, VolumeX, Info, RefreshCw, Menu, Settings as SettingsIcon, Trophy, BarChart3 } from "lucide-react";
 import { START_BALANCE, BETS, PAY_SYMBOLS, FS_SYMBOL, canSrc, canTier } from "@/lib/slot/symbols";
 import { fsSymName, fsSymSrc, type FsSymId } from "@/lib/slot/zasah";
@@ -237,6 +237,8 @@ export function SlotGame() {
   const god = g.throwBolt ? "bolt" : g.anticipate ? "anti" : spinning ? "run" : g.inFs || g.winTier || g.displayWin > 0 ? "win" : "idle";
   // Slow / hot phone (perf-guard): heavy decorative effects off, see .stage.perf-lite in styles.css.
   const perfLite = useSyncExternalStore(subscribePerfLite, isPerfLite, () => false);
+  // Still under 30 fps in lite during ZÁSAH: the police haze freezes (PoliceSmog).
+  const fxStill = useSyncExternalStore(subscribePerfLite, isFxStill, () => false);
   const resolving =
     spinning ||
     g.phase === "eval" ||
@@ -287,7 +289,7 @@ export function SlotGame() {
       <div className="stage-bg" aria-hidden="true" />
       <div className="stage-glow" />
       <div className="park-lines" aria-hidden="true" />
-      {g.chase ? <PoliceSmog danger={g.chase.tension === "danger"} full={g.chase.strikes >= 2} reduced={reducedMotion} /> : null}
+      {g.chase ? <PoliceSmog danger={g.chase.tension === "danger"} full={g.chase.strikes >= 2} reduced={reducedMotion} lite={perfLite} still={fxStill} /> : null}
       {g.strike ? <HandBolt key={`${g.strike.r}-${g.strike.c}`} strike={g.strike} /> : null}
 
       {!g.started && (

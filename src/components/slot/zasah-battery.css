@@ -43,15 +43,17 @@
   opacity: 0.7;
 }
 
-/* rolling scanline sweep */
+/* rolling scanline sweep. Moved with transform on a 3× tall layer (compositor only); it used to animate
+   background-position under mix-blend-mode: screen, a main-thread repaint + blend every frame. */
 .zbat::after {
   content: "";
   position: absolute;
-  inset: 0;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 300%;
   pointer-events: none;
   background: linear-gradient(180deg, transparent 0 42%, color-mix(in srgb, var(--c) 16%, transparent) 50%, transparent 58% 100%);
-  background-size: 100% 300%;
-  mix-blend-mode: screen;
   animation: zbat-scan 3.2s linear infinite;
   z-index: 3;
 }
@@ -229,8 +231,8 @@
 }
 
 @keyframes zbat-scan {
-  0% { background-position: 0 100%; }
-  100% { background-position: 0 -200%; }
+  0% { transform: translate3d(0, -66.667%, 0); }
+  100% { transform: translate3d(0, 133.333%, 0); }
 }
 
 @keyframes zbat-glitch {
