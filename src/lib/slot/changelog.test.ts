@@ -8,13 +8,16 @@ describe("update log", () => {
   it("keeps seven calendar days and groups newest first", () => {
     const groups = recentChanges(noon("2026-10-10"));
     const days = groups.map((g) => g.day);
-    assert.equal(days[0], "2026-10-09");
+    assert.equal(days[0], "2026-10-10");
+    assert.ok(days.includes("2026-10-09"));
     assert.ok(days.includes("2026-10-04"));
     assert.ok(!days.includes("2026-10-03"));
     assert.deepEqual([...days].sort().reverse(), days);
-    const today = groups[0];
-    assert.ok(today && today.items.length >= 2);
-    assert.equal(new Set(today.items).size, today.items.length);
+    const newest = groups[0];
+    assert.ok(newest && newest.items.length >= 1);
+    const packed = groups.find((g) => g.day === "2026-10-09");
+    assert.ok(packed && packed.items.length >= 2);
+    assert.equal(new Set(packed.items).size, packed.items.length);
   });
 
   it("labels today and yesterday", () => {
