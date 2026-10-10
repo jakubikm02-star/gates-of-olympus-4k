@@ -1,7 +1,8 @@
 /**
  * The two public hosts are one deployment but two browser origins, so localStorage does not cross.
  * Third-party iframes only see partitioned storage, so a hidden frame cannot read the other save.
- * A top-level hop (once per tab, never from an installed app) copies the newer save both ways.
+ * A top-level hop from the old link (once per tab, never from an installed app) copies the newer save.
+ * The new link never starts that hop, so opening it stays on parkizmus.vercel.app.
  * The installed app stays put and catches up from the encrypted cloud copy after that hop.
  */
 
@@ -66,6 +67,7 @@ if(!winK)winK=makeKey();writeKey(winK);storeSave(winS);return{k:winK,s:winS||""}
 function go(toMode,env){window.location.replace(sib+"/?bridge="+toMode+"#"+encodeURIComponent(JSON.stringify(env)));}
 if(mode==="peer"||mode==="done"){var merged=merge(readEnv());try{window.sessionStorage.setItem("park-bridge-at",String(Date.now()));}catch(e){}
 if(mode==="peer"){go("done",merged);return;}window.history.replaceState(null,"","/");return;}
+if(here===ORIGINS[0])return;
 var standalone=false;
 try{if(window.matchMedia("(display-mode: standalone), (display-mode: fullscreen)").matches)standalone=true;}catch(e){}
 try{if(window.navigator.standalone)standalone=true;}catch(e){}

@@ -96,48 +96,55 @@ describe("mirror bridge", () => {
     const localB = mem({ "olympus4k-v1": save(10, 100) });
     const sessA = mem();
     const sessB = mem();
-    const hop = run({ origin: A, local: localA, session: sessA });
-    assert.ok(hop.replaced?.startsWith(`${B}/?bridge=peer#`));
+    const hop = run({ origin: B, local: localB, session: sessB });
+    assert.ok(hop.replaced?.startsWith(`${A}/?bridge=peer#`));
     const peerUrl = new URL(hop.replaced as string);
     const back = run({
-      origin: B,
-      href: `${peerUrl.pathname}${peerUrl.search}${peerUrl.hash}`,
-      local: localB,
-      session: sessB,
-    });
-    assert.ok(back.replaced?.startsWith(`${A}/?bridge=done#`));
-    assert.equal(JSON.parse(localB.getItem(MIRROR_SAVE_KEY) || "{}").balance, 80);
-    const doneUrl = new URL(back.replaced as string);
-    const home = run({
       origin: A,
-      href: `${doneUrl.pathname}${doneUrl.search}${doneUrl.hash}`,
+      href: `${peerUrl.pathname}${peerUrl.search}${peerUrl.hash}`,
       local: localA,
       session: sessA,
+    });
+    assert.ok(back.replaced?.startsWith(`${B}/?bridge=done#`));
+    assert.equal(JSON.parse(localA.getItem(MIRROR_SAVE_KEY) || "{}").balance, 80);
+    const doneUrl = new URL(back.replaced as string);
+    const home = run({
+      origin: B,
+      href: `${doneUrl.pathname}${doneUrl.search}${doneUrl.hash}`,
+      local: localB,
+      session: sessB,
     });
     assert.equal(home.replaced, null);
     assert.equal(home.cleaned, true);
     assert.equal(localA.getItem(MIRROR_BRIDGE_KEY), localB.getItem(MIRROR_BRIDGE_KEY));
     assert.ok((localA.getItem(MIRROR_BRIDGE_KEY) || "").length >= 40);
-    const again = run({ origin: A, local: localA, session: sessA });
+    const again = run({ origin: B, local: localB, session: sessB });
     assert.equal(again.replaced, null);
+  });
+
+  it("does not send the new link away", () => {
+    const localA = mem();
+    const stay = run({ origin: A, local: localA, session: mem() });
+    assert.equal(stay.replaced, null);
+    assert.equal(stay.cleaned, false);
   });
 
   it("brings a save that only exists on the old host", () => {
     const localA = mem();
     const localB = mem({ [MIRROR_SAVE_KEY]: save(440, 900) });
-    const hop = run({ origin: A, local: localA, session: mem() });
+    const hop = run({ origin: B, local: localB, session: mem() });
     const peerUrl = new URL(hop.replaced as string);
     const back = run({
-      origin: B,
+      origin: A,
       href: `${peerUrl.pathname}${peerUrl.search}${peerUrl.hash}`,
-      local: localB,
+      local: localA,
       session: mem(),
     });
     const doneUrl = new URL(back.replaced as string);
     run({
-      origin: A,
+      origin: B,
       href: `${doneUrl.pathname}${doneUrl.search}${doneUrl.hash}`,
-      local: localA,
+      local: localB,
       session: mem(),
     });
     assert.equal(JSON.parse(localA.getItem(MIRROR_SAVE_KEY) || "{}").balance, 440);
@@ -145,8 +152,8 @@ describe("mirror bridge", () => {
 
   it("does not leave an installed app or an offline tab", () => {
     const local = mem({ [MIRROR_SAVE_KEY]: save(1, 1) });
-    assert.equal(run({ origin: A, local, session: mem(), standalone: true }).replaced, null);
-    assert.equal(run({ origin: A, local, session: mem(), online: false }).replaced, null);
+    assert.equal(run({ origin: B, local, session: mem(), standalone: true }).replaced, null);
+    assert.equal(run({ origin: B, local, session: mem(), online: false }).replaced, null);
     assert.equal(run({ origin: "http://127.0.0.1:8080", local, session: mem() }).replaced, null);
   });
 
