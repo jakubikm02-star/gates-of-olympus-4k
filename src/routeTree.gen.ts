@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PrenosRouteImport } from './routes/prenos'
 import { Route as ApiDuelRouteImport } from './routes/api/duel'
 import { Route as ApiReleaseRouteImport } from './routes/api/release'
 import { Route as ApiRtcRouteImport } from './routes/api/rtc'
@@ -17,6 +18,11 @@ import { Route as ApiRtcRouteImport } from './routes/api/rtc'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrenosRoute = PrenosRouteImport.update({
+  id: '/prenos',
+  path: '/prenos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDuelRoute = ApiDuelRouteImport.update({
@@ -37,12 +43,14 @@ const ApiRtcRoute = ApiRtcRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/prenos': typeof PrenosRoute
   '/api/duel': typeof ApiDuelRoute
   '/api/release': typeof ApiReleaseRoute
   '/api/rtc': typeof ApiRtcRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/prenos': typeof PrenosRoute
   '/api/duel': typeof ApiDuelRoute
   '/api/release': typeof ApiReleaseRoute
   '/api/rtc': typeof ApiRtcRoute
@@ -50,20 +58,22 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/prenos': typeof PrenosRoute
   '/api/duel': typeof ApiDuelRoute
   '/api/release': typeof ApiReleaseRoute
   '/api/rtc': typeof ApiRtcRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/duel' | '/api/release' | '/api/rtc'
+  fullPaths: '/' | '/prenos' | '/api/duel' | '/api/release' | '/api/rtc'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/duel' | '/api/release' | '/api/rtc'
-  id: '__root__' | '/' | '/api/duel' | '/api/release' | '/api/rtc'
+  to: '/' | '/prenos' | '/api/duel' | '/api/release' | '/api/rtc'
+  id: '__root__' | '/' | '/prenos' | '/api/duel' | '/api/release' | '/api/rtc'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PrenosRoute: typeof PrenosRoute
   ApiDuelRoute: typeof ApiDuelRoute
   ApiReleaseRoute: typeof ApiReleaseRoute
   ApiRtcRoute: typeof ApiRtcRoute
@@ -76,6 +86,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prenos': {
+      id: '/prenos'
+      path: '/prenos'
+      fullPath: '/prenos'
+      preLoaderRoute: typeof PrenosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/duel': {
@@ -104,6 +121,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PrenosRoute: PrenosRoute,
   ApiDuelRoute: ApiDuelRoute,
   ApiReleaseRoute: ApiReleaseRoute,
   ApiRtcRoute: ApiRtcRoute,

@@ -7,6 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-10-10", text: "Hra má nový link parkizmus.vercel.app. Na starom linku je tlačidlo PRESUNÚŤ HRU, na novom PRENIESŤ HRU ZO STARÉHO LINKU. Po presune je starý link len na čítanie." },
   { day: "2026-10-10", text: "Odkaz parkizmus.vercel.app už neodskakuje na starú adresu. Hra na ňom ostane." },
   { day: "2026-10-10", text: "Oznam a v nastaveniach záložka Uloženie: EXPORT a IMPORT progresu a návod, keď sa medzi odkazmi neprenesie sám." },
   { day: "2026-10-09", text: "Ž-BOX sken má štvrtý slot. Každá vlna ním končí, ako ozvena posledného výstrelu. Posledná schránka vždy." },

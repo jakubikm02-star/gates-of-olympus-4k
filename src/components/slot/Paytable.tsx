@@ -56,6 +56,7 @@ import {
 } from "@/lib/slot/rp-tickets";
 import "./rp-ui.css";
 import "./manual.css";
+import { PrimaryLink } from "./SaveMove";
 
 interface Props {
   open: boolean;
@@ -593,7 +594,7 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
                 </span>,
                 "cloudová záloha štatistík (predvolene vypnutá), vymazanie lokálnych štatistík, vysvetlenie Ž-BOXu a KOLESA zapnúť / vypnúť, obálky v KOLESE",
               ],
-              ["Uloženie", "EXPORT a IMPORT v Nastaveniach. Prenesie kredit, hodnosť, lístok a rozohratú hru, keď sa medzi odkazmi neprenesie sám."],
+              ["Uloženie", "Nastavenia → Uloženie: prenos hry zo starého linku na parkizmus.vercel.app (starý link sa potom zamkne), a EXPORT a IMPORT kódom."],
               [
                 <span className="man-ico" key="b">
                   <BarChart3 size={14} /> Štatistiky · <Trophy size={14} /> Rebríček
@@ -606,6 +607,9 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
           <p className="man-p pt-satire">
             Satira. Akákoľvek podobnosť s reálnymi doručovacími službami je zveličená pre zábavu. Všetky balíky, e-shopy a čísla zásielok v hre sú
             fiktívne a doručené včas.
+          </p>
+          <p className="man-p man-link">
+            Link hry: <PrimaryLink />
           </p>
         </Sec>
         {desk && mine ? (

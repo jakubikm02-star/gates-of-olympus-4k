@@ -3,5 +3,6 @@
   "short_name": "Parkizmus",
   "type": "x:game",
   "card": "custom",
-  "color": "0b0d10"
+  "color": "0b0d10",
+  "url": "https://parkizmus.vercel.app/"
 }

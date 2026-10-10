@@ -44,6 +44,7 @@ import { hudState, makeTapCounter, setHudEnabled } from "@/lib/slot/debug-hud";
 import { BUILD_ID } from "@/lib/slot/release";
 import { changeDayLabel, recentChanges } from "@/lib/slot/changelog";
 import { SavePortPanel } from "./SavePort";
+import { PrimaryLink } from "./SaveMove";
 
 /** Build label; five quick taps toggle the hidden debug HUD. */
 function BuildTag() {
@@ -55,7 +56,7 @@ function BuildTag() {
         if (tap.current()) setHudEnabled(!hudState().enabled);
       }}
     >
-      verzia {BUILD_ID.slice(0, 10)}
+      <PrimaryLink /> · verzia {BUILD_ID.slice(0, 10)}
     </p>
   );
 }

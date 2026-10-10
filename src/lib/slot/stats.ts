@@ -3,6 +3,7 @@
  * Pure reducers + localStorage — separate from PlayerSave / EXEKÚCIA.
  */
 import { cleanRecipe, type WinRecipe } from "./win-recipe.ts";
+import { saveWritesBlocked } from "./player-save.ts";
 import type { PayId } from "./symbols.ts";
 import type { ChaseOutcome, FsSymId } from "./zasah.ts";
 import type { JobCard, JobFloor } from "./spend.ts";
@@ -980,6 +981,8 @@ export function readStats(): PlayerStats {
 
 export function writeStats(s: PlayerStats): void {
   if (typeof localStorage === "undefined") return;
+  // Same lock as the save: read-only after a move, frozen while an import reloads the page.
+  if (saveWritesBlocked()) return;
   try {
     localStorage.setItem(STATS_KEY, JSON.stringify(sanitizeStats(s)));
   } catch {

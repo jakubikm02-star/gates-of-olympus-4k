@@ -43,6 +43,7 @@ import { ticketBonus } from "@/lib/slot/ticket-bonus";
 import { DuelSheet, DuelBar, DuelLink } from "./DuelSheet";
 import { Settings } from "./Settings";
 import { SaveNotice } from "./SavePort";
+import { MoveTargetLayer, OldLinkLayer } from "./SaveMove";
 import { noticeDismissed } from "@/lib/slot/save-port";
 import { DebugOverlay } from "./DebugOverlay";
 import { MassiveWin } from "./MassiveWin";
@@ -1185,6 +1186,8 @@ export function SlotGame() {
         mine={g.mine}
       />
       <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} playerId={g.deviceId} portBusy={g.busy || Boolean(g.duel) || Boolean(g.duelLink)} />
+      <OldLinkLayer started={g.started} busy={g.busy || Boolean(g.duel) || Boolean(g.duelLink)} playerId={g.deviceId} />
+      <MoveTargetLayer busy={g.busy || Boolean(g.duel) || Boolean(g.duelLink)} />
       <SaveNotice
         open={portOpen && !g.stale}
         busy={g.busy || Boolean(g.duel) || Boolean(g.duelLink)}

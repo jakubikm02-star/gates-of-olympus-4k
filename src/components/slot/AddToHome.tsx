@@ -30,6 +30,7 @@ import {
 } from "@/lib/slot/a2hs";
 import { deferredPrompt, isStandalone, onInstallChange, registerInstallSw, runPrompt } from "@/lib/slot/a2hs-client";
 import "./a2hs.css";
+import { hereRole, primaryUrl } from "@/lib/slot/save-move";
 
 const ICON: Record<StepIcon, ReactNode> = {
   share: <Share size={20} strokeWidth={2.2} />,
@@ -123,7 +124,8 @@ export function AddToHome({ place = "boot" }: { place?: "boot" | "menu" | "hud" 
   }, []);
 
   const copy = useCallback(async () => {
-    const href = window.location.origin + window.location.pathname;
+    // On the two public hosts always share the new link.
+    const href = hereRole() ? primaryUrl() : window.location.origin + window.location.pathname;
     try {
       await navigator.clipboard.writeText(href);
     } catch {
@@ -139,6 +141,8 @@ export function AddToHome({ place = "boot" }: { place?: "boot" | "menu" | "hud" 
   }, []);
 
   if (!env || hidden) return null;
+  // Old link: an icon installed here would stay on the old origin. The banner sends players to the new link.
+  if (hereRole() === "old") return null;
   // No route at all (desktop Firefox): nothing to offer.
   if (!canPrompt && !guide) return null;
   // The intro pill stays quiet on a PC until the browser is ready, except Safari which has no prompt.

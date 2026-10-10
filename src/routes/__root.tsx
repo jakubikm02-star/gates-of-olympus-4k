@@ -3,7 +3,7 @@ import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import appCss from "../styles.css?url";
 import { A2HS_HEAD_SCRIPT } from "@/lib/slot/a2hs-client";
-import { MIRROR_HEAD_SCRIPT } from "@/lib/slot/mirror-bridge";
+import { PRIMARY_URL } from "@/lib/slot/save-move";
 
 const APP_NAME = "Ports of Parkizmus";
 
@@ -33,6 +33,8 @@ export const Route = createRootRoute({
       { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.webmanifest" },
+      // Both hosts serve the same game; search engines and share cards point at the new link.
+      { rel: "canonical", href: PRIMARY_URL },
       // Intro first paint: garage before the symbol set (the intro hero <img fetchPriority="high"> preloads itself).
       { rel: "preload", as: "image", href: "/art/parking-bg.webp", type: "image/webp", fetchPriority: "high" },
       { rel: "preload", as: "image", href: "/symbols/rj45.png" },
@@ -49,7 +51,9 @@ export const Route = createRootRoute({
       { rel: "preload", as: "image", href: "/art/paas-idle.png?v=3" },
     ],
     // PRIDAŤ NA PLOCHU: keep Chromium's beforeinstallprompt even when it fires before hydration.
-    scripts: [{ children: MIRROR_HEAD_SCRIPT }, { children: A2HS_HEAD_SCRIPT }],
+    // The automatic old→new hop (MIRROR_HEAD_SCRIPT) is gone: moving the save is now an explicit,
+    // confirmed transfer that locks the old copy (save-move.ts).
+    scripts: [{ children: A2HS_HEAD_SCRIPT }],
   }),
   component: () => (
     <html lang="sk" suppressHydrationWarning>

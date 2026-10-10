@@ -1,9 +1,9 @@
 /**
  * The two public hosts are one deployment but two browser origins, so localStorage does not cross.
  * Third-party iframes only see partitioned storage, so a hidden frame cannot read the other save.
- * A top-level hop from the old link (once per tab, never from an installed app) copies the newer save.
- * The new link never starts that hop, so opening it stays on parkizmus.vercel.app.
- * The installed app stays put and catches up from the encrypted cloud copy after that hop.
+ * MIRROR_HEAD_SCRIPT (the automatic top-level hop old → new → old) is no longer injected: the save now
+ * moves with an explicit, confirmed transfer that locks the old copy (save-move.ts). The script and
+ * carryStamp stay for the tests and the stamp logic. Players the hop already paired keep their cloud key.
  */
 
 export const MIRROR_ORIGINS = [

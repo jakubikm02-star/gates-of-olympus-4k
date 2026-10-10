@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { flushMirrorPush, scheduleMirrorPush } from "@/lib/slot/mirror-cloud";
-import { readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
+import { holdSaveWrites, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
+import { MovePanel } from "./SaveMove";
 import {
   SAVE_PORT_FILE,
   dismissNotice,
@@ -13,9 +14,11 @@ import {
 function Guide() {
   return (
     <>
+      <MovePanel />
       <p className="sound-note">
-        Nový odkaz je parkizmus.vercel.app. Starý odkaz ostáva. Kredit, hodnosť, lístok a rozohratá hra sa prenášajú samy,
-        keď druhý odkaz otvoríš v prehliadači. Nainštalovaná aplikácia sa nepresúva. Štatistiky a prezývka ostávajú na zariadení.
+        Link hry je parkizmus.vercel.app. Starý link gates-of-olympus-4k.vercel.app ostáva len pre doterajších hráčov, kým sa presunú.
+        Aplikácia pridaná na plochu zo starého linku ostáva na starom linku: pridaj si hru na plochu znova z parkizmus.vercel.app.
+        Keď okno nejde (napr. v aplikácii na ploche), použi EXPORT a IMPORT:
       </p>
       <ol className="save-steps">
         <li>Na zariadení, kde máš progres, stlač EXPORT. Kód sa skopíruje a stiahne sa súbor.</li>
@@ -87,6 +90,8 @@ export function SavePortPanel({ busy, playerId }: { busy: boolean; playerId: str
     writeLocalSave(stamped);
     scheduleMirrorPush(stamped);
     flushMirrorPush();
+    // The running game must not write its older state back before the reload.
+    holdSaveWrites();
     window.location.reload();
   };
 

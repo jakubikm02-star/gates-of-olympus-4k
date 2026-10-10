@@ -5,6 +5,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
+  canonicalSiteUrl,
+  grokOgHeadTags as ogTagsForCanonical,
   appNameFromHost,
   createHeadInjector,
   grokXCreatorHeadTags,
@@ -518,3 +520,17 @@ test("vite plugin bakes og identity as a virtual module", () => {
   assert.match(plugin, /snapshotOgIdentity/);
 });
 
+
+test("site.url pins og:url and the card host for every serving host (old and new link)", () => {
+  const site = { title: "Ports of Parkizmus", card: "custom", image: "/og.jpg", url: "https://parkizmus.vercel.app/" };
+  for (const host of ["gates-of-olympus-4k.vercel.app", "parkizmus.vercel.app"]) {
+    const tags = ogTagsForCanonical({ host, site, cwd: "/nonexistent" }).join("");
+    assert.match(tags, /<meta property="og:url" content="https:\/\/parkizmus\.vercel\.app\/">/);
+    assert.match(tags, /<meta property="og:image" content="https:\/\/parkizmus\.vercel\.app\/og\.jpg">/);
+  }
+  assert.equal(canonicalSiteUrl({ url: "http://parkizmus.vercel.app/" }), "");
+  assert.equal(canonicalSiteUrl({ url: "javascript:alert(1)" }), "");
+  assert.equal(canonicalSiteUrl({}), "");
+  const none = ogTagsForCanonical({ host: "parkizmus.vercel.app", site: { title: "X" }, cwd: "/nonexistent" }).join("");
+  assert.doesNotMatch(none, /og:url/);
+});

@@ -460,7 +460,32 @@ export function readLocalSave(): PlayerSave | null {
   }
 }
 
+/** Set on the old link once the save moved to the new link (save-move.ts). The old copy is then read-only. */
+export const MOVED_KEY = "parkizmus-moved";
+
+let held = false;
+
+/** Freeze local writes for the rest of this page (an import is about to reload it). */
+export function holdSaveWrites(): void {
+  held = true;
+}
+
+/** The save on this origin was moved to the new link and is kept only as a read-only copy. */
+export function saveMovedAway(): boolean {
+  try {
+    return typeof localStorage !== "undefined" && Boolean(localStorage.getItem(MOVED_KEY));
+  } catch {
+    return false;
+  }
+}
+
+/** True when this page must not write the save: an import is reloading it, or the save moved away. */
+export function saveWritesBlocked(): boolean {
+  return held || saveMovedAway();
+}
+
 export function writeLocalSave(s: PlayerSave): void {
+  if (saveWritesBlocked()) return;
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({ ...s, updatedAt: s.updatedAt || Date.now() }));
   } catch {

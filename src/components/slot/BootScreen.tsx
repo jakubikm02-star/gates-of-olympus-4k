@@ -5,6 +5,7 @@ import { WIN_POP_X } from "@/lib/slot/symbols";
 import { POOL_ELIGIBLE_BET } from "@/lib/slot/jackpot";
 import { RankFrame } from "./RankFrame";
 import { AddToHome } from "./AddToHome";
+import { BootPullCard, PrimaryLink } from "./SaveMove";
 
 /**
  * Intro / loading screen. Only art the game already preloads (garage, scatter, ticket)
@@ -69,6 +70,7 @@ export function BootScreen({ ready, pct, booting, rank, onStart, onRank, onTrans
             <span>PARKIZMUS</span>
           </h1>
           <span className="bs-tag">6×5 · TUMBLE · NÁSOBIČE AŽ 500×</span>
+          <PrimaryLink className="bs-link" />
         </header>
 
         <div className="bs-max">
@@ -127,6 +129,8 @@ export function BootScreen({ ready, pct, booting, rank, onStart, onRank, onTrans
           <span>{booting ? "ZVUK…" : "HRAŤ"}</span>
           {booting ? null : <Play size={18} strokeWidth={0} fill="currentColor" aria-hidden="true" />}
         </button>
+
+        <BootPullCard />
 
         <button type="button" className="bs-transfer" onClick={onTransfer}>
           Prenos uloženia

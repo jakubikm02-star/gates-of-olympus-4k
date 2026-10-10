@@ -4,7 +4,7 @@
  * A bad blob is ignored. Nothing is uploaded until a pull has finished, so a failed
  * read cannot overwrite the other side with an older local copy.
  */
-import { sanitizePlayerSave, type PlayerSave } from "./player-save.ts";
+import { sanitizePlayerSave, saveMovedAway, saveWritesBlocked, type PlayerSave } from "./player-save.ts";
 import { MIRROR_BRIDGE_KEY, MIRROR_ORIGINS } from "./mirror-bridge.ts";
 
 const SUPA_URL = "https://xgpnmxkquxzbhgktjipa.supabase.co";
@@ -117,6 +117,7 @@ function canSend(s: PlayerSave | null): s is PlayerSave {
 
 async function mirrorPut(s: PlayerSave, keepalive = false): Promise<void> {
   if (!active() || !pulled || !canSend(s)) return;
+  if (saveMovedAway()) return;
   if (remoteAt && s.updatedAt < remoteAt) return;
   const key = await loadKey();
   if (!key) return;
@@ -135,6 +136,8 @@ function ensureListener(): void {
 
 /** Remember the latest save. Upload waits until pullMirrorSave has resolved. */
 export function scheduleMirrorPush(s: PlayerSave): void {
+  // A moved (read-only) save or a page about to reload after an import must not upload its stale state.
+  if (saveWritesBlocked()) return;
   latest = s;
   if (!active()) return;
   ensureListener();

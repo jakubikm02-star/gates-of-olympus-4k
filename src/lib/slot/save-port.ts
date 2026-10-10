@@ -37,7 +37,7 @@ function asRecord(raw: unknown): Record<string, unknown> | null {
 }
 
 /** Reject anything that is not an actual player save. sanitize() would otherwise invent a fresh start. */
-function accept(raw: unknown): PlayerSave | null {
+export function acceptSave(raw: unknown): PlayerSave | null {
   const rec = asRecord(raw);
   if (!rec) return null;
   const body = rec.parkizmus === 1 ? rec.save : rec;
@@ -69,7 +69,7 @@ export function unpackSave(text: string): UnpackResult {
   } catch {
     return { ok: false, error: "Toto nie je uloženie hry. Skopíruj celý kód z EXPORTU." };
   }
-  const save = accept(parsed);
+  const save = acceptSave(parsed);
   if (!save) return { ok: false, error: "V kóde chýba kredit alebo hráč. Skopíruj EXPORT znova." };
   return { ok: true, save };
 }

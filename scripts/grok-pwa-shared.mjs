@@ -349,6 +349,23 @@ function applyCustomCardFromFs(site, cwd) {
   return { ...site, card: "custom", image: disk };
 }
 
+/** Canonical public URL from site.json (`url`), https only, or "". */
+export function canonicalSiteUrl(site = {}) {
+  const raw = String(site.url ?? "").trim();
+  if (!raw) return "";
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "https:" || !isPlainHost(u.hostname)) return "";
+    return `${u.origin}${u.pathname || "/"}`;
+  } catch {
+    return "";
+  }
+}
+
+function isPlainHost(host) {
+  return /^[a-z0-9.-]+$/.test(host) && host.includes(".") && !/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host);
+}
+
 export function grokOgHeadTags({
   host = "",
   appName = DEFAULT_APP_NAME,
@@ -357,11 +374,14 @@ export function grokOgHeadTags({
   cwd = process.cwd(),
 } = {}) {
   const title = resolveOgTitle(site, appName, host, documentTitle);
-  const publicHost = resolvePublicHost(host);
+  const canonical = canonicalSiteUrl(site);
+  // A canonical site URL (the app's own production link) wins, so every host shares the same card.
+  const publicHost = canonical ? new URL(canonical).hostname : resolvePublicHost(host);
   const tags = [
     `<meta name="twitter:card" content="summary_large_image">`,
     `<meta property="og:title" content="${escapeHtml(title)}">`,
   ];
+  if (canonical) tags.push(`<meta property="og:url" content="${escapeHtml(canonical)}">`);
   const description = String(site.description ?? "").trim();
   if (description) {
     tags.push(`<meta property="og:description" content="${escapeHtml(description)}">`);
