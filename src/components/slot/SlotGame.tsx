@@ -42,6 +42,8 @@ import { BonusIcon, BonusNote, BonusPill, LegCounters, TicketGoals } from "./Tic
 import { ticketBonus } from "@/lib/slot/ticket-bonus";
 import { DuelSheet, DuelBar, DuelLink } from "./DuelSheet";
 import { Settings } from "./Settings";
+import { SaveNotice } from "./SavePort";
+import { noticeDismissed } from "@/lib/slot/save-port";
 import { DebugOverlay } from "./DebugOverlay";
 import { MassiveWin } from "./MassiveWin";
 import { Leaderboard, NickAsk } from "./Leaderboard";
@@ -206,12 +208,17 @@ export function SlotGame() {
   const [deskOpen, setDeskOpen] = useState(false);
   const [jpEvent, setJpEvent] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [portOpen, setPortOpen] = useState(false);
   const [manFocus, setManFocus] = useState<string | null>(null);
   const [boardOpen, setBoardOpen] = useState(false);
   const [autoMenu, setAutoMenu] = useState(false);
   const [jobOpen, setJobOpen] = useState(false);
   const [, names] = useState(0);
   useEffect(() => subscribeTicketNames(() => names((n) => n + 1)), []);
+  useEffect(() => {
+    if (g.stale || noticeDismissed()) return;
+    setPortOpen(true);
+  }, [g.stale]);
   useEffect(() => {
     const id = window.setInterval(() => setJpEvent((on) => !on), 20_000);
     return () => window.clearInterval(id);
@@ -290,6 +297,7 @@ export function SlotGame() {
           rank={g.rank}
           onStart={() => void g.start()}
           onRank={() => g.setRankOpen(true)}
+          onTransfer={() => setPortOpen(true)}
         />
       )}
 
@@ -1176,7 +1184,13 @@ export function SlotGame() {
         desk={g.desk}
         mine={g.mine}
       />
-      <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} playerId={g.deviceId} />
+      <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} playerId={g.deviceId} portBusy={g.busy || Boolean(g.duel) || Boolean(g.duelLink)} />
+      <SaveNotice
+        open={portOpen && !g.stale}
+        busy={g.busy || Boolean(g.duel) || Boolean(g.duelLink)}
+        playerId={g.deviceId}
+        onClose={() => setPortOpen(false)}
+      />
       <DebugOverlay busy={g.busy} perfLite={perfLite} reduced={reducedMotion} />
       <Leaderboard open={boardOpen} nick={g.nick} deviceId={g.deviceId} onClose={() => setBoardOpen(false)} onSave={g.setNickName} />
       <StatsSheet

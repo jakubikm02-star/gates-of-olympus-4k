@@ -8,6 +8,7 @@ export interface ChangeNote {
 
 export const CHANGELOG: readonly ChangeNote[] = [
   { day: "2026-10-10", text: "Nový odkaz hry je parkizmus.vercel.app. Starý odkaz ostáva. Kredit, hodnosť, lístok a rozohratá hra sa medzi nimi prenášajú. Nainštalovaná aplikácia sa nepresúva." },
+  { day: "2026-10-10", text: "Oznam a v nastaveniach záložka Uloženie: EXPORT a IMPORT progresu a návod, keď sa medzi odkazmi neprenesie sám." },
   { day: "2026-10-09", text: "Ž-BOX sken má štvrtý slot. Každá vlna ním končí, ako ozvena posledného výstrelu. Posledná schránka vždy." },
   { day: "2026-10-09", text: "V nastaveniach je záložka Zmeny. Drží, čo sa v hre zmenilo, po dňoch, najviac týždeň." },
   { day: "2026-10-09", text: "Big win a jackpot už autospin nevypnú. Obrazovka ho len pozastaví a po VIDENÉ pokračuje tam, kde skončil." },

@@ -37,9 +37,10 @@ interface Props {
   rank: Standing;
   onStart: () => void;
   onRank: () => void;
+  onTransfer: () => void;
 }
 
-export function BootScreen({ ready, pct, booting, rank, onStart, onRank }: Props) {
+export function BootScreen({ ready, pct, booting, rank, onStart, onRank, onTransfer }: Props) {
   const shown = ready ? 100 : Math.max(0, Math.min(100, Math.round(pct)));
   const label = `${rank.name}${rank.roman ? ` ${rank.roman}` : ""}`;
   const into = rank.need > 0 ? Math.min(100, (rank.into / rank.need) * 100) : 100;
@@ -127,7 +128,9 @@ export function BootScreen({ ready, pct, booting, rank, onStart, onRank }: Props
           {booting ? null : <Play size={18} strokeWidth={0} fill="currentColor" aria-hidden="true" />}
         </button>
 
-        <p className="bs-fine">Demo · bez vkladov · kredit, liga a štatistiky ostávajú v tomto prehliadači</p>
+        <button type="button" className="bs-transfer" onClick={onTransfer}>
+          Prenos uloženia
+        </button>
       </section>
     </div>
   );

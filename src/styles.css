@@ -2985,21 +2985,22 @@
 
 .set-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 6px;
   margin: 4px 0 14px;
 }
 
 .set-tabs button {
-  min-height: 42px;
+  min-height: 44px;
   border-radius: 10px;
   border: 1px solid rgb(62 198 224 / 0.35);
   background: rgb(255 255 255 / 0.04);
   color: #c9d3dc;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  font-size: 0.78rem;
+  font-size: 0.68rem;
+  padding: 0 4px;
   cursor: pointer;
 }
 
@@ -3028,6 +3029,99 @@
   color: #e7e0d2;
   font-size: 0.84rem;
   line-height: 1.35;
+}
+
+.save-port {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.save-port .sound-note,
+.save-port .sound-err {
+  margin: 0;
+  padding: 0;
+}
+
+.save-steps {
+  margin: 0;
+  padding-left: 1.15em;
+  color: #e7e0d2;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.save-steps li {
+  margin: 6px 0;
+}
+
+.save-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.save-port .sound-reset,
+.save-glance .sound-reset,
+.save-secondary {
+  width: 100%;
+  margin: 0;
+  min-height: 44px;
+}
+
+.save-secondary {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgb(62 198 224 / 0.55);
+  background: rgb(8 18 24 / 0.8);
+  color: #d9f7ff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.save-code {
+  width: 100%;
+  min-height: 88px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #c9a24a;
+  background: #120c08;
+  color: #fff6d8;
+  font-family: ui-monospace, monospace;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  resize: vertical;
+  word-break: break-all;
+}
+
+.save-file {
+  display: none;
+}
+
+.save-glance {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid rgb(240 196 25 / 0.45);
+  border-radius: 8px;
+  background: rgb(240 196 25 / 0.08);
+}
+
+.save-glance p {
+  margin: 0;
+  color: #fff6d8;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.save-dismiss {
+  margin-top: 12px;
 }
 
 .ticket-names {

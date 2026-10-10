@@ -593,6 +593,7 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
                 </span>,
                 "cloudová záloha štatistík (predvolene vypnutá), vymazanie lokálnych štatistík, vysvetlenie Ž-BOXu a KOLESA zapnúť / vypnúť, obálky v KOLESE",
               ],
+              ["Uloženie", "EXPORT a IMPORT v Nastaveniach. Prenesie kredit, hodnosť, lístok a rozohratú hru, keď sa medzi odkazmi neprenesie sám."],
               [
                 <span className="man-ico" key="b">
                   <BarChart3 size={14} /> Štatistiky · <Trophy size={14} /> Rebríček

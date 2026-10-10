@@ -674,10 +674,30 @@
   color: #7f8a95;
 }
 
+.bs-transfer {
+  display: block;
+  margin: 8px auto 0;
+  padding: 4px 8px;
+  min-height: 32px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #9fdfff;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
 /* ---------- small phones ---------- */
 @media (max-height: 700px) {
   .bs-tag,
-  .bs-fine {
+  .bs-fine,
+  .bs-transfer {
     display: none;
   }
   .bs-logo {
@@ -864,7 +884,8 @@
     padding: 16px 20px 12px;
   }
   .bs-tag,
-  .bs-fine {
+  .bs-fine,
+  .bs-transfer {
     display: none;
   }
   .bs-logo {

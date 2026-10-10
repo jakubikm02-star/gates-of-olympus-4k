@@ -43,6 +43,7 @@ import { saveContractTitles, subscribeContracts } from "@/lib/slot/job-titles";
 import { hudState, makeTapCounter, setHudEnabled } from "@/lib/slot/debug-hud";
 import { BUILD_ID } from "@/lib/slot/release";
 import { changeDayLabel, recentChanges } from "@/lib/slot/changelog";
+import { SavePortPanel } from "./SavePort";
 
 /** Build label; five quick taps toggle the hidden debug HUD. */
 function BuildTag() {
@@ -655,10 +656,12 @@ export function Settings({
   open,
   onClose,
   playerId = "",
+  portBusy = false,
 }: {
   open: boolean;
   onClose: () => void;
   playerId?: string;
+  portBusy?: boolean;
 }) {
   const [pass, setPass] = useState("");
   const [gate, setGate] = useState("");
@@ -667,7 +670,7 @@ export function Settings({
   const [zboxHelp, setZboxHelp] = useState(() => !zboxHelpOff());
   const [kolesoHelp, setKolesoHelp] = useState(() => !kolesoHelpOff());
   const [kolesoEnv, setKolesoEnv] = useState(() => kolesoEnvelopes());
-  const [tab, setTab] = useState<"hra" | "zmeny">("hra");
+  const [tab, setTab] = useState<"hra" | "ulozenie" | "zmeny">("hra");
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -710,12 +713,17 @@ export function Settings({
           <button type="button" role="tab" aria-selected={tab === "hra"} className={tab === "hra" ? "on" : ""} onClick={() => setTab("hra")}>
             Hra
           </button>
+          <button type="button" role="tab" aria-selected={tab === "ulozenie"} className={tab === "ulozenie" ? "on" : ""} onClick={() => setTab("ulozenie")}>
+            Uloženie
+          </button>
           <button type="button" role="tab" aria-selected={tab === "zmeny"} className={tab === "zmeny" ? "on" : ""} onClick={() => setTab("zmeny")}>
             Zmeny
           </button>
         </div>
         {tab === "zmeny" ? (
           <ChangeLog />
+        ) : tab === "ulozenie" ? (
+          <SavePortPanel busy={portBusy} playerId={playerId} />
         ) : (
           <>
         <div className="settings-privacy">
