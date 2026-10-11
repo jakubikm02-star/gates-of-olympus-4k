@@ -66,6 +66,14 @@ export interface PendingBonus {
   seed?: number;
   /** ZLATÝ BONUS: today's gold was spent on this bonus when the bar filled (lib/slot/zlaty). */
   gold?: GoldRun;
+  /** KOLESO: the player's letter choices so far (one per offer, null = Jožo), so a reload replays them. */
+  kpicks?: (string | null)[];
+}
+
+/** KOLESO letter choices from a save: base letters a–z or null, at most 16. */
+export function sanitizeKolesoPicks(raw: unknown): (string | null)[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  return raw.slice(0, 16).map((x) => (typeof x === "string" && /^[a-z]$/.test(x) ? x : null));
 }
 
 export function sanitizePendingBonus(raw: unknown): PendingBonus | null {
@@ -80,6 +88,7 @@ export function sanitizePendingBonus(raw: unknown): PendingBonus | null {
   const at = typeof r.at === "number" && Number.isFinite(r.at) ? Math.max(0, Math.floor(r.at)) : 0;
   const seed = typeof r.seed === "number" && Number.isInteger(r.seed) && r.seed >= 0 && r.seed < 0x100000000 ? r.seed : undefined;
   const gold = sanitizeGoldRun(r.gold);
+  const kpicks = r.mode === "koleso" ? sanitizeKolesoPicks(r.kpicks) : undefined;
   return {
     mode: r.mode as BonusModeId,
     bet,
@@ -88,6 +97,7 @@ export function sanitizePendingBonus(raw: unknown): PendingBonus | null {
     at,
     ...(seed !== undefined ? { seed } : {}),
     ...(gold ? { gold } : {}),
+    ...(kpicks && kpicks.length ? { kpicks } : {}),
   };
 }
 

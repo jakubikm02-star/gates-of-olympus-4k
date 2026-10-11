@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { createRng } from "./engine.ts";
 import {
   KOLESO_CAP_X,
+  KOLESO_FREQ,
+  KOLESO_OFFER,
   KOLESO_PHRASES,
   KOLESO_SLICES,
   KOLESO_SOLVE_AT,
@@ -14,16 +16,20 @@ import {
   KOLESO_START,
   KOLESO_VIP,
   KOLESO_WHEEL,
+  KOLESO_COURIER,
   kolesoBase,
   kolesoCalledAfter,
+  kolesoOffer,
   kolesoRows,
   kolesoVipOf,
   playKoleso,
+  type KPicker,
 } from "./koleso.ts";
 import { kontrolaTargets } from "./bonus-ev.ts";
 import { RANK_PERKS } from "./ranks.ts";
 import { sanitizePlayerSave } from "./player-save.ts";
 import { applyStat, cget, emptyStats } from "./stats.ts";
+import { sanitizeKolesoPicks, sanitizePendingBonus } from "./bonus-mode.ts";
 import { KOLESO_VO, cueKeys, cueSrc } from "./audio.ts";
 
 const src = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8");
@@ -44,6 +50,18 @@ describe("KOLESO wheel + phrases", () => {
       ids.add(p.id);
     }
     assert.ok(KOLESO_PHRASES.length >= 30);
+  });
+  it("40 parody phrases tagged 4ka-vop / paas: end with a period, no duplicates, fit the board", () => {
+    const vop = KOLESO_PHRASES.filter((p) => p.src === "4ka-vop");
+    const paas = KOLESO_PHRASES.filter((p) => p.src === "paas");
+    assert.ok(vop.length >= 20 && paas.length >= 20, `${vop.length} / ${paas.length}`);
+    const texts = new Set<string>();
+    for (const p of KOLESO_PHRASES) {
+      assert.ok(/\.$/.test(p.text), p.text);
+      assert.ok(!texts.has(p.text.toLowerCase()), p.text);
+      texts.add(p.text.toLowerCase());
+    }
+    for (const p of [...vop, ...paas]) assert.ok((kolesoRows(p.text)?.length ?? 9) <= 4, p.text);
   });
   it("letters fold diacritics", () => {
     assert.equal(kolesoBase("Á"), "a");
@@ -92,22 +110,103 @@ describe("KOLESO run", () => {
   });
 });
 
-describe("KOLESO EV ≈ KONTROLA EV per rank (same RTP share)", () => {
+describe("KOLESO letter choice (3 random letters, the player picks one)", () => {
+  it("offer: up to 3 distinct uncalled letters, consonants first, always 3 rng calls", () => {
+    const VOW = ["a", "e", "i", "o", "u", "y"];
+    const CON = Object.keys(KOLESO_FREQ).filter((c) => !VOW.includes(c));
+    const rng = createRng(5);
+    for (let i = 0; i < 2000; i++) {
+      const called = new Set(CON.filter(() => rng() < 0.5));
+      let n = 0;
+      const counted = () => {
+        n++;
+        return rng();
+      };
+      const o = kolesoOffer(counted, CON, VOW, called);
+      assert.equal(n, KOLESO_OFFER);
+      assert.equal(new Set(o).size, o.length);
+      for (const c of o) assert.ok(!called.has(c));
+      const left = CON.filter((c) => !called.has(c)).length;
+      if (left >= 3) o.forEach((c) => assert.ok(CON.includes(c)));
+    }
+  });
+  it("Jožo / auto = offer[0]; choices replay; the wheel path never depends on the choice", () => {
+    const rng = createRng(77);
+    for (let i = 0; i < 3000; i++) {
+      const seed = Math.floor(rng() * 0x100000000);
+      const a = playKoleso(createRng(seed));
+      for (const st of a.steps) if (st.offer?.length) assert.equal(st.letter, st.offer[0]);
+      // pick the last letter of every offer
+      const picks: (string | null)[] = [];
+      for (let k = 0; k < 6; k++) {
+        const cur = playKoleso(createRng(seed), { picks });
+        const st = cur.steps.find((x) => x.pickNo === picks.length);
+        if (!st?.offer) break;
+        picks.push(st.offer[st.offer.length - 1]);
+      }
+      const b = playKoleso(createRng(seed), { picks });
+      const c = playKoleso(createRng(seed), { picks });
+      assert.deepEqual(b, c);
+      const n = Math.min(a.steps.length, b.steps.length);
+      for (let k = 0; k < n; k++) {
+        assert.equal(a.steps[k].seg, b.steps[k].seg);
+        assert.equal(a.steps[k].jitter, b.steps[k].jitter);
+        if (a.steps[k].kind === "courier") assert.equal(a.steps[k].parcel, b.steps[k].parcel);
+      }
+      for (const st of b.steps) if (st.chosen) assert.ok(st.offer?.includes(st.letter ?? ""));
+    }
+  });
+  it("a pick that is not in the offer falls back to Jožo's tip", () => {
+    const a = playKoleso(createRng(9));
+    const b = playKoleso(createRng(9), { picks: ["q", "q", "q", "q", "q", "q"] });
+    assert.deepEqual(a, b);
+  });
+  it("saved choices survive the player save (sanitized)", () => {
+    assert.deepEqual(sanitizeKolesoPicks(["k", null, "Z", 3, "dd", "v"]), ["k", null, null, null, null, "v"]);
+    const p = sanitizePendingBonus({ mode: "koleso", bet: 1, mod: null, modLeft: 0, at: 1, seed: 7, kpicks: ["r", null] });
+    assert.deepEqual(p?.kpicks, ["r", null]);
+    assert.equal(sanitizePendingBonus({ mode: "zbox", bet: 1, mod: null, modLeft: 0, at: 1, seed: 7, kpicks: ["r"] })?.kpicks, undefined);
+  });
+});
+
+describe("KOLESO EV vs KONTROLA per rank with the letter choice (old payouts kept, RTP up: Martin 11. 10.)", () => {
   const targets = kontrolaTargets();
-  const N = 300_000;
-  const rng = createRng(4242);
-  let s = 0;
-  for (let i = 0; i < N; i++) s += playKoleso(rng, { vip: 0 }).totalX;
-  const base = s / N;
+  const N = 120_000;
+  const run = (picker?: KPicker) => {
+    const rng = createRng(4242);
+    let s = 0;
+    for (let i = 0; i < N; i++) s += playKoleso(rng, { vip: 0, picker }).totalX;
+    return s / N;
+  };
+  const nr = createRng(99);
+  const greedy: KPicker = (o, i) => [...o].sort((a, b) => (i.cnt[b] ?? 0) - (i.cnt[a] ?? 0) || KOLESO_FREQ[b] - KOLESO_FREQ[a])[0];
+  const hold: KPicker = (o, i) => {
+    if (i.left >= 1) {
+      const keep = o.filter((c) => (i.shown + (i.cnt[c] ?? 0)) / i.letters < KOLESO_SOLVE_AT);
+      if (keep.length) return greedy(keep, i);
+    }
+    return greedy(o, i);
+  };
+  const jozo = run();
+  const naive = run((o) => o[Math.floor(nr() * o.length)]);
+  const strong = Math.max(run(greedy), run(hold));
   for (const p of RANK_PERKS) {
-    it(`${p.id}: |KOLESO − KONTROLA| < 2 %`, () => {
-      const ev = base + kolesoVipOf(p.id);
-      assert.ok(Math.abs(ev / targets[p.id] - 1) < 0.02, `${p.id}: ${ev.toFixed(4)} vs ${targets[p.id].toFixed(4)}`);
+    it(`${p.id}: Jožo / naive ≥ KONTROLA, strong ≥ naive, strong ≤ +120 %`, () => {
+      const t = targets[p.id];
+      const v = kolesoVipOf(p.id);
+      assert.ok((jozo + v) / t - 1 > -0.01, `jozo ${(jozo + v).toFixed(4)} vs ${t.toFixed(4)}`);
+      assert.ok((naive + v) / t - 1 > -0.01, `naive ${(naive + v).toFixed(4)} vs ${t.toFixed(4)}`);
+      assert.ok(strong > naive, "knowing the phrase pays");
+      assert.ok((strong + v) / t - 1 < 1.2, `strong ${(strong + v).toFixed(4)} vs ${t.toFixed(4)}`);
     });
   }
-  it("solve bonus is the approved 1,58×, šek never negative", () => {
+  it("payouts are the pre-choice ones (slices, kuriér, solve, šek)", () => {
+    const vals = KOLESO_WHEEL.filter((g) => g.kind === "val").map((g) => g.v).sort((a, b) => (a ?? 0) - (b ?? 0));
+    assert.deepEqual(vals, [0.25, 0.25, 0.25, 0.4, 0.4, 0.7, 0.7, 1.5]);
+    assert.deepEqual([...KOLESO_COURIER], [0, 0.5, 1, 2, 5]);
+    assert.equal(KOLESO_SOLVE_MUL, 2);
     assert.equal(KOLESO_SOLVE_FLAT, 1.58);
-    for (const v of Object.values(KOLESO_VIP)) assert.ok(v >= 0);
+    assert.deepEqual(KOLESO_VIP, { kredit: 0.04, sloboda: 0.04, smart: 0.21, telka: 0.36, optika: 0.44, duo: 0.66, fiveg: 0.81, nekonecno: 1.44 });
   });
 });
 

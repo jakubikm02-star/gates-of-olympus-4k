@@ -896,10 +896,12 @@ export function SlotGame() {
         <KolesoBonus
           key={g.koleso.key}
           play={g.koleso.play}
+          replay={g.koleso.replay}
+          settle={g.koleso.settle}
+          picks0={g.koleso.picks0}
+          onPicks={g.koleso.onPicks}
+          auto={g.koleso.auto}
           bet={g.koleso.bet}
-          gross={g.koleso.gross}
-          net={g.koleso.net}
-          tax={g.koleso.tax}
           turbo={g.turbo}
           reduced={reducedMotion}
           onDone={g.finishKoleso}

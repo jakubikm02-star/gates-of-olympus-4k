@@ -35,7 +35,7 @@ export function zlatyEnabled(): boolean {
 /** Cap of the golden bonus (× bet), all three modes. */
 export const ZLATY_CAP_X = 100;
 
-/** EV uplift per golden bonus every mode and rank is tuned to (× bet). = KOLESO at g = 1.6 (rank independent, 4 M paired runs: +1.500). */
+/** EV uplift per golden bonus every mode and rank is tuned to (× bet). Was KOLESO at g = 1.6; with the letter choice + 4KA/PAAS phrases (kolesopick, 11. 10.) KOLESO needs g = 1.57 for it (Jožo picks, 800 k paired runs: +1.507; naive +1.490). */
 export const ZLATY_TARGET_UP = 1.5;
 
 /** KONTROLA · ZLATÁ POKUTA value (× bet) per rank: exact, kontrolaExactEv(goldBoard) − kontrolaExactEv = target. */
@@ -64,7 +64,7 @@ export const ZLATY_KURIER_K: Record<string, number> = {
 };
 
 /** KOLESO · ZLATÉ VÝSEKY: gain of value slices and KURIÉR. */
-export const ZLATE_VYSEKY_G = 1.6;
+export const ZLATE_VYSEKY_G = 1.57;
 
 export function zlataPokutaOf(rankId: string | undefined): number {
   return (rankId && ZLATA_POKUTA_X[rankId]) || ZLATA_POKUTA_X.kredit;

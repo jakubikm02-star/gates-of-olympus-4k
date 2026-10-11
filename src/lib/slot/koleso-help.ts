@@ -11,16 +11,16 @@ interface HelpState {
   off: boolean;
   /** KOLESO runs that showed the coach tips. */
   coach: number;
-  /** Obálky: the player taps one of three envelopes for the letter (off = Jožo Pročkár picks by himself). */
-  env: boolean;
+  /** VYBERÁM: the player chooses the letter out of KOLESO_OFFER shown letters (default). false = JOŽO picks. */
+  pick: boolean;
 }
 
 function read(): HelpState {
   try {
     const r = JSON.parse(localStorage.getItem(HELP_KEY) || "{}") as Partial<HelpState>;
-    return { off: r.off === true, coach: Math.max(0, Math.floor(Number(r.coach) || 0)), env: r.env === true };
+    return { off: r.off === true, coach: Math.max(0, Math.floor(Number(r.coach) || 0)), pick: r.pick !== false };
   } catch {
-    return { off: false, coach: 0, env: false };
+    return { off: false, coach: 0, pick: true };
   }
 }
 
@@ -51,13 +51,18 @@ export function takeKolesoCoach(): boolean {
 }
 
 /**
- * Obálky (envelopes) on: three envelopes, the player taps one. Purely cosmetic: the letter is decided by the
- * seeded run before the tap, the two unopened envelopes are never shown, so EV and replay do not change.
+ * VYBERÁM (default on): on every letter the player sees KOLESO_OFFER random letters and chooses one (timeout,
+ * autoplay or PRESKOČIŤ = Jožo's pick, offer[0]). Off = JOŽO: Jožo Pročkár always picks, no prompt. Knowing the
+ * phrase is a legit edge; scripts/koleso-ev.ts reports EV for auto / naive / strong players.
  */
-export function kolesoEnvelopes(): boolean {
-  return typeof localStorage !== "undefined" && read().env;
+export function kolesoChoose(): boolean {
+  return typeof localStorage === "undefined" || read().pick;
 }
 
-export function setKolesoEnvelopes(on: boolean): void {
-  write({ ...read(), env: on });
+export function setKolesoChoose(on: boolean): void {
+  write({ ...read(), pick: on });
 }
+
+/** Seconds the letter offer waits before Jožo picks (turbo: KOLESO_PICK_TURBO_S). */
+export const KOLESO_PICK_S = 9;
+export const KOLESO_PICK_TURBO_S = 6;

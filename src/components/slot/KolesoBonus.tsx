@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Ban, Gavel, Info, Landmark, Mail, Package, Plug, RotateCw, Skull, Star, Type } from "lucide-react";
+import { Ban, Gavel, Hand, Info, Landmark, Mic, Package, Plug, RotateCw, Skull, Star, Type } from "lucide-react";
 import {
   KOLESO_CAP_X,
   KOLESO_COLS,
@@ -15,11 +15,12 @@ import {
   KOLESO_WHEEL,
   kolesoBase,
   kolesoRows,
+  kolesoSolveLabel,
   type KPlay,
   type KSegKind,
   type KStep,
 } from "@/lib/slot/koleso";
-import { kolesoEnvelopes, kolesoHelpOff, setKolesoEnvelopes, setKolesoHelpOff, takeKolesoCoach } from "@/lib/slot/koleso-help";
+import { KOLESO_PICK_S, KOLESO_PICK_TURBO_S, kolesoChoose, kolesoHelpOff, setKolesoChoose, setKolesoHelpOff, takeKolesoCoach } from "@/lib/slot/koleso-help";
 import type { ChaseModKind } from "@/lib/slot/zasah";
 import * as sfx from "@/lib/slot/audio";
 import { CountUp } from "./CountUp";
@@ -80,15 +81,25 @@ type Banner = { kind: KSegKind | "solve" | "end" | "start"; who?: string; title:
 type Status = { t: string; s?: string; tone?: "ok" | "bad" | "info" | "gag" };
 
 interface Props {
+  /** The run with the saved choices (picks0); later steps are re-derived by `replay` after every choice. */
   play: KPlay;
+  replay: (picks: readonly (string | null)[]) => KPlay;
+  /** Pay preview of the final choices (the hook pays the same numbers). */
+  settle: (picks: readonly (string | null)[]) => { gross: number; net: number; tax: ChaseModKind | null };
+  /** Choices saved before a reload (replayed without asking). */
+  picks0?: readonly (string | null)[];
+  /** Every new choice (saved with the pending bar). */
+  onPicks?: (picks: (string | null)[]) => void;
+  /** Autoplay: Jožo picks every letter. */
+  auto?: boolean;
   bet: number;
-  gross: number;
-  net: number;
-  tax: ChaseModKind | null;
   turbo: boolean;
   reduced: boolean;
-  onDone: () => void;
+  onDone: (picks: (string | null)[]) => void;
 }
+
+/** Letter offer on screen: the player chooses (VYBERÁM), Jožo's tip is offer[0]. */
+type PickAsk = { offer: string[]; vowel: boolean; v: number; picked: string | null; by: "player" | "jozo" | "saved" | null; ms: number; k: number };
 
 /** One slice label (value or gag) on the rotating disc, read from the rim towards the hub. */
 function SliceLabel({ i }: { i: number }) {
@@ -97,11 +108,11 @@ function SliceLabel({ i }: { i: number }) {
   const val = s.kind === "val";
   const two = !!s.sub && !val;
   const main = val ? s.label : s.label;
-  const fs = val ? (s.v && s.v >= 1 ? 58 : 50) : main.length > 7 ? 30 : 34;
+  const fs = val ? (s.prem ? 58 : 50) : main.length > 7 ? 30 : 34;
   return (
     <g transform={`rotate(${i * SLICE})`}>
       <g transform="translate(0,-232) rotate(90)">
-        <text className={`kn-sl ${val ? "is-val" : "is-gag"} ${s.v && s.v >= 1 ? "is-prem" : ""}`} x={two ? 0 : 0} y={two ? -14 : 0} fontSize={fs} textAnchor="middle" dominantBaseline="central">
+        <text className={`kn-sl ${val ? "is-val" : "is-gag"} ${s.prem ? "is-prem" : ""}`} x={two ? 0 : 0} y={two ? -14 : 0} fontSize={fs} textAnchor="middle" dominantBaseline="central">
           {main}
         </text>
         {s.sub ? (
@@ -115,7 +126,7 @@ function SliceLabel({ i }: { i: number }) {
           <Ico width={34} height={34} strokeWidth={2.4} className="kn-sl-ico" />
         </g>
       ) : val ? (
-        <g transform="translate(-13,-368)">{s.v && s.v >= 1 ? <Star width={26} height={26} strokeWidth={2.4} className="kn-sl-ico is-val" /> : <circle cx={13} cy={13} r={5} className="kn-sl-dot" />}</g>
+        <g transform="translate(-13,-368)">{s.prem ? <Star width={26} height={26} strokeWidth={2.4} className="kn-sl-ico is-val" /> : <circle cx={13} cy={13} r={5} className="kn-sl-dot" />}</g>
       ) : null}
     </g>
   );
@@ -176,7 +187,7 @@ function Board({ rows, shown, flipping, cat, solved, missed }: { rows: string[];
  * Obálky (optional): three envelopes, the tap opens one; the letter is already decided, the others stay shut.
  * Tap = end the current step, PRESKOČIŤ = jump to the payout, turbo ≈ 2×, reduced motion = no spin, fades only.
  */
-export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone }: Props) {
+export function KolesoBonus({ play: play0, replay, settle, picks0, onPicks, auto = false, bet, turbo, reduced, onDone }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const rotorRef = useRef<HTMLDivElement>(null);
   const ptrRef = useRef<HTMLImageElement>(null);
@@ -199,20 +210,24 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
   const [solvedFx, setSolvedFx] = useState(false);
   const [missed, setMissed] = useState(false);
   const [canAsk, setCanAsk] = useState(false);
-  const [env, setEnv] = useState(() => kolesoEnvelopes());
-  const [envAsk, setEnvAsk] = useState<{ letter: string; picked: number | null } | null>(null);
+  const [choose, setChoose] = useState(() => kolesoChoose());
+  const [pickAsk, setPickAsk] = useState<PickAsk | null>(null);
+  /** The run as it stands (re-derived after every choice) and the final pay preview. */
+  const [play, setPlay] = useState<KPlay>(play0);
+  const [pay, setPay] = useState<{ gross: number; net: number; tax: ChaseModKind | null }>({ gross: 0, net: 0, tax: null });
   const [payStep, setPayStep] = useState(0);
   const [flash, setFlash] = useState<{ k: number; tone: string } | null>(null);
   const [sheet, setSheet] = useState<null | "info" | "off">(null);
   const fastRef = useRef(false);
   const nudgeRef = useRef<(() => void) | null>(null);
-  const envRef = useRef<((i: number) => void) | null>(null);
+  const pickRef = useRef<((c: string | null) => void) | null>(null);
+  const picksRef = useRef<(string | null)[]>([...(picks0 ?? [])]);
   const aliveRef = useRef(true);
   const pausedRef = useRef(false);
   const heldRef = useRef<(() => void)[]>([]);
   const helpRef = useRef(!kolesoHelpOff());
   const coachRef = useRef(false);
-  const envOn = useRef(env);
+  const chooseOn = useRef(choose && !auto);
   const k = turbo ? 0.5 : 1;
   /** Wheel angle (deg, clockwise) and the pointer spring; driven by one rAF loop, written straight to the DOM. */
   const wheel = useRef({ rot: 0, p: 0, pv: 0, spin: null as null | { from: number; delta: number; t0: number; dur: number; done: () => void }, lastIdx: 0, lastTick: 0 });
@@ -383,40 +398,82 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
       setFlipping(new Set());
       return ids.length;
     };
-    /** Jožo Pročkár calls the letter, or (Obálky) the player taps an envelope: the letter is the same either way. */
-    const callLetter = async (letter: string, vowel: boolean) => {
-      const L = letter.toUpperCase();
-      if (envOn.current && !fastRef.current) {
-        setStatus({ t: "Vyber si obálku", s: "V každej je písmeno. Otvorí sa tá, na ktorú ťukneš.", tone: "info" });
-        setEnvAsk({ letter: L, picked: null });
-        const picked = await new Promise<number>((resolve) => {
-          const t = window.setTimeout(() => resolve(1), 7000 * k);
-          envRef.current = (i) => {
-            window.clearTimeout(t);
-            resolve(i);
-          };
-          nudgeRef.current = () => {
-            window.clearTimeout(t);
-            resolve(1);
-          };
+    /**
+     * The letter of step `i`: VYBERÁM shows its offer (3 random letters, as drawn by the seeded run) and waits for
+     * the player; the timer, autoplay, JOŽO mode and PRESKOČIŤ take Jožo's tip (offer[0]). A choice saved before a
+     * reload is replayed. Returns the step re-derived with the chosen letter (later steps follow from it).
+     */
+    let cur = play0;
+    const callLetter = async (i: number, vowel: boolean, v: number): Promise<KStep> => {
+      const st = cur.steps[i];
+      const offer = st.offer ?? [];
+      const no = st.pickNo;
+      if (!offer.length || no < 0) return st;
+      const saved = picksRef.current[no];
+      let letter = offer[0];
+      let by: PickAsk["by"] = "jozo";
+      if (saved && offer.includes(saved)) {
+        letter = saved;
+        by = "saved";
+        if (!fastRef.current) {
+          setPickAsk({ offer, vowel, v, picked: saved, by, ms: 0, k: i });
+          await wait(700);
+          setPickAsk(null);
+        }
+      } else if (chooseOn.current && !fastRef.current && offer.length > 1) {
+        const ms = (turbo ? KOLESO_PICK_TURBO_S : KOLESO_PICK_S) * 1000;
+        setStatus({ t: vowel ? "Vyber si samohlásku" : "Vyber si písmeno", s: vowel ? "Samohláska nič nezarába, len odkrýva." : `${mult(v)} stávky za každé políčko s týmto písmenom.`, tone: "info" });
+        setPose("point");
+        setPickAsk({ offer, vowel, v, picked: null, by: null, ms, k: i });
+        if (loud()) sfx.playZboxBeep(1.2);
+        // countdown that holds while a sheet (rules) is open; a tap resolves at once, PRESKOČIŤ takes Jožo's tip
+        const got = await new Promise<string | null>((resolve) => {
+          let rest = ms;
+          let last = performance.now();
+          const iv = window.setInterval(() => {
+            const now = performance.now();
+            if (!pausedRef.current) rest -= now - last;
+            last = now;
+            if (rest <= 0 || fastRef.current || !aliveRef.current) finish(null);
+          }, 100);
+          function finish(c: string | null) {
+            window.clearInterval(iv);
+            pickRef.current = null;
+            resolve(c);
+          }
+          pickRef.current = finish;
         });
-        envRef.current = null;
-        nudgeRef.current = null;
-        setEnvAsk({ letter: L, picked });
-        if (loud()) sfx.playClick();
-        await wait(1100);
-        setEnvAsk(null);
+        pickRef.current = null;
+        if (got && offer.includes(got)) {
+          letter = got;
+          by = "player";
+        }
+        setPickAsk({ offer, vowel, v, picked: letter, by, ms: 0, k: i });
+        if (loud()) (by === "player" ? sfx.playClick : sfx.playZboxBeep)(1);
+        await wait(by === "player" ? 650 : 1100);
+        setPickAsk(null);
       } else {
-        setBanner({ kind: vowel ? "vowel" : "val", who: "Jožo Pročkár", title: vowel ? "Samohláska" : "Písmeno", big: L });
+        setBanner({ kind: vowel ? "vowel" : "val", who: "Jožo Pročkár", title: vowel ? "Samohláska" : "Písmeno", big: letter.toUpperCase() });
         if (loud()) sfx.playZboxBeep(1.2);
         await wait(1000);
         setBanner(null);
       }
-      setCalled((c) => [...c, L]);
+      if (by === "player") {
+        const picks = picksRef.current.slice(0, no);
+        while (picks.length < no) picks.push(null);
+        picks[no] = letter;
+        picksRef.current = picks;
+        onPicks?.(picks);
+      }
+      cur = replay(picksRef.current);
+      setPlay(cur);
+      setCalled((c) => [...c, letter.toUpperCase()]);
+      return cur.steps[i];
     };
     const lightSeg = (seg: number | null) => setLit(seg);
 
-    const doStep = async (st: KStep, i: number) => {
+    const doStep = async (st0: KStep, i: number): Promise<KStep> => {
+      let st = st0;
       const seg = KOLESO_WHEEL[st.seg];
       const cast = CAST[st.kind];
       lightSeg(st.seg);
@@ -424,7 +481,8 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
         setPose("point");
         setStatus({ t: `${mult(seg.v ?? 0)} stávky za každé políčko`, s: `= ${eurX(seg.v ?? 0, bet)} za políčko`, tone: "info" });
         if (st.letter) {
-          await callLetter(st.letter, false);
+          st = await callLetter(i, false, seg.v ?? 0);
+          if (!st.letter) return st;
           const n = await reveal(st.letter);
           if (n > 0) {
             setPose("cheer");
@@ -449,7 +507,8 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
         setBanner(null);
         if (st.cost) setB(+(st.bankBefore - st.cost).toFixed(6), "down", `−${eurX(st.cost, bet)}`);
         if (st.letter) {
-          await callLetter(st.letter, true);
+          st = await callLetter(i, true, 0);
+          if (!st.letter) return st;
           const n = await reveal(st.letter);
           setStatus(n ? { t: `${st.letter.toUpperCase()} × ${n}`, s: "Samohláska nič nezarába, len odkrýva.", tone: "ok" } : { t: `${st.letter.toUpperCase()} — nie je tam!`, tone: "bad" });
           if (!n) {
@@ -488,6 +547,7 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
       }
       await wait(650);
       lightSeg(null);
+      return st;
     };
 
     const run = async () => {
@@ -511,8 +571,8 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
       setCalled(play.start.map((c) => c.toUpperCase()));
       await wait(500);
       let leftL = KOLESO_SPINS;
-      for (let i = 0; i < play.steps.length; i++) {
-        const st = play.steps[i];
+      for (let i = 0; i < cur.steps.length; i++) {
+        const st0 = cur.steps[i];
         setSpinNo(i + 1);
         setPose("idle");
         setStatus({ t: `Točenie ${i + 1}`, s: coachRef.current && i === 0 ? "Ťukni TOČ (alebo počkaj). Každý zo 16 dielov má šancu 1/16." : `Po ňom ${pl(leftL - 1, "ostáva", "ostávajú", "ostáva")} ${leftL - 1} ${pl(leftL - 1, "točenie", "točenia", "točení")}`, tone: "info" });
@@ -522,22 +582,27 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
         if (i === 0 || i % 3 === 2) say("spin");
         setPose("point");
         setSpinning(true);
-        await spinTo(st.seg, st.jitter);
+        await spinTo(st0.seg, st0.jitter);
         setSpinning(false);
         if (loud()) sfx.playZboxBeep(0.8);
-        await doStep(st, i);
+        const st = await doStep(st0, i);
         leftL = st.left;
         setLeft(leftL);
         if (st.solved) break;
       }
+      const fin = cur;
+      const pv = settle(picksRef.current);
+      setPlay(fin);
+      setPay(pv);
+      const tax = pv.tax;
       // solve or end
-      if (play.solved) {
+      if (fin.solved) {
         setPose("cheer");
         setSolvedFx(true);
         say("solve");
         if (loud()) sfx.playKolesoSolve();
-        setStatus({ t: "TAJNIČKA VYRIEŠENÁ!", s: `Odkrytých ${pct(Math.max(KOLESO_SOLVE_AT, play.steps[play.steps.length - 1]?.shown ?? 1))} písmen · banka ×${KOLESO_SOLVE_MUL} + ${mult(KOLESO_SOLVE_FLAT)} stávky`, tone: "ok" });
-        setBanner({ kind: "solve", who: "Peter Marcipán", title: "TAJNIČKA JE VYRIEŠENÁ!", sub: `Banka ×${KOLESO_SOLVE_MUL} + ${eurX(KOLESO_SOLVE_FLAT, bet)}` });
+        setStatus({ t: "TAJNIČKA VYRIEŠENÁ!", s: `Odkrytých ${pct(Math.max(KOLESO_SOLVE_AT, fin.steps[fin.steps.length - 1]?.shown ?? 1))} písmen · ${kolesoSolveLabel()}`, tone: "ok" });
+        setBanner({ kind: "solve", who: "Peter Marcipán", title: "TAJNIČKA JE VYRIEŠENÁ!", sub: KOLESO_SOLVE_MUL === 1 ? `Banka + ${eurX(KOLESO_SOLVE_FLAT, bet)}` : `Banka ×${KOLESO_SOLVE_MUL} + ${eurX(KOLESO_SOLVE_FLAT, bet)}` });
       } else {
         setPose("sad");
         say("end");
@@ -550,20 +615,20 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
       for (const id of rest) {
         shownNow.add(id);
         setShown(new Set(shownNow));
-        if (loud() && play.solved) sfx.playKolesoLetter(id);
-        await wait(play.solved ? 70 : 40);
+        if (loud() && fin.solved) sfx.playKolesoLetter(id);
+        await wait(fin.solved ? 70 : 40);
       }
       await wait(1600);
       setBanner(null);
       setPhase("pay");
-      setPose(play.solved || play.vip > 0 ? "cheer" : "sad");
-      setB(play.bankX, "up", "");
+      setPose(fin.solved || fin.vip > 0 ? "cheer" : "sad");
+      setB(fin.bankX, "up", "");
       setPayStep(1);
       await wait(700);
       setPayStep(2);
-      await wait(play.solved ? 800 : 300);
+      await wait(fin.solved ? 800 : 300);
       setPayStep(3);
-      await wait(play.capped ? 700 : 200);
+      await wait(fin.capped ? 700 : 200);
       setPayStep(4);
       await wait(700);
       setPayStep(5);
@@ -582,13 +647,21 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
   const doneAll = phase === "pay" && payStep >= 6;
   const tap = () => {
     if (sheet) return;
-    if (doneAll) return onDone();
-    if (envAsk && envAsk.picked == null) return;
+    if (doneAll) return onDone(picksRef.current.slice());
+    if (pickAsk && pickAsk.picked == null) return;
     nudgeRef.current?.();
   };
   // Space / Enter = TOČ / next, like a tap.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (pickAsk && pickAsk.picked == null) {
+        const n = Number(e.key);
+        if (n >= 1 && n <= pickAsk.offer.length) {
+          e.preventDefault();
+          pickLetter(pickAsk.offer[n - 1]);
+        }
+        return;
+      }
       if (e.key !== " " && e.key !== "Enter") return;
       e.preventDefault();
       tap();
@@ -607,7 +680,7 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
       W.rot = sp.from + sp.delta;
       sp.done();
     }
-    envRef.current?.(1);
+    pickRef.current?.(null);
     nudgeRef.current?.();
   };
   const go = (e: React.MouseEvent) => {
@@ -615,13 +688,19 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
     sfx.playClick();
     nudgeRef.current?.();
   };
-  const toggleEnv = (e: React.MouseEvent) => {
+  const toggleChoose = (e: React.MouseEvent) => {
     e.stopPropagation();
     sfx.playClick();
-    const next = !envOn.current;
-    envOn.current = next;
-    setEnv(next);
-    setKolesoEnvelopes(next);
+    const next = !chooseOn.current;
+    chooseOn.current = next && !auto;
+    setChoose(next);
+    setKolesoChoose(next);
+    // switched to JOŽO while an offer waits: Jožo takes his tip now
+    if (!next) pickRef.current?.(null);
+  };
+  const pickLetter = (c: string) => {
+    if (!pickAsk || pickAsk.picked != null) return;
+    pickRef.current?.(c);
   };
   const openInfo = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -648,6 +727,9 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
     resume();
   };
 
+  const tax = pay.tax;
+  const gross = pay.gross;
+  const net = pay.net;
   const taxPct = tax === "danUrad" ? "−23 %" : tax === "bezDane" ? "+23 %" : "";
   const pips = Math.max(given, KOLESO_SPINS);
   const wheelPart = Math.min(play.grossX, play.cap ?? KOLESO_CAP_X);
@@ -747,9 +829,16 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
           <button type="button" className={`kn-go ${canAsk ? "is-ready" : ""}`} onClick={go} disabled={!canAsk}>
             {spinNo ? "TOČ" : "TOČ"}
           </button>
-          <button type="button" className={`kn-env ${env ? "is-on" : ""}`} onClick={toggleEnv} aria-pressed={env} title="Obálky: písmeno si vyberieš ťuknutím (výhra je rovnaká)">
-            <Mail size={18} strokeWidth={2.4} />
-            <span>{env ? "OBÁLKY" : "JOŽO"}</span>
+          <button
+            type="button"
+            className={`kn-env ${choose && !auto ? "is-on" : ""}`}
+            onClick={toggleChoose}
+            aria-pressed={choose && !auto}
+            disabled={auto}
+            title={auto ? "Autohra: písmená vyberá Jožo Pročkár" : choose ? "VYBERÁM: písmeno si vyberieš z 3 ponúknutých" : "JOŽO: písmeno vyberá Jožo Pročkár"}
+          >
+            {choose && !auto ? <Hand size={18} strokeWidth={2.4} /> : <Mic size={18} strokeWidth={2.4} />}
+            <span>{choose && !auto ? "VYBERÁM" : "JOŽO"}</span>
           </button>
           <button type="button" className="kn-skip" onClick={skip} disabled={phase === "pay"}>
             PRESKOČIŤ
@@ -770,26 +859,50 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
         </div>
       ) : null}
 
-      {envAsk ? (
-        <div className="kn-envs" role="dialog" aria-label="Vyber obálku" onClick={(e) => e.stopPropagation()}>
-          <p>Vyber obálku</p>
-          <div>
-            {[0, 1, 2].map((i) => (
-              <button
-                key={i}
-                type="button"
-                className={`kn-envelope ${envAsk.picked === i ? "is-picked" : envAsk.picked != null ? "is-gone" : ""}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (envAsk.picked == null) envRef.current?.(i);
-                }}
-                aria-label={`Obálka ${i + 1}`}
-              >
-                <span className="kn-envelope-flap" />
-                {envAsk.picked === i ? <b>{envAsk.letter}</b> : <i>?</i>}
-              </button>
-            ))}
+      {pickAsk ? (
+        <div
+          key={pickAsk.k}
+          className={`kn-pick ${pickAsk.picked ? "is-done" : ""} ${pickAsk.vowel ? "is-vowel" : ""} ${sheet ? "is-held" : ""}`}
+          role="dialog"
+          aria-label={pickAsk.vowel ? "Vyber si samohlásku" : "Vyber si písmeno"}
+          onClick={(e) => e.stopPropagation()}
+          style={{ ["--pick-ms" as string]: `${pickAsk.ms}ms` }}
+        >
+          <header>
+            <em>Jožo Pročkár</em>
+            <b>{pickAsk.picked ? (pickAsk.by === "player" ? "Tvoja voľba" : pickAsk.by === "saved" ? "Tvoja voľba (uložená)" : "Jožo vybral") : pickAsk.vowel ? "Vyber si samohlásku" : "Vyber si písmeno"}</b>
+            <span>{pickAsk.vowel ? "Samohláska nič nezarába, len odkrýva" : `${mult(pickAsk.v)} stávky = ${eurX(pickAsk.v, bet)} za každé políčko`}</span>
+          </header>
+          <div className="kn-pick-row">
+            {pickAsk.offer.map((c, i) => {
+              const on = pickAsk.picked === c;
+              const off = pickAsk.picked != null && !on;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  className={`kn-pick-tile ${on ? "is-picked" : ""} ${off ? "is-off" : ""} ${i === 0 ? "is-tip" : ""}`}
+                  style={{ ["--i" as string]: String(i) }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    pickLetter(c);
+                  }}
+                  disabled={pickAsk.picked != null}
+                  aria-label={`Písmeno ${c.toUpperCase()}${i === 0 ? ", Jožov tip" : ""}`}
+                >
+                  <b>{c.toUpperCase()}</b>
+                  <kbd>{i + 1}</kbd>
+                  {i === 0 ? <small>JOŽOV TIP</small> : null}
+                </button>
+              );
+            })}
           </div>
+          {pickAsk.picked == null ? (
+            <footer>
+              <i className="kn-pick-time" aria-hidden="true" />
+              <span>Nevyberieš? Po {Math.round(pickAsk.ms / 1000)} s berie Jožo svoj tip.</span>
+            </footer>
+          ) : null}
         </div>
       ) : null}
 
@@ -809,10 +922,10 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
               <b>{KOLESO_SPINS} točení.</b> Každý zo 16 dielov má šancu 1/16. Hodnota = × stávky za <b>každé</b> odkryté políčko.
             </li>
             <li>
-              <b>Písmeno</b> vyberá Jožo Pročkár (alebo si ťukneš obálku). Betka Frekvencová otáča políčka.
+              <b>Písmeno si vyberáš ty</b> z 3 náhodných (alebo nechaj Joža, tlačidlo VYBERÁM / JOŽO). Kto si pamätá tajničku, má výhodu. Betka Frekvencová otáča políčka.
             </li>
             <li>
-              <b>Tajnička vyriešená</b> (aspoň {pct(KOLESO_SOLVE_AT)} písmen) = banka <b>×{KOLESO_SOLVE_MUL} + {mult(KOLESO_SOLVE_FLAT)}</b> stávky.
+              <b>Tajnička vyriešená</b> (aspoň {pct(KOLESO_SOLVE_AT)} písmen) = <b>{kolesoSolveLabel()}</b>.
             </li>
             <li>
               <b>Nešťastia:</b> BANKROT, EXEKÚCIA ×{String(KOLESO_EXEK).replace(".", ",")}, DAŇOVÁ KONTROLA −23 %, STRATIL SI ŤAH. Šťastia: ×2, EXTRA ŤAH, KURIÉR, SAMOHLÁSKA za {mult(KOLESO_VOWEL_COST)}.
@@ -849,7 +962,7 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
             </li>
             {play.solved ? (
               <li className={payStep >= 2 ? "is-on is-solve" : "is-dim"}>
-                <span>Tajnička ×{KOLESO_SOLVE_MUL} + {mult(KOLESO_SOLVE_FLAT)}</span>
+                <span>Tajnička {KOLESO_SOLVE_MUL === 1 ? "+" : `×${KOLESO_SOLVE_MUL} +`} {mult(KOLESO_SOLVE_FLAT)}</span>
                 <b>{eurX(play.grossX, bet)}</b>
               </li>
             ) : null}

@@ -26,6 +26,8 @@ export interface KSeg {
   label: string;
   /** Second line (small). */
   sub?: string;
+  /** VEĽKÁ PRÉMIA: the top value slice (gold label + star). */
+  prem?: boolean;
 }
 
 /**
@@ -41,7 +43,7 @@ export const KOLESO_WHEEL: readonly KSeg[] = [
   { kind: "tax", label: "DAŇOVÁ", sub: "KONTROLA" },
   { kind: "val", v: 0.25, label: "0,25×" },
   { kind: "extra", label: "EXTRA", sub: "ŤAH" },
-  { kind: "val", v: 1.5, label: "1,5×", sub: "PRÉMIA" },
+  { kind: "val", v: 1.5, label: "1,5×", sub: "PRÉMIA", prem: true },
   { kind: "lost", label: "STRATIL", sub: "SI ŤAH" },
   { kind: "val", v: 0.4, label: "0,4×" },
   { kind: "vowel", label: "SAMO-", sub: "HLÁSKA" },
@@ -59,7 +61,7 @@ export const KOLESO_TAX = 0.77;
 export const KOLESO_EXEK = 0.5;
 export const KOLESO_COURIER: readonly number[] = [0, 0.5, 1, 2, 5];
 export const KOLESO_SOLVE_AT = 0.55;
-export const KOLESO_SOLVE_MUL = 2;
+export const KOLESO_SOLVE_MUL: number = 2;
 export const KOLESO_SOLVE_FLAT = 1.58;
 export const KOLESO_CAP_X = 30;
 /** Letters shown before the first spin ("Jožo daruje S, T, N, A, E — zvyšok je spoplatnený"). */
@@ -70,7 +72,8 @@ export const KOLESO_ROWS = 4;
 /**
  * Sponzorský šek (× bet), paid on top of the wheel (rank perk, like KONTROLA's peek and Ž-BOX's priority parcel).
  * E[KONTROLA(rank)] − E[wheel without šek] (3.011× at solve bonus 1.58×, 4 M runs), rounded to 0.01:
- * scripts/koleso-ev.ts tune. Every rank lands on its KONTROLA EV (koleso.test.ts).
+ * scripts/koleso-ev.ts tune. Tuned for the old single host pick + the old phrase pool. Since the letter choice and the
+ * 4KA/PAAS phrases (11. 10. 2026) KOLESO pays above KONTROLA on purpose (Martin kept the payouts; koleso-ev.ts table).
  */
 export const KOLESO_VIP: Record<string, number> = {
   kredit: 0.04,
@@ -83,6 +86,12 @@ export const KOLESO_VIP: Record<string, number> = {
   nekonecno: 1.44,
 };
 
+/** "banka + 0,25× stávky" (or "banka ×2 + …" when the solve multiplies the bank). */
+export function kolesoSolveLabel(): string {
+  const f = String(KOLESO_SOLVE_FLAT).replace(".", ",");
+  return KOLESO_SOLVE_MUL === 1 ? `banka + ${f}× stávky` : `banka ×${String(KOLESO_SOLVE_MUL).replace(".", ",")} + ${f}× stávky`;
+}
+
 export function kolesoVipOf(rankId: string | undefined): number {
   return (rankId && KOLESO_VIP[rankId]) || 0;
 }
@@ -91,7 +100,14 @@ export function kolesoVipOf(rankId: string | undefined): number {
  * Tajničky: white cards of Zvrátené Myšlienky (https://zvratene-myslienky.lovable.app, bundle
  * /assets/index-CUuOcnLK.js, white card id), quoted exactly. No brands, no real names (navrh.md 6).
  */
-export const KOLESO_PHRASES: readonly { id: number; cat: string; text: string }[] = [
+export interface KPhrase {
+  id: number;
+  cat: string;
+  text: string;
+  /** Source tag: undefined = Zvrátené Myšlienky card, "swan-vp" = quoted SWAN terms, "4ka-vop" / "paas" = parody. */
+  src?: "swan-vp" | "4ka-vop" | "paas";
+}
+export const KOLESO_PHRASES: readonly KPhrase[] = [
   { id: 549, cat: "PENIAZE", text: "Exekútor s lepším autom ako ja." },
   { id: 544, cat: "PENIAZE", text: "Splátky za splácanie splátok." },
   { id: 541, cat: "BÝVANIE", text: "Hypotéka na celý život." },
@@ -134,22 +150,67 @@ export const KOLESO_PHRASES: readonly { id: number; cat: string; text: string }[
   { id: 548, cat: "RODINA", text: "Pôžička od rodičov, čo sa nikdy nevráti." },
   { id: 796, cat: "TELEKOM", text: "Roaming poplatok vyšší ako celá dovolenka." },
   /* Slovné spojenia z Všeobecných podmienok SWAN na mobilné služby (platné od 1. 7. 2024). */
-  { id: 9001, cat: "PODMIENKY", text: "Zmluva na dobu neurčitú." },
-  { id: 9002, cat: "PODMIENKY", text: "Výpovedná lehota je jeden mesiac." },
-  { id: 9003, cat: "PODMIENKY", text: "Vrátiť všetky SIM karty." },
-  { id: 9004, cat: "PODMIENKY", text: "Nová SIM karta podľa cenníka." },
-  { id: 9005, cat: "PODMIENKY", text: "Aktivácia do dvoch dní." },
-  { id: 9006, cat: "PODMIENKY", text: "Rýchlosť klesne na 256 kbit." },
-  { id: 9007, cat: "PODMIENKY", text: "Podnik nezodpovedá za signál." },
-  { id: 9008, cat: "PODMIENKY", text: "Nezakladá právo odstúpiť." },
-  { id: 9009, cat: "PODMIENKY", text: "Konečné vyúčtovanie treba uhradiť." },
-  { id: 9010, cat: "PODMIENKY", text: "Podnik môže zablokovať SIM kartu." },
-  { id: 9011, cat: "PODMIENKY", text: "Kredit môže podnik znížiť." },
-  { id: 9012, cat: "PODMIENKY", text: "Roaming až po zábezpeke." },
-  { id: 9013, cat: "PODMIENKY", text: "Prenos čísla do jedného dňa." },
-  { id: 9014, cat: "PODMIENKY", text: "Faktúra po zúčtovacom období." },
-  { id: 9015, cat: "PODMIENKY", text: "Zariadenia treba vrátiť podniku." },
-  { id: 9016, cat: "PODMIENKY", text: "Ceny stanovuje platný cenník." },
+  { id: 9001, cat: "PODMIENKY", src: "swan-vp", text: "Zmluva na dobu neurčitú." },
+  { id: 9002, cat: "PODMIENKY", src: "swan-vp", text: "Výpovedná lehota je jeden mesiac." },
+  { id: 9003, cat: "PODMIENKY", src: "swan-vp", text: "Vrátiť všetky SIM karty." },
+  { id: 9004, cat: "PODMIENKY", src: "swan-vp", text: "Nová SIM karta podľa cenníka." },
+  { id: 9005, cat: "PODMIENKY", src: "swan-vp", text: "Aktivácia do dvoch dní." },
+  { id: 9006, cat: "PODMIENKY", src: "swan-vp", text: "Rýchlosť klesne na 256 kbit." },
+  { id: 9007, cat: "PODMIENKY", src: "swan-vp", text: "Podnik nezodpovedá za signál." },
+  { id: 9008, cat: "PODMIENKY", src: "swan-vp", text: "Nezakladá právo odstúpiť." },
+  { id: 9009, cat: "PODMIENKY", src: "swan-vp", text: "Konečné vyúčtovanie treba uhradiť." },
+  { id: 9010, cat: "PODMIENKY", src: "swan-vp", text: "Podnik môže zablokovať SIM kartu." },
+  { id: 9011, cat: "PODMIENKY", src: "swan-vp", text: "Kredit môže podnik znížiť." },
+  { id: 9012, cat: "PODMIENKY", src: "swan-vp", text: "Roaming až po zábezpeke." },
+  { id: 9013, cat: "PODMIENKY", src: "swan-vp", text: "Prenos čísla do jedného dňa." },
+  { id: 9014, cat: "PODMIENKY", src: "swan-vp", text: "Faktúra po zúčtovacom období." },
+  { id: 9015, cat: "PODMIENKY", src: "swan-vp", text: "Zariadenia treba vrátiť podniku." },
+  { id: 9016, cat: "PODMIENKY", src: "swan-vp", text: "Ceny stanovuje platný cenník." },
+  /*
+   * Paródia všeobecných podmienok operátora 4KA (viazanosť, FUP, roaming, reklamácia, zmluvná pokuta, zmena podmienok
+   * cez SMS, cenník s hviezdičkou …) a bratislavského parkovania PAAS (rezidentská a návštevnícka karta, zóny, kód
+   * úseku, skenovacie auto, oranžová nálepka, odťah, hodinová sadzba). Vlastné texty (11. 10. 2026), bez mien osôb.
+   */
+  { id: 9101, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Viazanosť dlhšia ako moje vzťahy." },
+  { id: 9102, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Neobmedzené dáta s obmedzením." },
+  { id: 9103, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Rýchlosť po FUP ako modem z roku 1998." },
+  { id: 9104, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Roaming v Chorvátsku za cenu apartmánu." },
+  { id: 9105, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Reklamácia vybavená do 30 dní mlčaním." },
+  { id: 9106, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Zmluvná pokuta za predčasnú slobodu." },
+  { id: 9107, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Zmena podmienok oznámená cez SMS o polnoci." },
+  { id: 9108, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Pokrytie podľa mapy, nie podľa reality." },
+  { id: 9109, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Hviezdička pri cene odkazuje na hviezdičku." },
+  { id: 9110, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Akciová cena platí prvé tri mesiace." },
+  { id: 9111, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Národný roaming u suseda za plotom." },
+  { id: 9112, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Podnik si vyhradzuje právo na všetko." },
+  { id: 9113, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Upomienka rýchlejšia ako mobilné dáta." },
+  { id: 9114, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Výmena SIM karty za poplatok podľa nálady." },
+  { id: 9115, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Zľava pre nových, cenník pre verných." },
+  { id: 9116, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Linka podpory: stlačte deviatku a čakajte." },
+  { id: 9117, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Drobné písmo dlhšie ako samotná zmluva." },
+  { id: 9118, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Trvanlivé médium, ktoré nikto nečíta." },
+  { id: 9119, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Právo odstúpiť nevzniká, lebo nevzniká." },
+  { id: 9120, cat: "4KA PODMIENKY", src: "4ka-vop", text: "Výpoveď len osobne a s úsmevom." },
+  { id: 9201, cat: "PAAS", src: "paas", text: "Rezidentská karta bez voľného miesta." },
+  { id: 9202, cat: "PAAS", src: "paas", text: "Svokra minula návštevnícke hodiny za víkend." },
+  { id: 9203, cat: "PAAS", src: "paas", text: "Skenovacie auto rýchlejšie ako MHD." },
+  { id: 9204, cat: "PAAS", src: "paas", text: "Oranžová nálepka ako pozdrav od mesta." },
+  { id: 9205, cat: "PAAS", src: "paas", text: "Odťahovka presnejšia ako električka." },
+  { id: 9206, cat: "PAAS", src: "paas", text: "Pokuta minútu po skončení lístka." },
+  { id: 9207, cat: "PAAS", src: "paas", text: "Kód úseku zistený až z pokuty." },
+  { id: 9208, cat: "PAAS", src: "paas", text: "SMS parkovanie s preklepom v EČV." },
+  { id: 9209, cat: "PAAS", src: "paas", text: "Krúženie okolo bloku ako večerný šport." },
+  { id: 9210, cat: "PAAS", src: "paas", text: "Garážové státie drahšie ako garsónka." },
+  { id: 9211, cat: "PAAS", src: "paas", text: "Vlastný dvor, ale bez vyznačeného miesta." },
+  { id: 9212, cat: "PAAS", src: "paas", text: "Byt v zóne PE1, miesto v zóne PE2." },
+  { id: 9213, cat: "PAAS", src: "paas", text: "Návšteva parkuje dlhšie, ako sa zdrží." },
+  { id: 9214, cat: "PAAS", src: "paas", text: "Registrácia dlhšia ako samotné parkovanie." },
+  { id: 9215, cat: "PAAS", src: "paas", text: "Rezident vo vlastnej zóne ako turista." },
+  { id: 9216, cat: "PAAS", src: "paas", text: "Prvá pokuta odpustená, druhá s láskou." },
+  { id: 9217, cat: "PAAS", src: "paas", text: "Miesto pre návštevy obsadené susedom." },
+  { id: 9218, cat: "PAAS", src: "paas", text: "Susedova dodávka na troch miestach." },
+  { id: 9219, cat: "PAAS", src: "paas", text: "Hodinová sadzba vyššia ako hodinová mzda." },
+  { id: 9220, cat: "PAAS", src: "paas", text: "Lístok predĺžený o minútu neskoro." },
 ];
 
 const FOLD: Record<string, string> = {
@@ -199,6 +260,12 @@ export interface KStep {
   jitter: number;
   /** Letter called on this spin (base letter), null when none. */
   letter: string | null;
+  /** The letters offered to choose from (offer[0] = Jožo's pick), null on spins without a letter. */
+  offer: string[] | null;
+  /** Pick number of this spin's offer (index into KOpts.picks), −1 without a letter. */
+  pickNo: number;
+  /** The letter came from the player's choice (false = Jožo / auto / timeout). */
+  chosen: boolean;
   /** Occurrences of the letter on the board. */
   hits: number;
   /** × bet won by this spin before multipliers (val: v × hits, courier: parcel). */
@@ -241,20 +308,48 @@ export interface KPlay {
   gain: number;
 }
 
-function pickWeighted(rng: () => number, keys: readonly string[], called: Set<string>): string | null {
-  let tot = 0;
-  for (const c of keys) if (!called.has(c)) tot += KOLESO_FREQ[c];
-  if (tot <= 0) return null;
-  let r = rng() * tot;
-  let last: string | null = null;
-  for (const c of keys) {
-    if (called.has(c)) continue;
-    last = c;
-    r -= KOLESO_FREQ[c];
-    if (r < 0) return c;
+/** Size of the letter offer: the player chooses one of KOLESO_OFFER letters (Martin, 11. 10. 2026). */
+export const KOLESO_OFFER = 3;
+
+/**
+ * Letter offer: up to KOLESO_OFFER distinct letters drawn frequency-weighted, without replacement, from the letters
+ * not called yet (`keys` first, then `alt` when `keys` runs dry). Always consumes exactly KOLESO_OFFER rng calls,
+ * so the wheel path of a seed never depends on what the player picks. offer[0] is the old single host pick
+ * (same distribution), which is what Jožo / auto / timeout takes.
+ */
+export function kolesoOffer(rng: () => number, keys: readonly string[], alt: readonly string[], called: ReadonlySet<string>): string[] {
+  const out: string[] = [];
+  for (let k = 0; k < KOLESO_OFFER; k++) {
+    const r0 = rng();
+    const pool = keys.some((c) => !called.has(c) && !out.includes(c)) ? keys : alt;
+    let tot = 0;
+    for (const c of pool) if (!called.has(c) && !out.includes(c)) tot += KOLESO_FREQ[c];
+    if (tot <= 0) continue;
+    let r = r0 * tot;
+    let last: string | null = null;
+    for (const c of pool) {
+      if (called.has(c) || out.includes(c)) continue;
+      last = c;
+      r -= KOLESO_FREQ[c];
+      if (r < 0) break;
+    }
+    if (last) out.push(last);
   }
-  return last;
+  return out;
 }
+
+/** What a picker (sim policy / UI) knows when it chooses. `cnt` is the hidden answer: only sims may read it. */
+export interface KPickInfo {
+  vowel: boolean;
+  pickNo: number;
+  called: ReadonlySet<string>;
+  cnt: Readonly<Record<string, number>>;
+  /** Spins left after this one, letters visible so far, letters on the board. */
+  left: number;
+  shown: number;
+  letters: number;
+}
+export type KPicker = (offer: readonly string[], info: KPickInfo) => string;
 
 const r4 = (x: number) => Math.round(x * 1e6) / 1e6;
 
@@ -267,12 +362,20 @@ export interface KOpts {
   gain?: number;
   /** Cap on the wheel part (× bet). Default KOLESO_CAP_X; ZLATÝ BONUS raises it to ZLATY_CAP_X. */
   cap?: number;
+  /**
+   * The player's letter choices by pick number (one per letter offer, in order). Missing / not in the offer =
+   * auto (offer[0], Jožo's pick). Saved with the pending bar, so a reload replays the same choices.
+   */
+  picks?: readonly (string | null | undefined)[];
+  /** Sim policy (scripts/koleso-ev.ts); `picks` win over it. */
+  picker?: KPicker;
 }
 
 /** One whole KOLESO run, decided up front (deterministic per rng). */
 export function playKoleso(rng: () => number, opts: KOpts = {}): KPlay {
   const vip = opts.vip ?? 0;
   const solveFlat = opts.solveFlat ?? KOLESO_SOLVE_FLAT;
+  const start = KOLESO_START;
   const g = opts.gain ?? 1;
   const cap = opts.cap ?? KOLESO_CAP_X;
   const pi = opts.phrase ?? Math.min(KOLESO_PHRASES.length - 1, Math.floor(rng() * KOLESO_PHRASES.length));
@@ -294,12 +397,25 @@ export function playKoleso(rng: () => number, opts: KOpts = {}): KPlay {
     shown += n;
     return n;
   };
-  for (const c of KOLESO_START) reveal(c);
+  for (const c of start) reveal(c);
   let bank = 0;
   let left = KOLESO_SPINS;
   let given = KOLESO_SPINS;
   let solved = false;
   const steps: KStep[] = [];
+  let pickNo = 0;
+  const choose = (vowel: boolean): { letter: string | null; offer: string[]; no: number; chosen: boolean } => {
+    const offer = vowel ? kolesoOffer(rng, VOWS, CONS, called) : kolesoOffer(rng, CONS, VOWS, called);
+    const no = pickNo++;
+    if (!offer.length) return { letter: null, offer, no, chosen: false };
+    const want = opts.picks?.[no];
+    if (want && offer.includes(want)) return { letter: want, offer, no, chosen: true };
+    if (opts.picker) {
+      const p = opts.picker(offer, { vowel, pickNo: no, called, cnt, left, shown, letters });
+      if (offer.includes(p)) return { letter: p, offer, no, chosen: p !== offer[0] };
+    }
+    return { letter: offer[0], offer, no, chosen: false };
+  };
   while (left > 0 && !solved) {
     left--;
     const seg = Math.min(KOLESO_SLICES - 1, Math.floor(rng() * KOLESO_SLICES));
@@ -307,13 +423,16 @@ export function playKoleso(rng: () => number, opts: KOpts = {}): KPlay {
     const s = KOLESO_WHEEL[seg];
     const before = bank;
     let letter: string | null = null;
+    let offer: string[] | null = null;
+    let no = -1;
+    let chosen = false;
     let hits = 0;
     let gain = 0;
     let cost = 0;
     let parcel = 0;
     let extra = false;
     if (s.kind === "val") {
-      letter = pickWeighted(rng, CONS, called) ?? pickWeighted(rng, VOWS, called);
+      ({ letter, offer, no, chosen } = choose(false));
       if (letter) {
         hits = reveal(letter);
         gain = (s.v ?? 0) * hits * g;
@@ -331,7 +450,7 @@ export function playKoleso(rng: () => number, opts: KOpts = {}): KPlay {
       gain = parcel * g;
       bank += gain;
     } else if (s.kind === "vowel") {
-      letter = pickWeighted(rng, VOWS, called) ?? pickWeighted(rng, CONS, called);
+      ({ letter, offer, no, chosen } = choose(true));
       if (letter) {
         if (bank >= KOLESO_VOWEL_COST) {
           cost = KOLESO_VOWEL_COST;
@@ -349,12 +468,12 @@ export function playKoleso(rng: () => number, opts: KOpts = {}): KPlay {
     bank = r4(bank);
     const share = letters ? shown / letters : 1;
     if (share >= KOLESO_SOLVE_AT) solved = true;
-    steps.push({ seg, kind: s.kind, jitter, letter, hits, gain: r4(gain), cost, parcel, bankBefore: before, bankAfter: bank, left, extra, shown: share, solved });
+    steps.push({ seg, kind: s.kind, jitter, letter, offer, pickNo: no, chosen, hits, gain: r4(gain), cost, parcel, bankBefore: before, bankAfter: bank, left, extra, shown: share, solved });
   }
   const grossX = r4(solved ? bank * KOLESO_SOLVE_MUL + solveFlat : bank);
   const capped = grossX > cap;
   const totalX = r4(Math.min(grossX, cap) + vip);
-  return { phrase: pi, text: ph.text, cat: ph.cat, start: KOLESO_START, steps, solved, bankX: bank, grossX, capped, vip, totalX, spins: given, cap, gain: g };
+  return { phrase: pi, text: ph.text, cat: ph.cat, start, steps, solved, bankX: bank, grossX, capped, vip, totalX, spins: given, cap, gain: g };
 }
 
 /** Letters visible on the board after `n` steps (start letters + every called letter so far). */

@@ -1,6 +1,6 @@
 import { setZboxHelpOff, zboxHelpOff } from "@/lib/slot/zbox-help";
 import { AddToHome } from "./AddToHome";
-import { kolesoEnvelopes, kolesoHelpOff, setKolesoEnvelopes, setKolesoHelpOff } from "@/lib/slot/koleso-help";
+import { kolesoChoose, kolesoHelpOff, setKolesoChoose, setKolesoHelpOff } from "@/lib/slot/koleso-help";
 import "./volume.css";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
@@ -670,7 +670,7 @@ export function Settings({
   const [backup, setBackup] = useState(() => isStatsBackupEnabled());
   const [zboxHelp, setZboxHelp] = useState(() => !zboxHelpOff());
   const [kolesoHelp, setKolesoHelp] = useState(() => !kolesoHelpOff());
-  const [kolesoEnv, setKolesoEnv] = useState(() => kolesoEnvelopes());
+  const [kolesoEnv, setKolesoEnv] = useState(() => kolesoChoose());
   const [tab, setTab] = useState<"hra" | "ulozenie" | "zmeny">("hra");
   useEffect(() => {
     if (!open) return;
@@ -684,7 +684,7 @@ export function Settings({
     if (!open) return;
     setZboxHelp(!zboxHelpOff());
     setKolesoHelp(!kolesoHelpOff());
-    setKolesoEnv(kolesoEnvelopes());
+    setKolesoEnv(kolesoChoose());
   }, [open]);
   useEffect(() => {
     if (open) return;
@@ -777,10 +777,10 @@ export function Settings({
               onChange={() => {
                 const next = !kolesoEnv;
                 setKolesoEnv(next);
-                setKolesoEnvelopes(next);
+                setKolesoChoose(next);
               }}
             />
-            <span>KOLESO: obálky s písmenom (ťukneš si sám; vypnuté = písmeno vyberie Jožo Pročkár, výhra je rovnaká)</span>
+            <span>KOLESO: písmeno si vyberám sám z 3 ponúknutých (vypnuté = vždy vyberá Jožo Pročkár; pri autohre a po odpočte tiež Jožo)</span>
           </label>
           <button
             type="button"

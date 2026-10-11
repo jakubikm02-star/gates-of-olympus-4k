@@ -293,7 +293,16 @@ export function useSlotGame() {
   /** Running Ž-BOX: the whole run is decided up front (playZbox), the overlay animates it. */
   const [zbox, setZbox] = useState<{ play: ZPlay; bet: number; gross: number; net: number; tax: ChaseModKind | null; key: number } | null>(null);
   /** Running KOLESO NEŠŤASTIA: decided up front (playKoleso), the overlay animates it. */
-  const [koleso, setKoleso] = useState<{ play: KPlay; bet: number; gross: number; net: number; tax: ChaseModKind | null; key: number } | null>(null);
+  const [koleso, setKoleso] = useState<{
+    play: KPlay;
+    replay: (picks: readonly (string | null)[]) => KPlay;
+    settle: (picks: readonly (string | null)[]) => { gross: number; net: number; tax: ChaseModKind | null };
+    picks0: readonly (string | null)[];
+    onPicks: (picks: (string | null)[]) => void;
+    auto: boolean;
+    bet: number;
+    key: number;
+  } | null>(null);
   const [pityDelta, setPityDelta] = useState(0);
   /** ZLATÝ BONUS (lib/slot/zlaty): saved state, the golden run on screen, its reveal and result. */
   const [zlaty, setZlaty] = useState<ZlatyState>(emptyZlaty);
@@ -470,7 +479,7 @@ export function useSlotGame() {
   const bonusPendingRef = useRef<PendingBonus | null>(null);
   const stripWait = useRef<(() => void) | null>(null);
   const zboxWait = useRef<(() => void) | null>(null);
-  const kolesoWait = useRef<(() => void) | null>(null);
+  const kolesoWait = useRef<((picks: (string | null)[]) => void) | null>(null);
   const zlatyRef = useRef<ZlatyState>(emptyZlaty());
   const goldRevealWait = useRef<(() => void) | null>(null);
   const goldResultWait = useRef<(() => void) | null>(null);
@@ -2449,18 +2458,20 @@ export function useSlotGame() {
     [pushRank, noteResult, noteHeat, noteStat, persistNow, settleJob, bumpToday, showGoldResult],
   );
 
-  /** KOLESO payout seen, tap to return. */
-  const finishKoleso = useCallback(() => {
+  /** KOLESO payout seen, tap to return (with the player's letter choices). */
+  const finishKoleso = useCallback((picks: (string | null)[]) => {
     const done = kolesoWait.current;
     kolesoWait.current = null;
     sfx.playClick();
-    done?.();
+    done?.(picks);
   }, []);
 
   /**
-   * KOLESO NEŠŤASTIA: decided up front by playKoleso(createRng(seed)) with the seed saved with the pending bar, so a
-   * reload mid-run replays the same run. Pays like KONTROLA / Ž-BOX: applyMod(…, "pick"), board (bumpToday),
-   * HLÁSENIE, RP kind "pick", stats (koleso.*), spin tape, feature tickets.
+   * KOLESO NEŠŤASTIA: the wheel path is fixed by playKoleso(createRng(seed)) with the seed saved with the pending
+   * bar; the player chooses each letter out of 3 (VYBERÁM) and the choices are saved with it too (kpicks), so a
+   * reload replays the same run with the same choices. The pay is settled from the final choices. Pays like
+   * KONTROLA / Ž-BOX: applyMod(…, "pick"), board (bumpToday), HLÁSENIE, RP kind "pick", stats (koleso.*), spin
+   * tape, feature tickets.
    */
   const runKoleso = useCallback(
     async (pend: PendingBonus, seed: number) => {
@@ -2468,24 +2479,50 @@ export function useSlotGame() {
       const rankId = standing(rankRef.current.rp).id;
       const gold = pend.gold && !roundEscrowRef.current ? pend.gold : null;
       const vip = kolesoVipOf(rankId);
-      const play = gold ? playKoleso(createRng(seed), { vip, gain: ZLATE_VYSEKY_G, cap: ZLATY_CAP_X }) : playKoleso(createRng(seed), { vip });
-      // Same seed, same wheel path without gold: what this bonus pays normally.
-      const regX = gold ? playKoleso(createRng(seed), { vip }).totalX : play.totalX;
+      const replay = (picks: readonly (string | null)[]) =>
+        gold ? playKoleso(createRng(seed), { vip, gain: ZLATE_VYSEKY_G, cap: ZLATY_CAP_X, picks }) : playKoleso(createRng(seed), { vip, picks });
       const pickMod = pickModRef.current;
       pickModRef.current = null;
-      const cash0 = gold ? goldCash(play.totalX, regX, betNow, gold.stake) : +(play.totalX * betNow).toFixed(2);
+      /** Pure: the same choices always settle the same cash (overlay preview and the real pay below). */
+      const settle = (picks: readonly (string | null)[]) => {
+        const play = replay(picks);
+        // Same seed, same choices, same wheel path without gold: what this bonus pays normally.
+        const regX = gold ? playKoleso(createRng(seed), { vip, picks }).totalX : play.totalX;
+        const cash0 = gold ? goldCash(play.totalX, regX, betNow, gold.stake) : +(play.totalX * betNow).toFixed(2);
+        const { net: cash } = applyMod(cash0, pickMod, "pick");
+        const taxKind = Math.abs(cash - cash0) >= 0.01 ? (pickMod?.kind ?? null) : null;
+        return { play, regX, cash0, cash, taxKind };
+      };
+      const picks0 = pend.kpicks ?? [];
       if (gold) setGoldRun({ mode: "koleso", bet: betNow, stake: gold.stake });
-      const { net: cash } = applyMod(cash0, pickMod, "pick");
-      const taxKind = Math.abs(cash - cash0) >= 0.01 ? (pickMod?.kind ?? null) : null;
       setPhase("pick");
       setTopLine("KOLESO NEŠŤASTIA");
       setMessage("Točíme!");
       sfx.duckMusic(0.35);
-      setKoleso({ play, bet: betNow, gross: cash0, net: cash, tax: taxKind, key: Date.now() });
+      const onPicks = (picks: (string | null)[]) => {
+        const cur = bonusPendingRef.current;
+        if (!cur || cur.mode !== "koleso") return;
+        bonusPendingRef.current = { ...cur, kpicks: picks.slice(0, 16) };
+        persistNow();
+      };
+      setKoleso({
+        play: replay(picks0),
+        replay,
+        settle: (picks) => {
+          const r = settle(picks);
+          return { gross: r.cash0, net: r.cash, tax: r.taxKind };
+        },
+        picks0,
+        onPicks,
+        auto: Boolean(autoRef.current),
+        bet: betNow,
+        key: Date.now(),
+      });
       noteStat({ t: "kolesoStart" });
-      await new Promise<void>((resolve) => {
+      const picks = await new Promise<(string | null)[]>((resolve) => {
         kolesoWait.current = resolve;
       });
+      const { play, regX, cash0, cash } = settle(picks);
       bonusPendingRef.current = null;
       if (cash > 0) {
         setBalance((b) => +(b + cash).toFixed(2));
