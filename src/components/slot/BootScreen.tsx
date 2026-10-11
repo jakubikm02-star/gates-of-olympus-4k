@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
-import { BarChart3, Check, ChevronRight, Play, Siren, Sparkles, Swords, Ticket } from "lucide-react";
+import { AlertTriangle, BarChart3, Check, ChevronRight, Play, RotateCcw, Siren, Sparkles, Swords, Ticket } from "lucide-react";
+import type { BootSnapshot } from "@/lib/slot/preloader";
+import { formatMB, SLOW_HINT } from "@/lib/slot/preload-plan";
 import type { Standing } from "@/lib/slot/ranks";
 import { WIN_POP_X } from "@/lib/slot/symbols";
 import { POOL_ELIGIBLE_BET } from "@/lib/slot/jackpot";
@@ -8,8 +10,9 @@ import { AddToHome } from "./AddToHome";
 import { BootPullCard, PrimaryLink } from "./SaveMove";
 
 /**
- * Intro / loading screen. Only art the game already preloads (garage, scatter, ticket)
- * plus a hole-fixed Paas hero webp (~49 kB), one 400 B svg and lucide glyphs.
+ * Intro / loading screen. HRAŤ stays locked until the boot preloader (lib/slot/preloader.ts) has every
+ * image, font, sound and the start data on the device; the bar is byte-based (MB of MB), with the slow-network
+ * hint after 5 s and Skúsiť znova when a game file keeps failing.
  * Layout is pure CSS (boot-screen.css): stacked on phones, hero + side panel from 821 px.
  */
 
@@ -34,6 +37,9 @@ const FEATS: readonly Feat[] = [
 interface Props {
   ready: boolean;
   pct: number;
+  snap: BootSnapshot | null;
+  onRetry: () => void;
+  onSkip: () => void;
   booting: boolean;
   rank: Standing;
   onStart: () => void;
@@ -41,8 +47,10 @@ interface Props {
   onTransfer: () => void;
 }
 
-export function BootScreen({ ready, pct, booting, rank, onStart, onRank, onTransfer }: Props) {
+export function BootScreen({ ready, pct, snap, onRetry, onSkip, booting, rank, onStart, onRank, onTransfer }: Props) {
   const shown = ready ? 100 : Math.max(0, Math.min(100, Math.round(pct)));
+  const failed = snap?.phase === "error";
+  const prog = snap?.progress;
   const label = `${rank.name}${rank.roman ? ` ${rank.roman}` : ""}`;
   const into = rank.need > 0 ? Math.min(100, (rank.into / rank.need) * 100) : 100;
   return (
@@ -115,14 +123,62 @@ export function BootScreen({ ready, pct, booting, rank, onStart, onRank, onTrans
           <ChevronRight className="bs-rank-go" size={18} strokeWidth={2.4} aria-hidden="true" />
         </button>
 
-        <div className="bs-load" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={shown} aria-label="Načítanie hry">
+        <div
+          className={`bs-load ${failed ? "is-failed" : ""}`}
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={shown}
+          aria-label="Načítanie hry"
+          data-phase={snap?.phase ?? "list"}
+        >
           <div className="bs-load-row">
-            <span>{ready ? <><Check size={13} strokeWidth={3} /> PRIPRAVENÉ</> : "NAČÍTAVAM GARÁŽ"}</span>
+            <span>
+              {ready ? (
+                <>
+                  <Check size={13} strokeWidth={3} /> PRIPRAVENÉ
+                </>
+              ) : failed ? (
+                <>
+                  <AlertTriangle size={13} strokeWidth={2.6} /> CHÝBAJÚ SÚBORY
+                </>
+              ) : (
+                "NAČÍTAVAM GARÁŽ"
+              )}
+            </span>
             <b>{shown} %</b>
           </div>
           <div className="bs-track">
             <i style={{ width: `${shown}%` }} />
           </div>
+          {prog && !ready ? (
+            <div className="bs-load-meta">
+              <span>
+                {formatMB(prog.loadedBytes)} / {formatMB(prog.totalBytes)}
+              </span>
+              <span>
+                {prog.done} / {prog.total} súborov
+              </span>
+            </div>
+          ) : null}
+          {snap?.slow && !failed ? (
+            <p className="bs-load-slow" role="status">
+              {SLOW_HINT}
+            </p>
+          ) : null}
+          {failed ? (
+            <div className="bs-load-fail" role="alert">
+              <p>{snap?.failMsg}</p>
+              <button type="button" className="bs-retry" onClick={onRetry}>
+                <RotateCcw size={15} strokeWidth={2.6} aria-hidden="true" /> SKÚSIŤ ZNOVA
+              </button>
+              {(snap?.rounds ?? 0) >= 2 ? (
+                <button type="button" className="bs-skip" onClick={onSkip}>
+                  Hrať bez chýbajúcich súborov
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <button type="button" className="cta bs-cta" disabled={!ready || booting} onClick={onStart}>

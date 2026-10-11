@@ -60,4 +60,5 @@ export async function saveContractTitles(id: string, titles: string[] | null, pa
   return null;
 }
 
-if (typeof window !== "undefined") void loadContractTitles();
+/** Settles once the contract titles answered (or failed); the boot preloader waits for it. */
+export const contractTitlesReady: Promise<void> = typeof window !== "undefined" ? loadContractTitles() : Promise.resolve();

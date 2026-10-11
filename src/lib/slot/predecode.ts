@@ -38,3 +38,8 @@ export function predecode(srcs: Iterable<string>): Promise<void> {
 }
 
 export const predecodedCount = () => held.size;
+
+/** Boot preloader hands over its decoded Image so the bitmap stays referenced for the whole session. */
+export function holdImage(src: string, img: HTMLImageElement): void {
+  if (!held.has(src)) held.set(src, img);
+}

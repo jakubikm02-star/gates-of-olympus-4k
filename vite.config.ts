@@ -11,6 +11,8 @@ import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
 // @ts-expect-error JS plugin alongside the TS vite config
 import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
+// @ts-expect-error JS plugin alongside the TS vite config
+import { parkAssetsPlugin } from "./scripts/park-assets-plugin.mjs";
 
 /** The files `src/lib/db.ts` globs — same directory, same non-recursive scope. */
 function hasGlobbedMigrations(root: string): boolean {
@@ -170,6 +172,8 @@ export default defineConfig(({ command, isPreview }) => {
     appEnvPlugin(),
     // PWA head + ?install=1 tutorial page; runs before Start/Nitro.
     grokPwaPlugin(),
+    // virtual:park-public-sizes — byte sizes for the boot preloader's progress bar.
+    parkAssetsPlugin(),
     tailwindcss(),
     tanstackStart(),
     ...(command === "build" || isPreview

@@ -580,6 +580,87 @@
   box-shadow: 0 0 14px rgb(240 196 25 / 0.7);
 }
 
+.bs-load-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-family: var(--font-mono, "IBM Plex Mono", monospace);
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+  color: #8fb7c6;
+}
+
+.bs-load-slow {
+  margin: 8px 0 0;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  text-align: center;
+  color: #ffe08a;
+  animation: bs-slow-in 0.4s ease-out both;
+}
+
+@keyframes bs-slow-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+.bs-load.is-failed .bs-track > i {
+  background: linear-gradient(90deg, #b8402f, #ff7a5c);
+  box-shadow: 0 0 12px rgb(255 90 60 / 0.5);
+}
+
+.bs-load.is-failed .bs-track > i::after {
+  animation: none;
+}
+
+.bs-load.is-failed .bs-load-row span {
+  color: #ff9c86;
+}
+
+.bs-load-fail {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.bs-load-fail p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #ffd7cc;
+}
+
+.bs-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.18em;
+  color: #1a1204;
+  background: linear-gradient(180deg, #fff6b8, #f2bb0c);
+  box-shadow: 0 6px 18px rgb(240 196 25 / 0.35);
+  cursor: pointer;
+}
+
+.bs-skip {
+  border: 0;
+  background: none;
+  font-size: 0.72rem;
+  color: #9fb2bd;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* ---------- CTA ---------- */
 .bs-panel .bs-cta {
   position: relative;

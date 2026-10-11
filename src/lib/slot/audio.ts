@@ -40,6 +40,7 @@ import {
   parseGlobalLevels,
 } from "./cue-volume.ts";
 import { rampOut, scheduleEnd } from "./voice-fade.ts";
+import { b64Size, forgetCue, parseCueRows, pruneCues, readCue, writeCue, type CueRow } from "./sfx-cache.ts";
 import {
   FADE_LOCAL_KEY,
   endPlan,
@@ -259,12 +260,15 @@ function cueMaxLabel(_key: string): string {
   return "50 MB";
 }
 
+/** Built-in files already fetched by the preloader, as blob URLs: <audio> elements never touch the network in play. */
+const localUrl: Record<string, string> = {};
+
 export function cueSrc(key: string): string {
-  return previewUrl[key] || FILES[key] || "";
+  return previewUrl[key] || localUrl[key] || FILES[key] || "";
 }
 
 export function isCustomCue(key: string): boolean {
-  return custom.has(key);
+  return custom.has(key) || shippedSame.has(key);
 }
 
 function sniffMime(bytes: ArrayBuffer, fallback: string): string {
@@ -362,39 +366,214 @@ function fileToB64(file: Blob): Promise<string> {
   });
 }
 
-async function pullRemote(musicOnly = false): Promise<void> {
-  const list = await sfxRpc("sfx_keys", {});
-  if (!list.ok) return;
-  const rows = (await list.json()) as { key?: string; mime?: string }[];
-  if (!Array.isArray(rows)) return;
-  for (const row of rows) if (row.key && row.key in FILES) remoteKeys.add(row.key);
-  keysKnown = true;
-  const pull = async (row: { key?: string; mime?: string }, low: boolean) => {
-    const key = row.key || "";
-    if (!(key in FILES) || custom.has(key)) return;
-    const audio = await sfxRpc("sfx_audio", { p_key: key }, low);
-    if (!audio.ok) return;
-    const b64 = (await audio.json()) as unknown;
-    if (typeof b64 !== "string" || b64.length < 8) return;
-    const bytes = b64.length > 512 * 1024 ? await b64ToBytesYield(b64) : b64ToBytes(b64);
-    const type = sniffMime(bytes, row.mime || "");
-    stored[key] = { bytes, type };
-    delete decoding[key];
-    decodeFailed.delete(key);
-    custom.add(key);
-    rememberPreview(key, bytes, type);
-    // Decode a short cue as soon as it is here (if audio is unlocked), not after the music beds downloaded.
-    if (ctx && !MUSIC_KEYS.has(key)) void decodeCustom(key);
-  };
-  // Short cues first, together. The big music beds after them, one at a time, at low priority, so they do not
-  // saturate a phone link while the player is already spinning. Music is not part of boot: a 19 MB atob
-  // froze HRAŤ. It starts after the player presses play.
-  const music = rows.filter((row) => MUSIC_KEYS.has(row.key || ""));
-  if (!musicOnly) {
-    await Promise.all(rows.filter((row) => !MUSIC_KEYS.has(row.key || "")).map((row) => pull(row, false).catch(() => {})));
-  } else {
-    for (const row of music) await pull(row, true).catch(() => {});
+/* ---------- Uploaded cues (Supabase sfx_cue) ----------
+   1. List: sfx_keys2 (key, mime, md5, len) when migrated, else sfx_keys (key, mime).
+   2. A cue whose upload is byte-identical to the file shipped in public/sfx (md5 from the build, or — without
+      sfx_keys2 — every slot whose default already is the shipped upload in /sfx/pack/) plays the static file:
+      Vercel serves it with a year-long immutable cache, nothing comes from Supabase.
+   3. Any other upload is downloaded once (sfx_audio) and kept in Cache Storage (sfx-cache.ts).
+   The boot preloader (preloader.ts) drives all of it before HRAŤ; nothing here downloads during play. */
+
+/** Rows of the last listing; null = not listed yet. */
+let cueRows: CueRow[] | null = null;
+let listPromise: Promise<CueRow[] | null> | null = null;
+/** Slots served from the static file because the upload equals it (shown as uploaded in the admin panel). */
+const shippedSame = new Set<string>();
+/** md5 of static files by path, injected by the preloader from the build (virtual:park-public-assets). */
+let staticMd5: Record<string, string> = {};
+let staticSize: Record<string, number> = {};
+/** Network fetches of uploads (for tests / the debug HUD). */
+export const sfxNet = { listed: 0, downloaded: 0, cacheHits: 0, shipped: 0, bytes: 0 };
+
+export function setShippedSfx(md5ByPath: Record<string, string>, sizeByPath: Record<string, number> = {}): void {
+  staticMd5 = md5ByPath || {};
+  staticSize = sizeByPath || {};
+}
+
+const KEYS2_OFF = "parkizmus-sfx-keys2-off";
+
+function keys2Off(): boolean {
+  try {
+    const t = Number(localStorage.getItem(KEYS2_OFF) || 0);
+    return t > 0 && Date.now() - t < 24 * 60 * 60 * 1000;
+  } catch {
+    return false;
   }
+}
+
+/** sfx_keys2 when the migration is in (404 remembered for a day), else sfx_keys. null = Supabase unreachable. */
+export function listCues(): Promise<CueRow[] | null> {
+  if (cueRows) return Promise.resolve(cueRows);
+  if (!listPromise) {
+    listPromise = (async () => {
+      let res: Response | null = null;
+      if (!keys2Off()) {
+        res = await sfxRpc("sfx_keys2", {});
+        if (res.status === 404) {
+          try {
+            localStorage.setItem(KEYS2_OFF, String(Date.now()));
+          } catch {
+            /* ignore */
+          }
+          res = null;
+        }
+      }
+      if (!res) res = await sfxRpc("sfx_keys", {});
+      if (!res.ok) throw new Error(`sfx_keys ${res.status}`);
+      const rows = parseCueRows(await res.json(), (k) => k in FILES);
+      sfxNet.listed += 1;
+      cueRows = rows;
+      remoteKeys.clear();
+      for (const row of rows) {
+        if (shipsAsFile(row)) {
+          shippedSame.add(row.key);
+          sfxNet.shipped += 1;
+        } else remoteKeys.add(row.key);
+      }
+      keysKnown = true;
+      void pruneCues(rows.filter((r) => !shipsAsFile(r)));
+      return rows;
+    })().catch(() => {
+      listPromise = null;
+      return null;
+    });
+  }
+  return listPromise;
+}
+
+/** The upload of this slot is the very file shipped in public/sfx: play the static file instead. */
+export function shipsAsFile(row: CueRow): boolean {
+  const url = FILES[row.key];
+  if (!url) return false;
+  const path = url.split("?")[0];
+  if (row.v) return Boolean(staticMd5[path]) && staticMd5[path] === row.v.toLowerCase();
+  // No md5 from the server (sfx_keys2 not migrated): the /sfx/pack/ defaults are the shipped uploads
+  // (commit 112f6ab, byte-identical on 2026-10-11). A re-upload of such a slot needs sfx_keys2 to reach players.
+  return path.startsWith("/sfx/pack/");
+}
+
+/** Expected download size of an upload (progress bar). */
+export function cueBytesHint(row: CueRow): number {
+  if (row.len) return b64Size(row.len);
+  return 160 * 1024;
+}
+
+/** Built-in files (path → bytes) the game plays given the current listing: every slot not served by an upload. */
+export function builtinPlan(): { key: string; url: string; bytes: number; music: boolean }[] {
+  const out: { key: string; url: string; bytes: number; music: boolean }[] = [];
+  for (const [key, url] of Object.entries(FILES)) {
+    if (!url || custom.has(key) || remoteKeys.has(key)) continue;
+    out.push({ key, url, bytes: staticSize[url.split("?")[0]] || 0, music: MUSIC_KEYS.has(key) });
+  }
+  return out;
+}
+
+/** Uploads to fetch from Supabase / Cache Storage (not shipped as a file). */
+export function remotePlan(): CueRow[] {
+  return (cueRows || []).filter((r) => remoteKeys.has(r.key));
+}
+
+function acceptCue(key: string, bytes: ArrayBuffer, type: string): void {
+  stored[key] = { bytes, type };
+  delete decoding[key];
+  decodeFailed.delete(key);
+  custom.add(key);
+  rememberPreview(key, bytes, type);
+}
+
+async function readBody(res: Response, onBytes?: (n: number) => void): Promise<Uint8Array> {
+  if (!res.body || typeof res.body.getReader !== "function") {
+    const buf = new Uint8Array(await res.arrayBuffer());
+    onBytes?.(buf.byteLength);
+    return buf;
+  }
+  const reader = res.body.getReader();
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      parts.push(value);
+      total += value.byteLength;
+      onBytes?.(total);
+    }
+  }
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.byteLength;
+  }
+  return out;
+}
+
+/** Same md5 already on the device under another slot (ticketOk = zbox_full): reuse, do not download twice. */
+const byHash = new Map<string, { bytes: ArrayBuffer; type: string }>();
+
+/**
+ * One upload onto the device: Cache Storage first, else sfx_audio (base64) once, then cached.
+ * Throws on a network / server failure so the preloader can retry. `signal` aborts a stalled download.
+ */
+export async function pullCue(row: CueRow, onBytes?: (n: number) => void, signal?: AbortSignal): Promise<void> {
+  const key = row.key;
+  if (custom.has(key) && stored[key]) return;
+  const twin = row.v ? byHash.get(row.v) : undefined;
+  if (twin) {
+    acceptCue(key, twin.bytes, twin.type);
+    return;
+  }
+  const hit = await readCue(row);
+  if (hit) {
+    sfxNet.cacheHits += 1;
+    acceptCue(key, hit.bytes, sniffMime(hit.bytes, hit.type));
+    if (row.v) byHash.set(row.v, { bytes: hit.bytes, type: hit.type });
+    onBytes?.(cueBytesHint(row));
+    return;
+  }
+  const res = await fetch(`${SUPA_URL}/rest/v1/rpc/sfx_audio`, {
+    method: "POST",
+    headers: { apikey: SUPA_ANON, Authorization: `Bearer ${SUPA_ANON}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_key: key }),
+    signal,
+  });
+  if (!res.ok) throw new Error(`sfx_audio ${key} ${res.status}`);
+  const raw = await readBody(res, onBytes);
+  sfxNet.downloaded += 1;
+  sfxNet.bytes += raw.byteLength;
+  const b64 = JSON.parse(new TextDecoder().decode(raw)) as unknown;
+  if (typeof b64 !== "string" || b64.length < 8) {
+    // Listed but empty on the server: play the built-in file / synth.
+    remoteKeys.delete(key);
+    return;
+  }
+  const bytes = b64.length > 512 * 1024 ? await b64ToBytesYield(b64) : b64ToBytes(b64);
+  const type = sniffMime(bytes, row.mime || "");
+  acceptCue(key, bytes, type);
+  if (row.v) byHash.set(row.v, { bytes, type });
+  await writeCue(row, bytes, type);
+}
+
+/** The upload of this slot could not be fetched even after retries: fall back to its built-in file / synth. */
+export function dropRemote(key: string): void {
+  remoteKeys.delete(key);
+  emitSfx();
+}
+
+async function pullRemote(musicOnly = false): Promise<void> {
+  const rows = await listCues();
+  if (!rows) return;
+  for (const row of rows) if (shipsAsFile(row)) shippedSame.add(row.key);
+  const todo = remotePlan().filter((row) => (musicOnly ? MUSIC_KEYS.has(row.key) : !MUSIC_KEYS.has(row.key)));
+  await Promise.all(
+    todo.map((row) =>
+      pullCue(row)
+        .then(() => {
+          if (ctx && !MUSIC_KEYS.has(row.key)) void decodeCustom(row.key);
+        })
+        .catch(() => dropRemote(row.key)),
+    ),
+  );
 }
 
 let hydrated = false;
@@ -414,9 +593,18 @@ function hydrateCustoms(): Promise<void> {
   });
 }
 
+/** Preloader finished every upload itself: open the gates the play code waits on. */
+export function markCuesHydrated(): void {
+  if (cueRows) for (const row of cueRows) if (shipsAsFile(row)) shippedSame.add(row.key);
+  hydrated = true;
+  musicPromise = Promise.resolve();
+  shortDone();
+  emitSfx();
+}
+
 let musicPromise: Promise<void> | null = null;
 
-/** Bed / zásah uploads. Not during boot — the FLAC bed is ~19 MB of base64. */
+/** Bed / zásah uploads (already on the device when the boot preloader ran). */
 function ensureMusic(): Promise<void> {
   if (!musicPromise) {
     musicPromise = hydrateCustoms()
@@ -463,7 +651,11 @@ function decodeCustom(key: string): Promise<void> {
   return p;
 }
 
-if (typeof window !== "undefined") void hydrateCustoms();
+/** Decode an upload now (preloader). */
+export function decodeCue(key: string): Promise<void> {
+  return MUSIC_KEYS.has(key) ? Promise.resolve() : decodeCustom(key);
+}
+
 
 export function isMuted(): boolean {
   return muted;
@@ -517,10 +709,9 @@ async function loadGlobalVolumes(): Promise<void> {
   }
 }
 
-if (typeof window !== "undefined") {
-  dropLegacyVolumes();
-  void loadGlobalVolumes();
-}
+/** Settles once the global volumes answered (or failed); the boot preloader waits for it. */
+export const volumesReady: Promise<void> =
+  typeof window !== "undefined" ? (dropLegacyVolumes(), loadGlobalVolumes()) : Promise.resolve();
 
 /** True when the admin moved a slider since the last load/save (preview only, not saved yet). */
 export function volumesDirty(): boolean {
@@ -620,7 +811,8 @@ async function loadGlobalFades(): Promise<void> {
   }
 }
 
-if (typeof window !== "undefined") void loadGlobalFades();
+/** Settles once the global fades answered (or failed). */
+export const fadesReady: Promise<void> = typeof window !== "undefined" ? loadGlobalFades() : Promise.resolve();
 
 /** Cut-off + fade of one slot (off / 0 ms by default). */
 export function getCueFade(key: string): CueFade {
@@ -977,8 +1169,19 @@ export function elementVolume(el: HTMLMediaElement, level: number, cue = ""): nu
   return elSources.has(el) ? Math.min(1, level) : directElementVolume(level, cue ? getCueLevel(cue) : 1, volume);
 }
 
+/** Build the audio graph without resuming it (allowed before a tap): buffers can decode during boot. */
+export function prepareAudio(): void {
+  if (typeof window === "undefined") return;
+  if (!ctx) buildGraph(false);
+}
+
 export function unlockAudio(): void {
-  if (!ctx) {
+  if (!ctx) buildGraph(true);
+  if (ctx && ctx.state === "suspended") void ctx.resume();
+}
+
+function buildGraph(fromTap: boolean): void {
+  {
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     ctx = new AC({ latencyHint: "interactive" });
     master = ctx.createGain();
@@ -1010,12 +1213,15 @@ export function unlockAudio(): void {
     });
     whiteBuf = makeNoise(ctx, 1.4, "white");
     brownBuf = makeNoise(ctx, 1.6, "brown");
-    void loadBank();
-    // Uploads that arrived before the context existed decode now; the rest decode as they arrive (pullRemote).
-    void applyCustoms();
-    void shortHydrate().then(() => applyCustoms());
+    // Boot preloader path: it fetches / decodes everything itself (with progress); a tap without it falls back
+    // to the old lazy bank load.
+    if (fromTap) {
+      void loadBank();
+      // Uploads that arrived before the context existed decode now; the rest decode as they arrive (pullRemote).
+      void applyCustoms();
+      void shortHydrate().then(() => applyCustoms());
+    }
   }
-  if (ctx.state === "suspended") void ctx.resume();
 }
 
 /** A one-shot fired mid-sequence (no tap): wake a context the OS suspended (Samsung Internet PWA, iOS). */
@@ -1029,25 +1235,61 @@ function wake(): void {
 const pending: Partial<Record<string, Promise<void>>> = {};
 let bankAll: Promise<void> | null = null;
 
+/** Built-in file bytes by URL (several slots share a file); the preloader fills it with progress. */
+const fileBytes = new Map<string, Promise<ArrayBuffer>>();
+
+/** Fetch one built-in file once (throws on HTTP / network failure; the preloader retries). */
+export function fetchBuiltin(url: string, onBytes?: (n: number) => void, signal?: AbortSignal): Promise<ArrayBuffer> {
+  const known = fileBytes.get(url);
+  if (known) return known;
+  const p = (async (): Promise<ArrayBuffer> => {
+    const res = await fetch(url, { signal });
+    if (!res.ok) throw new Error(`${url} ${res.status}`);
+    const raw = await readBody(res, onBytes);
+    const out = new ArrayBuffer(raw.byteLength);
+    new Uint8Array(out).set(raw);
+    return out;
+  })();
+  fileBytes.set(url, p);
+  p.catch(() => fileBytes.delete(url));
+  return p;
+}
+
 function loadOne(key: string): Promise<void> {
   if (custom.has(key)) return Promise.resolve();
-  if (bufs[key]) return Promise.resolve();
+  if (bufs[key] || localUrl[key]) return Promise.resolve();
   const existing = pending[key];
   if (existing) return existing;
   const url = FILES[key];
-  if (!url || !ctx) return Promise.resolve();
+  if (!url) return Promise.resolve();
+  // Music beds play through an <audio> element: keep the bytes as a blob URL, never a 70 MB PCM buffer.
+  if (!ctx && !MUSIC_KEYS.has(key)) return Promise.resolve();
   const p = (async () => {
     try {
-      const res = await fetch(url);
-      const raw = await res.arrayBuffer();
-      if (!ctx || custom.has(key)) return;
+      const raw = await fetchBuiltin(url);
+      if (custom.has(key)) return;
+      if (MUSIC_KEYS.has(key)) {
+        localUrl[key] = URL.createObjectURL(new Blob([raw], { type: sniffMime(raw, "") }));
+        return;
+      }
+      if (!ctx) return;
       bufs[key] = await ctx.decodeAudioData(raw.slice(0));
     } catch {
       /* keep synth fallback */
+    } finally {
+      delete pending[key];
     }
   })();
   pending[key] = p;
   return p;
+}
+
+/** Preloader: fetch (with progress) and decode one built-in slot. Throws when the file cannot be fetched. */
+export async function preloadBuiltin(key: string, onBytes?: (n: number) => void, signal?: AbortSignal): Promise<void> {
+  const url = FILES[key];
+  if (!url || custom.has(key)) return;
+  await fetchBuiltin(url, onBytes, signal);
+  await loadOne(key);
 }
 
 async function applyCustoms(): Promise<void> {
@@ -1126,6 +1368,8 @@ export async function replaceCue(key: string, file: File, password: string): Pro
     return "Zvuk sa nepodarilo uložiť.";
   }
   await hydrateCustoms();
+  void forgetCue(key);
+  shippedSame.delete(key);
   stored[key] = { bytes, type };
   delete decoding[key];
   decodeFailed.delete(key);
@@ -1149,6 +1393,8 @@ export async function resetCue(key: string, password: string): Promise<string | 
     return "Zvuk sa nepodarilo vrátiť.";
   }
   await hydrateCustoms();
+  void forgetCue(key);
+  shippedSame.delete(key);
   custom.delete(key);
   remoteKeys.delete(key);
   decodeFailed.delete(key);
@@ -1173,6 +1419,8 @@ export async function resetCues(password: string): Promise<string | null> {
   }
   await hydrateCustoms();
   const keys = [...custom];
+  for (const key of keys) void forgetCue(key);
+  shippedSame.clear();
   custom.clear();
   remoteKeys.clear();
   decodeFailed.clear();

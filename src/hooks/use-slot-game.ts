@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { bootPreloader, type BootSnapshot } from "@/lib/slot/preloader";
 import {
-  ALL_ART,
   BETS,
   FS_RETRIGGER,
   FS_RETRIGGER_SCATTERS,
@@ -152,28 +152,13 @@ function writeLocal(s: PlayerSave): void {
 
 
 
-function decodeArt(src: string): Promise<void> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    let settled = false;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      resolve();
-    };
-    const timer = window.setTimeout(finish, 8000);
-    img.onload = () => {
-      window.clearTimeout(timer);
-      if (typeof img.decode === "function") void img.decode().then(finish, finish);
-      else finish();
-    };
-    img.onerror = () => {
-      window.clearTimeout(timer);
-      finish();
-    };
-    img.decoding = "async";
-    img.src = src;
+/** A promise settled from outside (the boot preloader waits on the first jackpot / desk fetch). */
+function settleLater(): { promise: Promise<void>; done: () => void } {
+  let done = () => {};
+  const promise = new Promise<void>((resolve) => {
+    done = resolve;
   });
+  return { promise, done };
 }
 
 /** Shortest wait for the jackpot RPC, so turbo / tapped-stop spins still pick up a ticket on a quick network. */
@@ -237,6 +222,9 @@ export function useSlotGame() {
   const [started, setStarted] = useState(false);
   const [bootReady, setBootReady] = useState(false);
   const [bootPct, setBootPct] = useState(0);
+  const [bootSnap, setBootSnap] = useState<BootSnapshot | null>(null);
+  const bootPoolRef = useRef(settleLater());
+  const bootDeskRef = useRef(settleLater());
   const [booting, setBooting] = useState(false);
   const bootingRef = useRef(false);
   const [balance, setBalance] = useState(START_BALANCE);
@@ -1205,10 +1193,12 @@ export function useSlotGame() {
     if (!hydrated) return;
     void withRetry(fetchParkPool)
       .then(applyBoard)
-      .catch(() => {});
+      .catch(() => {})
+      .finally(bootPoolRef.current.done);
     void fetchDesk()
       .then(setDesk)
-      .catch(() => {});
+      .catch(() => {})
+      .finally(bootDeskRef.current.done);
   }, [hydrated, applyBoard]);
 
   useEffect(() => {
@@ -1326,24 +1316,23 @@ export function useSlotGame() {
     }
   }, [muted, noteStat]);
 
+  // Boot: HRAŤ only once every image, font, sound (downloaded + decoded) and the start data are here.
   useEffect(() => {
-    let cancel = false;
-    const arts = ALL_ART;
-    let n = 0;
-    void Promise.all(
-      arts.map((src) =>
-        decodeArt(src).then(() => {
-          n += 1;
-          if (!cancel) setBootPct(Math.round((n / arts.length) * 100));
-        }),
-      ),
-    ).then(() => {
-      if (!cancel) setBootReady(true);
+    const pre = bootPreloader([
+      { id: "jackpot", run: () => bootPoolRef.current.promise },
+      { id: "desk", run: () => bootDeskRef.current.promise },
+    ]);
+    const off = pre.subscribe((snap) => {
+      setBootSnap(snap);
+      setBootPct(snap.progress.pct);
+      if (snap.phase === "ready") setBootReady(true);
     });
-    return () => {
-      cancel = true;
-    };
+    pre.start();
+    return off;
   }, []);
+
+  const bootRetry = useCallback(() => bootPreloader().retry(), []);
+  const bootSkip = useCallback(() => bootPreloader().skipFailed(), []);
 
   const toggleMute = useCallback(() => {
     sfx.unlockAudio();
@@ -4490,6 +4479,9 @@ export function useSlotGame() {
     started,
     bootReady,
     bootPct,
+    bootSnap,
+    bootRetry,
+    bootSkip,
     booting,
     start,
     balance,

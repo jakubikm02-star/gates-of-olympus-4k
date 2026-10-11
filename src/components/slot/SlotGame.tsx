@@ -296,6 +296,9 @@ export function SlotGame() {
         <BootScreen
           ready={g.bootReady}
           pct={g.bootPct}
+          snap={g.bootSnap}
+          onRetry={g.bootRetry}
+          onSkip={g.bootSkip}
           booting={g.booting}
           rank={g.rank}
           onStart={() => void g.start()}

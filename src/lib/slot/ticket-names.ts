@@ -90,4 +90,5 @@ export async function renameTicket(id: TicketId, label: string, password: string
   return null;
 }
 
-if (typeof window !== "undefined") void loadTicketNames();
+/** Settles once the ticket names answered (or failed); the boot preloader waits for it. */
+export const ticketNamesReady: Promise<void> = typeof window !== "undefined" ? loadTicketNames() : Promise.resolve();
