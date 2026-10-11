@@ -61,6 +61,8 @@ export interface PendingBonus {
   mod: ChaseModKind | null;
   /** Left of the tax period when it was drawn (applyMod only needs the kind). */
   modLeft: number;
+  /** SUCHO payout multiplier of the spin that filled the bar (lib/slot/sucho-rtp; absent = 1). */
+  sucho?: number;
   at: number;
   /** Ž-BOX / KOLESO: seed of its run, fixed when it starts (a reload mid-run replays the same run). */
   seed?: number;
@@ -85,6 +87,7 @@ export function sanitizePendingBonus(raw: unknown): PendingBonus | null {
   if (!bet) return null;
   const mod = r.mod === "bezDane" || r.mod === "danUrad" ? r.mod : null;
   const modLeft = typeof r.modLeft === "number" && Number.isFinite(r.modLeft) ? Math.max(0, Math.min(15, Math.floor(r.modLeft))) : 0;
+  const sucho = typeof r.sucho === "number" && Number.isFinite(r.sucho) && r.sucho > 0 && r.sucho < 1 ? r.sucho : undefined;
   const at = typeof r.at === "number" && Number.isFinite(r.at) ? Math.max(0, Math.floor(r.at)) : 0;
   const seed = typeof r.seed === "number" && Number.isInteger(r.seed) && r.seed >= 0 && r.seed < 0x100000000 ? r.seed : undefined;
   const gold = sanitizeGoldRun(r.gold);
@@ -93,6 +96,7 @@ export function sanitizePendingBonus(raw: unknown): PendingBonus | null {
     mode: r.mode as BonusModeId,
     bet,
     mod: mod && modLeft > 0 ? mod : null,
+    ...(sucho !== undefined ? { sucho } : {}),
     modLeft: mod && modLeft > 0 ? modLeft : 0,
     at,
     ...(seed !== undefined ? { seed } : {}),

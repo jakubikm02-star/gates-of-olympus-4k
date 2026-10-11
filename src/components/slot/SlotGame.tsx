@@ -315,10 +315,13 @@ export function SlotGame() {
             <SuchoChip
               idle={g.rpIdle}
               league={g.suchoLeague}
-              ticketActive={g.ticketActive}
+              shield={g.ticketShield}
+              stallLeft={g.ticketStallLeft}
+              on={g.suchoOn}
+              mul={g.suchoMul}
               rp={g.rank.rp}
               onOpen={() => {
-                setManFocus("rp");
+                setManFocus("sucho");
                 g.setPaytableOpen(true);
               }}
             />
@@ -900,7 +903,6 @@ export function SlotGame() {
           settle={g.koleso.settle}
           picks0={g.koleso.picks0}
           onPicks={g.koleso.onPicks}
-          auto={g.koleso.auto}
           bet={g.koleso.bet}
           turbo={g.turbo}
           reduced={reducedMotion}

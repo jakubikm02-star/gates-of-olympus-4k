@@ -90,8 +90,6 @@ interface Props {
   picks0?: readonly (string | null)[];
   /** Every new choice (saved with the pending bar). */
   onPicks?: (picks: (string | null)[]) => void;
-  /** Autoplay: Jožo picks every letter. */
-  auto?: boolean;
   bet: number;
   turbo: boolean;
   reduced: boolean;
@@ -187,7 +185,7 @@ function Board({ rows, shown, flipping, cat, solved, missed }: { rows: string[];
  * Obálky (optional): three envelopes, the tap opens one; the letter is already decided, the others stay shut.
  * Tap = end the current step, PRESKOČIŤ = jump to the payout, turbo ≈ 2×, reduced motion = no spin, fades only.
  */
-export function KolesoBonus({ play: play0, replay, settle, picks0, onPicks, auto = false, bet, turbo, reduced, onDone }: Props) {
+export function KolesoBonus({ play: play0, replay, settle, picks0, onPicks, bet, turbo, reduced, onDone }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const rotorRef = useRef<HTMLDivElement>(null);
   const ptrRef = useRef<HTMLImageElement>(null);
@@ -227,7 +225,7 @@ export function KolesoBonus({ play: play0, replay, settle, picks0, onPicks, auto
   const heldRef = useRef<(() => void)[]>([]);
   const helpRef = useRef(!kolesoHelpOff());
   const coachRef = useRef(false);
-  const chooseOn = useRef(choose && !auto);
+  const chooseOn = useRef(choose);
   const k = turbo ? 0.5 : 1;
   /** Wheel angle (deg, clockwise) and the pointer spring; driven by one rAF loop, written straight to the DOM. */
   const wheel = useRef({ rot: 0, p: 0, pv: 0, spin: null as null | { from: number; delta: number; t0: number; dur: number; done: () => void }, lastIdx: 0, lastTick: 0 });
@@ -400,7 +398,7 @@ export function KolesoBonus({ play: play0, replay, settle, picks0, onPicks, auto
     };
     /**
      * The letter of step `i`: VYBERÁM shows its offer (3 random letters, as drawn by the seeded run) and waits for
-     * the player; the timer, autoplay, JOŽO mode and PRESKOČIŤ take Jožo's tip (offer[0]). A choice saved before a
+     * the player; the timer, JOŽO mode and PRESKOČIŤ take Jožo's tip (autospin stops before KOLESO, it never picks) (offer[0]). A choice saved before a
      * reload is replayed. Returns the step re-derived with the chosen letter (later steps follow from it).
      */
     let cur = play0;
@@ -692,7 +690,7 @@ export function KolesoBonus({ play: play0, replay, settle, picks0, onPicks, auto
     e.stopPropagation();
     sfx.playClick();
     const next = !chooseOn.current;
-    chooseOn.current = next && !auto;
+    chooseOn.current = next;
     setChoose(next);
     setKolesoChoose(next);
     // switched to JOŽO while an offer waits: Jožo takes his tip now
@@ -831,14 +829,13 @@ export function KolesoBonus({ play: play0, replay, settle, picks0, onPicks, auto
           </button>
           <button
             type="button"
-            className={`kn-env ${choose && !auto ? "is-on" : ""}`}
+            className={`kn-env ${choose ? "is-on" : ""}`}
             onClick={toggleChoose}
-            aria-pressed={choose && !auto}
-            disabled={auto}
-            title={auto ? "Autohra: písmená vyberá Jožo Pročkár" : choose ? "VYBERÁM: písmeno si vyberieš z 3 ponúknutých" : "JOŽO: písmeno vyberá Jožo Pročkár"}
+            aria-pressed={choose}
+            title={choose ? "VYBERÁM: písmeno si vyberieš z 3 ponúknutých" : "JOŽO: písmeno vyberá Jožo Pročkár"}
           >
-            {choose && !auto ? <Hand size={18} strokeWidth={2.4} /> : <Mic size={18} strokeWidth={2.4} />}
-            <span>{choose && !auto ? "VYBERÁM" : "JOŽO"}</span>
+            {choose ? <Hand size={18} strokeWidth={2.4} /> : <Mic size={18} strokeWidth={2.4} />}
+            <span>{choose ? "VYBERÁM" : "JOŽO"}</span>
           </button>
           <button type="button" className="kn-skip" onClick={skip} disabled={phase === "pay"}>
             PRESKOČIŤ

@@ -70,8 +70,8 @@ export function KolesoRules({ compact = false }: { compact?: boolean }) {
           <b>Voľba písmena</b>
           <span>
             Režim VYBERÁM (tlačidlo na kolese, Nastavenia): ťukni na jedno z {KOLESO_OFFER} písmen (na klávesnici 1 – {KOLESO_OFFER}). Kto pozná tajničku, má
-            výhodu, to je v poriadku. Ak do {KOLESO_PICK_S} s nevyberieš, pri autohre, pri PRESKOČIŤ alebo v režime JOŽO berie Jožo Pročkár svoj tip (označený
-            JOŽOV TIP). Pri samohláske za peniaze vyberáš samohlásku rovnako. Po obnovení stránky sa tvoje voľby zopakujú.
+            výhodu, to je v poriadku. Ak do {KOLESO_PICK_S} s nevyberieš, pri PRESKOČIŤ alebo v režime JOŽO berie Jožo Pročkár svoj tip (označený
+            JOŽOV TIP). Pri samohláske za peniaze vyberáš samohlásku rovnako. Po obnovení stránky sa tvoje voľby zopakujú. Autospin sa pri KOLESE zastaví, písmená vyberáš sám.
           </span>
         </li>
         <li>

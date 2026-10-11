@@ -66,6 +66,8 @@ import { playKoleso, kolesoVipOf, type KPlay } from "@/lib/slot/koleso";
 import { postLiveHit } from "@/lib/slot/live-hit";
 import { kolesoHelpOff, setKolesoHelpOff } from "@/lib/slot/koleso-help";
 import { freshRpDay, rollRpDay, rpParts, scaleSpinGain, scaledParts, suchoLeague, suchoStep, ticketRp, type RpDay } from "@/lib/slot/rp-tickets";
+import { emptyStall, shields, stallAfter, stallLeft, stallOf, stallTick, ticketShield, type TicketShield, type TicketStall } from "@/lib/slot/sucho-guard";
+import { suchoActive, suchoCash, suchoPayMul, type SuchoPayKind } from "@/lib/slot/sucho-rtp";
 import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision, fsSpinsOf, nextRebate, perkOf, rpFromDead, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
@@ -145,7 +147,8 @@ type Phase =
 
 /** Modifier step shown on the win meter: gross → net with a chip. */
 export interface TaxFly {
-  kind: ChaseModKind;
+  /** bezDane / danUrad = ZÁSAH tax period, sucho = SUCHO payout cut (lib/slot/sucho-rtp). */
+  kind: ChaseModKind | "sucho";
   gross: number;
   net: number;
   delta: number;
@@ -300,7 +303,6 @@ export function useSlotGame() {
     settle: (picks: readonly (string | null)[]) => { gross: number; net: number; tax: ChaseModKind | null };
     picks0: readonly (string | null)[];
     onPicks: (picks: (string | null)[]) => void;
-    auto: boolean;
     bet: number;
     key: number;
   } | null>(null);
@@ -489,6 +491,8 @@ export function useSlotGame() {
   const pickModRef = useRef<ChaseMod | null>(null);
   /** BEZ DANE / DAŇOVÝ ÚNIK delta of the last free spin (summed into the 4KA TV session). */
   const lastTaxDeltaRef = useRef(0);
+  /** SUCHO delta of the last free spin (summed into the 4KA TV session, display only). */
+  const lastSuchoDeltaRef = useRef(0);
   const featureXRef = useRef(0);
   const rankRef = useRef({ rp: 0, peak: 0, shield: false });
   const streakRef = useRef(0);
@@ -502,6 +506,15 @@ export function useSlotGame() {
   /** SUCHO counter: paid spins without an active ticket (rp-tickets.ts). */
   const rpIdleRef = useRef(0);
   const [rpIdle, setRpIdle] = useState(0);
+  /** Paid SUCHO spins without progress of the open ticket (lib/slot/sucho-guard). */
+  const ticketStallRef = useRef<TicketStall>(emptyStall());
+  const [ticketStall, setTicketStallState] = useState<TicketStall>(emptyStall);
+  const setTicketStall = useCallback((t: TicketStall) => {
+    ticketStallRef.current = t;
+    setTicketStallState((prev) => (prev.id === t.id && prev.n === t.n ? prev : t));
+  }, []);
+  /** SUCHO payout multiplier of the last paid spin (1 = none); a 4KA TV it triggers takes it over. */
+  const lastSuchoMulRef = useRef(1);
   /** Daily RP decay record: day, played, cleared ticket. */
   const rpDayRef = useRef<RpDay>(freshRpDay(""));
   const rollRpDayRef = useRef<() => void>(() => {});
@@ -588,6 +601,10 @@ export function useSlotGame() {
     taxDelta: 0,
     /** Triggered by a ZÁSAH spin: free-spin wins pay ×2 (fsSpinX). */
     zasah: false,
+    /** SUCHO payout multiplier locked at the trigger / buy (lib/slot/sucho-rtp; 1 = no SUCHO). */
+    sucho: 1,
+    /** Display only: summed SUCHO deltas of the free spins (≤ 0, already inside cash). */
+    suchoDelta: 0,
   });
   /** The last runSequence was a ZÁSAH spin (decides a 4KA TV it triggers). */
   const lastChasingRef = useRef(false);
@@ -671,6 +688,8 @@ export function useSlotGame() {
     lastDecayAtRef.current = s.lastDecayAt ?? 0;
     rpIdleRef.current = s.rpIdle ?? 0;
     setRpIdle(rpIdleRef.current);
+    ticketStallRef.current = s.ticketStall ?? emptyStall();
+    setTicketStallState(ticketStallRef.current);
     rpDayRef.current = s.rpDay ?? freshRpDay("");
     setWeekDue(lastDecayAtRef.current > 0 ? lastDecayAtRef.current + WEEK_MS : 0);
     setInFs(Boolean(s.inFs && s.fsLeft > 0));
@@ -691,6 +710,8 @@ export function useSlotGame() {
       modMul: s.fsModMul || 1,
       taxDelta: s.fsTaxDelta ?? 0,
       zasah: Boolean(s.fsZasah && s.inFs),
+      sucho: s.inFs ? (s.fsSucho ?? 1) : 1,
+      suchoDelta: s.inFs ? (s.fsSuchoDelta ?? 0) : 0,
     };
     setFsZasah(Boolean(s.fsZasah && s.inFs));
     antiStreakRef.current = antiStreak(s.antiStreak);
@@ -781,11 +802,14 @@ export function useSlotGame() {
       fsModMul: fsSessionRef.current.modMul,
       fsTaxDelta: fsSessionRef.current.taxDelta,
       fsZasah: fsSessionRef.current.zasah,
+      fsSucho: fsSessionRef.current.sucho,
+      fsSuchoDelta: fsSessionRef.current.suchoDelta,
       antiStreak: antiStreakRef.current,
       bonusPending: bonusPendingRef.current,
       zboxHelpOff: zboxHelpOff(),
       kolesoHelpOff: kolesoHelpOff(),
       rpIdle: rpIdleRef.current,
+      ticketStall: ticketStallRef.current,
       rpDay: rpDayRef.current,
       zlaty: zlatyRef.current,
     };
@@ -886,11 +910,14 @@ export function useSlotGame() {
       fsModMul: fsSessionRef.current.modMul,
       fsTaxDelta: fsSessionRef.current.taxDelta,
       fsZasah: fsSessionRef.current.zasah,
+      fsSucho: fsSessionRef.current.sucho,
+      fsSuchoDelta: fsSessionRef.current.suchoDelta,
       antiStreak: antiStreakRef.current,
       bonusPending: bonusPendingRef.current,
       zboxHelpOff: zboxHelpOff(),
       kolesoHelpOff: kolesoHelpOff(),
       rpIdle: rpIdleRef.current,
+      ticketStall: ticketStallRef.current,
       rpDay: rpDayRef.current,
       zlaty: zlatyRef.current,
       duelDeposit: depositRef.current,
@@ -1155,11 +1182,14 @@ export function useSlotGame() {
       fsModMul: fsSessionRef.current.modMul,
       fsTaxDelta: fsSessionRef.current.taxDelta,
       fsZasah: fsSessionRef.current.zasah,
+      fsSucho: fsSessionRef.current.sucho,
+      fsSuchoDelta: fsSessionRef.current.suchoDelta,
       antiStreak: antiStreakRef.current,
       bonusPending: bonusPendingRef.current,
       zboxHelpOff: zboxHelpOff(),
       kolesoHelpOff: kolesoHelpOff(),
       rpIdle: rpIdleRef.current,
+      ticketStall: ticketStallRef.current,
       rpDay: rpDayRef.current,
       zlaty: zlatyRef.current,
       duelDeposit: depositRef.current,
@@ -1502,7 +1532,9 @@ export function useSlotGame() {
     let delta = rawDelta;
     let parts = rawParts ?? null;
     if (src === "spin" && rawDelta > 0) {
-      const active = Boolean(jobRef.current) && !ticketPauseRef.current;
+      // A ticket that stands (sucho-guard) is not "active" for the RP rule either: no bonus for parking it.
+      const open = jobRef.current;
+      const active = shields(ticketShield(open, stallOf(ticketStallRef.current, open), Boolean(ticketPauseRef.current)));
       delta = scaleSpinGain(rawDelta, standing(rankRef.current.rp).id, active);
       parts = scaledParts(rawParts, rawDelta, delta);
     }
@@ -1561,22 +1593,31 @@ export function useSlotGame() {
     }
   }, [pushRank]);
 
-  /** Paid spin (base, ZÁSAH or buy): marks the day played and runs the SUCHO counter. */
-  const noteRpSpin = useCallback((chasing: boolean) => {
+  /**
+   * Paid spin (base, ZÁSAH or buy): marks the day played and runs the SUCHO counter.
+   * An open ticket holds SUCHO only while it moves (lib/slot/sucho-guard): every held spin adds to its stall
+   * count, a ticket waiting for a buy or standing TICKET_STALL spins lets SUCHO run.
+   */
+  const noteRpSpin = useCallback((chasing: boolean, bought = false) => {
     rollRpDayNow();
     if (!rpDayRef.current.played) rpDayRef.current = { ...rpDayRef.current, played: true };
-    // Duel rounds, ZÁSAH spins and an active (not paused) ticket do not move SUCHO.
+    // Duel rounds and ZÁSAH spins move neither SUCHO nor the ticket's stall count.
     if (chasing || duelRef.current || duelLinkRef.current || roundEscrowRef.current) return;
-    if (jobRef.current && !ticketPauseRef.current) return;
+    const open = jobRef.current;
+    if (open && !ticketPauseRef.current) {
+      const st = ticketShield(open, stallOf(ticketStallRef.current, open), false, bought);
+      // The buy a ticket waits for is its progress (settleJob resets the count); anything else adds a spin.
+      if (!(bought && st === "run")) setTicketStall(stallTick(ticketStallRef.current, open));
+      if (shields(st)) return;
+    }
     const rankId = standing(rankRef.current.rp).id;
     const st = suchoStep(rpIdleRef.current, rankRef.current.rp, rankId);
     rpIdleRef.current = st.idle;
     setRpIdle(st.idle);
     if (st.tax) pushRank(st.tax, rpParts(st.tax, "fromSucho"), "sucho");
+    // The start (and end) of SUCHO is announced by the suchoOn effect below, with the RTP 96 %.
     if (st.warn === "soon") setJobToast("SUCHO o 10 spinov · zober tiket");
-    else if (st.warn === "last") setJobToast("SUCHO od ďalšieho spinu · −1 RP/spin");
-    else if (st.warn === "start") setJobToast("SUCHO · −1 RP za spin bez tiketu");
-  }, [pushRank, rollRpDayNow]);
+  }, [pushRank, rollRpDayNow, setTicketStall]);
   useEffect(() => {
     if (!rpNotice || !started) return;
     const t = window.setTimeout(() => setRpNotice(null), 4200);
@@ -1585,6 +1626,26 @@ export function useSlotGame() {
 
   const noteRpSpinRef = useRef(noteRpSpin);
   noteRpSpinRef.current = noteRpSpin;
+
+  /** SUCHO shield of the open ticket for the next paid spin (bought = that spin is a 4KA TV buy). */
+  const shieldNow = useCallback((bought = false): TicketShield => {
+    const open = jobRef.current;
+    return ticketShield(open, stallOf(ticketStallRef.current, open), Boolean(ticketPauseRef.current), bought);
+  }, []);
+  /** SUCHO payout multiplier for the paid spin about to start (1 outside SUCHO, below 4KA TV and in duels). */
+  const suchoMulNow = useCallback(
+    (kind: SuchoPayKind): number => {
+      if (duelRef.current || duelLinkRef.current || roundEscrowRef.current) return 1;
+      const rankId = standing(rankRef.current.rp).id;
+      const on = suchoActive({ rankId, idle: rpIdleRef.current, shielded: shields(shieldNow(kind === "buy")) });
+      return on ? suchoPayMul(rankId, kind) : 1;
+    },
+    [shieldNow],
+  );
+  const suchoMulNowRef = useRef(suchoMulNow);
+  /** SUCHO multiplier of the bar bonus being played (1 = none): the board gets the credited amount. */
+  const barSuchoRef = useRef(1);
+  suchoMulNowRef.current = suchoMulNow;
   rollRpDayRef.current = rollRpDayNow;
 
   const noteResult = useCallback((paid: boolean) => {
@@ -1803,7 +1864,9 @@ export function useSlotGame() {
     }
     setKlienti(klientiRef.current);
     // Card shows what the rank gets: gains are scaled by the ticket rule like any spin RP.
-    const shownRp = rp > 0 ? scaleSpinGain(rp, standing(rankRef.current.rp).id, Boolean(jobRef.current) && !ticketPauseRef.current) : rp;
+    const open = jobRef.current;
+    const held = shields(ticketShield(open, stallOf(ticketStallRef.current, open), Boolean(ticketPauseRef.current)));
+    const shownRp = rp > 0 ? scaleSpinGain(rp, standing(rankRef.current.rp).id, held) : rp;
     pushRank(rp);
     const card = { outcome, line, rp: shownRp };
     chaseCardRef.current = card;
@@ -1941,6 +2004,8 @@ export function useSlotGame() {
     if (!ticketCounts(gate)) return;
     const next = tickUnlessPaused(cur, ev, gate);
     const st = jobStatus(next);
+    // SUCHO guard: progress resets the ticket's stall count, a closed ticket clears it.
+    setTicketStall(st === "run" ? stallAfter(ticketStallRef.current, cur, next, ev) : emptyStall());
     if (st === "ok") {
       jobRef.current = null;
       setJob(null);
@@ -2009,7 +2074,7 @@ export function useSlotGame() {
       jobRef.current = next;
       setJob(next);
     }
-  }, [pushRank, rollRpDayNow, stampDailyJob, noteTicket, noteHeat, noteStat, killAuto]);
+  }, [pushRank, rollRpDayNow, stampDailyJob, noteTicket, noteHeat, noteStat, killAuto, setTicketStall]);
 
   const failParknetJob = useCallback((cur: JobCard, line = "NEÚSPEŠNÝ TIKET · MÁLO KREDITU NA 4KA TV") => {
     const burned = { ...cur, seal: false, spun: cur.limit };
@@ -2280,7 +2345,7 @@ export function useSlotGame() {
       }
       if (!escrow) setBalance((b) => +(b + cash).toFixed(2));
       // Board / desk: KONTROLA is real credit, count it as paid (no stake of its own).
-      if (!escrow) bumpToday(0, cash, pickHow("kontrola", Boolean(gold)), betNow, null);
+      if (!escrow) bumpToday(0, suchoCash(cash, barSuchoRef.current).net, pickHow("kontrola", Boolean(gold)), betNow, null);
       if (!escrow) noteHeat(cash, betNow);
       setDisplayWin(cash);
       setSpinWin(cash);
@@ -2396,7 +2461,7 @@ export function useSlotGame() {
       if (cash > 0) {
         setBalance((b) => +(b + cash).toFixed(2));
         // Board / desk: Ž-BOX is real credit like KONTROLA; counted once here (the spin that filled the bar counted only its own win).
-        bumpToday(0, cash, pickHow("zbox", Boolean(gold)), betNow, null);
+        bumpToday(0, suchoCash(cash, barSuchoRef.current).net, pickHow("zbox", Boolean(gold)), betNow, null);
         noteHeat(cash, betNow);
         setDisplayWin(cash);
         setSpinWin(cash);
@@ -2515,7 +2580,6 @@ export function useSlotGame() {
         },
         picks0,
         onPicks,
-        auto: Boolean(autoRef.current),
         bet: betNow,
         key: Date.now(),
       });
@@ -2528,7 +2592,7 @@ export function useSlotGame() {
       if (cash > 0) {
         setBalance((b) => +(b + cash).toFixed(2));
         // Board / desk: KOLESO is real credit like KONTROLA / Ž-BOX; counted once here.
-        bumpToday(0, cash, pickHow("koleso", Boolean(gold)), betNow, null);
+        bumpToday(0, suchoCash(cash, barSuchoRef.current).net, pickHow("koleso", Boolean(gold)), betNow, null);
         noteHeat(cash, betNow);
         setDisplayWin(cash);
         setSpinWin(cash);
@@ -2592,6 +2656,33 @@ export function useSlotGame() {
   );
 
   /**
+   * SUCHO cut of a bar bonus that was filled during SUCHO (lib/slot/sucho-rtp): the bonus showed its normal pay,
+   * now the red SUCHO chip takes won × (1 − multiplier) back and the meter glides to the credited amount.
+   */
+  const cutSucho = useCallback(
+    async (won: number, mul: number) => {
+      const { net, delta } = suchoCash(won, mul);
+      if (delta > -0.01) return;
+      setBalance((b) => +Math.max(0, b + delta).toFixed(2));
+      roundCashRef.current = +(roundCashRef.current + delta).toFixed(2);
+      setDisplayWin(won);
+      setSpinWin(won);
+      await wait(380);
+      setTaxKey((k) => k + 1);
+      setTaxFly({ kind: "sucho", gross: won, net, delta });
+      setDisplayWin(net);
+      setSpinWin(net);
+      setSpinTape((t) => [{ label: "SUCHO", amount: `−${formatMoney(Math.abs(delta))}` }, ...t].slice(0, 8));
+      persistNow();
+      await wait(900);
+    },
+    [persistNow],
+  );
+  // runBonus reads it through a ref, so its dependency list stays as it was.
+  const cutSuchoRef = useRef(cutSucho);
+  cutSuchoRef.current = cutSucho;
+
+  /**
    * The filled bar: show the drawn mode on the strip, then play it. KONTROLA clears the pending mode when it
    * starts (as before: a reload mid-KONTROLA would deal a new map, so it is spent). Ž-BOX and KOLESO keep it
    * until they pay, together with the seed, so a reload replays the same run.
@@ -2605,6 +2696,10 @@ export function useSlotGame() {
       at: Date.now(),
     };
     if (!pickModRef.current && pend.mod && pend.modLeft > 0) pickModRef.current = { kind: pend.mod, left: pend.modLeft };
+    // KOLESO is played by hand (the letter choice): autospin stops here for good, like a feature trigger in most
+    // slots, instead of handing the letters to Jožo (Martin, 11. 10.). KONTROLA waits for taps anyway and Ž-BOX has
+    // nothing to choose, so they keep the queue and autospin continues after them as before.
+    if (pend.mode === "koleso" && (autoRef.current || autoHoldRef.current || autoLeftRef.current > 0)) killAuto("AUTO STOP · KOLESO");
     sfx.stopSpin();
     setModeStrip({ mode: pend.mode, key: Date.now(), gold: !!pend.gold && !roundEscrowRef.current });
     await new Promise<void>((resolve) => {
@@ -2620,6 +2715,10 @@ export function useSlotGame() {
       });
       setGoldReveal(null);
     }
+    // SUCHO: the bonus plays and pays as usual (RP, heat bar, tickets, gold), then SUCHO takes its cut of the credit.
+    const suchoMul = !roundEscrowRef.current && pend.sucho && pend.sucho < 1 ? pend.sucho : 1;
+    barSuchoRef.current = suchoMul;
+    const paidBefore = roundCashRef.current;
     if (pend.mode === "zbox" || pend.mode === "koleso") {
       const seed = pend.seed ?? Math.floor(Math.random() * 0x100000000);
       bonusPendingRef.current = { ...pend, seed };
@@ -2631,7 +2730,9 @@ export function useSlotGame() {
       persistNow();
       await runPick(pend.gold ?? null);
     }
-  }, [runPick, runZbox, runKoleso, noteStat, persistNow]);
+    barSuchoRef.current = 1;
+    if (suchoMul < 1) await cutSuchoRef.current(+(roundCashRef.current - paidBefore).toFixed(2), suchoMul);
+  }, [runPick, runZbox, runKoleso, noteStat, persistNow, killAuto]);
 
   const runSequence = useCallback(
     async (opts?: { buy?: boolean; free?: boolean }): Promise<"fs" | "ok" | "max" | "pick" | "skip"> => {
@@ -2689,9 +2790,17 @@ export function useSlotGame() {
       setReelFast(false);
       if (!isFree) featureXRef.current = 0;
 
+      // SUCHO (lib/slot/sucho-rtp): decided before this spin moves the counter. Free spins keep the multiplier
+      // their 4KA TV was locked to; a duel round never has one.
+      const suchoMul = roundEscrowRef.current
+        ? 1
+        : isFree
+          ? fsSessionRef.current.sucho || 1
+          : suchoMulNowRef.current(opts?.buy ? "buy" : anteRef.current ? "ante" : "base");
+      if (!isFree) lastSuchoMulRef.current = suchoMul;
       if (cost > 0) {
         setBalance((b) => +(b - cost).toFixed(2));
-        noteRpSpinRef.current(Boolean(chasing));
+        noteRpSpinRef.current(Boolean(chasing), Boolean(opts?.buy));
         spinsSinceReloadRef.current += 1;
         if (spinsSinceReloadRef.current >= RELOAD_STABILIZE && reloadStreakRef.current > 0) {
           reloadStreakRef.current = 0;
@@ -3037,6 +3146,8 @@ export function useSlotGame() {
               modLeft: armMod?.left ?? 0,
               at: Date.now(),
               ...(gold ? { gold } : {}),
+              // SUCHO: the bonus pays with the multiplier of the spin that filled the bar.
+              ...(suchoMul < 1 ? { sucho: suchoMul } : {}),
             };
             persistNow();
           } else {
@@ -3116,9 +3227,13 @@ export function useSlotGame() {
       // old rule: its free spins neither pay with nor count the period, the end multiplier does.
       const legacyFs = isFree && fsSessionRef.current.modMul !== 1;
       const modScope: ModScope = roundModScope({ chasing, duel: roundEscrowRef.current, free: isFree, buy: Boolean(opts?.buy) });
-      const { net: cash, delta: taxDelta } = legacyFs ? { net: cash0, delta: 0 } : applyMod(cash0, modRef.current, modScope);
+      const { net: cashTax, delta: taxDelta } = legacyFs ? { net: cash0, delta: 0 } : applyMod(cash0, modRef.current, modScope);
       const mul = legacyFs ? 1 : stepMod(modRef.current, modScope).mul;
       if (isFree) lastTaxDeltaRef.current = taxDelta;
+      // SUCHO: credited = after the tax period × the SUCHO multiplier. Heat, RP and tickets read cashTax.
+      const { net: cash, delta: suchoDelta } = suchoCash(cashTax, suchoMul);
+      if (isFree) lastSuchoDeltaRef.current = suchoDelta;
+      const suchoShown = cashTax > 0 && Math.abs(suchoDelta) >= 0.01;
       setTaxFly(null);
       let chaseEnded = false;
       // Feature tickets read the running ZÁSAH: start, HACK count and win (× bet, ZÁSAH spins only).
@@ -3188,14 +3303,14 @@ export function useSlotGame() {
           setChaseMod(nextMod);
         }
       }
-      if (cash > 0 && !chaseEnded && !roundEscrowRef.current) noteHeat(cash, currentBet, Boolean(isFree || opts?.buy || pendingFs || inFsRef.current));
+      if (cashTax > 0 && !chaseEnded && !roundEscrowRef.current) noteHeat(cashTax, currentBet, Boolean(isFree || opts?.buy || pendingFs || inFsRef.current));
       if (!isFree && cash0 > 0 && Math.abs(taxDelta) >= 0.01) {
         // Gross first, then the modifier chip, then the meter glides to the net amount.
         setSpinWin(cash0);
         setDisplayWin(cash0);
         await wait(dur(520), abort.current);
         setTaxKey((k) => k + 1);
-        setTaxFly({ kind: taxDelta < 0 ? "danUrad" : "bezDane", gross: cash0, net: cash, delta: taxDelta });
+        setTaxFly({ kind: taxDelta < 0 ? "danUrad" : "bezDane", gross: cash0, net: cashTax, delta: taxDelta });
         sfx.playMult();
         await wait(dur(260), abort.current);
       } else if (isFree && cash0 > 0 && Math.abs(taxDelta) >= 0.01) {
@@ -3203,12 +3318,20 @@ export function useSlotGame() {
         setSpinWin(cash0);
         await wait(dur(240), abort.current);
         setTaxKey((k) => k + 1);
-        setTaxFly({ kind: taxDelta < 0 ? "danUrad" : "bezDane", gross: cash0, net: cash, delta: taxDelta });
+        setTaxFly({ kind: taxDelta < 0 ? "danUrad" : "bezDane", gross: cash0, net: cashTax, delta: taxDelta });
         sfx.playMult();
+      }
+      if (suchoShown) {
+        // SUCHO step: the amount after the tax period, then the red SUCHO chip, then the meter glides to the credit.
+        setSpinWin(cashTax);
+        if (!isFree) setDisplayWin(cashTax);
+        await wait(dur(isFree ? 200 : 380), abort.current);
+        setTaxKey((k) => k + 1);
+        setTaxFly({ kind: "sucho", gross: cashTax, net: cash, delta: suchoDelta });
       }
       setSpinWin(cash);
       if (!isFree) setDisplayWin(cash);
-      if (Math.abs(taxDelta) >= 0.01 && cash0 > 0) await wait(dur(isFree ? 480 : 900), abort.current);
+      if ((Math.abs(taxDelta) >= 0.01 || suchoShown) && cash0 > 0) await wait(dur(isFree ? 480 : 900), abort.current);
 
       lastPaidXRef.current = currentBet > 0 ? cash / currentBet : 0;
       if (!isFree) roundCashRef.current = cash;
@@ -3242,7 +3365,7 @@ export function useSlotGame() {
         if (cash0 > 0) {
           const streak = noteResult(true);
           const parts = rpFromSpin({
-            cash,
+            cash: cashTax,
             bet: currentBet,
             mult: applied,
             tumbles: tumbleN,
@@ -3278,7 +3401,9 @@ export function useSlotGame() {
               dead: true,
             });
             rebateRef.current = { paid: step.paid, spins: step.spins };
-            if (step.pay > 0) setBalance((b) => +(b + step.pay).toFixed(2));
+            // The rebate is a payout of this spin: SUCHO pays it with the same multiplier.
+            const rebate = suchoCash(step.pay, suchoMul).net;
+            if (rebate > 0) setBalance((b) => +(b + rebate).toFixed(2));
           } else if (!escrow && !isFree) {
             const step = nextRebate({
               rate: 0,
@@ -3321,7 +3446,7 @@ export function useSlotGame() {
           liveSpin,
           shown: shownCount,
           shownBy,
-          cash,
+          cash: cashTax,
           chasing: Boolean(chasing),
           chaseStart: chaseStartSpin,
           chaseHits: chasing ? chaseHitsNow : undefined,
@@ -3430,7 +3555,13 @@ export function useSlotGame() {
         bannerOpen.current = true;
         setBanner(kind);
         setBannerAmount(cash);
-        setBannerTax(!isFree && cash0 > 0 && Math.abs(taxDelta) >= 0.01 ? { kind: taxDelta < 0 ? "danUrad" : "bezDane", gross: cash0, net: cash, delta: taxDelta } : null);
+        setBannerTax(
+          !isFree && cash0 > 0 && Math.abs(taxDelta) >= 0.01
+            ? { kind: taxDelta < 0 ? "danUrad" : "bezDane", gross: cash0, net: cashTax, delta: taxDelta }
+            : suchoShown
+              ? { kind: "sucho", gross: cashTax, net: cash, delta: suchoDelta }
+              : null,
+        );
         setBannerX(x);
         if (kind === "max") sfx.playMaxWin();
         else if (kind === "massive") sfx.playMassiveWin();
@@ -3680,8 +3811,10 @@ export function useSlotGame() {
           setFsLeft(sess.left);
           persistNow();
           lastTaxDeltaRef.current = 0;
+          lastSuchoDeltaRef.current = 0;
           const inner = await runSequence({ free: true });
           sess.taxDelta = +(sess.taxDelta + lastTaxDeltaRef.current).toFixed(2);
+          sess.suchoDelta = +(sess.suchoDelta + lastSuchoDeltaRef.current).toFixed(2);
           mergeTally(fsTallyRef.current, lastTallyRef.current);
           sess.left -= 1;
           sess.played += 1;
@@ -3726,10 +3859,21 @@ export function useSlotGame() {
         const featureTotal = +(fsPaid + sess.triggerCash).toFixed(2);
         // Display only: the BEZ DANE / DAŇOVÝ ÚNIK step on the bonus part (the trigger spin was shown on its own).
         const fsDelta = +(fsPaid - sess.cash + sess.taxDelta).toFixed(2);
+        // SUCHO part of the free spins (≤ 0, already inside sess.cash): its own chip after the tax one.
+        const suchoD = sess.suchoDelta || 0;
         const fsTax: TaxFly | null =
           fsPaid > 0 && Math.abs(fsDelta) >= 0.01
-            ? { kind: fsDelta < 0 ? "danUrad" : "bezDane", gross: +(featureTotal - fsDelta).toFixed(2), net: featureTotal, delta: fsDelta }
+            ? {
+                kind: fsDelta < 0 ? "danUrad" : "bezDane",
+                gross: +(featureTotal - fsDelta - suchoD).toFixed(2),
+                net: +(featureTotal - suchoD).toFixed(2),
+                delta: fsDelta,
+              }
             : null;
+        const fsSucho: TaxFly | null =
+          fsPaid > 0 && suchoD <= -0.01 ? { kind: "sucho", gross: +(featureTotal - suchoD).toFixed(2), net: featureTotal, delta: suchoD } : null;
+        /** Free-spin win before SUCHO: RP and the buy settle read it (SUCHO only cuts credits). */
+        const fsGameCash = +(fsPaid - suchoD).toFixed(2);
         await wait(400);
         setInFs(false);
         inFsRef.current = false;
@@ -3746,9 +3890,17 @@ export function useSlotGame() {
           sfx.playMult();
           await wait(dur(260), abort.current);
         }
+        if (fsSucho) {
+          setDisplayWin(fsSucho.gross);
+          setSpinWin(fsSucho.gross);
+          await wait(dur(380), abort.current);
+          setTaxKey((k) => k + 1);
+          setTaxFly(fsSucho);
+          await wait(dur(260), abort.current);
+        }
         setDisplayWin(featureTotal);
         setSpinWin(featureTotal);
-        if (fsTax) await wait(dur(900), abort.current);
+        if (fsTax || fsSucho) await wait(dur(900), abort.current);
         const featureX = betNow > 0 ? featureTotal / betNow : 0;
         // 4KA TV pops no per-spin banners, so a massive bonus is announced once, at the end, before the summary.
         const massive = featureX >= WIN_POP_X.massive;
@@ -3832,6 +3984,8 @@ export function useSlotGame() {
           modMul: 1,
           taxDelta: 0,
           zasah: false,
+          sucho: 1,
+          suchoDelta: 0,
         };
         setFsZasah(false);
         persistNow();
@@ -3840,7 +3994,7 @@ export function useSlotGame() {
           bannerOpen.current = true;
           setBanner("massive");
           setBannerAmount(featureTotal);
-          setBannerTax(fsTax);
+          setBannerTax(fsTax ?? fsSucho);
           setBannerX(featureX);
           setPhase("big");
           setTopLine("MASÍVNA VÝHRA");
@@ -3860,7 +4014,7 @@ export function useSlotGame() {
         bannerOpen.current = true;
         setBanner("fsTotal");
         setBannerAmount(featureTotal);
-        setBannerTax(fsTax);
+        setBannerTax(fsTax ?? fsSucho);
         setPhase(hitCap ? "max" : "big");
         setTopLine("4KA TV SKONČILA");
         setMessage(featureTotal > 0 ? `VÝHRA ${formatMoney(featureTotal)}` : "4KA TV SKONČILA");
@@ -3910,7 +4064,7 @@ export function useSlotGame() {
         setTopLine("SYMBOLY PLATIA KDEKOĽVEK NA OBRAZOVKE");
         await wait(600);
         if (bought) {
-          applyBoughtRank(+(fsCash + triggerCash).toFixed(2), {
+          applyBoughtRank(+(fsGameCash + triggerCash).toFixed(2), {
             mult: Math.max(1, peak),
             bannerHit: hitCap,
             retriggers: extra > 0 ? Math.round(extra / FS_RETRIGGER) : 0,
@@ -3919,9 +4073,9 @@ export function useSlotGame() {
           // Held-back duel bonus: no rank from it.
         } else if (fsCash > 0) {
           const streak = noteResult(true);
-          const fx = betNow > 0 ? fsCash / betNow : 0;
+          const fx = betNow > 0 ? fsGameCash / betNow : 0;
           const parts = rpFromSpin({
-            cash: fsCash,
+            cash: fsGameCash,
             bet: betNow,
             mult: Math.max(1, peak),
             tumbles: 0,
@@ -4065,6 +4219,9 @@ export function useSlotGame() {
           modMul: 1,
           taxDelta: 0,
           zasah: zasahFs,
+          // SUCHO: the whole 4KA TV pays with the multiplier of the spin that triggered / bought it.
+          sucho: roundEscrowRef.current ? 1 : lastSuchoMulRef.current,
+          suchoDelta: 0,
         };
         setFsZasah(zasahFs);
         setInFs(true);
@@ -4694,6 +4851,44 @@ export function useSlotGame() {
 
   const goldUsual = usualStake(zlaty.stakes, BETS[betIndex]);
 
+  // SUCHO guard + RTP for the UI (chip, toasts): the same rules the spin uses (lib/slot/sucho-guard, sucho-rtp).
+  const suchoRankId = standing(rp).id;
+  const ticketShieldUi: TicketShield = ticketShield(
+    job,
+    stallOf(ticketStall, job),
+    Boolean(ticketPause && job && ticketPause.jobId === job.id),
+  );
+  const suchoOn = suchoActive({ rankId: suchoRankId, idle: rpIdle, shielded: shields(ticketShieldUi) });
+  const suchoOnPrev = useRef<boolean | null>(null);
+  const shieldPrev = useRef<{ id: string; s: TicketShield } | null>(null);
+  useEffect(() => {
+    if (!hydrated) return;
+    const prev = suchoOnPrev.current;
+    suchoOnPrev.current = suchoOn;
+    const sh = shieldPrev.current;
+    const now = { id: job?.id ?? "", s: ticketShieldUi };
+    shieldPrev.current = now;
+    if (prev === null) return;
+    if (prev !== suchoOn) {
+      const stands = ticketShieldUi === "stall" || ticketShieldUi === "buy";
+      setJobToast(
+        suchoOn
+          ? stands
+            ? "TIKET STOJÍ · SUCHO beží · RTP 96 %"
+            : "SUCHO · RTP 96 % · −1 RP/spin · zober tiket"
+          : "SUCHO SKONČILO · RTP späť na plné",
+      );
+      return;
+    }
+    // Same SUCHO phase, but the open ticket just stopped holding it (still counting down to SUCHO).
+    if (job && sh && sh.id === now.id && sh.s !== now.s && suchoLeague(suchoRankId)) {
+      if (now.s === "stall") setJobToast("TIKET STOJÍ · 30 spinov bez pohybu · SUCHO sa odpočítava");
+      else if (now.s === "buy") setJobToast("TIKET ČAKÁ NA KÚPU 4KA TV · SUCHO sa odpočítava");
+    } else if (job && (!sh || sh.id !== now.id) && now.s === "buy" && suchoLeague(suchoRankId)) {
+      setJobToast("TIKET ČAKÁ NA KÚPU 4KA TV · SUCHO nestojí");
+    }
+  }, [hydrated, suchoOn, ticketShieldUi, job, suchoRankId]);
+
   return {
     started,
     bootReady,
@@ -4959,6 +5154,14 @@ export function useSlotGame() {
     rpNotice: started ? (rpNotice?.text ?? null) : null,
     rpIdle,
     suchoLeague: suchoLeague(standing(rp).id),
+    /** Open ticket vs SUCHO: run (holds it), stall (30 spins without progress), buy (waits for a buy), none. */
+    ticketShield: ticketShieldUi,
+    /** Paid spins the open ticket still holds SUCHO without progress (0 = standing / n.a.). */
+    ticketStallLeft: stallLeft(job, stallOf(ticketStall, job)),
+    /** SUCHO penalty phase: −1 RP per spin and the game pays at RTP 96 % (lib/slot/sucho-rtp). */
+    suchoOn,
+    /** Payout multiplier while SUCHO runs, at the current rank and ante (display). */
+    suchoMul: suchoPayMul(suchoRankId, ante ? "ante" : "base"),
     ticketActive: Boolean(job) && !(ticketPause && job && ticketPause.jobId === job.id),
     lcdFlash,
     surplusX: JOB_BANK,

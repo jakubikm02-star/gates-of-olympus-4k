@@ -7,7 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
-  { day: "2026-10-11", text: "KOLESO NEŠŤASTIA: písmeno si vyberáš sám z 3 náhodných (alebo nechaj Joža). Kto pozná tajničku, má výhodu. Výplaty kolesa ostávajú. A 40 nových tajničiek o podmienkach 4KA a parkovaní PAAS." },
+  { day: "2026-10-11", text: "KOLESO NEŠŤASTIA: písmeno si vyberáš sám z 3 náhodných (alebo nechaj Joža). Kto pozná tajničku, má výhodu. Výplaty kolesa ostávajú. A 40 nových tajničiek o podmienkach 4KA a parkovaní PAAS. Autospin sa pred KOLESOM zastaví, aby si mohol vyberať." },
   { day: "2026-10-11", text: "ZLATÝ BONUS: prvý bonus z baru každý deň je zlatý. Strop 100× namiesto 30× a zlatá karta podľa režimu: ZLATÁ POKUTA, ZLATÝ KURIÉR alebo ZLATÉ VÝSEKY. Nový deň začína o polnoci." },
   { day: "2026-10-10", text: "Hra má nový link parkizmus.vercel.app. Na starom linku je tlačidlo PRESUNÚŤ HRU, na novom PRENIESŤ HRU ZO STARÉHO LINKU. Po presune je starý link len na čítanie." },
   { day: "2026-10-10", text: "Odkaz parkizmus.vercel.app už neodskakuje na starú adresu. Hra na ňom ostane." },

@@ -210,6 +210,30 @@ describe("KOLESO EV vs KONTROLA per rank with the letter choice (old payouts kep
   });
 });
 
+describe("KOLESO under autospin: the player picks, autospin stops at the bonus start", () => {
+  const hook = src("../../hooks/use-slot-game.ts");
+  const kb = src("../../components/slot/KolesoBonus.tsx");
+  const game = src("../../components/slot/SlotGame.tsx");
+  it("runBonus kills autospin when the drawn mode is KOLESO, before the strip", () => {
+    const body = hook.slice(hook.indexOf("const runBonus = useCallback"), hook.indexOf("const runSequence = useCallback"));
+    const kill = body.indexOf('if (pend.mode === "koleso" && (autoRef.current || autoHoldRef.current || autoLeftRef.current > 0)) killAuto("AUTO STOP · KOLESO")');
+    assert.ok(kill > 0, "killAuto on KOLESO");
+    assert.ok(kill < body.indexOf("setModeStrip("), "before the mode strip");
+    assert.ok(kill < body.indexOf("runKoleso("), "before the wheel");
+    assert.match(body, /\[runPick, runZbox, runKoleso, noteStat, persistNow, killAuto\]/);
+  });
+  it("KONTROLA / Ž-BOX keep the queue (they skip nothing under autospin)", () => {
+    const body = hook.slice(hook.indexOf("const runBonus = useCallback"), hook.indexOf("const runSequence = useCallback"));
+    assert.equal((body.match(/killAuto\(/g) ?? []).length, 1);
+  });
+  it("the overlay has no autoplay switch: Jožo picks only on the timer, PRESKOČIŤ or in JOŽO mode", () => {
+    assert.doesNotMatch(kb, /\bauto\?: boolean/);
+    assert.doesNotMatch(kb, /Autohra/);
+    assert.doesNotMatch(game, /auto=\{g\.koleso/);
+    assert.doesNotMatch(hook, /auto: Boolean\(autoRef\.current\),\s*bet: betNow/);
+  });
+});
+
 describe("KOLESO save, stats, sfx, copy", () => {
   it("player save carries the explanation switch", () => {
     assert.equal(sanitizePlayerSave({ kolesoHelpOff: true }).kolesoHelpOff, true);

@@ -418,6 +418,8 @@ export function resolvePaidSpin(
     capRemain?: number;
     /** ZÁSAH with 4KA TV under Finančná správa: scatters neither pay nor trigger free spins. */
     blockScatter?: boolean;
+    /** Rank perk (NEKONEČNO): a can throw brings this many extra cans 1 in 5 times, as the live game does. Sims only. */
+    orbBonus?: number;
   },
 ): PaidSpin {
   const ante = opts.buy || opts.free ? false : opts.ante;
@@ -432,7 +434,8 @@ export function resolvePaidSpin(
   }
   // Buy is a natural 4-scatter trigger: base cans, not the free-spin throw, not a dead screen.
   let orbs = 0;
-  const n0 = zeusDropCount(rng, !!opts.free, false);
+  const extraCans = (n: number) => (n > 0 && opts.orbBonus && rng() < 0.2 ? n + opts.orbBonus : n);
+  const n0 = extraCans(zeusDropCount(rng, !!opts.free, false));
   if (n0) {
     const dropped = zeusDrop(board, rng, n0, !!opts.free);
     board = dropped.grid;
@@ -469,7 +472,7 @@ export function resolvePaidSpin(
     );
     if (!mask.some((row) => row.some(Boolean))) break;
     board = tumble(board, mask, rng, ante, !!opts.free);
-    const n = zeusDropCount(rng, !!opts.free, true);
+    const n = extraCans(zeusDropCount(rng, !!opts.free, true));
     if (n) {
       const dropped = zeusDrop(board, rng, n, !!opts.free);
       board = dropped.grid;

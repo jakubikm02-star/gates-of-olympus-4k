@@ -1,55 +1,90 @@
 import { RP_PROTECT_FLOOR, SUCHO_GRACE, SUCHO_WARN, suchoLeft } from "@/lib/slot/rp-tickets";
+import { TICKET_STALL, TICKET_STALL_WARN, type TicketShield } from "@/lib/slot/sucho-guard";
+import { suchoRtpLabel } from "@/lib/slot/sucho-rtp";
 
 interface Props {
-  /** Paid spins without a ticket (SUCHO counter). */
+  /** Paid spins without a ticket holding SUCHO (SUCHO counter). */
   idle: number;
   /** League is 4KA TV or higher (SUCHO applies). */
   league: boolean;
-  ticketActive: boolean;
+  /** Open ticket vs SUCHO (lib/slot/sucho-guard): run holds it, stall / buy let it run, none = no ticket. */
+  shield: TicketShield;
+  /** Spins the open ticket still holds SUCHO without progress. */
+  stallLeft: number;
+  /** SUCHO penalty phase: −1 RP / spin and RTP 96 %. */
+  on: boolean;
+  /** Payout multiplier while SUCHO runs (display in the tooltip). */
+  mul: number;
   rp: number;
   onOpen?: () => void;
 }
 
+const pct = (n: number) => `${Math.round(n * 100)} %`;
+const spinsWord = (n: number) => (n === 1 ? "spin" : n >= 2 && n <= 4 ? "spiny" : "spinov");
+
 /**
- * SUCHO indicator under the rank chip: countdown to −1 RP/spin, a pulsing warning from 30 spins,
- * "running" past 40 and "paused" while a ticket runs. Hidden below 4KA TV league.
+ * SUCHO indicator under the rank chip: countdown to SUCHO, a pulsing warning from 30 spins, the red
+ * "SUCHO · RTP 96 %" phase, and the ticket state (holds SUCHO / stands / waits for a buy). Hidden below 4KA TV.
  */
-export function SuchoChip({ idle, league, ticketActive, rp, onOpen }: Props) {
+export function SuchoChip({ idle, league, shield, stallLeft, on, mul, rp, onOpen }: Props) {
   if (!league) return null;
   const left = suchoLeft(idle);
   const floor = rp <= RP_PROTECT_FLOOR;
+  const rtp = suchoRtpLabel();
+  const cut = mul < 1 ? ` Výhry idú ×${mul.toFixed(2).replace(".", ",")} (−${pct(1 - mul)}).` : "";
+  const rule =
+    `SUCHO: od 4KA TV ligy po ${SUCHO_GRACE} platených spinoch bez tiketu −1 RP za spin a hra vypláca na ${rtp}.` +
+    ` Tiket SUCHO zastaví, len kým sa hýbe: ${TICKET_STALL} spinov bez pohybu alebo tiket čakajúci na kúpu 4KA TV ho nedrží.`;
   let tone = "is-calm";
   let main: string;
   let sub: string;
-  if (ticketActive) {
-    tone = "is-paused";
+  let tip = rule;
+  if (shield === "run") {
+    const near = stallLeft > 0 && stallLeft <= TICKET_STALL - TICKET_STALL_WARN;
+    tone = near ? "is-paused is-stall-warn" : "is-paused";
     main = "TIKET BEŽÍ";
-    sub = "SUCHO stojí";
-  } else if (floor) {
-    tone = "is-floor";
+    sub = near ? `bez pohybu · stojí o ${stallLeft}` : "SUCHO stojí";
+    tip = `Tiket sa hýbe, SUCHO stojí. ${near ? `Ešte ${stallLeft} ${spinsWord(stallLeft)} bez pohybu a prestane ho držať. ` : ""}${rule}`;
+  } else if (shield === "stall" || shield === "buy") {
+    main = shield === "buy" ? "ČAKÁ NA KÚPU" : "TIKET STOJÍ";
+    if (on) {
+      tone = "is-on";
+      sub = "SUCHO beží";
+    } else {
+      tone = idle >= SUCHO_WARN[0] ? "is-warn" : "is-calm";
+      sub = `SUCHO o ${left}`;
+    }
+    tip = `${shield === "buy" ? "Tiket čaká na kúpu 4KA TV" : `Tiket sa ${TICKET_STALL} spinov nepohol`}: SUCHO beží ďalej.${on ? ` −1 RP / spin, ${rtp}.${cut}` : ""} ${rule}`;
+  } else if (on) {
+    tone = floor ? "is-on is-floor-on" : "is-on";
     main = "SUCHO";
-    sub = `chránené ${RP_PROTECT_FLOOR.toLocaleString("sk-SK")} RP`;
-  } else if (left === 0) {
-    tone = "is-on";
-    main = "SUCHO";
-    sub = "−1 RP / spin";
+    sub = floor ? `chránené ${RP_PROTECT_FLOOR.toLocaleString("sk-SK")} RP` : "−1 RP / spin";
+    tip = `SUCHO beží: ${floor ? "RP chránené" : "−1 RP za spin"} a hra vypláca na ${rtp}.${cut} Končí, keď zoberieš tiket, ktorý sa hýbe (splnený ho vynuluje). Jackpoty a výplaty tiketov sa nekrátia.`;
   } else {
     tone = idle >= SUCHO_WARN[0] ? "is-warn" : "is-calm";
     main = `SUCHO o ${left}`;
-    sub = left === 1 ? "spin" : left <= 4 ? "spiny" : "spinov";
+    sub = spinsWord(left);
   }
-  const pct = ticketActive ? 0 : Math.min(100, (Math.min(idle, SUCHO_GRACE) / SUCHO_GRACE) * 100);
+  const width = shield === "run" ? 0 : Math.min(100, (Math.min(idle, SUCHO_GRACE) / SUCHO_GRACE) * 100);
   return (
-    <button
-      type="button"
-      className={`sucho-chip ${tone}`}
-      onClick={onOpen}
-      aria-label={`${main} · ${sub}`}
-      title="SUCHO: od 4KA TV ligy každý platený spin bez tiketu po 40 spinoch −1 RP. Tiket SUCHO zastaví, splnený tiket ho vynuluje."
-    >
-      <b>{main}</b>
-      <small>{sub}</small>
-      <i style={{ width: `${pct}%` }} aria-hidden="true" />
-    </button>
+    <span className={`sucho-wrap${on ? " is-on" : ""}`}>
+      <button
+        type="button"
+        className={`sucho-chip ${tone}`}
+        onClick={onOpen}
+        aria-label={`${main} · ${sub}${on ? ` · ${rtp}` : ""}`}
+        aria-describedby="sucho-tip"
+      >
+        <b>{main}</b>
+        <small>{sub}</small>
+        {on ? <em className="sucho-rtp">{rtp}</em> : null}
+        <i style={{ width: `${width}%` }} aria-hidden="true" />
+      </button>
+      {/* Tooltip on hover / keyboard focus (desktop); a tap opens Pravidlá at SUCHO · RTP 96 %. */}
+      <span id="sucho-tip" className="sucho-tip" role="tooltip">
+        {on ? <b>{`SUCHO · ${rtp}`}</b> : null}
+        {tip}
+      </span>
+    </span>
   );
 }

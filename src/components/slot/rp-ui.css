@@ -140,3 +140,84 @@
   font-style: normal;
   color: #ff8d8d;
 }
+
+/* sucho2: SUCHO penalty phase (RTP 96 %), ticket that stands, SUCHO cut chip on wins. */
+.sucho-chip .sucho-rtp {
+  align-self: center;
+  margin-left: 2px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: #e5262f;
+  color: #fff;
+  font: 800 0.6rem/1.35 "IBM Plex Mono", ui-monospace, monospace;
+  font-style: normal;
+  letter-spacing: 0.02em;
+  box-shadow: 0 0 8px rgb(229 38 47 / 0.6);
+}
+.sucho-chip.is-on {
+  border-color: #ff3b46;
+  box-shadow: 0 0 10px rgb(255 40 50 / 0.35);
+}
+.sucho-chip.is-on.is-floor-on {
+  color: #ffb3b3;
+}
+.sucho-chip.is-stall-warn {
+  color: #ffd25a;
+  border-color: rgb(255 196 40 / 0.7);
+}
+.tax-fly.is-sucho {
+  color: #fff;
+  background: rgb(229 38 47 / 0.32);
+  border-color: #ff3b46;
+}
+.sucho-wrap {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+}
+.sucho-tip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 60;
+  display: none;
+  width: min(300px, 80vw);
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgb(240 196 25 / 0.45);
+  background: rgb(8 10 14 / 0.96);
+  color: #e6e9ee;
+  font: 500 0.72rem/1.4 var(--font-body, system-ui, sans-serif);
+  letter-spacing: 0;
+  white-space: normal;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.55);
+  pointer-events: none;
+}
+.sucho-tip b {
+  display: block;
+  margin-bottom: 3px;
+  color: #ff5a62;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.sucho-wrap.is-on .sucho-tip {
+  border-color: #ff3b46;
+}
+@media (hover: hover) {
+  .sucho-wrap:hover .sucho-tip {
+    display: block;
+  }
+}
+.sucho-wrap:has(.sucho-chip:focus-visible) .sucho-tip {
+  display: block;
+}
+/* The head sits under the side panels (desktop): lift it while the tooltip is open. */
+@media (hover: hover) {
+  .table-head:has(.sucho-wrap:hover) {
+    z-index: 40;
+  }
+}
+.table-head:has(.sucho-chip:focus-visible) {
+  z-index: 40;
+}

@@ -54,6 +54,8 @@ import {
   stakeFactor,
   ticketRp,
 } from "@/lib/slot/rp-tickets";
+import { TICKET_STALL } from "@/lib/slot/sucho-guard";
+import { SUCHO_RTP, SUCHO_RTP_MEASURED, suchoNormalRange, suchoPayMul, suchoRtpLabel } from "@/lib/slot/sucho-rtp";
 import "./rp-ui.css";
 import "./manual.css";
 import { PrimaryLink } from "./SaveMove";
@@ -83,6 +85,7 @@ const SECTIONS: { id: string; chip: string; title: string; icon: ReactNode }[] =
   { id: "tikety", chip: "Tikety", title: "Tikety", icon: <Ticket size={15} /> },
   { id: "ranky", chip: "Ranky", title: "Ranky", icon: <Trophy size={15} /> },
   { id: "rp", chip: "RP z tiketov", title: "RP z tiketov · SUCHO · denný pokles", icon: <Sparkles size={15} /> },
+  { id: "sucho", chip: "SUCHO · RTP 96 %", title: "SUCHO · RTP 96 %", icon: <Gauge size={15} /> },
   { id: "duel", chip: "Versus", title: "Versus", icon: <Swords size={15} /> },
   { id: "nastavenia", chip: "Nastavenia a zvuky", title: "Nastavenia a zvuky", icon: <SettingsIcon size={15} /> },
 ];
@@ -507,7 +510,7 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
 
         <Sec
           id="rp"
-          lead={`Splnený tiket dá pevné RP podľa ceny, ligy a typu. Výhry na spinoch RP stále dávajú, ale vo vyšších ligách bez tiketu menej. Kredit, výhry ani RTP sa tým nemenia, mení sa len RP.`}
+          lead={`Splnený tiket dá pevné RP podľa ceny, ligy a typu. Výhry na spinoch RP stále dávajú, ale vo vyšších ligách bez tiketu menej. Kredit, výhry ani RTP sa tým nemenia, mení sa len RP. Výnimka je SUCHO: kým beží, hra vypláca na ${suchoRtpLabel()}.`}
         >
           <Facts
             rows={[
@@ -548,11 +551,12 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
               RP sa ukáže na karte tiketu: <b>+RP</b> za splnenie a <b>−RP</b> za neúspech. Pri OTRS uvidíš presné číslo hneď po prijatí.
             </li>
             <li>
-              Kým beží tiket, výhry na spinoch dávajú najmenej × {n(ACTIVE_MULT)} RP. Strata RP za mŕtvy spin sa nemení. Každá výhra dá aspoň 1 RP.
+              Kým beží tiket (a hýbe sa, pozri SUCHO), výhry na spinoch dávajú najmenej × {n(ACTIVE_MULT)} RP. Strata RP za mŕtvy spin sa nemení. Každá výhra dá aspoň 1 RP.
             </li>
             <li>
-              <b>SUCHO</b> (od ligy {RANKS.find((r) => r.entry >= SUCHO_MIN_ENTRY)?.name}): po {SUCHO_GRACE} platených spinoch bez tiketu ťa každý ďalší stojí −1 RP. Ukazovateľ pod rankom
-              odpočítava. Tiket SUCHO zastaví, splnený tiket ho vynuluje, nesplnený nie. Spiny ZÁSAHU, 4KA TV a VERSUS sa nerátajú.
+              <b>SUCHO</b> (od ligy {RANKS.find((r) => r.entry >= SUCHO_MIN_ENTRY)?.name}): po {SUCHO_GRACE} platených spinoch bez tiketu ťa každý ďalší stojí −1 RP a hra
+              vypláca na {suchoRtpLabel()}. Ukazovateľ pod rankom odpočítava. Tiket SUCHO zastaví, len kým sa hýbe ({TICKET_STALL} spinov bez pohybu alebo čakanie na kúpu 4KA TV
+              ho nedrží), splnený tiket ho vynuluje, nesplnený nie. Spiny ZÁSAHU, 4KA TV a VERSUS sa nerátajú. Podrobne v časti <b>SUCHO · RTP 96 %</b>.
             </li>
             <li>
               <b>Denný pokles</b>: ak si v daný deň hral a nesplnil žiadny tiket, na ďalší deň stratíš 1 % z RP nad {DAILY_FLOOR.toLocaleString("sk-SK")}. Deň bez hry sa
@@ -560,6 +564,65 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
             </li>
             <li>SUCHO ani denný pokles ťa nestiahnu pod {RP_PROTECT_FLOOR.toLocaleString("sk-SK")} RP.</li>
           </ul>
+        </Sec>
+
+        <Sec
+          id="sucho"
+          lead={`Od ligy ${RANKS.find((r) => r.entry >= SUCHO_MIN_ENTRY)?.name} SUCHO trestá hranie bez tiketu: po ${SUCHO_GRACE} platených spinoch bez tiketu, ktorý sa hýbe, každý spin stojí −1 RP a hra vypláca na ${suchoRtpLabel()} (štandard Pragmatic) namiesto bežných ~${suchoNormalRange()}. Mimo SUCHA sa RTP nemení.`}
+        >
+          <Facts
+            rows={[
+              ["Kedy beží", `ukazovateľ pod rankom je červený: SUCHO · ${suchoRtpLabel()}. Začne aj skončí s oznamom.`],
+              ["Kedy skončí", "keď zoberieš tiket, ktorý sa hýbe (SUCHO stojí, kým sa hýbe), alebo tiket splníš (počítadlo sa vynuluje)"],
+              ["Tiket drží SUCHO", `len kým sa hýbe: ${TICKET_STALL} platených spinov bez pohybu a prestane (TIKET STOJÍ · SUCHO beží). Pohyb ho znova zapne.`],
+              ["Tiket na kúpu 4KA TV", "POHOTOVOSŤ a OTRS, kde ostala už len kúpa: SUCHO nedrží, kým 4KA TV nekúpiš. Samotná kúpa sa ráta ako pohyb."],
+              ["Pohyb tiketu", "posun počítadla (ktoréhokoľvek cieľa), odohrané kolo 4KA TV pre tiket, odohraný ZÁSAH alebo bonus z baru správneho druhu (aj keď neprekonal rekord), kúpa pri tikete na kúpu"],
+              ["Nesplnený / stojaci tiket", "ostáva otvorený a dá sa dohrať; SUCHO sa ráta ďalej tam, kde stálo"],
+            ]}
+          />
+          <ul className="man-list">
+            <li>
+              Pravidlo je pre všetky tikety rovnaké, takže sa nedá „zaparkovať“ tiket a SUCHO obísť: tikety len na 4KA TV (PLECHOVKY, TACHYKARDIA), len na Ž-BOX alebo KONTROLU,
+              SIEŤ, POT, OTRS s druhým cieľom, ktorý čaká, aj tiket na kúpu.
+            </li>
+            <li>
+              <b>Čo sa kráti:</b> všetko, čo vyplatí spin v SUCHU: výhra spinu (clustre, Cluster tumble, plechovky), spiny ZÁSAHU, vrátenie za mŕtvy spin, 4KA TV, ktorú spin
+              spustil (celá, zamknuté pri spustení), a bonus z baru, ktorý spin naplnil (bonus dohrá normálne, SUCHO si vezme svoj diel na konci, aj zo ZLATÉHO).
+            </li>
+            <li>
+              <b>Kúpa 4KA TV v SUCHU:</b> cena ostáva, kúpená 4KA TV vypláca × (stĺpec Kúpa), teda tiež okolo {suchoRtpLabel()}. Kúpou sa SUCHO neobíde.
+            </li>
+            <li>
+              <b>Nekráti sa:</b> jackpoty (lístky), výplaty tiketov, RANK DROP a VERSUS. RP, tikety, HLÁSENIE a bonus bar rátajú výhru pred SUCHOM.
+            </li>
+            <li>Pri výhre uvidíš sumu pred SUCHOM, červený čip <b>SUCHO · {suchoRtpLabel()}</b> so zrážkou a pripísanú sumu.</li>
+          </ul>
+          <div className="man-rp" role="table" aria-label="Násobič výhier počas SUCHA podľa ligy">
+            <div role="row" className="is-head">
+              <span role="columnheader">Liga</span>
+              <span role="columnheader">RTP bez SUCHA (bez ante / ante)</span>
+              <span role="columnheader">V SUCHU výhry × (bez ante / ante)</span>
+              <span role="columnheader">Kúpa ×</span>
+            </div>
+            {RANKS.filter((r) => SUCHO_RTP_MEASURED[r.id]).map((r) => {
+              const m = SUCHO_RTP_MEASURED[r.id];
+              return (
+                <div role="row" key={r.id} style={{ ["--rc" as string]: r.color }}>
+                  <b role="cell">{r.name}</b>
+                  <span role="cell">
+                    {pct(m.base, 1)} / {pct(m.ante, 1)}
+                  </span>
+                  <span role="cell">
+                    {n(suchoPayMul(r.id, "base"))} / {n(suchoPayMul(r.id, "ante"))}
+                  </span>
+                  <span role="cell">{n(suchoPayMul(r.id, "buy"))}</span>
+                </div>
+              );
+            })}
+          </div>
+          <p className="man-p">
+            Násobič = {pct(SUCHO_RTP)} ÷ bežné RTP danej ligy, zmerané simuláciou 3 × 20 miliónov spinov na ligu a ante (kúpa: kúpené 4KA TV podľa ceny). Jackpoty a tikety nie sú v RTP.
+          </p>
         </Sec>
 
         <Sec id="duel" lead="DUEL (2), TRIPLE THREAT (3) alebo FANTASTIC FOUR (4 hráči) pri jednom stole (jeden kredit, telefón koluje) alebo online cez kód. Hra štartuje, keď je miestnosť plná. Všetci točia rovnakou stávkou aj ante.">
