@@ -85,6 +85,7 @@ import { emptyBoard, isEligibleBet, ticketResolve, TIER_BY_ID, type BoardSnap, t
 import { fetchParkPool, postParkClaim, postParkSpin, withRetry, type PoolSpinResult } from "@/lib/slot/jackpot-api";
 import { bumpDesk, bumpLocalDesk, bumpTicketDesk, deskToday, emptyDesk, fetchDesk, sameDesk, ticketProfit, type DeskDay } from "@/lib/slot/desk-api";
 import { putBoard, readBestMark, readBestRecipe, readNick, saveNick, skipNick, winHow, writeBestHow, writeBestRecipe } from "@/lib/slot/board-api";
+import { pickHow, SHARE_HOW } from "@/lib/slot/win-label";
 import { emptyTally, mergeTally, notePays, recipeTumbles, topCans, topPays, type SeqTally, type WinRecipe } from "@/lib/slot/win-recipe";
 import { HEAT_MAX, heatFromWin } from "@/lib/slot/heat";
 import { canEventCue, type CanEvent } from "@/lib/slot/cue-ready";
@@ -1650,7 +1651,7 @@ export function useSlotGame() {
       if (credit > 0) {
         boardRef.current = { ...boardRef.current, credit: 0 };
         setBalance((b) => +(b + credit).toFixed(2));
-        bumpToday(0, credit, "LÍSTOK podiel", BETS[betIndexRef.current] ?? 0, null);
+        bumpToday(0, credit, SHARE_HOW, BETS[betIndexRef.current] ?? 0, null);
         setSpinTape((t) => [{ label: "PODIEL", amount: formatMoney(credit) }, ...t].slice(0, 8));
       }
       return { ...res, credit: 0 };
@@ -2279,7 +2280,7 @@ export function useSlotGame() {
       }
       if (!escrow) setBalance((b) => +(b + cash).toFixed(2));
       // Board / desk: KONTROLA is real credit, count it as paid (no stake of its own).
-      if (!escrow) bumpToday(0, cash, "KONTROLA", betNow, null);
+      if (!escrow) bumpToday(0, cash, pickHow("kontrola", Boolean(gold)), betNow, null);
       if (!escrow) noteHeat(cash, betNow);
       setDisplayWin(cash);
       setSpinWin(cash);
@@ -2395,7 +2396,7 @@ export function useSlotGame() {
       if (cash > 0) {
         setBalance((b) => +(b + cash).toFixed(2));
         // Board / desk: Ž-BOX is real credit like KONTROLA; counted once here (the spin that filled the bar counted only its own win).
-        bumpToday(0, cash, "Ž-BOX", betNow, null);
+        bumpToday(0, cash, pickHow("zbox", Boolean(gold)), betNow, null);
         noteHeat(cash, betNow);
         setDisplayWin(cash);
         setSpinWin(cash);
@@ -2527,7 +2528,7 @@ export function useSlotGame() {
       if (cash > 0) {
         setBalance((b) => +(b + cash).toFixed(2));
         // Board / desk: KOLESO is real credit like KONTROLA / Ž-BOX; counted once here.
-        bumpToday(0, cash, "KOLESO", betNow, null);
+        bumpToday(0, cash, pickHow("koleso", Boolean(gold)), betNow, null);
         noteHeat(cash, betNow);
         setDisplayWin(cash);
         setSpinWin(cash);
@@ -3335,7 +3336,7 @@ export function useSlotGame() {
         const how =
           cash > 0 && !opts?.buy
             ? winHow({
-                mode: "BASE",
+                mode: chasing ? "ZÁSAH" : "BASE",
                 pops: tumbleN,
                 pays: [...payHits].slice(0, 2).map((id) => payName(id)),
               })
@@ -3772,6 +3773,7 @@ export function useSlotGame() {
               mode: "PARKNET",
               spins: played,
               mult: peak,
+              bought,
             }),
             betNow,
             {
@@ -4124,7 +4126,16 @@ export function useSlotGame() {
         const mineOut = live.kind === "online" && live.forfeit === live.you;
         if (won > 0 && !mineOut) {
           setBalance((b) => +(b + won).toFixed(2));
-          bumpToday(0, won);
+          // Board: label it like a settled duel. Without a label the server keeps the previous best's text
+          // next to this new amount (board_put2 ignores an empty how), so the row showed the wrong win type.
+          const mineScore = Math.round(live.seats[live.you]?.score ?? 0);
+          const otherScore = Math.max(0, ...live.seats.filter((_, i) => i !== live.you).map((st) => Math.round(st.score)));
+          bumpToday(0, won, winHow({ mode: "DUEL", duel: `${mineScore} vs ${otherScore}` }), BETS[betIndexRef.current] ?? 0, {
+            v: 1,
+            mode: "duel",
+            pays: [],
+            vs: [mineScore, otherScore],
+          });
         }
       }
       if (roundEscrowRef.current && live?.phase === "play" && !skipDuelTick.current) {

@@ -169,6 +169,7 @@ export function recipeFromHow(how: string): WinRecipe | null {
   const head = parts[0].toUpperCase();
   let mode: RecipeMode;
   if (head === "BASE") mode = "base";
+  else if (head === "ZÁSAH") mode = "zasah";
   else if (head === "PARKNET" || head === "4KA TV") mode = "fs";
   else if (head === "KÚPA") mode = "buy";
   else if (head === "DUEL") mode = "duel";

@@ -295,6 +295,22 @@ export function isCustomCue(key: string): boolean {
   return custom.has(key) || shippedSame.has(key);
 }
 
+/** The slot's default file is one of the admin's uploads shipped with the site (public/sfx/pack/). */
+function isPackDefault(key: string): boolean {
+  return (FILES[key] || "").startsWith("/sfx/pack/");
+}
+
+/**
+ * The slot has a real recording, not just a synth / borrowed fallback: an upload fetched from Supabase,
+ * an upload byte-identical to the shipped file (served from Vercel, kept in `shippedSame`, never in `custom`),
+ * or a shipped pack file (those are Martin's uploads). Every "own sound, else synth" branch asks this,
+ * not `custom.has`: since the static-pack change a matching upload is never put into `custom`, so the
+ * Ž-BOX scans / beep, the ZÁSAH one-shots and MASÍVNA fell back to synth beeps although the file was loaded.
+ */
+export function isRecordedCue(key: string): boolean {
+  return custom.has(key) || shippedSame.has(key) || isPackDefault(key);
+}
+
 function sniffMime(bytes: ArrayBuffer, fallback: string): string {
   const u = new Uint8Array(bytes, 0, Math.min(12, bytes.byteLength));
   if (u.length >= 4 && u[0] === 0x66 && u[1] === 0x4c && u[2] === 0x61 && u[3] === 0x43) return "audio/flac";
@@ -440,7 +456,7 @@ export function listCues(): Promise<CueRow[] | null> {
             /* ignore */
           }
           res = null;
-        }
+        } else if (!res.ok) res = null; // a 5xx on the new listing: use the old one this time, try keys2 next visit
       }
       if (!res) res = await sfxRpc("sfx_keys", {});
       if (!res.ok) throw new Error(`sfx_keys ${res.status}`);
@@ -477,9 +493,9 @@ export function shipsAsFile(row: CueRow): boolean {
     if (SHIPPED_FLAC_MD5[row.key] === v && path.startsWith("/sfx/pack/")) return true;
     return false;
   }
-  // No md5 from the server (sfx_keys2 not migrated): the /sfx/pack/ defaults are the shipped uploads
-  // (commit 112f6ab, byte-identical on 2026-10-11). A re-upload of such a slot needs sfx_keys2 to reach players.
-  return path.startsWith("/sfx/pack/");
+  // No md5 (sfx_keys2 missing or failing, old listing): we cannot prove the upload equals the shipped file, so the
+  // upload wins and is downloaded (then kept in Cache Storage). A guess here silently hid re-uploads.
+  return false;
 }
 
 /** Expected download size of an upload (progress bar). */
@@ -2251,7 +2267,7 @@ export function bedLatency(): { output: number; base: number } {
 }
 
 function ownCue(key: string): boolean {
-  return custom.has(key) && Boolean(bufs[key]);
+  return isRecordedCue(key) && Boolean(bufs[key]);
 }
 
 function playOwn(
@@ -2571,7 +2587,7 @@ export function playZboxFull(): void {
   withCue("zbox_full", () => {
     stopSpin();
     if (!playBuf("zbox_full", { gain: 0.9 })) playBuf("ticketOk", { gain: 0.8 });
-    if (!custom.has("zbox_full")) playBuf("harp", { gain: 0.5 });
+    if (!isRecordedCue("zbox_full")) playBuf("harp", { gain: 0.5 });
   });
 }
 
@@ -2696,7 +2712,7 @@ export function playKolesoBankrot(): void {
   wake();
   withCue("koleso_bankrot", () => {
     if (!playBuf("koleso_bankrot", { gain: 0.9 })) playBuf("tableB", { gain: 0.85 });
-    if (!custom.has("koleso_bankrot")) tone("sawtooth", 220, 0.9, 0.06, 55);
+    if (!isRecordedCue("koleso_bankrot")) tone("sawtooth", 220, 0.9, 0.06, 55);
   });
 }
 
@@ -2706,7 +2722,7 @@ export function playKolesoSolve(): void {
   withCue("koleso_solve", () => {
     stopSpin();
     if (!playBuf("koleso_solve", { gain: 0.9 })) playBuf("ticketOk", { gain: 0.8 });
-    if (!custom.has("koleso_solve")) playBuf("harp", { gain: 0.5 });
+    if (!isRecordedCue("koleso_solve")) playBuf("harp", { gain: 0.5 });
   });
 }
 

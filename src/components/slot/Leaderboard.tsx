@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchBoard, publicId, boardNickLabel, isAnonNick, type BoardRow } from "@/lib/slot/board-api";
 import { canSrc, PAY_SYMBOLS, SCATTER, TICKETS, type PayId } from "@/lib/slot/symbols";
 import { cascadeWord, recipeSentence, type WinRecipe } from "@/lib/slot/win-recipe";
+import { BOARD_KIND, boardMark, isPoolKind, type BoardKind, type BoardMark } from "@/lib/slot/win-label";
 import { ZASAH } from "@/lib/slot/zasah";
 
 /* ---------- 7-segment LED ---------- */
@@ -114,22 +115,20 @@ function stakeText(n: number): string {
 const PAY_BY_ID = new Map(PAY_SYMBOLS.map((s) => [s.id, s]));
 const payLabel = (id: PayId) => PAY_BY_ID.get(id)?.name ?? id;
 
-const MODE_LABEL: Record<WinRecipe["mode"], string> = {
-  base: "ZÁKLAD",
-  fs: "4KA TV",
-  buy: "KÚPA",
-  zasah: "ZÁSAH",
-  duel: "DUEL",
-  ticket: "LÍSTOK",
-};
-
-function ModeIcon({ mode }: { mode: WinRecipe["mode"] }) {
+function ModeIcon({ mode }: { mode: BoardKind }) {
   // Small inline glyphs, drawn here so they match the board ink.
   if (mode === "base")
     return (
       <svg viewBox="0 0 20 20" aria-hidden="true">
         <rect x="2" y="4" width="16" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6" />
         <path d="M7.3 4v12M12.7 4v12" stroke="currentColor" strokeWidth="1.2" />
+      </svg>
+    );
+  if (mode === "fs")
+    return (
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <rect x="2.5" y="4.5" width="15" height="10" rx="1.8" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M7 17.5h6M10 14.5v3M8.6 7.4l3.4 2.1-3.4 2.1z" stroke="currentColor" strokeWidth="1.3" fill="currentColor" strokeLinejoin="round" />
       </svg>
     );
   if (mode === "buy")
@@ -152,6 +151,44 @@ function ModeIcon({ mode }: { mode: WinRecipe["mode"] }) {
     return (
       <svg viewBox="0 0 20 20" aria-hidden="true">
         <path d="M3 3l9 9M17 3l-9 9M5.5 14.5l-2 2M14.5 14.5l2 2M4 11l5 5M16 11l-5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    );
+  if (mode === "kontrola")
+    return (
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="8.5" cy="8.5" r="5.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <path d="M12.3 12.3 17.5 17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  if (mode === "zbox")
+    return (
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <rect x="2.5" y="2.5" width="15" height="15" rx="1.6" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M2.5 10h15M10 2.5v15" stroke="currentColor" strokeWidth="1.3" />
+        <rect x="11.6" y="11.6" width="4.4" height="4.4" fill="currentColor" />
+      </svg>
+    );
+  if (mode === "koleso")
+    return (
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="10" cy="10.5" r="7" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M10 3.5v14M3 10.5h14M5 5.5l10 10M15 5.5l-10 10" stroke="currentColor" strokeWidth="1" />
+        <path d="M8 1h4l-2 3z" fill="currentColor" />
+      </svg>
+    );
+  if (mode === "share")
+    return (
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <path d="M2.5 5.5h15v3a1.8 1.8 0 0 0 0 3v3h-15v-3a1.8 1.8 0 0 0 0-3z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M10 5.5v9" stroke="currentColor" strokeWidth="1.3" strokeDasharray="1.6 1.4" />
+      </svg>
+    );
+  if (mode === "unknown")
+    return (
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M7.6 7.6a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.6v.6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <circle cx="10" cy="14.6" r="1" fill="currentColor" />
       </svg>
     );
   return (
@@ -204,31 +241,71 @@ function CascadeChip({ n }: { n: number }) {
   );
 }
 
-export function RecipeStrip({ recipe }: { recipe: WinRecipe | null }) {
-  if (!recipe) {
+function ModeChip({ mark, ante }: { mark: BoardMark; ante?: boolean }) {
+  return (
+    <>
+      <span className={`fb-mode is-${mark.kind}`} title={BOARD_KIND[mark.kind].title}>
+        <ModeIcon mode={mark.kind} />
+        {BOARD_KIND[mark.kind].label}
+        {ante ? <i>ANTE</i> : null}
+      </span>
+      {mark.gold ? (
+        <span className="fb-chip is-gold" title="ZLATÝ BONUS: prvý bonus z lišty v ten deň">
+          ZLATÝ BONUS
+        </span>
+      ) : null}
+      {mark.massive ? (
+        <span className="fb-chip is-massive" title="MASÍVNA VÝHRA: 250× stávky a viac">
+          MASÍVNA
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+function markSentence(mark: BoardMark): string {
+  const bits = [BOARD_KIND[mark.kind].title];
+  if (mark.gold) bits.push("ZLATÝ BONUS");
+  if (mark.massive) bits.push("MASÍVNA VÝHRA");
+  return bits.join(", ") + ".";
+}
+
+export function RecipeStrip({
+  recipe,
+  how = "",
+  best = 0,
+  stake = 0,
+}: {
+  recipe: WinRecipe | null;
+  how?: string;
+  best?: number;
+  stake?: number;
+}) {
+  const mark = boardMark(how, recipe, best, stake);
+  if (!recipe && mark.kind === "unknown") {
     return (
       <div className="fb-recipe is-empty" aria-label="Spôsob výhry nie je zaznamenaný">
         <span className="fb-mode is-unknown">
-          <svg viewBox="0 0 20 20" aria-hidden="true">
-            <circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
-            <path d="M7.6 7.6a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.6v.6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            <circle cx="10" cy="14.6" r="1" fill="currentColor" />
-          </svg>
+          <ModeIcon mode="unknown" />
           bez záznamu
         </span>
         <small>Detail sa ukladá až od novej verzie.</small>
       </div>
     );
   }
+  if (!recipe) {
+    // KONTROLA / Ž-BOX / KOLESO / ZLATÝ BONUS / PODIEL: the server keeps no recipe for these, the text says enough.
+    return (
+      <div className="fb-recipe" aria-label={markSentence(mark)}>
+        <ModeChip mark={mark} />
+      </div>
+    );
+  }
   const r = recipe;
   const showFs = r.mode === "fs" || r.mode === "buy";
   return (
-    <div className="fb-recipe" aria-label={recipeSentence(r, payLabel)}>
-      <span className={`fb-mode is-${r.mode}`}>
-        <ModeIcon mode={r.mode} />
-        {MODE_LABEL[r.mode]}
-        {r.ante ? <i>ANTE</i> : null}
-      </span>
+    <div className="fb-recipe" aria-label={`${recipeSentence(r, payLabel)}${mark.kind !== r.mode || mark.gold || mark.massive ? ` ${markSentence(mark)}` : ""}`}>
+      <ModeChip mark={mark} ante={r.ante} />
       {r.mode === "ticket" && r.ticket ? (
         <>
           <span className="fb-ico fb-ticket" title={`Parkovací lístok ${TICKETS[r.ticket].name} (jackpot)`}>
@@ -283,7 +360,7 @@ function Grade({ row, rank, mine }: { row: BoardRow; rank: number; mine: boolean
   const rawX = row.stake > 0 && row.best > 0 ? row.best / row.stake : 0;
   // A slot round tops out at 5000x (x1.23 bonus). Above that the stored stake is wrong — old clients saved
   // a stale bet for base-game wins — so don't print a fake multiple.
-  const pool = row.recipe?.mode === "ticket" || row.recipe?.mode === "duel";
+  const pool = isPoolKind(boardMark(row.how, row.recipe).kind);
   const badStake = rawX > 6200 && !pool;
   const x = badStake ? 0 : rawX;
   return (
@@ -299,7 +376,7 @@ function Grade({ row, rank, mine }: { row: BoardRow; rank: number; mine: boolean
         <SegLed text={row.best > 0 ? ledText(row.best) : "-"} label={`Najväčšia výhra ${plain(row.best)}`} />
         <span className="fb-unit">kredit</span>
       </div>
-      <RecipeStrip recipe={row.best > 0 ? row.recipe : null} />
+      {row.best > 0 ? <RecipeStrip recipe={row.recipe} how={row.how} best={row.best} stake={row.stake} /> : <RecipeStrip recipe={null} />}
       <dl className="fb-meta">
         <div title={badStake ? "Starý záznam: stávka sa pri tejto výhre uložila chybne" : "Stávka na spin, pri ktorom padla najväčšia výhra"}>
           <dt>stávka</dt>
@@ -407,6 +484,27 @@ export function PriceBoard({
               KÚPA
             </span>
             <span>4KA TV kúpená tlačidlom KÚPIŤ</span>
+          </li>
+          <li>
+            <span className="fb-mode is-koleso">
+              <ModeIcon mode="koleso" />
+              KOLESO
+            </span>
+            <span>výhra z bonusu z lišty: KONTROLA, Ž-BOX alebo KOLESO · ZLATÝ BONUS = prvý bonus dňa</span>
+          </li>
+          <li>
+            <span className="fb-mode is-ticket">
+              <ModeIcon mode="ticket" />
+              LÍSTOK
+            </span>
+            <span>jackpot z parkovacieho lístka (FTTB) · PODIEL = časť jackpotu, ktorý trafil iný hráč</span>
+          </li>
+          <li>
+            <span className="fb-mode is-duel">
+              <ModeIcon mode="duel" />
+              VERSUS
+            </span>
+            <span>výhra vo VERSUS, skóre ty : najlepší súper</span>
           </li>
           <li>
             <span className="fb-meta-key">stávka · × stávky</span>
