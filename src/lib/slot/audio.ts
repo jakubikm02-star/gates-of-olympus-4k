@@ -198,11 +198,11 @@ const FILES: Record<string, string> = {
   massive: "/sfx/pack/massive.flac?v=pack1",
   /** Ž-BOX (PAKEŤÁK). Synth when the file is empty. The roof can reuses Hrom + Plechovka. */
   zbox_beep: "/sfx/pack/zbox_beep.mp3?v=pack1",
-  /** Sken zatvorenej schránky. Slots 1–3 are shuffled, one per scan. Slot 4 is the echo at the end of every wave, not in the shuffle. Empty until the admin uploads; the beep plays. */
-  zbox_scan: "",
-  zbox_scan2: "",
-  zbox_scan3: "",
-  zbox_scan4: "",
+  /** Sken zatvorenej schránky. Sloty 1–3 sa miešajú, slot 4 je ozvena na konci vlny. Súbory sú tie isté nahrávky ako v Supabase, takže sa nesťahujú znova. */
+  zbox_scan: "/sfx/pack/zbox_scan.mp3?v=scan1",
+  zbox_scan2: "/sfx/pack/zbox_scan2.mp3?v=scan1",
+  zbox_scan3: "/sfx/pack/zbox_scan3.mp3?v=scan1",
+  zbox_scan4: "/sfx/pack/zbox_scan4.mp3?v=scan1",
   zbox_open: "/sfx/pack/zbox_open.mp3?v=pack1",
   zbox_miss: "",
   zbox_slam: "/sfx/land2.mp3?v=keys1",
