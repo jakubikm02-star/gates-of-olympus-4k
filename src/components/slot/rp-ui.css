@@ -161,10 +161,6 @@
 .sucho-chip.is-on.is-floor-on {
   color: #ffb3b3;
 }
-.sucho-chip.is-stall-warn {
-  color: #ffd25a;
-  border-color: rgb(255 196 40 / 0.7);
-}
 .tax-fly.is-sucho {
   color: #fff;
   background: rgb(229 38 47 / 0.32);

@@ -316,7 +316,6 @@ export function SlotGame() {
               idle={g.rpIdle}
               league={g.suchoLeague}
               shield={g.ticketShield}
-              stallLeft={g.ticketStallLeft}
               on={g.suchoOn}
               mul={g.suchoMul}
               rp={g.rank.rp}

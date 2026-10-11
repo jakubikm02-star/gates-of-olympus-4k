@@ -10,7 +10,6 @@ import { sanitizeDeposit, type DuelDeposit } from "./duel-deposit.ts";
 import { sanitizeTicketPause, type TicketPause } from "./ticket-pause.ts";
 import { antiStreak } from "./anticipation.ts";
 import { sanitizeIdle, sanitizeRpDay, type RpDay } from "./rp-tickets.ts";
-import { sanitizeStall, type TicketStall } from "./sucho-guard.ts";
 import { sanitizeSuchoMul } from "./sucho-rtp.ts";
 
 export const SAVE_KEY = "parkizmus-v1";
@@ -87,8 +86,6 @@ export interface PlayerSave {
   rpIdle?: number;
   /** Day record for the daily RP decay. Older saves: empty day, so nothing is taken retroactively. */
   rpDay?: RpDay;
-  /** Paid spins without progress of the open ticket (lib/slot/sucho-guard). Older saves: 0 (fresh count). */
-  ticketStall?: TicketStall;
   /** SUCHO payout multiplier the running 4KA TV was locked to (lib/slot/sucho-rtp; 1 = none). */
   fsSucho?: number;
   /** Display only: summed SUCHO deltas of the running 4KA TV (already inside fsCash). */
@@ -386,7 +383,6 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.lastDecayAt = stampMs(r.lastDecayAt);
   s.rpIdle = sanitizeIdle(r.rpIdle);
   s.rpDay = sanitizeRpDay(r.rpDay, "");
-  s.ticketStall = sanitizeStall(r.ticketStall);
   s.fsSucho = sanitizeSuchoMul(r.fsSucho);
   s.fsSuchoDelta = num(r.fsSuchoDelta, 0, -1_000_000_000, 0);
   s.updatedAt = stampMs(r.updatedAt ?? r.updated_at);

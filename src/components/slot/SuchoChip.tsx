@@ -1,5 +1,5 @@
 import { RP_PROTECT_FLOOR, SUCHO_GRACE, SUCHO_WARN, suchoLeft } from "@/lib/slot/rp-tickets";
-import { TICKET_STALL, TICKET_STALL_WARN, type TicketShield } from "@/lib/slot/sucho-guard";
+import type { TicketShield } from "@/lib/slot/sucho-guard";
 import { suchoRtpLabel } from "@/lib/slot/sucho-rtp";
 
 interface Props {
@@ -7,10 +7,8 @@ interface Props {
   idle: number;
   /** League is 4KA TV or higher (SUCHO applies). */
   league: boolean;
-  /** Open ticket vs SUCHO (lib/slot/sucho-guard): run holds it, stall / buy let it run, none = no ticket. */
+  /** Open ticket vs SUCHO (lib/slot/sucho-guard): run holds it, buy (waits only for a 4KA TV buy) lets it run, none = no ticket. */
   shield: TicketShield;
-  /** Spins the open ticket still holds SUCHO without progress. */
-  stallLeft: number;
   /** SUCHO penalty phase: −1 RP / spin and RTP 96 %. */
   on: boolean;
   /** Payout multiplier while SUCHO runs (display in the tooltip). */
@@ -24,9 +22,9 @@ const spinsWord = (n: number) => (n === 1 ? "spin" : n >= 2 && n <= 4 ? "spiny" 
 
 /**
  * SUCHO indicator under the rank chip: countdown to SUCHO, a pulsing warning from 30 spins, the red
- * "SUCHO · RTP 96 %" phase, and the ticket state (holds SUCHO / stands / waits for a buy). Hidden below 4KA TV.
+ * "SUCHO · RTP 96 %" phase, and the ticket state (holds SUCHO / waits for a buy). Hidden below 4KA TV.
  */
-export function SuchoChip({ idle, league, shield, stallLeft, on, mul, rp, onOpen }: Props) {
+export function SuchoChip({ idle, league, shield, on, mul, rp, onOpen }: Props) {
   if (!league) return null;
   const left = suchoLeft(idle);
   const floor = rp <= RP_PROTECT_FLOOR;
@@ -34,19 +32,18 @@ export function SuchoChip({ idle, league, shield, stallLeft, on, mul, rp, onOpen
   const cut = mul < 1 ? ` Výhry idú ×${mul.toFixed(2).replace(".", ",")} (−${pct(1 - mul)}).` : "";
   const rule =
     `SUCHO: od 4KA TV ligy po ${SUCHO_GRACE} platených spinoch bez tiketu −1 RP za spin a hra vypláca na ${rtp}.` +
-    ` Tiket SUCHO zastaví, len kým sa hýbe: ${TICKET_STALL} spinov bez pohybu alebo tiket čakajúci na kúpu 4KA TV ho nedrží.`;
+    ` Bežiaci tiket SUCHO zastaví na celý čas; nezastaví ho len tiket, ktorý čaká už iba na kúpu 4KA TV.`;
   let tone = "is-calm";
   let main: string;
   let sub: string;
   let tip = rule;
   if (shield === "run") {
-    const near = stallLeft > 0 && stallLeft <= TICKET_STALL - TICKET_STALL_WARN;
-    tone = near ? "is-paused is-stall-warn" : "is-paused";
+    tone = "is-paused";
     main = "TIKET BEŽÍ";
-    sub = near ? `bez pohybu · stojí o ${stallLeft}` : "SUCHO stojí";
-    tip = `Tiket sa hýbe, SUCHO stojí. ${near ? `Ešte ${stallLeft} ${spinsWord(stallLeft)} bez pohybu a prestane ho držať. ` : ""}${rule}`;
-  } else if (shield === "stall" || shield === "buy") {
-    main = shield === "buy" ? "ČAKÁ NA KÚPU" : "TIKET STOJÍ";
+    sub = "SUCHO stojí";
+    tip = `Tiket beží, SUCHO stojí, kým ho hráš. ${rule}`;
+  } else if (shield === "buy") {
+    main = "ČAKÁ NA KÚPU";
     if (on) {
       tone = "is-on";
       sub = "SUCHO beží";
@@ -54,12 +51,12 @@ export function SuchoChip({ idle, league, shield, stallLeft, on, mul, rp, onOpen
       tone = idle >= SUCHO_WARN[0] ? "is-warn" : "is-calm";
       sub = `SUCHO o ${left}`;
     }
-    tip = `${shield === "buy" ? "Tiket čaká na kúpu 4KA TV" : `Tiket sa ${TICKET_STALL} spinov nepohol`}: SUCHO beží ďalej.${on ? ` −1 RP / spin, ${rtp}.${cut}` : ""} ${rule}`;
+    tip = `Tiket čaká už iba na kúpu 4KA TV: SUCHO beží ďalej.${on ? ` −1 RP / spin, ${rtp}.${cut}` : ""} ${rule}`;
   } else if (on) {
     tone = floor ? "is-on is-floor-on" : "is-on";
     main = "SUCHO";
     sub = floor ? `chránené ${RP_PROTECT_FLOOR.toLocaleString("sk-SK")} RP` : "−1 RP / spin";
-    tip = `SUCHO beží: ${floor ? "RP chránené" : "−1 RP za spin"} a hra vypláca na ${rtp}.${cut} Končí, keď zoberieš tiket, ktorý sa hýbe (splnený ho vynuluje). Jackpoty a výplaty tiketov sa nekrátia.`;
+    tip = `SUCHO beží: ${floor ? "RP chránené" : "−1 RP za spin"} a hra vypláca na ${rtp}.${cut} Končí, keď zoberieš tiket (splnený ho vynuluje). Jackpoty a výplaty tiketov sa nekrátia.`;
   } else {
     tone = idle >= SUCHO_WARN[0] ? "is-warn" : "is-calm";
     main = `SUCHO o ${left}`;

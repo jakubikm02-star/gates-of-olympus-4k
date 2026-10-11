@@ -1,19 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { tickJob, type JobCard, type JobEvent } from "./spend.ts";
+import { jobStatus, tickJob, type JobCard, type JobEvent } from "./spend.ts";
 import { SUCHO_GRACE, suchoStep } from "./rp-tickets.ts";
-import {
-  TICKET_STALL,
-  emptyStall,
-  sanitizeStall,
-  stallAfter,
-  stallLeft,
-  stallOf,
-  stallTick,
-  ticketMoved,
-  ticketShield,
-  ticketWaitsBuy,
-} from "./sucho-guard.ts";
+import { shields, ticketShield, ticketWaitsBuy } from "./sucho-guard.ts";
 import { SUCHO_RTP, SUCHO_RTP_MEASURED, sanitizeSuchoMul, suchoActive, suchoCash, suchoPayMul } from "./sucho-rtp.ts";
 import { emptyPlayerSave, sanitizePlayerSave } from "./player-save.ts";
 import { sanitizePendingBonus } from "./bonus-mode.ts";
@@ -55,108 +44,86 @@ const zbox = () => card({ id: "zb", template: "zasielky", kind: "bonusBest", nee
 const dualBuy = (over: Partial<JobCard> = {}) =>
   card({ id: "du", mystery: true, kindB: "buy", templateB: "noc", scopeB: "live", need: 5, needB: 2, haveB: 0, tries: 2, triesUsed: 0, ...over });
 
-/** Paid base spins with this ticket open, as the hook runs them: shield decided before the spin, stall ticks, SUCHO steps when not held. */
+/** Paid base spins with this ticket open, as the hook runs them: shield decided before the spin, SUCHO steps when not held, a closed ticket leaves. */
 function play(job: JobCard, spins: number, e: JobEvent, idle0 = 0) {
-  let rec = emptyStall();
   let idle = idle0;
-  let cur = job;
+  let cur: JobCard | null = job;
   let held = 0;
+  let life = 0;
   for (let i = 0; i < spins; i++) {
-    const st = ticketShield(cur, stallOf(rec, cur), false);
-    rec = stallTick(rec, cur);
-    if (st === "run") held += 1;
+    if (cur && shields(ticketShield(cur, false))) held += 1;
     else idle = suchoStep(idle, 5000, "telka").idle;
-    const next = tickJob(cur, e);
-    rec = stallAfter(rec, cur, next, e);
-    cur = next;
+    if (cur) {
+      life += 1;
+      const next = tickJob(cur, e);
+      cur = jobStatus(next) === "run" ? next : null;
+    }
   }
-  return { idle, held, rec, cur };
+  return { idle, held, life, cur };
 }
 
-describe("sucho2 · ticket guard (park a ticket to dodge SUCHO)", () => {
-  it("a buy ticket never holds SUCHO on base spins; the buy spin itself is held and is progress", () => {
+describe("sucho fix · which ticket holds SUCHO", () => {
+  it("Martin's case: a spin-limited ticket waiting for a random symbol (OLP) holds SUCHO for its whole life", () => {
+    const olp = card({ id: "olp", template: "olp", kind: "symbol", payId: "meter", need: 1, limit: 60, spun: 37 });
+    const r = play(olp, 100, ev());
+    assert.equal(r.held, 23, "all 23 spins left are held, dead or not");
+    assert.equal(r.cur, null, "then it fails on its own clock");
+    assert.equal(r.idle, 100 - 23, "SUCHO counts again only after the ticket is gone");
+  });
+
+  it("any ticket that moves on normal paid spins holds SUCHO for its whole life, no matter how unlucky", () => {
+    for (const t of [card({ need: 22, limit: 65 }), card({ template: "pot", kind: "ticket", need: 1, limit: 50 }), zbox(), card({ id: "otrs", mystery: true, kindB: "symbol", templateB: "vyherne", need: 100, needB: 100, haveB: 0, limit: 300 })]) {
+      const r = play(t, 2000, ev());
+      assert.equal(r.held, r.life, `${t.template}: held every spin it was open`);
+      assert.ok(r.life <= t.limit, `${t.template}: bounded by its own spins (${r.life} ≤ ${t.limit})`);
+    }
+  });
+
+  it("the abuse stays closed: a buy ticket never holds SUCHO on base spins; the buy spin itself is held", () => {
     assert.equal(ticketWaitsBuy(noc()), true);
-    assert.equal(ticketShield(noc(), 0, false), "buy");
-    assert.equal(ticketShield(noc(), 0, false, true), "run");
+    assert.equal(ticketShield(noc(), false), "buy");
+    assert.equal(ticketShield(noc(), false, true), "run");
     const r = play(noc(), 100, ev());
     assert.equal(r.held, 0);
     assert.equal(r.idle, 100, "every base spin counts for SUCHO");
-    assert.equal(ticketMoved(noc(), noc(), ev({ bought: true })), true);
   });
 
-  it("OTRS / dual with a KÚPA leg: holds while the base goal moves, stops once only the buy is left", () => {
+  it("OTRS / dual with a KÚPA leg: holds while the base goal is open, stops once only the buy is left", () => {
     const d = dualBuy();
     assert.equal(ticketWaitsBuy(d), false);
-    assert.equal(ticketShield(d, 0, false), "run");
+    assert.equal(ticketShield(d, false), "run");
     const baseDone = dualBuy({ have: 5 });
     assert.equal(ticketWaitsBuy(baseDone), true);
-    assert.equal(ticketShield(baseDone, 0, false), "buy");
-    const r = play(baseDone, 80, ev({ win: true, dead: false }));
-    assert.equal(r.held, 0, "a done base goal + open buy goal is parked: no shield");
+    assert.equal(ticketShield(baseDone, false), "buy");
+    assert.equal(play(baseDone, 80, ev({ win: true, dead: false })).held, 0);
   });
 
-  it("a 4KA TV-only ticket waiting for a natural 4KA TV holds SUCHO for 30 spins, then stands", () => {
-    const r = play(plechovky(), 200, ev());
-    assert.equal(r.held, TICKET_STALL);
-    assert.equal(r.idle, 200 - TICKET_STALL);
-    assert.equal(ticketShield(r.cur, stallOf(r.rec, r.cur), false), "stall");
-    assert.equal(r.cur.spun, 0, "the ticket itself is still open (no clock on base spins)");
-  });
-
-  it("a Ž-BOX-only ticket: KONTROLA from the bar is no progress, a Ž-BOX is (even below its best)", () => {
-    const z = zbox();
-    const kontrola = ev({ spun: false, bonus: { mode: "kontrola", x: 3, safes: 4, cleared: false, canSum: 0, rounds: 0 } });
-    assert.equal(ticketMoved(z, tickJob(z, kontrola), kontrola), false);
-    const zb = ev({ spun: false, bonus: { mode: "zbox", x: 1, safes: 1, cleared: false, canSum: 0, rounds: 3 } });
-    const best = { ...z, have: 3 };
-    assert.equal(ticketMoved(best, tickJob(best, zb), zb), true, "a played Ž-BOX is a try");
-    // Dead base spins only: it stands after 30 although its clock still runs.
-    const r = play(z, 120, ev());
-    assert.equal(r.held, TICKET_STALL);
-    assert.equal(r.idle, 120 - TICKET_STALL);
-  });
-
-  it("a ticket that progresses keeps holding SUCHO as before (no regression for honest play)", () => {
-    const r = play(card({ need: 1000, limit: 1000 }), 200, ev({ win: true, dead: false }));
-    assert.equal(r.held, 200);
-    assert.equal(r.idle, 0);
-  });
-
-  it("progress resets the count: one win every 25 spins keeps a 2-goal OTRS alive", () => {
-    let rec = emptyStall();
-    let cur = card({ id: "otrs", mystery: true, kindB: "symbol", templateB: "vyherne", need: 100, needB: 100, haveB: 0, limit: 1000 });
-    let held = 0;
-    for (let i = 1; i <= 300; i++) {
-      if (ticketShield(cur, stallOf(rec, cur), false) === "run") held++;
-      rec = stallTick(rec, cur);
-      const e = i % 25 === 0 ? ev({ win: true, dead: false }) : ev();
-      const next = tickJob(cur, e);
-      rec = stallAfter(rec, cur, next, e);
-      cur = next;
+  it("a 4KA TV-only ticket holds while waiting for a natural 4KA TV, and the 4KA TV spins burn it", () => {
+    const p = plechovky();
+    assert.equal(play(p, 200, ev()).held, 200);
+    let cur: JobCard | null = p;
+    let n = 0;
+    while (cur && n < 100) {
+      const next = tickJob(cur, ev({ liveSpin: true }));
+      cur = jobStatus(next) === "run" ? next : null;
+      n++;
     }
-    assert.equal(held, 300);
+    assert.ok(cur === null && n <= p.limit, `ends after ≤ ${p.limit} 4KA TV spins (${n})`);
   });
 
-  it("seal and duel pause: seal holds, a paused ticket does not", () => {
-    assert.equal(ticketShield(card({ seal: true }), 999, false), "run");
-    assert.equal(ticketShield(card({}), 0, true), "none");
-    assert.equal(ticketShield(null, 0, false), "none");
+  it("seal holds, a paused ticket (duel) or no ticket does not", () => {
+    assert.equal(ticketShield(card({ seal: true }), false), "run");
+    assert.equal(ticketShield(card({}), true), "none");
+    assert.equal(ticketShield(null, false), "none");
   });
 
-  it("ZÁSAH goals: a finished ZÁSAH is progress for best-of-one", () => {
-    const hack = card({ id: "h", template: "hack", kind: "zasahBest", need: 4, have: 2, limit: 200 });
-    const e = ev({ chasing: true, chaseOver: true, chaseHits: 1, spun: true });
-    assert.equal(ticketMoved(hack, tickJob(hack, e), e), true);
-  });
-
-  it("stall record: per ticket id, sanitized, left counter", () => {
-    const rec = stallTick(stallTick(emptyStall(), card({})), card({}));
-    assert.deepEqual(rec, { id: "t1", n: 2 });
-    assert.equal(stallOf(rec, card({ id: "other" })), 0);
-    assert.deepEqual(sanitizeStall({ id: "x", n: -5 }), { id: "x", n: 0 });
-    assert.deepEqual(sanitizeStall("junk"), emptyStall());
-    assert.equal(stallLeft(card({}), 10), TICKET_STALL - 10);
-    assert.equal(stallLeft(noc(), 0), 0);
+  it("a loaded save is judged by the current rule at once (old stall record is dropped)", () => {
+    const olp = card({ id: "olp", template: "olp", kind: "symbol", payId: "meter", need: 1, limit: 60, spun: 37 });
+    const s = sanitizePlayerSave(JSON.parse(JSON.stringify({ ...emptyPlayerSave(), rp: 1500, rpIdle: 64, job: olp, ticketStall: { id: "olp", n: 30 } })));
+    assert.equal((s as unknown as Record<string, unknown>).ticketStall, undefined);
+    assert.ok(s.job);
+    assert.equal(ticketShield(s.job, false), "run");
+    assert.equal(suchoActive({ rankId: "telka", idle: s.rpIdle ?? 0, shielded: shields(ticketShield(s.job, false)) }), false, "SUCHO stands on load");
   });
 });
 
@@ -188,14 +155,12 @@ describe("sucho2 · RTP 96 % during SUCHO", () => {
     assert.equal(suchoCash(0.33, 0.6612).net, 0.22);
   });
 
-  it("saves keep the stall record, the locked 4KA TV multiplier and the bar bonus multiplier", () => {
-    const raw = { ...emptyPlayerSave(), ticketStall: { id: "abc", n: 12 }, inFs: true, fsLeft: 5, fsSucho: 0.6512, fsSuchoDelta: -3.2 };
+  it("saves keep the locked 4KA TV multiplier and the bar bonus multiplier", () => {
+    const raw = { ...emptyPlayerSave(), inFs: true, fsLeft: 5, fsSucho: 0.6512, fsSuchoDelta: -3.2 };
     const s = sanitizePlayerSave(JSON.parse(JSON.stringify(raw)));
-    assert.deepEqual(s.ticketStall, { id: "abc", n: 12 });
     assert.equal(s.fsSucho, 0.6512);
     assert.equal(s.fsSuchoDelta, -3.2);
     const old = sanitizePlayerSave({ balance: 50 });
-    assert.deepEqual(old.ticketStall, emptyStall());
     assert.equal(old.fsSucho, 1);
     assert.equal(sanitizeSuchoMul(1.5), 1);
     assert.equal(sanitizeSuchoMul("x"), 1);

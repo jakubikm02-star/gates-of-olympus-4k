@@ -506,7 +506,7 @@ export function reloadPunish(opts: {
 export const RANK_REWARDS = [
   { id: "ticket", title: "Splnený tiket", detail: "Hlavný zdroj RP. Lacný 100, stredný 200, drahý 460 RP × liga (×1,0 KREDIT … ×2,0 NEKONEČNO) × typ (2 ciele ×1,5, základ + 4KA TV ×1,75, feature ×1,25, OTRS ×1,2, denný +50 %) × stávka. Strop 2 000 RP. Nesplnený tiket −25 %." },
   { id: "scale", title: "Spin bez tiketu", detail: "RP z výhier bez tiketu: KREDIT a SLOBODA ×1,0, SMART ×0,8, 4KA TV ×0,6 … NEKONEČNO ×0,4. S bežiacim tiketom aspoň ×0,7. Straty sa nemenia." },
-  { id: "sucho", title: "SUCHO", detail: "Od 4KA TV ligy: po 40 platených spinoch bez tiketu −1 RP za každý ďalší a hra vypláca na RTP 96 %. Tiket ho zastaví, len kým sa hýbe (30 spinov bez pohybu alebo čakanie na kúpu 4KA TV nestačí), splnený tiket vynuluje. RP nikdy pod 1 200." },
+  { id: "sucho", title: "SUCHO", detail: "Od 4KA TV ligy: po 40 platených spinoch bez tiketu −1 RP za každý ďalší a hra vypláca na RTP 96 %. Bežiaci tiket ho zastaví na celý svoj čas (okrem tiketu, ktorý čaká už iba na kúpu 4KA TV), splnený tiket vynuluje. RP nikdy pod 1 200." },
   { id: "daily", title: "Denný pokles", detail: "Hraný deň bez splneného tiketu: na ďalší deň −1 % z RP nad 2 700. Nikdy pod 1 200 RP. Deň bez hry sa neráta." },
   { id: "sum", title: "Suma výhry", detail: "Suma v eurách násobí všetko RP z výhry. Malý hit na 0,20 € je 1 RP. 20× na 1 € je desiatky. Big win ide k stropu 200, nie cez celé ligy." },
   { id: "stake", title: "Výška stávky", detail: "Rovnaký násobok na vyššej stávke dá viac RP, lebo suma je väčšia. Bežná hra na max stávke v NEKONEČNE bez big win RP berie. Jedna prehra nie je celá divízia." },

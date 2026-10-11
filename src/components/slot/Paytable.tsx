@@ -54,7 +54,6 @@ import {
   stakeFactor,
   ticketRp,
 } from "@/lib/slot/rp-tickets";
-import { TICKET_STALL } from "@/lib/slot/sucho-guard";
 import { SUCHO_RTP, SUCHO_RTP_MEASURED, suchoNormalRange, suchoPayMul, suchoRtpLabel } from "@/lib/slot/sucho-rtp";
 import "./rp-ui.css";
 import "./manual.css";
@@ -551,12 +550,12 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
               RP sa ukáže na karte tiketu: <b>+RP</b> za splnenie a <b>−RP</b> za neúspech. Pri OTRS uvidíš presné číslo hneď po prijatí.
             </li>
             <li>
-              Kým beží tiket (a hýbe sa, pozri SUCHO), výhry na spinoch dávajú najmenej × {n(ACTIVE_MULT)} RP. Strata RP za mŕtvy spin sa nemení. Každá výhra dá aspoň 1 RP.
+              Kým beží tiket (okrem tiketu, ktorý čaká už iba na kúpu 4KA TV), výhry na spinoch dávajú najmenej × {n(ACTIVE_MULT)} RP. Strata RP za mŕtvy spin sa nemení. Každá výhra dá aspoň 1 RP.
             </li>
             <li>
               <b>SUCHO</b> (od ligy {RANKS.find((r) => r.entry >= SUCHO_MIN_ENTRY)?.name}): po {SUCHO_GRACE} platených spinoch bez tiketu ťa každý ďalší stojí −1 RP a hra
-              vypláca na {suchoRtpLabel()}. Ukazovateľ pod rankom odpočítava. Tiket SUCHO zastaví, len kým sa hýbe ({TICKET_STALL} spinov bez pohybu alebo čakanie na kúpu 4KA TV
-              ho nedrží), splnený tiket ho vynuluje, nesplnený nie. Spiny ZÁSAHU, 4KA TV a VERSUS sa nerátajú. Podrobne v časti <b>SUCHO · RTP 96 %</b>.
+              vypláca na {suchoRtpLabel()}. Ukazovateľ pod rankom odpočítava. Bežiaci tiket SUCHO zastaví na celý svoj čas (okrem tiketu, ktorý čaká
+              už iba na kúpu 4KA TV), splnený tiket ho vynuluje, nesplnený nie. Spiny ZÁSAHU, 4KA TV a VERSUS sa nerátajú. Podrobne v časti <b>SUCHO · RTP 96 %</b>.
             </li>
             <li>
               <b>Denný pokles</b>: ak si v daný deň hral a nesplnil žiadny tiket, na ďalší deň stratíš 1 % z RP nad {DAILY_FLOOR.toLocaleString("sk-SK")}. Deň bez hry sa
@@ -568,22 +567,22 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
 
         <Sec
           id="sucho"
-          lead={`Od ligy ${RANKS.find((r) => r.entry >= SUCHO_MIN_ENTRY)?.name} SUCHO trestá hranie bez tiketu: po ${SUCHO_GRACE} platených spinoch bez tiketu, ktorý sa hýbe, každý spin stojí −1 RP a hra vypláca na ${suchoRtpLabel()} (štandard Pragmatic) namiesto bežných ~${suchoNormalRange()}. Mimo SUCHA sa RTP nemení.`}
+          lead={`Od ligy ${RANKS.find((r) => r.entry >= SUCHO_MIN_ENTRY)?.name} SUCHO trestá hranie bez tiketu: po ${SUCHO_GRACE} platených spinoch bez tiketu každý spin stojí −1 RP a hra vypláca na ${suchoRtpLabel()} (štandard Pragmatic) namiesto bežných ~${suchoNormalRange()}. Mimo SUCHA sa RTP nemení.`}
         >
           <Facts
             rows={[
               ["Kedy beží", `ukazovateľ pod rankom je červený: SUCHO · ${suchoRtpLabel()}. Začne aj skončí s oznamom.`],
-              ["Kedy skončí", "keď zoberieš tiket, ktorý sa hýbe (SUCHO stojí, kým sa hýbe), alebo tiket splníš (počítadlo sa vynuluje)"],
-              ["Tiket drží SUCHO", `len kým sa hýbe: ${TICKET_STALL} platených spinov bez pohybu a prestane (TIKET STOJÍ · SUCHO beží). Pohyb ho znova zapne.`],
-              ["Tiket na kúpu 4KA TV", "POHOTOVOSŤ a OTRS, kde ostala už len kúpa: SUCHO nedrží, kým 4KA TV nekúpiš. Samotná kúpa sa ráta ako pohyb."],
-              ["Pohyb tiketu", "posun počítadla (ktoréhokoľvek cieľa), odohrané kolo 4KA TV pre tiket, odohraný ZÁSAH alebo bonus z baru správneho druhu (aj keď neprekonal rekord), kúpa pri tikete na kúpu"],
-              ["Nesplnený / stojaci tiket", "ostáva otvorený a dá sa dohrať; SUCHO sa ráta ďalej tam, kde stálo"],
+              ["Kedy skončí", "keď zoberieš tiket (SUCHO stojí, kým tiket beží), alebo tiket splníš (počítadlo sa vynuluje)"],
+              ["Tiket drží SUCHO", "počas celého svojho času, kým ho hráš, aj keď čaká na náhodný symbol (OLP, sivý lístok, bonus z baru…). Každý tiket má obmedzený počet spinov, takže sa nedá držať donekonečna."],
+              ["Tiket na kúpu 4KA TV", "POHOTOVOSŤ a OTRS, kde ostala už len kúpa: SUCHO nedrží, kým 4KA TV nekúpiš (bez kúpy sa taký tiket nepohne). Samotná kúpa je hranie tiketu."],
+              ["Tiket na 4KA TV", "PLECHOVKY, TACHYKARDIA: SUCHO drží, kým čakáš na 4KA TV zo spinov; kolá 4KA TV mu míňajú čas."],
+              ["Nesplnený tiket", "skončí po svojich spinoch; SUCHO sa ráta ďalej tam, kde stálo"],
             ]}
           />
           <ul className="man-list">
             <li>
-              Pravidlo je pre všetky tikety rovnaké, takže sa nedá „zaparkovať“ tiket a SUCHO obísť: tikety len na 4KA TV (PLECHOVKY, TACHYKARDIA), len na Ž-BOX alebo KONTROLU,
-              SIEŤ, POT, OTRS s druhým cieľom, ktorý čaká, aj tiket na kúpu.
+              „Zaparkovať“ sa nedá: každý tiket, ktorý sa hýbe bežnými spinmi, minie svoje spiny a skončí. Jediný, čo by stál donekonečna, je tiket čakajúci iba na kúpu, a ten
+              SUCHO nedrží.
             </li>
             <li>
               <b>Čo sa kráti:</b> všetko, čo vyplatí spin v SUCHU: výhra spinu (clustre, Cluster tumble, plechovky), spiny ZÁSAHU, vrátenie za mŕtvy spin, 4KA TV, ktorú spin

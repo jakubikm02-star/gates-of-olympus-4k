@@ -66,7 +66,7 @@ import { playKoleso, kolesoVipOf, type KPlay } from "@/lib/slot/koleso";
 import { postLiveHit } from "@/lib/slot/live-hit";
 import { kolesoHelpOff, setKolesoHelpOff } from "@/lib/slot/koleso-help";
 import { freshRpDay, rollRpDay, rpParts, scaleSpinGain, scaledParts, suchoLeague, suchoStep, ticketRp, type RpDay } from "@/lib/slot/rp-tickets";
-import { emptyStall, shields, stallAfter, stallLeft, stallOf, stallTick, ticketShield, type TicketShield, type TicketStall } from "@/lib/slot/sucho-guard";
+import { shields, ticketShield, type TicketShield } from "@/lib/slot/sucho-guard";
 import { suchoActive, suchoCash, suchoPayMul, type SuchoPayKind } from "@/lib/slot/sucho-rtp";
 import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision, fsSpinsOf, nextRebate, perkOf, rpFromDead, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
 import * as sfx from "@/lib/slot/audio";
@@ -506,13 +506,6 @@ export function useSlotGame() {
   /** SUCHO counter: paid spins without an active ticket (rp-tickets.ts). */
   const rpIdleRef = useRef(0);
   const [rpIdle, setRpIdle] = useState(0);
-  /** Paid SUCHO spins without progress of the open ticket (lib/slot/sucho-guard). */
-  const ticketStallRef = useRef<TicketStall>(emptyStall());
-  const [ticketStall, setTicketStallState] = useState<TicketStall>(emptyStall);
-  const setTicketStall = useCallback((t: TicketStall) => {
-    ticketStallRef.current = t;
-    setTicketStallState((prev) => (prev.id === t.id && prev.n === t.n ? prev : t));
-  }, []);
   /** SUCHO payout multiplier of the last paid spin (1 = none); a 4KA TV it triggers takes it over. */
   const lastSuchoMulRef = useRef(1);
   /** Daily RP decay record: day, played, cleared ticket. */
@@ -688,8 +681,6 @@ export function useSlotGame() {
     lastDecayAtRef.current = s.lastDecayAt ?? 0;
     rpIdleRef.current = s.rpIdle ?? 0;
     setRpIdle(rpIdleRef.current);
-    ticketStallRef.current = s.ticketStall ?? emptyStall();
-    setTicketStallState(ticketStallRef.current);
     rpDayRef.current = s.rpDay ?? freshRpDay("");
     setWeekDue(lastDecayAtRef.current > 0 ? lastDecayAtRef.current + WEEK_MS : 0);
     setInFs(Boolean(s.inFs && s.fsLeft > 0));
@@ -809,7 +800,6 @@ export function useSlotGame() {
       zboxHelpOff: zboxHelpOff(),
       kolesoHelpOff: kolesoHelpOff(),
       rpIdle: rpIdleRef.current,
-      ticketStall: ticketStallRef.current,
       rpDay: rpDayRef.current,
       zlaty: zlatyRef.current,
     };
@@ -917,7 +907,6 @@ export function useSlotGame() {
       zboxHelpOff: zboxHelpOff(),
       kolesoHelpOff: kolesoHelpOff(),
       rpIdle: rpIdleRef.current,
-      ticketStall: ticketStallRef.current,
       rpDay: rpDayRef.current,
       zlaty: zlatyRef.current,
       duelDeposit: depositRef.current,
@@ -1189,7 +1178,6 @@ export function useSlotGame() {
       zboxHelpOff: zboxHelpOff(),
       kolesoHelpOff: kolesoHelpOff(),
       rpIdle: rpIdleRef.current,
-      ticketStall: ticketStallRef.current,
       rpDay: rpDayRef.current,
       zlaty: zlatyRef.current,
       duelDeposit: depositRef.current,
@@ -1532,9 +1520,8 @@ export function useSlotGame() {
     let delta = rawDelta;
     let parts = rawParts ?? null;
     if (src === "spin" && rawDelta > 0) {
-      // A ticket that stands (sucho-guard) is not "active" for the RP rule either: no bonus for parking it.
-      const open = jobRef.current;
-      const active = shields(ticketShield(open, stallOf(ticketStallRef.current, open), Boolean(ticketPauseRef.current)));
+      // Active = the ticket holds SUCHO (sucho-guard): a ticket waiting only for a 4KA TV buy gets no bonus for parking.
+      const active = shields(ticketShield(jobRef.current, Boolean(ticketPauseRef.current)));
       delta = scaleSpinGain(rawDelta, standing(rankRef.current.rp).id, active);
       parts = scaledParts(rawParts, rawDelta, delta);
     }
@@ -1595,21 +1582,14 @@ export function useSlotGame() {
 
   /**
    * Paid spin (base, ZÁSAH or buy): marks the day played and runs the SUCHO counter.
-   * An open ticket holds SUCHO only while it moves (lib/slot/sucho-guard): every held spin adds to its stall
-   * count, a ticket waiting for a buy or standing TICKET_STALL spins lets SUCHO run.
+   * A running ticket holds SUCHO (lib/slot/sucho-guard); one that waits only for a 4KA TV buy lets it run.
    */
   const noteRpSpin = useCallback((chasing: boolean, bought = false) => {
     rollRpDayNow();
     if (!rpDayRef.current.played) rpDayRef.current = { ...rpDayRef.current, played: true };
-    // Duel rounds and ZÁSAH spins move neither SUCHO nor the ticket's stall count.
+    // Duel rounds and ZÁSAH spins do not move SUCHO.
     if (chasing || duelRef.current || duelLinkRef.current || roundEscrowRef.current) return;
-    const open = jobRef.current;
-    if (open && !ticketPauseRef.current) {
-      const st = ticketShield(open, stallOf(ticketStallRef.current, open), false, bought);
-      // The buy a ticket waits for is its progress (settleJob resets the count); anything else adds a spin.
-      if (!(bought && st === "run")) setTicketStall(stallTick(ticketStallRef.current, open));
-      if (shields(st)) return;
-    }
+    if (shields(ticketShield(jobRef.current, Boolean(ticketPauseRef.current), bought))) return;
     const rankId = standing(rankRef.current.rp).id;
     const st = suchoStep(rpIdleRef.current, rankRef.current.rp, rankId);
     rpIdleRef.current = st.idle;
@@ -1617,7 +1597,7 @@ export function useSlotGame() {
     if (st.tax) pushRank(st.tax, rpParts(st.tax, "fromSucho"), "sucho");
     // The start (and end) of SUCHO is announced by the suchoOn effect below, with the RTP 96 %.
     if (st.warn === "soon") setJobToast("SUCHO o 10 spinov · zober tiket");
-  }, [pushRank, rollRpDayNow, setTicketStall]);
+  }, [pushRank, rollRpDayNow]);
   useEffect(() => {
     if (!rpNotice || !started) return;
     const t = window.setTimeout(() => setRpNotice(null), 4200);
@@ -1629,8 +1609,7 @@ export function useSlotGame() {
 
   /** SUCHO shield of the open ticket for the next paid spin (bought = that spin is a 4KA TV buy). */
   const shieldNow = useCallback((bought = false): TicketShield => {
-    const open = jobRef.current;
-    return ticketShield(open, stallOf(ticketStallRef.current, open), Boolean(ticketPauseRef.current), bought);
+    return ticketShield(jobRef.current, Boolean(ticketPauseRef.current), bought);
   }, []);
   /** SUCHO payout multiplier for the paid spin about to start (1 outside SUCHO, below 4KA TV and in duels). */
   const suchoMulNow = useCallback(
@@ -1864,8 +1843,7 @@ export function useSlotGame() {
     }
     setKlienti(klientiRef.current);
     // Card shows what the rank gets: gains are scaled by the ticket rule like any spin RP.
-    const open = jobRef.current;
-    const held = shields(ticketShield(open, stallOf(ticketStallRef.current, open), Boolean(ticketPauseRef.current)));
+    const held = shields(ticketShield(jobRef.current, Boolean(ticketPauseRef.current)));
     const shownRp = rp > 0 ? scaleSpinGain(rp, standing(rankRef.current.rp).id, held) : rp;
     pushRank(rp);
     const card = { outcome, line, rp: shownRp };
@@ -2004,8 +1982,6 @@ export function useSlotGame() {
     if (!ticketCounts(gate)) return;
     const next = tickUnlessPaused(cur, ev, gate);
     const st = jobStatus(next);
-    // SUCHO guard: progress resets the ticket's stall count, a closed ticket clears it.
-    setTicketStall(st === "run" ? stallAfter(ticketStallRef.current, cur, next, ev) : emptyStall());
     if (st === "ok") {
       jobRef.current = null;
       setJob(null);
@@ -2074,7 +2050,7 @@ export function useSlotGame() {
       jobRef.current = next;
       setJob(next);
     }
-  }, [pushRank, rollRpDayNow, stampDailyJob, noteTicket, noteHeat, noteStat, killAuto, setTicketStall]);
+  }, [pushRank, rollRpDayNow, stampDailyJob, noteTicket, noteHeat, noteStat, killAuto]);
 
   const failParknetJob = useCallback((cur: JobCard, line = "NEÚSPEŠNÝ TIKET · MÁLO KREDITU NA 4KA TV") => {
     const burned = { ...cur, seal: false, spun: cur.limit };
@@ -4853,11 +4829,8 @@ export function useSlotGame() {
 
   // SUCHO guard + RTP for the UI (chip, toasts): the same rules the spin uses (lib/slot/sucho-guard, sucho-rtp).
   const suchoRankId = standing(rp).id;
-  const ticketShieldUi: TicketShield = ticketShield(
-    job,
-    stallOf(ticketStall, job),
-    Boolean(ticketPause && job && ticketPause.jobId === job.id),
-  );
+  // Derived from the ticket alone, so a loaded save is judged by the current rule on the first render.
+  const ticketShieldUi: TicketShield = ticketShield(job, Boolean(ticketPause && job && ticketPause.jobId === job.id));
   const suchoOn = suchoActive({ rankId: suchoRankId, idle: rpIdle, shielded: shields(ticketShieldUi) });
   const suchoOnPrev = useRef<boolean | null>(null);
   const shieldPrev = useRef<{ id: string; s: TicketShield } | null>(null);
@@ -4870,20 +4843,18 @@ export function useSlotGame() {
     shieldPrev.current = now;
     if (prev === null) return;
     if (prev !== suchoOn) {
-      const stands = ticketShieldUi === "stall" || ticketShieldUi === "buy";
       setJobToast(
         suchoOn
-          ? stands
-            ? "TIKET STOJÍ · SUCHO beží · RTP 96 %"
+          ? ticketShieldUi === "buy"
+            ? "TIKET ČAKÁ NA KÚPU · SUCHO beží · RTP 96 %"
             : "SUCHO · RTP 96 % · −1 RP/spin · zober tiket"
           : "SUCHO SKONČILO · RTP späť na plné",
       );
       return;
     }
-    // Same SUCHO phase, but the open ticket just stopped holding it (still counting down to SUCHO).
+    // Same SUCHO phase, but the open ticket just stopped holding it (only the buy is left).
     if (job && sh && sh.id === now.id && sh.s !== now.s && suchoLeague(suchoRankId)) {
-      if (now.s === "stall") setJobToast("TIKET STOJÍ · 30 spinov bez pohybu · SUCHO sa odpočítava");
-      else if (now.s === "buy") setJobToast("TIKET ČAKÁ NA KÚPU 4KA TV · SUCHO sa odpočítava");
+      if (now.s === "buy") setJobToast("TIKET ČAKÁ NA KÚPU 4KA TV · SUCHO sa odpočítava");
     } else if (job && (!sh || sh.id !== now.id) && now.s === "buy" && suchoLeague(suchoRankId)) {
       setJobToast("TIKET ČAKÁ NA KÚPU 4KA TV · SUCHO nestojí");
     }
@@ -5154,10 +5125,8 @@ export function useSlotGame() {
     rpNotice: started ? (rpNotice?.text ?? null) : null,
     rpIdle,
     suchoLeague: suchoLeague(standing(rp).id),
-    /** Open ticket vs SUCHO: run (holds it), stall (30 spins without progress), buy (waits for a buy), none. */
+    /** Open ticket vs SUCHO: run (holds it), buy (waits only for a 4KA TV buy, SUCHO runs), none. */
     ticketShield: ticketShieldUi,
-    /** Paid spins the open ticket still holds SUCHO without progress (0 = standing / n.a.). */
-    ticketStallLeft: stallLeft(job, stallOf(ticketStall, job)),
     /** SUCHO penalty phase: −1 RP per spin and the game pays at RTP 96 % (lib/slot/sucho-rtp). */
     suchoOn,
     /** Payout multiplier while SUCHO runs, at the current rank and ante (display). */
