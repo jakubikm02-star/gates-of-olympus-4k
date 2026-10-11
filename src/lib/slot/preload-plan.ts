@@ -173,7 +173,7 @@ export function retryDelay(attempt: number): number | null {
 
 /**
  * A download is aborted (and retried) only when no byte arrived for this long — never on total time,
- * so a 19 MB music bed on a slow phone link can take minutes without being cut off.
+ * so a multi-MB music bed on a slow phone link can take a while without being cut off.
  */
 export const STALL_MS = 20_000;
 /** Images have no byte stream: one try gets this long plus 1 s per 4 kB (a very slow link still finishes). */

@@ -127,6 +127,30 @@ let vizAnalyser: AnalyserNode | null = null;
 let vizSource: AudioNode | null = null;
 const tappedEls = new WeakSet<HTMLAudioElement>();
 
+/** Original bed.flac md5 from sfx_keys2. Recompressed to Opus/AAC; that upload still means "play the static pack file". */
+const SHIPPED_FLAC_MD5: Record<string, string> = {
+  bed: "524c7627642c2d8c122bf0dd7b2bdd21",
+};
+
+/**
+ * Pack bed: Opus in .ogg (~128 kb/s stereo). AAC .m4a (~160 kb/s) when the browser cannot play
+ * Opus-in-Ogg (Safari before 18.4 / older iOS). iOS Safari 18.4+ reports opus-in-ogg; everyone else
+ * that lacks it gets m4a. Node (tests) defaults to .ogg.
+ */
+function bedPackUrl(): string {
+  const v = "bed2";
+  if (typeof Audio !== "undefined") {
+    try {
+      const probe = new Audio().canPlayType('audio/ogg; codecs="opus"');
+      if (probe === "probably" || probe === "maybe") return `/sfx/pack/bed.ogg?v=${v}`;
+    } catch {
+      /* no Audio API */
+    }
+    return `/sfx/pack/bed.m4a?v=${v}`;
+  }
+  return `/sfx/pack/bed.ogg?v=${v}`;
+}
+
 const FILES: Record<string, string> = {
   spin: "/sfx/spin.mp3?v=trailer1",
   land: "/sfx/land.mp3?v=keys1",
@@ -159,7 +183,7 @@ const FILES: Record<string, string> = {
   can: "/sfx/can-open.mp3?v=open2",
   /** Blesk do plechovky: the bolt hits a winning can (activation). */
   can_lightning: "/sfx/pack/can_lightning.mp3?v=pack1",
-  bed: "/sfx/pack/bed.flac?v=pack1",
+  bed: bedPackUrl(),
   zasah: "/sfx/pack/zasah.mp3?v=pack1",
   /** Zásah one-shots. */
   zStart: "/sfx/pack/zStart.mp3?v=pack1",
@@ -446,7 +470,13 @@ export function shipsAsFile(row: CueRow): boolean {
   const url = FILES[row.key];
   if (!url) return false;
   const path = url.split("?")[0];
-  if (row.v) return Boolean(staticMd5[path]) && staticMd5[path] === row.v.toLowerCase();
+  if (row.v) {
+    const v = row.v.toLowerCase();
+    if (staticMd5[path] && staticMd5[path] === v) return true;
+    // Pack music recompressed (flac → opus/aac): server may still list the old flac md5.
+    if (SHIPPED_FLAC_MD5[row.key] === v && path.startsWith("/sfx/pack/")) return true;
+    return false;
+  }
   // No md5 from the server (sfx_keys2 not migrated): the /sfx/pack/ defaults are the shipped uploads
   // (commit 112f6ab, byte-identical on 2026-10-11). A re-upload of such a slot needs sfx_keys2 to reach players.
   return path.startsWith("/sfx/pack/");
