@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PrenosRouteImport } from './routes/prenos'
+import { Route as ApiClockRouteImport } from './routes/api/clock'
 import { Route as ApiDuelRouteImport } from './routes/api/duel'
 import { Route as ApiReleaseRouteImport } from './routes/api/release'
 import { Route as ApiRtcRouteImport } from './routes/api/rtc'
@@ -23,6 +24,11 @@ const IndexRoute = IndexRouteImport.update({
 const PrenosRoute = PrenosRouteImport.update({
   id: '/prenos',
   path: '/prenos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiClockRoute = ApiClockRouteImport.update({
+  id: '/api/clock',
+  path: '/api/clock',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDuelRoute = ApiDuelRouteImport.update({
@@ -44,6 +50,7 @@ const ApiRtcRoute = ApiRtcRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/prenos': typeof PrenosRoute
+  '/api/clock': typeof ApiClockRoute
   '/api/duel': typeof ApiDuelRoute
   '/api/release': typeof ApiReleaseRoute
   '/api/rtc': typeof ApiRtcRoute
@@ -51,6 +58,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/prenos': typeof PrenosRoute
+  '/api/clock': typeof ApiClockRoute
   '/api/duel': typeof ApiDuelRoute
   '/api/release': typeof ApiReleaseRoute
   '/api/rtc': typeof ApiRtcRoute
@@ -59,21 +67,31 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/prenos': typeof PrenosRoute
+  '/api/clock': typeof ApiClockRoute
   '/api/duel': typeof ApiDuelRoute
   '/api/release': typeof ApiReleaseRoute
   '/api/rtc': typeof ApiRtcRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/prenos' | '/api/duel' | '/api/release' | '/api/rtc'
+  fullPaths:
+    '/' | '/prenos' | '/api/clock' | '/api/duel' | '/api/release' | '/api/rtc'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/prenos' | '/api/duel' | '/api/release' | '/api/rtc'
-  id: '__root__' | '/' | '/prenos' | '/api/duel' | '/api/release' | '/api/rtc'
+  to: '/' | '/prenos' | '/api/clock' | '/api/duel' | '/api/release' | '/api/rtc'
+  id:
+    | '__root__'
+    | '/'
+    | '/prenos'
+    | '/api/clock'
+    | '/api/duel'
+    | '/api/release'
+    | '/api/rtc'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   PrenosRoute: typeof PrenosRoute
+  ApiClockRoute: typeof ApiClockRoute
   ApiDuelRoute: typeof ApiDuelRoute
   ApiReleaseRoute: typeof ApiReleaseRoute
   ApiRtcRoute: typeof ApiRtcRoute
@@ -93,6 +111,13 @@ declare module '@tanstack/react-router' {
       path: '/prenos'
       fullPath: '/prenos'
       preLoaderRoute: typeof PrenosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/clock': {
+      id: '/api/clock'
+      path: '/api/clock'
+      fullPath: '/api/clock'
+      preLoaderRoute: typeof ApiClockRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/duel': {
@@ -122,6 +147,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PrenosRoute: PrenosRoute,
+  ApiClockRoute: ApiClockRoute,
   ApiDuelRoute: ApiDuelRoute,
   ApiReleaseRoute: ApiReleaseRoute,
   ApiRtcRoute: ApiRtcRoute,

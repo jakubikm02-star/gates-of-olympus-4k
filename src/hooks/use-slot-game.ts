@@ -39,7 +39,27 @@ import {
 } from "@/lib/slot/engine";
 import { bumpPity, dealPickBoard, pityGain, PITY_GOAL, readPity, spendPity, type PickTile, type PityMap } from "@/lib/slot/pick-bonus";
 import { drawBonusMode, type BonusModeId, type PendingBonus } from "@/lib/slot/bonus-mode";
-import { playZbox, zboxVipOf, type ZPlay } from "@/lib/slot/zbox";
+import { P_CAN, playZbox, zboxVipOf, type ZPlay } from "@/lib/slot/zbox";
+import {
+  ZLATY_CAP_X,
+  ZLATE_VYSEKY_G,
+  claimGold,
+  emptyZlaty,
+  goldBoard,
+  goldCash,
+  goldWaiting,
+  kontrolaRegularX,
+  noteStake,
+  recordGold,
+  usualStake,
+  zlataPokutaOf,
+  zlatyEnabled,
+  zlatyKurierOf,
+  type GoldRun,
+  type ZlatyState,
+} from "@/lib/slot/zlaty";
+import { braDay, msToReset, serverNow, syncServerClock } from "@/lib/slot/server-day";
+import type { ZlatyResultInfo } from "@/components/slot/Zlaty";
 import { setZboxHelpOff, zboxHelpOff } from "@/lib/slot/zbox-help";
 import { pauseTicket, resumePlan, ticketCounts, tickUnlessPaused, ticketReserve, type TicketPause } from "@/lib/slot/ticket-pause";
 import { playKoleso, kolesoVipOf, type KPlay } from "@/lib/slot/koleso";
@@ -269,12 +289,21 @@ export function useSlotGame() {
   const [pickClear, setPickClear] = useState(false);
   const [pityByBet, setPityByBet] = useState<PityMap>({});
   /** Mode strip of the filled bar (shows the mode drawn at the fill). */
-  const [modeStrip, setModeStrip] = useState<{ mode: BonusModeId; key: number } | null>(null);
+  const [modeStrip, setModeStrip] = useState<{ mode: BonusModeId; key: number; gold?: boolean } | null>(null);
   /** Running Ž-BOX: the whole run is decided up front (playZbox), the overlay animates it. */
   const [zbox, setZbox] = useState<{ play: ZPlay; bet: number; gross: number; net: number; tax: ChaseModKind | null; key: number } | null>(null);
   /** Running KOLESO NEŠŤASTIA: decided up front (playKoleso), the overlay animates it. */
   const [koleso, setKoleso] = useState<{ play: KPlay; bet: number; gross: number; net: number; tax: ChaseModKind | null; key: number } | null>(null);
   const [pityDelta, setPityDelta] = useState(0);
+  /** ZLATÝ BONUS (lib/slot/zlaty): saved state, the golden run on screen, its reveal and result. */
+  const [zlaty, setZlaty] = useState<ZlatyState>(emptyZlaty);
+  const [goldOn] = useState(() => zlatyEnabled());
+  const [goldDay, setGoldDay] = useState(() => braDay(serverNow()));
+  const [goldRun, setGoldRun] = useState<{ mode: BonusModeId; bet: number; stake: number } | null>(null);
+  const [goldReveal, setGoldReveal] = useState<{ mode: BonusModeId; key: number } | null>(null);
+  const [goldResult, setGoldResult] = useState<ZlatyResultInfo | null>(null);
+  const [goldTeaser, setGoldTeaser] = useState(false);
+  const [goldSheet, setGoldSheet] = useState(false);
   const [rp, setRp] = useState(0);
   const [rankPeak, setRankPeak] = useState(0);
   const [rankShield, setRankShield] = useState(false);
@@ -431,6 +460,8 @@ export function useSlotGame() {
   const pickClearRef = useRef(false);
   const pickTilesRef = useRef<PickTile[]>([]);
   const pickRevealedRef = useRef<boolean[]>([]);
+  /** ZLATÁ POKUTA tile was actually picked (revealed is all-true after an ODŤAH). */
+  const goldPickedRef = useRef(false);
   const pityByBetRef = useRef<PityMap>({});
   /** Win of the running ZÁSAH (× bet, ZÁSAH spins only) for feature tickets. Not saved: a reload restarts the sum. */
   const chaseXRef = useRef(0);
@@ -440,6 +471,9 @@ export function useSlotGame() {
   const stripWait = useRef<(() => void) | null>(null);
   const zboxWait = useRef<(() => void) | null>(null);
   const kolesoWait = useRef<(() => void) | null>(null);
+  const zlatyRef = useRef<ZlatyState>(emptyZlaty());
+  const goldRevealWait = useRef<(() => void) | null>(null);
+  const goldResultWait = useRef<(() => void) | null>(null);
   const bonusResumeOnce = useRef(false);
   /** Tax period of the spin that armed KONTROLA (null = none / ZÁSAH / duel). */
   const pickModRef = useRef<ChaseMod | null>(null);
@@ -581,6 +615,8 @@ export function useSlotGame() {
     pityByBetRef.current = s.pityByBet;
     setPityByBet(s.pityByBet);
     bonusPendingRef.current = s.bonusPending ?? null;
+    zlatyRef.current = s.zlaty ?? emptyZlaty();
+    setZlaty(zlatyRef.current);
     if (s.zboxHelpOff && !zboxHelpOff()) setZboxHelpOff(true);
     if (s.kolesoHelpOff && !kolesoHelpOff()) setKolesoHelpOff(true);
     setRp(s.rp);
@@ -741,6 +777,7 @@ export function useSlotGame() {
       kolesoHelpOff: kolesoHelpOff(),
       rpIdle: rpIdleRef.current,
       rpDay: rpDayRef.current,
+      zlaty: zlatyRef.current,
     };
     if (dead) writeLocal(saveSnapRef.current);
   }, []);
@@ -845,6 +882,7 @@ export function useSlotGame() {
       kolesoHelpOff: kolesoHelpOff(),
       rpIdle: rpIdleRef.current,
       rpDay: rpDayRef.current,
+      zlaty: zlatyRef.current,
       duelDeposit: depositRef.current,
       updatedAt: Date.now(),
     };
@@ -1113,6 +1151,7 @@ export function useSlotGame() {
       kolesoHelpOff: kolesoHelpOff(),
       rpIdle: rpIdleRef.current,
       rpDay: rpDayRef.current,
+      zlaty: zlatyRef.current,
       duelDeposit: depositRef.current,
     };
     const stamped = carryStamp(saveSnapRef.current, payload);
@@ -2118,6 +2157,7 @@ export function useSlotGame() {
       sfx.playThunder();
       window.setTimeout(() => setPickEnded(true), 640);
     } else {
+      if (tile.kind === "zlata") goldPickedRef.current = true;
       pickTotalXRef.current = +(pickTotalXRef.current + tile.payX).toFixed(4);
       setPickRevealed(nextRev);
       const cleared = pickTilesRef.current.every((t, i) => t.kind === "odtah" || nextRev[i]);
@@ -2143,8 +2183,43 @@ export function useSlotGame() {
     done?.();
   }, []);
 
-  const runPick = useCallback(async () => {
-    const tiles = dealPickBoard(createRng());
+  /** Golden result card: stats first (saved), then the card until tapped (auto under autoplay). */
+  const showGoldResult = useCallback(
+    async (r: { mode: BonusModeId; x: number; cash: number; regular: number; bet: number; stake: number; day: string }) => {
+      zlatyRef.current = recordGold(zlatyRef.current, { mode: r.mode, x: r.x, cash: r.cash, extra: +(r.cash - r.regular).toFixed(2), day: r.day });
+      setZlaty(zlatyRef.current);
+      persistNow();
+      setGoldRun(null);
+      setGoldResult({ mode: r.mode, x: r.x, cash: r.cash, regular: r.regular, bet: r.bet, stake: r.stake, streak: zlatyRef.current.streak, key: Date.now() });
+      await new Promise<void>((resolve) => {
+        goldResultWait.current = resolve;
+      });
+      setGoldResult(null);
+    },
+    [persistNow],
+  );
+
+  const finishGoldResult = useCallback(() => {
+    const done = goldResultWait.current;
+    goldResultWait.current = null;
+    sfx.playClick();
+    done?.();
+  }, []);
+
+  const finishGoldReveal = useCallback(() => {
+    const done = goldRevealWait.current;
+    goldRevealWait.current = null;
+    done?.();
+  }, []);
+
+  const runPick = useCallback(async (goldIn?: GoldRun | null) => {
+    const gold = goldIn && !roundEscrowRef.current ? goldIn : null;
+    const pickRank = standing(rankRef.current.rp).id;
+    const pickPerk = perkOf(pickRank);
+    const dealt = dealPickBoard(createRng());
+    const tiles = gold ? goldBoard(dealt, pickPerk.peekCap, pickPerk.peekCount, zlataPokutaOf(pickRank)) : dealt;
+    goldPickedRef.current = false;
+    if (gold) setGoldRun({ mode: "kontrola", bet: BETS[betIndexRef.current], stake: gold.stake });
     pickTilesRef.current = tiles;
     pickRevealedRef.current = tiles.map(() => false);
     pickTotalXRef.current = 0;
@@ -2170,7 +2245,16 @@ export function useSlotGame() {
     await waitForPick();
     const pickMod = pickModRef.current;
     pickModRef.current = null;
-    const cash0 = +(pickTotalXRef.current * betNow).toFixed(2);
+    const goldX = Math.min(ZLATY_CAP_X, pickTotalXRef.current);
+    const regX = gold
+      ? kontrolaRegularX(
+          pickTilesRef.current,
+          pickTilesRef.current.map((t) => t.kind === "zlata" && goldPickedRef.current),
+          pickClearRef.current,
+          pickTotalXRef.current,
+        )
+      : pickTotalXRef.current;
+    const cash0 = gold ? goldCash(goldX, regX, betNow, gold.stake) : +(pickTotalXRef.current * betNow).toFixed(2);
     const escrow = roundEscrowRef.current;
     const { net: cash, delta: pickDelta } = applyMod(cash0, pickMod, escrow ? "duel" : "pick");
     if (cash > 0) {
@@ -2195,13 +2279,15 @@ export function useSlotGame() {
       roundCashRef.current = +(roundCashRef.current + cash).toFixed(2);
       sfx.playPayout();
       const streak = noteResult(true);
+      // ZLATÝ BONUS: RP as from the same bonus without gold (the gold boosts credits, never RP).
+      const rpCash = gold && cash0 > 0 ? +((cash * regX * betNow) / cash0).toFixed(2) : cash;
       const parts = rpFromSpin({
-        cash,
+        cash: rpCash,
         bet: betNow,
         mult: 1,
         tumbles: 0,
         streak,
-        banner: bannerFromX(cash / betNow),
+        banner: bannerFromX(rpCash / betNow),
         kind: "pick",
         picks: pickTilesRef.current.filter((t, i) => pickRevealedRef.current[i] && t.kind !== "odtah").length,
         rankId: standing(rankRef.current.rp).id,
@@ -2243,7 +2329,11 @@ export function useSlotGame() {
       spun: false,
       bonus: { mode: "kontrola", x: pickTotalXRef.current, safes, cleared: pickClearRef.current, canSum: 0, rounds: 0 },
     });
-  }, [waitForPick, pushRank, noteResult, noteHeat, noteStat, settleJob, bumpToday]);
+    if (gold) {
+      const k = cash0 > 0 ? cash / cash0 : 1;
+      await showGoldResult({ mode: "kontrola", x: goldX, cash, regular: +(regX * betNow * k).toFixed(2), bet: betNow, stake: gold.stake, day: gold.day });
+    }
+  }, [waitForPick, pushRank, noteResult, noteHeat, noteStat, settleJob, bumpToday, showGoldResult]);
 
   /** Mode strip done (auto after ~2 s, or tapped). */
   const finishModeStrip = useCallback(() => {
@@ -2269,10 +2359,17 @@ export function useSlotGame() {
     async (pend: PendingBonus, seed: number) => {
       const betNow = pend.bet > 0 ? pend.bet : BETS[betIndexRef.current];
       const rankId = standing(rankRef.current.rp).id;
-      const play = playZbox(createRng(seed), { vip: zboxVipOf(rankId) });
+      const gold = pend.gold && !roundEscrowRef.current ? pend.gold : null;
+      const vip = zboxVipOf(rankId);
+      const play = gold
+        ? playZbox(createRng(seed), { vip, q: Math.min(1, P_CAN * zlatyKurierOf(rankId)), cap: ZLATY_CAP_X })
+        : playZbox(createRng(seed), { vip });
+      // The same seed without gold: what this bonus pays normally (the uplift above the usual stake is not paid).
+      const regX = gold ? playZbox(createRng(seed), { vip }).totalX : play.totalX;
       const pickMod = pickModRef.current;
       pickModRef.current = null;
-      const cash0 = +(play.totalX * betNow).toFixed(2);
+      const cash0 = gold ? goldCash(play.totalX, regX, betNow, gold.stake) : +(play.totalX * betNow).toFixed(2);
+      if (gold) setGoldRun({ mode: "zbox", bet: betNow, stake: gold.stake });
       const { net: cash } = applyMod(cash0, pickMod, "pick");
       const taxKind = Math.abs(cash - cash0) >= 0.01 ? (pickMod?.kind ?? null) : null;
       setPhase("pick");
@@ -2299,13 +2396,14 @@ export function useSlotGame() {
         sfx.playPayout();
         const streak = noteResult(true);
         const found = play.rounds.reduce((n, r) => n + r.parcels.length, 0);
+        const rpCash = gold && cash0 > 0 ? +((cash * regX * betNow) / cash0).toFixed(2) : cash;
         const parts = rpFromSpin({
-          cash,
+          cash: rpCash,
           bet: betNow,
           mult: 1,
           tumbles: 0,
           streak,
-          banner: bannerFromX(cash / betNow),
+          banner: bannerFromX(rpCash / betNow),
           kind: "pick",
           picks: found,
           rankId: standing(rankRef.current.rp).id,
@@ -2343,8 +2441,12 @@ export function useSlotGame() {
         spun: false,
         bonus: { mode: "zbox", x: play.totalX, safes: parcels, cleared: play.full, canSum: play.canSum, rounds: play.rounds.length },
       });
+      if (gold) {
+        const k = cash0 > 0 ? cash / cash0 : 1;
+        await showGoldResult({ mode: "zbox", x: play.totalX, cash, regular: +(regX * betNow * k).toFixed(2), bet: betNow, stake: gold.stake, day: gold.day });
+      }
     },
-    [pushRank, noteResult, noteHeat, noteStat, persistNow, settleJob, bumpToday],
+    [pushRank, noteResult, noteHeat, noteStat, persistNow, settleJob, bumpToday, showGoldResult],
   );
 
   /** KOLESO payout seen, tap to return. */
@@ -2364,10 +2466,15 @@ export function useSlotGame() {
     async (pend: PendingBonus, seed: number) => {
       const betNow = pend.bet > 0 ? pend.bet : BETS[betIndexRef.current];
       const rankId = standing(rankRef.current.rp).id;
-      const play = playKoleso(createRng(seed), { vip: kolesoVipOf(rankId) });
+      const gold = pend.gold && !roundEscrowRef.current ? pend.gold : null;
+      const vip = kolesoVipOf(rankId);
+      const play = gold ? playKoleso(createRng(seed), { vip, gain: ZLATE_VYSEKY_G, cap: ZLATY_CAP_X }) : playKoleso(createRng(seed), { vip });
+      // Same seed, same wheel path without gold: what this bonus pays normally.
+      const regX = gold ? playKoleso(createRng(seed), { vip }).totalX : play.totalX;
       const pickMod = pickModRef.current;
       pickModRef.current = null;
-      const cash0 = +(play.totalX * betNow).toFixed(2);
+      const cash0 = gold ? goldCash(play.totalX, regX, betNow, gold.stake) : +(play.totalX * betNow).toFixed(2);
+      if (gold) setGoldRun({ mode: "koleso", bet: betNow, stake: gold.stake });
       const { net: cash } = applyMod(cash0, pickMod, "pick");
       const taxKind = Math.abs(cash - cash0) >= 0.01 ? (pickMod?.kind ?? null) : null;
       setPhase("pick");
@@ -2392,13 +2499,14 @@ export function useSlotGame() {
         roundCashRef.current = +(roundCashRef.current + cash).toFixed(2);
         sfx.playPayout();
         const streak = noteResult(true);
+        const rpCash = gold && cash0 > 0 ? +((cash * regX * betNow) / cash0).toFixed(2) : cash;
         const parts = rpFromSpin({
-          cash,
+          cash: rpCash,
           bet: betNow,
           mult: 1,
           tumbles: 0,
           streak,
-          banner: bannerFromX(cash / betNow),
+          banner: bannerFromX(rpCash / betNow),
           kind: "pick",
           picks: play.steps.filter((st) => st.hits > 0).length,
           rankId: standing(rankRef.current.rp).id,
@@ -2437,8 +2545,12 @@ export function useSlotGame() {
         spun: false,
         bonus: { mode: "koleso", x: play.totalX, safes: letters, cleared: play.solved, canSum: 0, rounds: play.steps.length },
       });
+      if (gold) {
+        const k = cash0 > 0 ? cash / cash0 : 1;
+        await showGoldResult({ mode: "koleso", x: play.totalX, cash, regular: +(regX * betNow * k).toFixed(2), bet: betNow, stake: gold.stake, day: gold.day });
+      }
     },
-    [pushRank, noteResult, noteHeat, noteStat, persistNow, settleJob, bumpToday],
+    [pushRank, noteResult, noteHeat, noteStat, persistNow, settleJob, bumpToday, showGoldResult],
   );
 
   /**
@@ -2456,12 +2568,20 @@ export function useSlotGame() {
     };
     if (!pickModRef.current && pend.mod && pend.modLeft > 0) pickModRef.current = { kind: pend.mod, left: pend.modLeft };
     sfx.stopSpin();
-    setModeStrip({ mode: pend.mode, key: Date.now() });
+    setModeStrip({ mode: pend.mode, key: Date.now(), gold: !!pend.gold && !roundEscrowRef.current });
     await new Promise<void>((resolve) => {
       stripWait.current = resolve;
     });
     setModeStrip(null);
     noteStat({ t: "barMode", mode: pend.mode });
+    if (pend.gold && !roundEscrowRef.current) {
+      setGoldTeaser(false);
+      setGoldReveal({ mode: pend.mode, key: Date.now() });
+      await new Promise<void>((resolve) => {
+        goldRevealWait.current = resolve;
+      });
+      setGoldReveal(null);
+    }
     if (pend.mode === "zbox" || pend.mode === "koleso") {
       const seed = pend.seed ?? Math.floor(Math.random() * 0x100000000);
       bonusPendingRef.current = { ...pend, seed };
@@ -2471,7 +2591,7 @@ export function useSlotGame() {
     } else {
       bonusPendingRef.current = null;
       persistNow();
-      await runPick();
+      await runPick(pend.gold ?? null);
     }
   }, [runPick, runZbox, runKoleso, noteStat, persistNow]);
 
@@ -2848,6 +2968,8 @@ export function useSlotGame() {
 
       // KONTROLA is off in a duel (both modes): no pity gain, no trigger; the saved meter stays as it was.
       if (!fsNow && !roundEscrowRef.current) {
+        // ZLATÝ BONUS: remember paid stakes for the usual stake (golden part pays on at most that).
+        zlatyRef.current = noteStake(zlatyRef.current, currentBet);
         const dead = sequenceX <= 0;
         const add = pityGain(scatterPeak, dead);
         if (add > 0) {
@@ -2861,12 +2983,22 @@ export function useSlotGame() {
             pendingPick = true;
             // The mode (KONTROLA / Ž-BOX) is drawn now and saved, so a reload cannot redraw it (lib/slot/bonus-mode).
             const armMod = pickModRef.current && pickModRef.current.left > 0 ? pickModRef.current : null;
+            // ZLATÝ BONUS: the first bar bonus of the day (server day, Europe/Bratislava) takes today's gold now,
+            // saved with the pending bonus, so a reload or a later bet change cannot move it.
+            const today = braDay(serverNow());
+            let gold: GoldRun | undefined;
+            if (goldOn && goldWaiting(zlatyRef.current, today)) {
+              gold = { day: today, stake: usualStake(zlatyRef.current.stakes, currentBet) };
+              zlatyRef.current = claimGold(zlatyRef.current, today);
+              setZlaty(zlatyRef.current);
+            }
             bonusPendingRef.current = {
               mode: drawBonusMode(createRng()),
               bet: currentBet,
               mod: armMod?.kind ?? null,
               modLeft: armMod?.left ?? 0,
               at: Date.now(),
+              ...(gold ? { gold } : {}),
             };
             persistNow();
           } else {
@@ -4475,6 +4607,45 @@ export function useSlotGame() {
     closeFinishedDuel();
   };
 
+  /* ZLATÝ BONUS: server clock (P0 server day), day roll at Bratislava midnight, daily teaser. */
+  useEffect(() => {
+    let dead = false;
+    const sync = () =>
+      void syncServerClock().then(() => {
+        if (!dead) setGoldDay(braDay(serverNow()));
+      });
+    sync();
+    const onVis = () => {
+      if (document.visibilityState === "visible") sync();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      dead = true;
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setGoldDay(braDay(serverNow())), Math.min(msToReset(serverNow()) + 800, 6 * 3600 * 1000));
+    return () => window.clearTimeout(id);
+  }, [goldDay]);
+
+  const goldWaitingNow = goldOn && goldWaiting(zlaty, goldDay);
+
+  useEffect(() => {
+    if (!started || !goldWaitingNow || duel || zlaty.teasedDay >= goldDay) return;
+    const id = window.setTimeout(() => {
+      if (busyRef.current || inFsRef.current) return;
+      zlatyRef.current = { ...zlatyRef.current, teasedDay: goldDay };
+      setZlaty(zlatyRef.current);
+      setGoldTeaser(true);
+      persistNow();
+    }, 1200);
+    return () => window.clearTimeout(id);
+  }, [started, goldWaitingNow, duel, zlaty.teasedDay, goldDay, persistNow]);
+
+  const goldUsual = usualStake(zlaty.stakes, BETS[betIndex]);
+
   return {
     started,
     bootReady,
@@ -4540,6 +4711,20 @@ export function useSlotGame() {
     finishPick,
     modeStrip,
     finishModeStrip,
+    zlaty,
+    goldOn,
+    goldDay,
+    goldWaiting: goldWaitingNow,
+    goldUsual,
+    goldRun,
+    goldReveal,
+    finishGoldReveal,
+    goldResult,
+    finishGoldResult,
+    goldTeaser,
+    closeGoldTeaser: () => setGoldTeaser(false),
+    goldSheet,
+    setGoldSheet,
     zbox,
     finishZbox,
     koleso,
@@ -4580,6 +4765,7 @@ export function useSlotGame() {
     winStreak,
     rankParts,
     perk,
+    rankId,
     buyX,
     weekDue,
     weekTarget: standing(dropOneDivision(rp)),

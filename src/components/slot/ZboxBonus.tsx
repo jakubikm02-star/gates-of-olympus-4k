@@ -947,7 +947,7 @@ export function ZboxBonus({ play, bet, gross, net, tax, turbo, reduced, onDone }
               <CountUp value={multStep >= 4 ? gross : 0} ms={1100 * k} />
               &nbsp;€
             </b>
-            {capped && multStep >= 4 ? <em>Strop Ž-BOXu: {ZBOX_CAP_X}× stávky</em> : null}
+            {capped && multStep >= 4 ? <em>Strop Ž-BOXu: {play.cap ?? ZBOX_CAP_X}× stávky</em> : null}
           </div>
           <p className="zb-pay-tap">{"\u00a0"}</p>
         </div>
@@ -974,7 +974,7 @@ export function ZboxBonus({ play, bet, gross, net, tax, turbo, reduced, onDone }
             {capped ? (
               <li className={payStep >= 2 ? "is-on" : "is-dim"}>
                 <span>Strop Ž-BOXu</span>
-                <b>{ZBOX_CAP_X}× stávky</b>
+                <b>{play.cap ?? ZBOX_CAP_X}× stávky</b>
               </li>
             ) : null}
             {tax ? (

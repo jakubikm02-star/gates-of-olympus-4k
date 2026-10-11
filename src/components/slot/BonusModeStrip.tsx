@@ -11,7 +11,7 @@ const TILE = 168;
  * decelerates into the mode drawn when the bar filled (it never decides anything). Tap = skip. Compositor
  * only: one CSS transform transition on the strip.
  */
-export function BonusModeStrip({ mode, turbo, reduced, onDone }: { mode: BonusModeId; turbo: boolean; reduced: boolean; onDone: () => void }) {
+export function BonusModeStrip({ mode, gold = false, turbo, reduced, onDone }: { mode: BonusModeId; gold?: boolean; turbo: boolean; reduced: boolean; onDone: () => void }) {
   const target = stripTarget(mode, reduced ? 0 : LAPS);
   const ms = stripMs(turbo, reduced);
   const [go, setGo] = useState(false);
@@ -54,8 +54,8 @@ export function BonusModeStrip({ mode, turbo, reduced, onDone }: { mode: BonusMo
 
   const def = bonusModeDef(mode);
   return (
-    <div className={`ms-back ${landed ? "is-landed" : ""} ${reduced ? "is-reduced" : ""}`} role="dialog" aria-label={`Bonus: ${def.label}`} onClick={finish}>
-      <p className="ms-kicker">BAR PLNÝ · LOSUJE SA BONUS</p>
+    <div className={`ms-back ${landed ? "is-landed" : ""} ${reduced ? "is-reduced" : ""} ${gold ? "is-gold" : ""}`} role="dialog" aria-label={`Bonus: ${def.label}`} onClick={finish}>
+      <p className="ms-kicker">{gold ? "★ ZLATÝ BONUS DŇA · LOSUJE SA ★" : "BAR PLNÝ · LOSUJE SA BONUS"}</p>
       <div className="ms-window">
         <div
           className="ms-strip"

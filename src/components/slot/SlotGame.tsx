@@ -15,6 +15,7 @@ import { jobClock, jobMeter, jobProgress, jobShownGoal, sayCluster, type JobCard
 import { rankPeekIds } from "@/lib/slot/pick-bonus";
 import { BonusModeStrip } from "./BonusModeStrip";
 import { ZboxBonus } from "./ZboxBonus";
+import { ZlatyBarBadge, ZlatyHud, ZlatyResult, ZlatyReveal, ZlatySheet, ZlatyTeaser } from "./Zlaty";
 import { ZasahBattery } from "./ZasahBattery";
 import { KolesoBonus } from "./KolesoBonus";
 import { useSlotGame } from "@/hooks/use-slot-game";
@@ -463,7 +464,8 @@ export function SlotGame() {
                 </div>
               ) : (
                 <div className="meter-split">
-                  <div className={`pity-bar ${g.pityDelta ? "is-feed" : ""} ${g.pity >= g.pityGoal ? "is-hot" : ""} ${g.pity <= 0 ? "is-quiet" : ""}`}>
+                  <div className={`pity-bar ${g.pityDelta ? "is-feed" : ""} ${g.pity >= g.pityGoal ? "is-hot" : ""} ${g.pity <= 0 ? "is-quiet" : ""} ${g.goldWaiting && !g.duel ? "is-gold" : ""}`}>
+                    {g.goldOn && !g.duel ? <ZlatyBarBadge waiting={g.goldWaiting} onOpen={() => g.setGoldSheet(true)} /> : null}
                     <span className="pity-kicker" title="Plný bar spustí náhodne KONTROLU, Ž-BOX alebo KOLESO NEŠŤASTIA">KONTROLA · Ž-BOX · KOLESO</span>
                     <span className="pity-mini" aria-hidden="true">BONUS</span>
                     <div
@@ -849,7 +851,31 @@ export function SlotGame() {
       )}
 
       {g.modeStrip ? (
-        <BonusModeStrip key={g.modeStrip.key} mode={g.modeStrip.mode} turbo={g.turbo} reduced={reducedMotion} onDone={g.finishModeStrip} />
+        <BonusModeStrip key={g.modeStrip.key} mode={g.modeStrip.mode} gold={!!g.modeStrip.gold} turbo={g.turbo} reduced={reducedMotion} onDone={g.finishModeStrip} />
+      ) : null}
+
+      {g.goldReveal ? (
+        <ZlatyReveal key={g.goldReveal.key} mode={g.goldReveal.mode} rankId={g.rankId} turbo={g.turbo} reduced={reducedMotion} onDone={g.finishGoldReveal} />
+      ) : null}
+
+      {g.goldRun && !g.goldReveal && !g.goldResult ? (
+        <ZlatyHud mode={g.goldRun.mode} rankId={g.rankId} limited={g.goldRun.stake < g.goldRun.bet} stake={g.goldRun.stake} />
+      ) : null}
+
+      {g.goldResult ? <ZlatyResult key={g.goldResult.key} r={g.goldResult} turbo={g.turbo} auto={g.autoOn} onDone={g.finishGoldResult} /> : null}
+
+      {g.goldTeaser && !g.goldReveal && !g.goldResult && !g.pickOpen && !g.zbox && !g.koleso ? (
+        <ZlatyTeaser
+          onRules={() => {
+            g.closeGoldTeaser();
+            g.setGoldSheet(true);
+          }}
+          onClose={g.closeGoldTeaser}
+        />
+      ) : null}
+
+      {g.goldSheet ? (
+        <ZlatySheet z={g.zlaty} waiting={g.goldWaiting} rankId={g.rankId} bet={g.bet} usual={g.goldUsual} onClose={() => g.setGoldSheet(false)} />
       ) : null}
 
       {g.zbox ? (

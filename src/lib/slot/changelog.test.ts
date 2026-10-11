@@ -6,12 +6,12 @@ const noon = (day: string) => Date.parse(`${day}T12:00:00`);
 
 describe("update log", () => {
   it("keeps seven calendar days and groups newest first", () => {
-    const groups = recentChanges(noon("2026-10-10"));
+    const groups = recentChanges(noon("2026-10-11"));
     const days = groups.map((g) => g.day);
-    assert.equal(days[0], "2026-10-10");
+    assert.equal(days[0], "2026-10-11");
     assert.ok(days.includes("2026-10-09"));
-    assert.ok(days.includes("2026-10-04"));
-    assert.ok(!days.includes("2026-10-03"));
+    assert.ok(days.includes("2026-10-05"));
+    assert.ok(!days.includes("2026-10-04"));
     assert.deepEqual([...days].sort().reverse(), days);
     const newest = groups[0];
     assert.ok(newest && newest.items.length >= 1);

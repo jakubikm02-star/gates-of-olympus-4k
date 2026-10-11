@@ -235,6 +235,10 @@ export interface KPlay {
   totalX: number;
   /** Spins given in total (6 + EXTRA). */
   spins: number;
+  /** Cap on the wheel part this run was played with (× bet). */
+  cap: number;
+  /** Gain multiplier of value slices and KURIÉR (1 = normal, ZLATÉ VÝSEKY > 1). */
+  gain: number;
 }
 
 function pickWeighted(rng: () => number, keys: readonly string[], called: Set<string>): string | null {
@@ -259,12 +263,18 @@ export interface KOpts {
   /** Tuning hooks (scripts/koleso-ev.ts). */
   solveFlat?: number;
   phrase?: number;
+  /** ZLATÉ VÝSEKY (lib/slot/zlaty): value slices and KURIÉR pay × gain. Same rng path as a normal run. */
+  gain?: number;
+  /** Cap on the wheel part (× bet). Default KOLESO_CAP_X; ZLATÝ BONUS raises it to ZLATY_CAP_X. */
+  cap?: number;
 }
 
 /** One whole KOLESO run, decided up front (deterministic per rng). */
 export function playKoleso(rng: () => number, opts: KOpts = {}): KPlay {
   const vip = opts.vip ?? 0;
   const solveFlat = opts.solveFlat ?? KOLESO_SOLVE_FLAT;
+  const g = opts.gain ?? 1;
+  const cap = opts.cap ?? KOLESO_CAP_X;
   const pi = opts.phrase ?? Math.min(KOLESO_PHRASES.length - 1, Math.floor(rng() * KOLESO_PHRASES.length));
   const ph = KOLESO_PHRASES[pi];
   const cnt: Record<string, number> = {};
@@ -306,7 +316,7 @@ export function playKoleso(rng: () => number, opts: KOpts = {}): KPlay {
       letter = pickWeighted(rng, CONS, called) ?? pickWeighted(rng, VOWS, called);
       if (letter) {
         hits = reveal(letter);
-        gain = (s.v ?? 0) * hits;
+        gain = (s.v ?? 0) * hits * g;
         bank += gain;
       }
     } else if (s.kind === "x2") bank *= 2;
@@ -318,8 +328,8 @@ export function playKoleso(rng: () => number, opts: KOpts = {}): KPlay {
     else if (s.kind === "exek") bank *= KOLESO_EXEK;
     else if (s.kind === "courier") {
       parcel = KOLESO_COURIER[Math.min(KOLESO_COURIER.length - 1, Math.floor(rng() * KOLESO_COURIER.length))];
-      gain = parcel;
-      bank += parcel;
+      gain = parcel * g;
+      bank += gain;
     } else if (s.kind === "vowel") {
       letter = pickWeighted(rng, VOWS, called) ?? pickWeighted(rng, CONS, called);
       if (letter) {
@@ -342,9 +352,9 @@ export function playKoleso(rng: () => number, opts: KOpts = {}): KPlay {
     steps.push({ seg, kind: s.kind, jitter, letter, hits, gain: r4(gain), cost, parcel, bankBefore: before, bankAfter: bank, left, extra, shown: share, solved });
   }
   const grossX = r4(solved ? bank * KOLESO_SOLVE_MUL + solveFlat : bank);
-  const capped = grossX > KOLESO_CAP_X;
-  const totalX = r4(Math.min(grossX, KOLESO_CAP_X) + vip);
-  return { phrase: pi, text: ph.text, cat: ph.cat, start: KOLESO_START, steps, solved, bankX: bank, grossX, capped, vip, totalX, spins: given };
+  const capped = grossX > cap;
+  const totalX = r4(Math.min(grossX, cap) + vip);
+  return { phrase: pi, text: ph.text, cat: ph.cat, start: KOLESO_START, steps, solved, bankX: bank, grossX, capped, vip, totalX, spins: given, cap, gain: g };
 }
 
 /** Letters visible on the board after `n` steps (start letters + every called letter so far). */

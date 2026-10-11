@@ -3,6 +3,7 @@ import type { ChaseModKind, FsSymId } from "./zasah.ts";
 import { readChaseFields } from "./zasah.ts";
 import type { PityMap } from "./pick-bonus";
 import { sanitizePendingBonus, type PendingBonus } from "./bonus-mode.ts";
+import { sanitizeZlaty, type ZlatyState } from "./zlaty.ts";
 import type { TierId } from "./jackpot";
 import { type JobCard, type JobFloor } from "./spend.ts";
 import { sanitizeDeposit, type DuelDeposit } from "./duel-deposit.ts";
@@ -84,6 +85,8 @@ export interface PlayerSave {
   rpIdle?: number;
   /** Day record for the daily RP decay. Older saves: empty day, so nothing is taken retroactively. */
   rpDay?: RpDay;
+  /** ZLATÝ BONUS: day used, stats, recent stakes (lib/slot/zlaty). Older saves: gold waiting today. */
+  zlaty?: ZlatyState;
 }
 
 export function emptyPlayerSave(): PlayerSave {
@@ -360,6 +363,7 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.bestWin = num(r.bestWin, 0, 0, 1_000_000_000);
   s.pityByBet = pityMap(r.pityByBet);
   s.bonusPending = sanitizePendingBonus(r.bonusPending);
+  s.zlaty = sanitizeZlaty(r.zlaty);
   s.zboxHelpOff = bool(r.zboxHelpOff, false);
   s.kolesoHelpOff = bool(r.kolesoHelpOff, false);
   s.rp = Math.max(0, Math.floor(num(r.rp, 0)));

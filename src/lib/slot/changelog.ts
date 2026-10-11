@@ -7,6 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-10-11", text: "ZLATÝ BONUS: prvý bonus z baru každý deň je zlatý. Strop 100× namiesto 30× a zlatá karta podľa režimu: ZLATÁ POKUTA, ZLATÝ KURIÉR alebo ZLATÉ VÝSEKY. Nový deň začína o polnoci." },
   { day: "2026-10-10", text: "Hra má nový link parkizmus.vercel.app. Na starom linku je tlačidlo PRESUNÚŤ HRU, na novom PRENIESŤ HRU ZO STARÉHO LINKU. Po presune je starý link len na čítanie." },
   { day: "2026-10-10", text: "Odkaz parkizmus.vercel.app už neodskakuje na starú adresu. Hra na ňom ostane." },
   { day: "2026-10-10", text: "Oznam a v nastaveniach záložka Uloženie: EXPORT a IMPORT progresu a návod, keď sa medzi odkazmi neprenesie sám." },

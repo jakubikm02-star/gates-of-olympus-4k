@@ -650,7 +650,7 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
 
   const taxPct = tax === "danUrad" ? "−23 %" : tax === "bezDane" ? "+23 %" : "";
   const pips = Math.max(given, KOLESO_SPINS);
-  const wheelPart = Math.min(play.grossX, KOLESO_CAP_X);
+  const wheelPart = Math.min(play.grossX, play.cap ?? KOLESO_CAP_X);
   return (
     <div
       ref={rootRef}
@@ -856,7 +856,7 @@ export function KolesoBonus({ play, bet, gross, net, tax, turbo, reduced, onDone
             {play.capped ? (
               <li className={payStep >= 3 ? "is-on" : "is-dim"}>
                 <span>Strop kolesa</span>
-                <b>{KOLESO_CAP_X}× stávky</b>
+                <b>{play.cap ?? KOLESO_CAP_X}× stávky</b>
               </li>
             ) : null}
             <li className={payStep >= 4 ? "is-on is-cheque" : "is-dim"}>

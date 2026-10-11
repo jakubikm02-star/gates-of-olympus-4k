@@ -6,6 +6,7 @@
  * the draw. Three modes, 1/3 each: KONTROLA, Ž-BOX, KOLESO NEŠŤASTIA.
  */
 import type { ChaseModKind } from "./zasah.ts";
+import { sanitizeGoldRun, type GoldRun } from "./zlaty.ts";
 
 export type BonusModeId = "kontrola" | "zbox" | "koleso";
 
@@ -63,6 +64,8 @@ export interface PendingBonus {
   at: number;
   /** Ž-BOX / KOLESO: seed of its run, fixed when it starts (a reload mid-run replays the same run). */
   seed?: number;
+  /** ZLATÝ BONUS: today's gold was spent on this bonus when the bar filled (lib/slot/zlaty). */
+  gold?: GoldRun;
 }
 
 export function sanitizePendingBonus(raw: unknown): PendingBonus | null {
@@ -76,6 +79,7 @@ export function sanitizePendingBonus(raw: unknown): PendingBonus | null {
   const modLeft = typeof r.modLeft === "number" && Number.isFinite(r.modLeft) ? Math.max(0, Math.min(15, Math.floor(r.modLeft))) : 0;
   const at = typeof r.at === "number" && Number.isFinite(r.at) ? Math.max(0, Math.floor(r.at)) : 0;
   const seed = typeof r.seed === "number" && Number.isInteger(r.seed) && r.seed >= 0 && r.seed < 0x100000000 ? r.seed : undefined;
+  const gold = sanitizeGoldRun(r.gold);
   return {
     mode: r.mode as BonusModeId,
     bet,
@@ -83,6 +87,7 @@ export function sanitizePendingBonus(raw: unknown): PendingBonus | null {
     modLeft: mod && modLeft > 0 ? modLeft : 0,
     at,
     ...(seed !== undefined ? { seed } : {}),
+    ...(gold ? { gold } : {}),
   };
 }
 

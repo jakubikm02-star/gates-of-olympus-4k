@@ -179,6 +179,8 @@ export interface ZPlay {
   grossX: number;
   totalX: number;
   capped: boolean;
+  /** Cap this run was played with (× bet). */
+  cap: number;
 }
 
 function pick<T extends { w: number }>(rng: () => number, table: readonly T[]): T {
@@ -202,6 +204,8 @@ export interface ZOpts {
   q?: number;
   /** Override P_MOD (tests, tuning). */
   m?: number;
+  /** Payout cap (× bet). Default ZBOX_CAP_X; ZLATÝ BONUS raises it to ZLATY_CAP_X (lib/slot/zlaty). */
+  cap?: number;
 }
 
 /** The whole Ž-BOX run, decided up front. Same rng → same run. */
@@ -209,6 +213,7 @@ export function playZbox(rng: () => number, opts: ZOpts = {}): ZPlay {
   const p = opts.p ?? P_PARCEL;
   const q = opts.q ?? P_CAN;
   const pm = opts.m ?? P_MOD;
+  const cap = opts.cap ?? ZBOX_CAP_X;
   const filled: (ZParcel | null)[] = ZBOX_LAYOUT.map(() => null);
   const vals: number[] = ZBOX_LAYOUT.map(() => 0);
   const emptyIds = () => filled.flatMap((c, i) => (c ? [] : [i]));
@@ -301,8 +306,8 @@ export function playZbox(rng: () => number, opts: ZOpts = {}): ZPlay {
   const canSum = cans.reduce((s, c) => s + c, 0);
   const mult = (canSum || 1) * (full ? ZBOX_FULL_MUL : 1);
   const grossX = round4(sumX * mult);
-  const totalX = Math.min(ZBOX_CAP_X, grossX);
-  return { start, vals, rounds, cans, canSum, sumX, mult, full, grossX, totalX, capped: grossX > ZBOX_CAP_X };
+  const totalX = Math.min(cap, grossX);
+  return { start, vals, rounds, cans, canSum, sumX, mult, full, grossX, totalX, capped: grossX > cap, cap };
 }
 
 /** Parcels in the wall after `n` rounds (start included). */

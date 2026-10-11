@@ -2709,3 +2709,37 @@ export function playKolesoSolve(): void {
     if (!custom.has("koleso_solve")) playBuf("harp", { gain: 0.5 });
   });
 }
+
+/** ZLATÁ SIM: crack lines run around the chip (dry metal creak + ticks). Rides the goldEnvelope bus. */
+export function playGoldCrack(): void {
+  withCue("goldEnvelope", () => {
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    [0, 0.07, 0.15, 0.21].forEach((d, i) => noise("white", 0.035, 0.05 - i * 0.008, 2500 + i * 900, 9000, t + d));
+    tone("square", 180, 0.12, 0.012, undefined, t + 0.02);
+  });
+}
+
+/** ZLATÝ BONUS: the SIM chip snaps out (click) and the golden light rises (bright arpeggio + shimmer). Synth only (ASSETS.md: goldEnvelope). */
+export function playGoldEnvelope(): void {
+  withCue("goldEnvelope", () => {
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    noise("white", 0.05, 0.07, 3000, 12000, t);
+    [784, 988, 1175, 1568, 1976].forEach((f, i) => tone("sine", f, 0.26, 0.045, undefined, t + i * 0.065, (i - 2) * 0.25));
+    noise("white", 0.45, 0.025, 5000, 11000, t + 0.05);
+  });
+}
+
+/** ZLATÝ BONUS: the golden result card (warm fanfare). ASSETS.md: goldWin. */
+export function playGoldWin(): void {
+  withCue("goldWin", () => {
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    tone("triangle", 523, 0.5, 0.05, undefined, t);
+    tone("triangle", 659, 0.5, 0.045, undefined, t + 0.09);
+    tone("triangle", 784, 0.6, 0.05, undefined, t + 0.18);
+    tone("sine", 1047, 0.8, 0.04, undefined, t + 0.3);
+    noise("white", 0.6, 0.02, 6000, 12000, t + 0.3);
+  });
+}

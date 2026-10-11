@@ -76,6 +76,16 @@ export const LITERAL_ART: readonly string[] = [
   "/fx/smog-red2.webp",
   // 4KA TV visualizer fog
   "/fx/fog-rainbow.webp",
+  // ZLATÝ BONUS (Zlaty.tsx ZLATY_ART): ZLATÁ SIM layers, teaser, mode cards, result frame
+  "/zlaty/sim-closed.webp",
+  "/zlaty/sim-carrier.webp",
+  "/zlaty/sim-chip.webp",
+  "/zlaty/sim-chip-back.webp",
+  "/zlaty/teaser-sim.webp",
+  "/zlaty/card-kontrola.webp",
+  "/zlaty/card-zbox.webp",
+  "/zlaty/card-koleso.webp",
+  "/zlaty/result-frame.webp",
 ];
 
 /** Every rank badge, cabinet corner, side tile and AI cabinet sheet (both sizes) of every rank family. */

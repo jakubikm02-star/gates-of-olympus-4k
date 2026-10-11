@@ -1,4 +1,4 @@
-export type PickKind = "listok" | "pokuta" | "zona" | "odtah";
+export type PickKind = "listok" | "pokuta" | "zona" | "odtah" | "zlata";
 
 export interface PickTile {
   id: number;
@@ -7,6 +7,8 @@ export interface PickTile {
   title: string;
   note: string;
   zone: string;
+  /** ZLATÁ POKUTA (lib/slot/zlaty): the tile's normal value before it turned gold. */
+  baseX?: number;
 }
 
 export const PICK_BAYS = 12;

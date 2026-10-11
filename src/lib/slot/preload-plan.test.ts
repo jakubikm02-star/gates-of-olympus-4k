@@ -39,7 +39,7 @@ describe("preload list covers every public image the game references", () => {
   const paths = new Set([...list].map(pathOf));
 
   it("every literal /dir/file reference in src/ (components, CSS, libs) is preloaded with the same URL", () => {
-    const re = /["'(]\/(symbols|art|koleso|zbox|fx|machine-ai|machine|ranks|frames|massive)\/[^"')\s]+\.(png|webp|jpg|svg)(\?[^"')\s]*)?/g;
+    const re = /["'(]\/(symbols|art|koleso|zbox|zlaty|fx|machine-ai|machine|ranks|frames|massive)\/[^"')\s]+\.(png|webp|jpg|svg)(\?[^"')\s]*)?/g;
     const missing: string[] = [];
     for (const f of walk(join(root, "src"))) {
       const text = readFileSync(f, "utf8");
@@ -70,6 +70,13 @@ describe("preload list covers every public image the game references", () => {
     for (const p of ["/koleso/disc.webp", "/zbox/print-w.webp", "/fx/smog-red2.webp", "/fx/beam-blue.webp", "/fx/fog-rainbow.webp", "/art/city-map.jpg"]) {
       assert.ok(paths.has(p), p);
     }
+  });
+
+  it("ZLATÝ BONUS art (ZLATÁ SIM layers, cards, frame) is in, no template-built /zlaty/ URL escapes the grep", () => {
+    for (const p of ["/zlaty/sim-closed.webp", "/zlaty/sim-carrier.webp", "/zlaty/sim-chip.webp", "/zlaty/sim-chip-back.webp", "/zlaty/teaser-sim.webp", "/zlaty/card-kontrola.webp", "/zlaty/card-zbox.webp", "/zlaty/card-koleso.webp", "/zlaty/result-frame.webp"]) {
+      assert.ok(paths.has(p), p);
+    }
+    assert.doesNotMatch(read("src/components/slot/Zlaty.tsx"), /`\/zlaty\//);
   });
 
   it("bundled src/assets art (KOLESO host poses, VERSUS cards) is preloaded by glob", () => {

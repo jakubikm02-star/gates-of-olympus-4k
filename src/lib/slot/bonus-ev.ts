@@ -10,8 +10,8 @@ import { RANK_PERKS } from "./ranks.ts";
  * 9 safes + 3 ODŤAH: a random safe comes before all 3 tows with p = 1/4; clearing all m unknown safes
  * has p = 3!·m!/(m+3)! and doubles the total.
  */
-export function kontrolaExactEv(peekCap: number, peekCount: number): number {
-  const tiles = dealPickBoard(() => 0);
+export function kontrolaExactEv(peekCap: number, peekCount: number, board?: PickTile[]): number {
+  const tiles = board ?? dealPickBoard(() => 0);
   const peek = rankPeekIds(tiles, peekCap, peekCount);
   const all = tiles.filter((t) => t.payX > 0);
   const known = all.filter((t) => peek.includes(t.id)).reduce((s, t) => s + t.payX, 0);
@@ -32,8 +32,15 @@ export function kontrolaPlay(rng: () => number, peekCap: number, peekCount: numb
 }
 
 /** One KONTROLA with details: payout (× bet), safe pins found, all 9 cleared. Used by the ticket simulation. */
-export function kontrolaRun(rng: () => number, peekCap: number, peekCount: number): { x: number; safes: number; cleared: boolean } {
-  const tiles: PickTile[] = dealPickBoard(rng);
+export function kontrolaRun(
+  rng: () => number,
+  peekCap: number,
+  peekCount: number,
+  /** ZLATÝ BONUS: turn the dealt board gold (lib/slot/zlaty goldBoard). Same rng path as a normal run. */
+  board?: (tiles: PickTile[]) => PickTile[],
+): { x: number; safes: number; cleared: boolean } {
+  const dealt: PickTile[] = dealPickBoard(rng);
+  const tiles = board ? board(dealt) : dealt;
   const peek = rankPeekIds(tiles, peekCap, peekCount);
   const rest = tiles.map((t) => t.id).filter((id) => !peek.includes(id));
   for (let i = rest.length - 1; i > 0; i--) {
