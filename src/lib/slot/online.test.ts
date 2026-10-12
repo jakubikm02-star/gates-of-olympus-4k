@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { ONLINE_LABEL, onlineBlink, onlineDigits, segMask } from "./online.ts";
+import { ONLINE_LABEL, moneySegs, onlineBlink, onlineDigits, segMask } from "./online.ts";
 
 describe("online counter", () => {
   it("pads the count like a segment display", () => {
@@ -18,6 +18,13 @@ describe("online counter", () => {
     assert.equal(onlineBlink(1, 1), false);
     assert.equal(onlineBlink(1, 2), true);
     assert.equal(onlineBlink(2, null), false);
+  });
+
+  it("writes money with a decimal segment and grouped thousands", () => {
+    assert.equal(moneySegs(4), "4.00");
+    assert.equal(moneySegs(1234.5), "1 234.50");
+    assert.equal(moneySegs(0), "0.00");
+    assert.equal(moneySegs(-2.5), "-2.50");
   });
 
   it("draws ONLINE and every digit with segments", () => {

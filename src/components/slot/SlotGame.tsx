@@ -208,10 +208,9 @@ export function SlotGame() {
   const boardStageRef = useContainerVars();
   const reelHostRef = useContainerVars();
   const [reducedMotion, setReducedMotion] = useState(false);
-  const [deskOpen, setDeskOpen] = useState(false);
+  const [portOpen, setPortOpen] = useState(false);
   const [jpEvent, setJpEvent] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [portOpen, setPortOpen] = useState(false);
   const [manFocus, setManFocus] = useState<string | null>(null);
   const [boardOpen, setBoardOpen] = useState(false);
   const [autoMenu, setAutoMenu] = useState(false);
@@ -333,11 +332,9 @@ export function SlotGame() {
             </div>
           </div>
           <div className="head-end">
-            <button
-              type="button"
+            <div
               className={`jp-stack is-strip ${g.jpHit ? "is-hit" : ""} ${g.poolEligible ? "is-live" : "is-feed"} ${showJpEvent ? "is-event" : ""}`}
-              aria-label={showJpEvent ? "Týždenná súťaž, čoskoro" : "Park jackpoty · dnešný desk"}
-              onClick={() => setDeskOpen(true)}
+              aria-label={showJpEvent ? "Týždenná súťaž, čoskoro" : "Park jackpoty"}
             >
               {showJpEvent ? (
                 <ContestBanner />
@@ -371,7 +368,7 @@ export function SlotGame() {
               )}
                 </>
               )}
-            </button>
+            </div>
             </div>
           </div>
 
@@ -520,7 +517,7 @@ export function SlotGame() {
               ) : g.topLine && !g.topLine.startsWith("SYMBOLY PLATIA") ? (
                 g.topLine
               ) : (
-                <OnlineMeter playerId={g.deviceId} />
+                <OnlineMeter playerId={g.deviceId} desk={g.desk} mine={g.mine} />
               )}
             </div>
             <div className="reel-host" ref={reelHostRef}>
@@ -1146,67 +1143,6 @@ export function SlotGame() {
               <span>ether1</span>
               <span>8291</span>
             </footer>
-          </div>
-        </div>
-      )}
-
-      {deskOpen && (
-        <div className="modal-back" onClick={() => setDeskOpen(false)} role="presentation">
-          <div className="atm-desk atm-modal" role="dialog" aria-label="Dnešný counter automatu" onClick={(e) => e.stopPropagation()}>
-            <header>
-              <span>PARK BANK</span>
-              <b>DNES</b>
-            </header>
-            <p className="atm-kicker">COUNTER AUTOMATU · VŠETCI HRÁČI</p>
-            <dl>
-              <div>
-                <dt>PRETOČENÉ</dt>
-                <dd>
-                  <CountUp value={g.desk.wagered} meter />
-                </dd>
-                <dd className="atm-me">
-                  TY <CountUp value={g.mine.wagered} meter />
-                </dd>
-              </div>
-              <div>
-                <dt>VÝHRY</dt>
-                <dd>
-                  <CountUp value={g.desk.paid} meter />
-                </dd>
-                <dd className="atm-me">
-                  TY <CountUp value={g.mine.paid} meter />
-                </dd>
-              </div>
-              <div>
-                <dt>MAX</dt>
-                <dd>
-                  <CountUp value={g.desk.best} meter />
-                </dd>
-                <dd className="atm-me">
-                  TY <CountUp value={g.mine.best} meter />
-                </dd>
-              </div>
-            </dl>
-            <p className="atm-kicker atm-ticket-kicker">TIKETY · LEN TY · MIMO OBRATU</p>
-            <dl className="atm-tickets">
-              <div>
-                <dt>VYHRANÉ</dt>
-                <dd>
-                  <CountUp value={g.mine.ticketWon} meter />
-                </dd>
-                <dd className="atm-me">zisk · výhra − vklad</dd>
-              </div>
-              <div>
-                <dt>PREHRANÉ</dt>
-                <dd className="is-loss">
-                  <CountUp value={g.mine.ticketLost} meter />
-                </dd>
-                <dd className="atm-me">stávka zlyhaného</dd>
-              </div>
-            </dl>
-            <button type="button" className="chip-btn" onClick={() => setDeskOpen(false)}>
-              ZAVRIEŤ
-            </button>
           </div>
         </div>
       )}

@@ -43,6 +43,17 @@ export function onlineDigits(n: number | null): string {
   return String(c).padStart(2, "0");
 }
 
+/** Euros and cents for the segment module. The dot is the eighth segment. Thousands are grouped. */
+export function moneySegs(n: number): string {
+  if (!Number.isFinite(n)) return "--.--";
+  const neg = n < 0;
+  const cents = Math.round(Math.abs(n) * 100);
+  const euros = Math.floor(cents / 100);
+  const frac = String(cents % 100).padStart(2, "0");
+  const body = String(euros).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return `${neg ? "-" : ""}${body}.${frac}`;
+}
+
 /** The green dot blinks only when a known count changes, not on the first reading. */
 export function onlineBlink(prev: number | null, next: number | null): boolean {
   return prev != null && next != null && prev !== next;

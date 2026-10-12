@@ -681,7 +681,7 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
                 <span>PARK BANK</span>
                 <b>DNES</b>
               </header>
-              <p className="atm-kicker">COUNTER AUTOMATU · VŠETCI HRÁČI · ťukni aj na poty</p>
+              <p className="atm-kicker">COUNTER AUTOMATU · VŠETCI HRÁČI · otvorí sa klikom na ONLINE nad valcami</p>
               <dl>
                 <div>
                   <dt>PRETOČENÉ</dt>
