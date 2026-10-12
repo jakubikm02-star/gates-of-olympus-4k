@@ -7,8 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
-  { day: "2026-10-12", text: "Nad valcami je počítadlo hráčov online. Červené segmenty, zelená bodka blikne, keď sa počet zmení." },
-  { day: "2026-10-12", text: "Park Bank s dnešným pretočeným je na tom istom displeji. Otvorí sa klikom na ONLINE." },
+  { day: "2026-10-12", text: "Nad AUTO je tiché počítadlo hráčov online. Zelená bodka blikne, keď sa počet zmení. Klik otvorí Park Bank s dnešným pretočeným." },
   { day: "2026-10-11", text: "KOLESO NEŠŤASTIA: písmeno si vyberáš sám z 3 náhodných (alebo nechaj Joža). Kto pozná tajničku, má výhodu. Výplaty kolesa ostávajú. A 40 nových tajničiek o podmienkach 4KA a parkovaní PAAS. Autospin sa pred KOLESOM zastaví, aby si mohol vyberať." },
   { day: "2026-10-11", text: "ZLATÝ BONUS: prvý bonus z baru každý deň je zlatý. Strop 100× namiesto 30× a zlatá karta podľa režimu: ZLATÁ POKUTA, ZLATÝ KURIÉR alebo ZLATÉ VÝSEKY. Nový deň začína o polnoci." },
   { day: "2026-10-10", text: "Hra má nový link parkizmus.vercel.app. Na starom linku je tlačidlo PRESUNÚŤ HRU, na novom PRENIESŤ HRU ZO STARÉHO LINKU. Po presune je starý link len na čítanie." },

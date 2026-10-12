@@ -1,56 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import type { DeskDay } from "@/lib/slot/desk-api";
-import { ONLINE_BEAT_MS, ONLINE_LABEL, moneySegs, onlineBlink, onlineDigits, parkOnlineBeat, segMask } from "@/lib/slot/online";
+import { formatMoney } from "@/lib/slot/format";
+import { ONLINE_BEAT_MS, onlineBlink, parkOnlineBeat } from "@/lib/slot/online";
 import "./online-meter.css";
 
-/** One 7-segment glyph. Unlit segments stay faintly visible, like a real module. */
-function Seg({ ch, big = false }: { ch: string; big?: boolean }) {
-  const on = segMask(ch);
-  const lit = (id: string) => (on.includes(id) ? " is-on" : "");
+function BankLine({ label, all, mine }: { label: string; all: number; mine: number }) {
   return (
-    <svg className={`seg${big ? " is-big" : ""}`} viewBox="0 0 24 40" aria-hidden="true">
-      <polygon className={`seg-a${lit("a")}`} points="4,2 20,2 18,5 6,5" />
-      <polygon className={`seg-b${lit("b")}`} points="21,3 23,5 23,17 21,19 18,16 18,6" />
-      <polygon className={`seg-c${lit("c")}`} points="21,21 23,23 23,35 21,37 18,34 18,24" />
-      <polygon className={`seg-d${lit("d")}`} points="4,38 20,38 18,35 6,35" />
-      <polygon className={`seg-e${lit("e")}`} points="3,21 5,24 5,34 3,37 1,35 1,23" />
-      <polygon className={`seg-f${lit("f")}`} points="3,3 5,6 5,16 3,19 1,17 1,5" />
-      <polygon className={`seg-g${lit("g")}`} points="5,18.5 19,18.5 17.5,21 6.5,21" />
-    </svg>
-  );
-}
-
-/** Digits, a gap, or the decimal point (the eighth segment). */
-function SegRead({ text, big = false }: { text: string; big?: boolean }) {
-  return (
-    <span className={`seg-read${big ? " is-big" : ""}`}>
-      {text.split("").map((ch, i) =>
-        ch === " " ? (
-          <i key={i} className="seg-gap" />
-        ) : ch === "." ? (
-          <i key={i} className="seg-dp" />
-        ) : (
-          <Seg key={`${ch}${i}`} ch={ch} big={big} />
-        ),
-      )}
-    </span>
-  );
-}
-
-function BankRow({ label, all, mine, loss = false }: { label: string; all: number; mine: number; loss?: boolean }) {
-  return (
-    <div className={`park-row${loss ? " is-loss" : ""}`}>
-      <span className="park-k">{label}</span>
-      <SegRead text={moneySegs(all)} />
-      <span className="park-k park-you">TY</span>
-      <SegRead text={moneySegs(mine)} />
-    </div>
+    <p className="park-line">
+      <span>{label}</span>
+      <b>{formatMoney(all)}</b>
+      <em>ty {formatMoney(mine)}</em>
+    </p>
   );
 }
 
 /**
- * Player count in the free band above the reels. Click opens today's Park Bank
- * on the same module. The green dot blinks once when the number changes.
+ * Quiet player count in the empty space above AUTO. Click opens today's Park Bank.
+ * The green dot blinks once when the number changes.
  */
 export function OnlineMeter({ playerId, desk, mine }: { playerId: string; desk: DeskDay; mine: DeskDay }) {
   const [count, setCount] = useState<number | null>(null);
@@ -100,53 +66,31 @@ export function OnlineMeter({ playerId, desk, mine }: { playerId: string; desk: 
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  const digits = onlineDigits(count);
   const label = count == null ? "Online hráči sa načítavajú. Klik otvorí Park Bank." : `Online hráči: ${count}. Klik otvorí Park Bank.`;
 
   return (
     <div className={`online-hold${open ? " is-bank" : ""}`}>
-      <button
-        type="button"
-        className="online-meter"
-        aria-expanded={open}
-        aria-label={label}
-        onClick={() => setOpen((v) => !v)}
-      >
+      <button type="button" className="online-meter" aria-expanded={open} aria-label={label} onClick={() => setOpen((v) => !v)}>
         <i className={`online-dot${blink ? " is-blink" : ""}`} />
-        <span className="online-word">
-          {ONLINE_LABEL.split("").map((ch, i) => (
-            <Seg key={`${ch}${i}`} ch={ch} />
-          ))}
-        </span>
-        <span className="online-num">
-          {digits.split("").map((ch, i) => (
-            <Seg key={`${ch}${i}`} ch={ch} big />
-          ))}
-        </span>
+        <b>{count == null ? "–" : count}</b>
+        <span>online</span>
       </button>
       {open ? (
         <>
           <button type="button" className="park-bank-back" aria-label="Zavrieť Park Bank" onClick={() => setOpen(false)} />
           <div className="park-bank" role="dialog" aria-label="Park Bank, dnešné pretočené">
             <header>
-              <span>PARK BANK</span>
-              <b>DNES</b>
+              <span>park bank</span>
+              <b>dnes</b>
             </header>
-            <p className="park-hero-k">PRETOČENÉ</p>
-            <SegRead text={moneySegs(desk.wagered)} big />
-            <p className="park-you-line">
-              <span>TY</span>
-              <SegRead text={moneySegs(mine.wagered)} />
+            <BankLine label="pretočené" all={desk.wagered} mine={mine.wagered} />
+            <BankLine label="výhry" all={desk.paid} mine={mine.paid} />
+            <BankLine label="max" all={desk.best} mine={mine.best} />
+            <p className="park-line">
+              <span>tikety</span>
+              <b>+{formatMoney(mine.ticketWon)}</b>
+              <em>−{formatMoney(mine.ticketLost)}</em>
             </p>
-            <BankRow label="VÝHRY" all={desk.paid} mine={mine.paid} />
-            <BankRow label="MAX" all={desk.best} mine={mine.best} />
-            <div className="park-row">
-              <span className="park-k">TIKETY</span>
-              <span className="park-k park-plus">+</span>
-              <SegRead text={moneySegs(mine.ticketWon)} />
-              <span className="park-k park-minus">−</span>
-              <SegRead text={moneySegs(mine.ticketLost)} />
-            </div>
           </div>
         </>
       ) : null}

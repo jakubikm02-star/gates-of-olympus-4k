@@ -516,9 +516,7 @@ export function SlotGame() {
                 </>
               ) : g.topLine && !g.topLine.startsWith("SYMBOLY PLATIA") ? (
                 g.topLine
-              ) : (
-                <OnlineMeter playerId={g.deviceId} desk={g.desk} mine={g.mine} />
-              )}
+              ) : null}
             </div>
             <div className="reel-host" ref={reelHostRef}>
             {g.inFs ? <BedVisualizer muted={g.muted} reduced={reducedMotion} /> : null}
@@ -711,6 +709,7 @@ export function SlotGame() {
           </div>
 
           <div className="hud-right">
+            <OnlineMeter playerId={g.deviceId} desk={g.desk} mine={g.mine} />
             <button
               type="button"
               className="round-btn"
