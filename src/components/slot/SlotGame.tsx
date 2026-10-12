@@ -59,6 +59,7 @@ import "./zasah-battery.css";
 import "./koleso.css";
 import "./rp-ui.css";
 import { SuchoChip } from "./SuchoChip";
+import { OnlineMeter } from "./OnlineMeter";
 
 const AUTO_OPTS = [10, 25, 50, 100] as const;
 
@@ -518,7 +519,9 @@ export function SlotGame() {
                 </>
               ) : g.topLine && !g.topLine.startsWith("SYMBOLY PLATIA") ? (
                 g.topLine
-              ) : null}
+              ) : (
+                <OnlineMeter playerId={g.deviceId} />
+              )}
             </div>
             <div className="reel-host" ref={reelHostRef}>
             {g.inFs ? <BedVisualizer muted={g.muted} reduced={reducedMotion} /> : null}
