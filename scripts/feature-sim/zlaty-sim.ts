@@ -10,7 +10,7 @@
 import { createRng, resolvePaidSpin } from "../../src/lib/slot/engine.ts";
 import { FS_RETRIGGER, MAX_WIN_X, fsTriggerSpins } from "../../src/lib/slot/symbols.ts";
 import { HEAT_MAX, heatFromWin } from "../../src/lib/slot/heat.ts";
-import { ZASAH, ZASAH_FS_MUL, rollFsSymbol, rollTarget, rollWindows, windowCount, type ChaseState } from "../../src/lib/slot/zasah.ts";
+import { advanceChase, ZASAH, ZASAH_FS_MUL, rollFsSymbol, rollTarget, rollWindows, windowCount, type ChaseState } from "../../src/lib/slot/zasah.ts";
 import { PITY_GOAL, dealPickBoard, pityGain } from "../../src/lib/slot/pick-bonus.ts";
 import { drawBonusMode, type BonusModeId } from "../../src/lib/slot/bonus-mode.ts";
 import { kontrolaExactEv, kontrolaRun } from "../../src/lib/slot/bonus-ev.ts";
@@ -107,7 +107,7 @@ function session(rank: string, ante: boolean, perDay: number, days: number, seed
         const rolled = rollWindows(rng, sp.board, chase!, windowCount(chase!.spin));
         const played: number = chase!.spin + 1;
         if (rolled.outcome || played >= ZASAH.SPINS) chase = null;
-        else chase = { ...rolled.next, spin: played, target: rollTarget(rng, rolled.next.fsSym) };
+        else chase = advanceChase(rng, chase!, rolled);
       } else if (p > 0) heat = Math.min(HEAT_MAX, heat + heatFromWin(p));
       pity += pityGain(sp.scatterPeak, p <= 0);
       if (sp.triggeredFs) {

@@ -220,6 +220,8 @@ export function evaluate(grid: Cell[][]): {
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const cell = grid[r][c];
+      // ZÁSAH EVIDENCE cells are hack targets only: they never count for a win.
+      if (cell.evidence) continue;
       if (cell.kind === "mult" && cell.mult) multipliers.push(cell.mult);
       if (cell.kind === "scatter") scatterCells.push({ r, c });
       if (cell.kind === "pay" && cell.payId) {

@@ -3,7 +3,8 @@ import { FS_SYMBOL } from "@/lib/slot/symbols";
 import { fsSymName, fsSymSrc, type FsSymId } from "@/lib/slot/zasah";
 
 /**
- * Chase-start notice. The drawn symbol card glitches, flips and lands as the FS seal.
+ * Chase-start notice. The drawn symbol holds still with its name, then morphs into the FS seal
+ * (~2.3 s), and the result holds ~4 s more. Tap anywhere or ROZUMIEM skips.
  * Transform / opacity only. Reduced motion shows the end state at once.
  */
 export function FsReveal({ sym, onClose }: { sym: FsSymId; onClose: () => void }) {
@@ -17,6 +18,10 @@ export function FsReveal({ sym, onClose }: { sym: FsSymId; onClose: () => void }
           <path className="fsr-tick" d="M68 4 H86 M14 96 H28 M99 22 V40 M1 60 V78" />
         </svg>
         <p className="fsr-kicker">ZÁSAH · NOVÝ PRÍKAZ</p>
+        <p className="fsr-step" aria-hidden="true">
+          <span className="is-a">VYŽREBOVANÝ SYMBOL: {name}</span>
+          <span className="is-b">{name} → FINANČNÁ SPRÁVA</span>
+        </p>
         <div className="fsr-stage" aria-hidden="true">
           <span className="fsr-scan" />
           <div className="fsr-flip">

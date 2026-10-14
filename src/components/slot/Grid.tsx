@@ -110,6 +110,7 @@ const CellView = memo(function CellView({
         win ? "is-win" : "",
         cell.kind === "scatter" ? "is-scatter" : "",
         fsCell ? "is-fs-sym" : "",
+        cell.evidence && !cell.gone ? (fsCell ? "is-evidence is-evidence-fs" : "is-evidence") : "",
         cell.kind === "park" ? `is-park is-ticket-${cell.ticket ?? "stat"}` : "",
         cell.kind === "mult" ? `is-mult can-t${canTier(cell.mult ?? 2)}` : "",
         ticketLock && cell.kind !== "park" ? "is-dim" : "",
@@ -143,6 +144,11 @@ const CellView = memo(function CellView({
       {!cell.gone && cell.kind === "mult" && <CanFx mult={cell.mult ?? 2} />}
       {!cell.gone && cell.kind === "mult" && <CanValue mult={cell.mult ?? 2} />}
       {!cell.gone && win && <span className="win-fx" aria-hidden="true" />}
+      {!cell.gone && cell.evidence && (
+        <span className="ev-tag" aria-label="EVIDENCE · nevypláca">
+          <b>EVIDENCE</b>
+        </span>
+      )}
       {hot && <span className="orb-strike" aria-hidden="true" />}
       {aim === "on" && !cell.gone && (
         <span className="aim-lock" aria-hidden="true" />

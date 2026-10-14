@@ -1,7 +1,7 @@
 import { ANTE_COST, BUY_COST_X, FS_RETRIGGER, FS_SPINS, MAX_WIN_X } from "../src/lib/slot/symbols.ts";
 import { createRng, resolvePaidSpin, type PaidSpin } from "../src/lib/slot/engine.ts";
 import { heatFromWin } from "../src/lib/slot/heat.ts";
-import { ZASAH, ZASAH_FS_MUL, modMul, rollTarget, rollWindows, stepMod, tickMod, windowCount, type ChaseMod, type ChaseState } from "../src/lib/slot/zasah.ts";
+import { advanceChase, ZASAH, ZASAH_FS_MUL, modMul, rollTarget, rollWindows, stepMod, tickMod, windowCount, type ChaseMod, type ChaseState } from "../src/lib/slot/zasah.ts";
 
 function playFeature(
   rng: () => number,
@@ -226,7 +226,7 @@ function zasahRun(spins: number, seed = 5) {
         } else neu += 1;
         chase = null;
       } else {
-        chase = { ...rolled.next, spin: played, target: rollTarget(rng) };
+        chase = advanceChase(rng, chase!, rolled);
       }
     } else {
       note(basePaid);

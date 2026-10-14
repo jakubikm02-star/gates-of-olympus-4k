@@ -4,6 +4,8 @@ import { COLS, PAY_SYMBOLS, type Cell } from "./symbols.ts";
 import { resolvePaidSpin, withoutScatterPay, evaluate } from "./engine.ts";
 import {
   FS_DRAW,
+  advanceChase,
+  markEvidence,
   isFsCell,
   modMul,
   readChaseFields,
@@ -62,7 +64,7 @@ describe("zasah windows", () => {
     for (const w of rolled.windows) assert.equal(neighbor(w.cell, w.hover), true);
   });
 
-  it("a window on the FS symbol is a strike and beats the lock-on", () => {
+  it("a window on the FS symbol is a strike", () => {
     const board = boardOf(rngOf(1));
     const first = board[0][0];
     const fsSym: FsSymId = first.kind === "scatter" ? "scatter" : first.kind === "pay" ? first.payId! : "rj45";
@@ -95,7 +97,9 @@ describe("zasah windows", () => {
       let i = 0;
       return () => seq[Math.min(i++, seq.length - 1)];
     })();
-    const hit = rollWindows(hitRng, board, { spin: 7, target: null, hits: 3, strikes: 0 }, 3);
+    const t0 = board[0][0];
+    board[0][0] = t0.kind === "pay" ? t0 : { uid: 8, kind: "pay", payId: "pdf" };
+    const hit = rollWindows(hitRng, board, { spin: 7, target: board[0][0].payId!, hits: 3, strikes: 0 }, 3);
     assert.equal(hit.outcome, "escape");
     assert.equal(hit.windows.length, 1);
     const c0 = board[0][0];
@@ -128,7 +132,7 @@ describe("zasah windows", () => {
     return "neutral";
   }
 
-  it("matches the chase split on real boards (sim: 46.8 / 26.0 / 27.2)", () => {
+  it("matches the chase split on real boards (sim, no lock-on: 14.1 / 31.9 / 54.0)", () => {
     const rng = rngOf(7);
     let escape = 0;
     let unik = 0;
@@ -138,8 +142,8 @@ describe("zasah windows", () => {
       if (outcome === "escape") escape += 1;
       else if (outcome === "unik") unik += 1;
     }
-    assert.ok(Math.abs(escape / n - 0.468) < 0.03, `escape ${escape / n}`);
-    assert.ok(Math.abs(unik / n - 0.26) < 0.025, `unik ${unik / n}`);
+    assert.ok(Math.abs(escape / n - 0.141) < 0.02, `escape ${escape / n}`);
+    assert.ok(Math.abs(unik / n - 0.319) < 0.025, `unik ${unik / n}`);
   });
 
   it("4KA TV is the safest draw, RJ45 the most dangerous", () => {
@@ -155,7 +159,7 @@ describe("zasah windows", () => {
     const pdf = unik("pdf");
     assert.ok(tv < 0.02, `tv ${tv}`);
     assert.ok(pdf < rj, `pdf ${pdf} rj45 ${rj}`);
-    assert.ok(rj > 0.33 && rj < 0.45, `rj45 ${rj}`);
+    assert.ok(rj > 0.40 && rj < 0.52, `rj45 ${rj}`);
   });
 
   it("4KA TV under FS: scatters neither pay nor trigger free spins", () => {
@@ -208,5 +212,59 @@ describe("ZÁSAH win multiplier", () => {
     const applied = 5; // Mbps cans
     assert.equal(sequenceX * applied * ZASAH.BOOST, 100);
     assert.equal(12.5 * ZASAH.BOOST, 25);
+  });
+});
+
+describe("ZÁSAH without lock-on", () => {
+  it("a window on a non-target symbol is always a miss and never touches the board", () => {
+    const rng = rngOf(77);
+    for (let i = 0; i < 3000; i += 1) {
+      const board = boardOf(rng);
+      const before = JSON.stringify(board);
+      const s: ChaseState = { spin: 9, target: rollTarget(rng), hits: 0, strikes: 0, fsSym: null };
+      const rolled = rollWindows(rng, board, s, 3);
+      assert.equal(JSON.stringify(board), before);
+      for (const w of rolled.windows) {
+        const t = board[Math.floor(w.cell / COLS)][w.cell % COLS];
+        const natural = t.kind === "pay" && t.payId === s.target;
+        assert.equal(w.result, natural ? "hit" : "miss");
+        assert.equal(w.lock, false);
+      }
+    }
+  });
+});
+
+describe("ZÁSAH EVIDENCE", () => {
+  const pay = (payId: string): Cell => ({ uid: 1, kind: "pay", payId: payId as never });
+  it("marks every target and FS cell on the settled board, without touching the board or the win", () => {
+    const board: Cell[][] = Array.from({ length: 5 }, () => Array.from({ length: COLS }, () => pay("hap")));
+    for (const [r, c] of [[0, 0], [2, 2], [4, 5], [3, 1]]) board[r][c] = pay("pdf");
+    board[1][1] = pay("rj45");
+    const before = JSON.stringify(board);
+    const s: ChaseState = { spin: 2, target: "pdf", hits: 1, strikes: 0, fsSym: "rj45" };
+    const m = markEvidence(board, s);
+    assert.equal(JSON.stringify(board), before);
+    const marked = m.flatMap((row, r) => row.map((cell, c) => (cell.evidence ? `${r}${c}` : ""))).filter(Boolean).sort();
+    assert.deepEqual(marked, ["00", "11", "22", "31", "45"]);
+  });
+  it("evidence cells never count for a win", () => {
+    const board: Cell[][] = Array.from({ length: 5 }, () => Array.from({ length: COLS }, (_, c) => pay(c % 2 ? "hap" : "rj45")));
+    board[0][0] = pay("pdf");
+    const marked = markEvidence(board, { spin: 0, target: "hap", hits: 0, strikes: 0, fsSym: null });
+    assert.ok(evaluate(board).winX > 0);
+    assert.equal(evaluate(marked).wins.some((w) => w.payId === "hap"), false);
+  });
+  it("keeps the target after a miss, draws a new one after a HACK or strike; next spin is clean", () => {
+    const s: ChaseState = { spin: 2, target: "pdf", hits: 1, strikes: 0, fsSym: "rj45" };
+    const w = (result: "hit" | "fs" | "miss") => ({ windows: [{ cell: 0, hover: 1, result, lock: false }], next: s });
+    assert.equal(advanceChase(rngOf(1), s, w("miss")).target, "pdf");
+    let changed = 0;
+    for (let i = 0; i < 50; i += 1) {
+      const n = advanceChase(rngOf(10 + i), s, w(i % 2 ? "hit" : "fs"));
+      assert.notEqual(n.target, "rj45");
+      assert.equal(n.spin, 3);
+      if (n.target !== "pdf") changed += 1;
+    }
+    assert.ok(changed > 30);
   });
 });

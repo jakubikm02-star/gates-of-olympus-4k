@@ -7,7 +7,6 @@ export const ZASAH = {
   BOOST: 2,
   HITS: 4,
   STRIKES: 3,
-  LOCK_P: 0.105,
   WINDOWS: [1, 1, 1, 2, 2, 2, 2, 3, 3, 3] as const,
   MOD_SPINS: 15,
   ESCAPE_MUL: 1.23,
@@ -67,6 +66,7 @@ export interface ChaseState {
   /** Symbol swapped to Finančná správa for the whole chase. Drawn once at the start. */
   fsSym?: FsSymId | null;
 }
+
 
 export interface ChaseMod {
   kind: ChaseModKind;
@@ -128,14 +128,14 @@ export function rollWindows(
     const row = board[Math.floor(cell / COLS)];
     const tile = row?.[cell % COLS];
     const natural = tile?.kind === "pay" && tile.payId === s.target;
-    // A window on the FS symbol is a strike. It wins over the lock-on roll.
+    // A window on the FS symbol is a strike. Only a window on the real target is a HIT; anything else is a miss.
     if (isFsCell(tile, s.fsSym)) {
       strikes += 1;
       windows.push({ cell, hover, result: "fs", lock: false });
       if (strikes >= ZASAH.STRIKES) outcome = "unik";
-    } else if (rng() < ZASAH.LOCK_P || natural) {
+    } else if (natural) {
       hits += 1;
-      windows.push({ cell, hover, result: "hit", lock: !natural });
+      windows.push({ cell, hover, result: "hit", lock: false });
       if (hits >= ZASAH.HITS) outcome = "escape";
     } else {
       windows.push({ cell, hover, result: "miss", lock: false });
@@ -248,4 +248,26 @@ export function fsSpinX(x: number, zasah: boolean, remainX: number): { paidX: nu
     hitMax = true;
   }
   return { paidX, hitMax };
+}
+
+/**
+ * EVIDENCE: once a ZÁSAH spin has settled (all tumbles done), every target cell and FS cell is locked as
+ * EVIDENCE for the hack windows. Locked cells pay nothing (the settled board has no win left anyway) and
+ * the next spin is clean again. Returns the board with those cells flagged; the board itself is not mutated.
+ */
+export function markEvidence(board: Cell[][], s: ChaseState): Cell[][] {
+  return board.map((row) =>
+    row.map((t) => (isFsCell(t, s.fsSym) || (t?.kind === "pay" && s.target != null && t.payId === s.target) ? { ...t, evidence: true } : t)),
+  );
+}
+
+/** Next ZÁSAH spin: clean board; the target stays until a window lands on a target cell (HACK) or FS cell (strike). */
+export function advanceChase(
+  rng: () => number,
+  live: ChaseState,
+  rolled: { windows: readonly HackWindow[]; next: ChaseState },
+): ChaseState {
+  const released = rolled.windows.some((w) => w.result === "hit" || w.result === "fs");
+  const target = released || !live.target ? rollTarget(rng, rolled.next.fsSym) : live.target;
+  return { ...rolled.next, spin: live.spin + 1, target };
 }

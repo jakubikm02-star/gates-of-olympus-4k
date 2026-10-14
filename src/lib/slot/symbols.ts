@@ -26,6 +26,8 @@ export interface Cell {
   fall?: number;
   /** Just exploded — render as an empty hole for a beat. */
   gone?: boolean;
+  /** ZÁSAH EVIDENCE: target / FS cell locked on the settled board for the hack windows (pays nothing). */
+  evidence?: boolean;
 }
 
 export interface PaySymbol {

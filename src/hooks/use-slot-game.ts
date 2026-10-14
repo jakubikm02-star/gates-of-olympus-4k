@@ -94,7 +94,7 @@ import { canEventCue, type CanEvent } from "@/lib/slot/cue-ready";
 import { canBoltKey } from "@/lib/slot/can-sfx";
 import { ReelScatterTracker, SETTLE_TIMEOUT_MS, cascadeCue, thirdScatterCue, type LandCue } from "@/lib/slot/scatter-sfx";
 import { antiAfterSpin, antiCue, antiLevel, antiStreak, type AntiCue } from "@/lib/slot/anticipation";
-import { ZASAH, applyMod, fsSpinX, fsZasahArmed, roundModScope, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, stepMod, windowCount, type ChaseMod, type ModScope, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
+import { ZASAH, advanceChase, applyMod, markEvidence, fsSpinX, fsZasahArmed, roundModScope, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, stepMod, windowCount, type ChaseMod, type ModScope, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
 import { BUILD_ID, dropStaleCaches, hardReload, releaseMatches } from "@/lib/slot/release";
 import {
   DUEL_DEPOSIT_MULT,
@@ -2739,7 +2739,7 @@ export function useSlotGame() {
         setChase(drawn);
         sfx.playStrike();
         setTopLine(fsSym === "scatter" ? "FINANČNÁ SPRÁVA · BONUS ZABLOKOVANÝ" : `FINANČNÁ SPRÁVA SLEDUJE · ${fsSymName(fsSym)}`);
-        await showFsReveal(fsSym, abort.current.skip ? 900 : dur(6800));
+        await showFsReveal(fsSym, abort.current.skip ? 900 : dur(7600));
       }
       const scatterBlocked = chasing && chaseRef.current?.fsSym === "scatter";
       setHackWindows([]);
@@ -3219,6 +3219,12 @@ export function useSlotGame() {
       if (chasing && chaseRef.current) {
         const live = chaseRef.current;
         const rolled = rollWindows(Math.random, board, live, windowCount(live.spin));
+        // Settled board: target and FS cells lock as EVIDENCE (no pay) for the windows; the next spin is clean.
+        const marked = markEvidence(board, live);
+        if (marked.some((row, r) => row.some((cell, c) => cell !== board[r][c]))) {
+          setGrid((g) => markEvidence(g, live));
+          await wait(dur(320), abort.current);
+        }
         const slow = live.hits >= 3 ? 1.6 : 1;
         const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         const shown: HackWindow[] = [];
@@ -3266,7 +3272,7 @@ export function useSlotGame() {
           chaseEnded = true;
           endChase(rolled.outcome ?? "neutral", currentBet);
         } else {
-          const nextChase: ChaseState = { ...rolled.next, spin: played, target: rollTarget(Math.random, rolled.next.fsSym) };
+          const nextChase: ChaseState = advanceChase(Math.random, live, rolled);
           chaseRef.current = nextChase;
           setChase(nextChase);
           persistNow();

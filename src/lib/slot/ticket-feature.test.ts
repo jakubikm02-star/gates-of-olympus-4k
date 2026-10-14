@@ -55,7 +55,7 @@ describe("feature tickets: generator", () => {
     assert.match(withGoal("listky", 2), /^2 lístky v jednej KONTROLE$/);
     assert.match(withGoal("zasielky", 5), /^5 zásielok v jednom Ž-BOXE$/);
     assert.match(withGoal("okna", 4), /^4 kolá v jednom Ž-BOXE$/);
-    assert.match(withGoal("hack", 4), /únik BEZ DANE/);
+    assert.match(withGoal("hack", 3), /^3× HACK v jednom ZÁSAHU$/);
   });
 
   it("dealJobs: a feature card in about half of the deals, at most one, priplatok only on drahá; OTRS never", () => {
