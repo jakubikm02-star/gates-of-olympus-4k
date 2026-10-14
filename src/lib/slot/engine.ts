@@ -1,4 +1,5 @@
 import { onFrame } from "./frame-loop.ts";
+import { applySticky, type StickyCell } from "./zasah.ts";
 import {
   COLS,
   ROWS,
@@ -16,7 +17,7 @@ import {
 } from "./symbols.ts";
 
 let uidSeq = 1000;
-function nextUid(): number {
+export function nextUid(): number {
   uidSeq += 1;
   return uidSeq;
 }
@@ -172,7 +173,7 @@ export function zeusDrop(
   const spots: { r: number; c: number }[] = [];
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
-      if (grid[r][c].kind === "pay") spots.push({ r, c });
+      if (grid[r][c].kind === "pay" && !grid[r][c].pin) spots.push({ r, c });
     }
   }
   for (let i = spots.length - 1; i > 0; i--) {
@@ -296,7 +297,7 @@ export function plantTicket(grid: Cell[][], ticket: TicketId, rng: () => number)
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const cell = grid[r][c];
-      if (cell.kind === "scatter" || cell.kind === "mult" || cell.kind === "park") continue;
+      if (cell.kind === "scatter" || cell.kind === "mult" || cell.kind === "park" || cell.pin) continue;
       spots.push({ r, c, low: Boolean(cell.payId && low.has(cell.payId)) });
     }
   }
@@ -318,18 +319,24 @@ export function countParks(grid: Cell[][]): number {
 export function tumble(grid: Cell[][], winMask: boolean[][], rng: () => number, ante: boolean, fs = false): Cell[][] {
   const next: Cell[][] = Array.from({ length: ROWS }, () => Array(COLS).fill(null as unknown as Cell));
   for (let c = 0; c < COLS; c++) {
+    // ZÁSAH sticky cells (pin) that did not pop hold their row; everything else falls around them.
+    const fixed = Array.from({ length: ROWS }, (_, r) => Boolean(grid[r][c].pin && !winMask[r][c]));
     const surviving: { cell: Cell; from: number }[] = [];
     for (let r = ROWS - 1; r >= 0; r--) {
-      if (!winMask[r][c]) surviving.push({ cell: grid[r][c], from: r });
+      if (fixed[r]) next[r][c] = { ...grid[r][c], fall: 0 };
+      else if (!winMask[r][c]) surviving.push({ cell: grid[r][c], from: r });
     }
-    let dest = ROWS - 1;
+    const free: number[] = [];
+    for (let r = ROWS - 1; r >= 0; r--) if (!fixed[r]) free.push(r);
+    let k = 0;
     for (const item of surviving) {
+      const dest = free[k++];
       next[dest][c] = { ...item.cell, fall: dest - item.from };
-      dest -= 1;
     }
-    const spawnOffset = dest + 1;
+    const spawn = free.slice(k).reverse();
+    const spawnOffset = spawn.length;
     let prev: Cell | null = null;
-    for (let r = 0; r <= dest; r++) {
+    for (const r of spawn) {
       let cell: Cell;
       if (prev?.kind === "pay" && prev.payId && rng() < mathTune.sticky) {
         cell = { uid: nextUid(), kind: "pay", payId: prev.payId };
@@ -422,10 +429,13 @@ export function resolvePaidSpin(
     blockScatter?: boolean;
     /** Rank perk (NEKONEČNO): a can throw brings this many extra cans 1 in 5 times, as the live game does. Sims only. */
     orbBonus?: number;
+    /** ZÁSAH sticky cells held from the last chase spin (EVIDENCE targets and FS cells). */
+    sticky?: readonly StickyCell[];
   },
 ): PaidSpin {
   const ante = opts.buy || opts.free ? false : opts.ante;
   let board = opts.buy ? generateBuyGrid(rng) : generateGrid(rng, ante, !!opts.free);
+  if (opts.sticky?.length) board = applySticky(board, opts.sticky, nextUid);
   const open = PAY_SYMBOLS.map(() => 0);
   for (const row of board) {
     for (const cell of row) {

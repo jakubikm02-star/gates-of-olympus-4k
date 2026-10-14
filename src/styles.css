@@ -11260,7 +11260,6 @@ html:-webkit-full-screen {
    case frame and a stamped tag. Hack-window frames above it are unchanged. */
 .cell.is-evidence .cell-img { filter: grayscale(0.7) brightness(0.72) contrast(1.05); }
 .cell.is-evidence { box-shadow: inset 0 0 0 1.5px rgb(240 196 25 / 0.75), inset 0 0 14px rgb(0 0 0 / 0.55); border-radius: 8%; }
-.cell.is-evidence-fs { box-shadow: inset 0 0 0 1.5px rgb(255 90 31 / 0.8), inset 0 0 14px rgb(0 0 0 / 0.55); }
 .ev-tag {
   position: absolute;
   left: 50%;
@@ -11282,8 +11281,25 @@ html:-webkit-full-screen {
   color: #f0c419;
   white-space: nowrap;
 }
-.cell.is-evidence-fs .ev-tag { border-color: #ff5a1f; }
-.cell.is-evidence-fs .ev-tag b { color: #ff7a45; }
+/* Sticky cells held over a spinning reel: same box as a hack window, static, opaque. */
+.pin-layer { position: absolute; inset: 0; z-index: 7; pointer-events: none; }
+.pin-cell {
+  --cell-w: calc((100% - 2 * var(--reel-pad) - 5 * var(--reel-gap)) / 6);
+  position: absolute;
+  left: var(--reel-pad);
+  top: var(--reel-pad);
+  width: var(--cell-w);
+  height: calc((100% - 2 * var(--reel-pad)) / 5);
+  display: grid;
+  place-items: center;
+  background: rgb(10 12 16 / 0.96);
+  border-radius: 8%;
+  transform: translate3d(calc(var(--x, 0) * (100% + var(--reel-gap))), calc(var(--y, 0) * 100%), 0);
+}
+.pin-cell img { width: 86%; height: 86%; object-fit: contain; }
+.pin-cell.is-evidence { box-shadow: inset 0 0 0 1.5px rgb(240 196 25 / 0.75), inset 0 0 14px rgb(0 0 0 / 0.55); }
+.pin-cell.is-evidence img { filter: grayscale(0.7) brightness(0.72) contrast(1.05); }
+.pin-cell .ev-tag { animation: none; }
 @keyframes ev-stamp {
   from { transform: translate(-50%, -50%) rotate(-14deg) scale(1.8); opacity: 0; }
   to { transform: translate(-50%, -50%) rotate(-14deg) scale(1); opacity: 1; }

@@ -177,7 +177,7 @@ function zasahRun(spins: number, seed = 5) {
     const cost = chasing ? ZASAH.COST_X : 1;
     stakeOut += cost;
     if (chasing) chaseStake += cost;
-    const spin = resolvePaidSpin(rng, { ante: false, free: false, globalMult: 0 });
+    const spin = resolvePaidSpin(rng, { ante: false, free: false, globalMult: 0, sticky: chasing ? chase?.sticky : undefined });
     const boosted = chasing ? spin.paidX * ZASAH.BOOST : spin.paidX;
     const mul = chasing ? 1 : modMul(mod);
     const basePaid = boosted * mul;
@@ -226,7 +226,7 @@ function zasahRun(spins: number, seed = 5) {
         } else neu += 1;
         chase = null;
       } else {
-        chase = advanceChase(rng, chase!, rolled);
+        chase = advanceChase(rng, spin.board, chase!, rolled);
       }
     } else {
       note(basePaid);

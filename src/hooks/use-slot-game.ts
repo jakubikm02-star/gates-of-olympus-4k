@@ -30,6 +30,7 @@ import {
   findTicket,
   listOrbs,
   makeSpinStrip,
+  nextUid,
   plantTicket,
   punchHoles,
   tumble,
@@ -94,7 +95,7 @@ import { canEventCue, type CanEvent } from "@/lib/slot/cue-ready";
 import { canBoltKey } from "@/lib/slot/can-sfx";
 import { ReelScatterTracker, SETTLE_TIMEOUT_MS, cascadeCue, thirdScatterCue, type LandCue } from "@/lib/slot/scatter-sfx";
 import { antiAfterSpin, antiCue, antiLevel, antiStreak, type AntiCue } from "@/lib/slot/anticipation";
-import { ZASAH, advanceChase, applyMod, markEvidence, fsSpinX, fsZasahArmed, roundModScope, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, stepMod, windowCount, type ChaseMod, type ModScope, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
+import { ZASAH, advanceChase, applyMod, applySticky, markEvidence, fsSpinX, fsZasahArmed, roundModScope, fsSymName, modMul, rollFsSymbol, rollTarget, rollWindows, stepMod, windowCount, type ChaseMod, type ModScope, type ChaseModKind, type ChaseOutcome, type ChaseState, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
 import { BUILD_ID, dropStaleCaches, hardReload, releaseMatches } from "@/lib/slot/release";
 import {
   DUEL_DEPOSIT_MULT,
@@ -2824,6 +2825,8 @@ export function useSlotGame() {
       let next = opts?.buy
         ? generateBuyGrid(rng)
         : generateGrid(rng, opts?.free ? false : anteRef.current, !!opts?.free);
+      // ZÁSAH sticky: EVIDENCE targets and FS cells held after an all-miss spin stay on their spots.
+      if (chasing && chaseRef.current?.sticky?.length) next = applySticky(next, chaseRef.current.sticky, nextUid);
       if (spunTicket) next = plantTicket(next, spunTicket, rng);
 
       const already = performance.now() - spunAt;
@@ -3272,7 +3275,7 @@ export function useSlotGame() {
           chaseEnded = true;
           endChase(rolled.outcome ?? "neutral", currentBet);
         } else {
-          const nextChase: ChaseState = advanceChase(Math.random, live, rolled);
+          const nextChase: ChaseState = advanceChase(Math.random, board, live, rolled);
           chaseRef.current = nextChase;
           setChase(nextChase);
           persistNow();

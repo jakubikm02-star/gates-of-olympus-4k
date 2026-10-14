@@ -65,6 +65,8 @@ export interface ChaseState {
   strikes: number;
   /** Symbol swapped to Finančná správa for the whole chase. Drawn once at the start. */
   fsSym?: FsSymId | null;
+  /** Held cells for the next ZÁSAH spin. Not saved: a reload resumes with a clean board. */
+  sticky?: StickyCell[];
 }
 
 
@@ -250,24 +252,62 @@ export function fsSpinX(x: number, zasah: boolean, remainX: number): { paidX: nu
   return { paidX, hitMax };
 }
 
+/** A held ZÁSAH cell: position, symbol, and whether it is an EVIDENCE target (pays nothing). */
+export interface StickyCell {
+  r: number;
+  c: number;
+  sym: FsSymId;
+  evidence: boolean;
+}
+
 /**
- * EVIDENCE: once a ZÁSAH spin has settled (all tumbles done), every target cell and FS cell is locked as
- * EVIDENCE for the hack windows. Locked cells pay nothing (the settled board has no win left anyway) and
- * the next spin is clean again. Returns the board with those cells flagged; the board itself is not mutated.
+ * EVIDENCE: once a ZÁSAH spin has settled (all tumbles done), every target cell is stamped EVIDENCE.
+ * EVIDENCE cells never pay. FS cells get no stamp. The board itself is not mutated.
  */
 export function markEvidence(board: Cell[][], s: ChaseState): Cell[][] {
   return board.map((row) =>
-    row.map((t) => (isFsCell(t, s.fsSym) || (t?.kind === "pay" && s.target != null && t.payId === s.target) ? { ...t, evidence: true } : t)),
+    row.map((t) => (t?.kind === "pay" && s.target != null && t.payId === s.target && !isFsCell(t, s.fsSym) && !t.evidence ? { ...t, evidence: true } : t)),
   );
 }
 
-/** Next ZÁSAH spin: clean board; the target stays until a window lands on a target cell (HACK) or FS cell (strike). */
+/**
+ * Sticky rule: if every window of the spin missed, all target (EVIDENCE) cells and all FS cells of the
+ * settled board stay in place for the next spin. A HACK or a strike releases everything: clean next spin.
+ */
+export function stickyCells(board: Cell[][], s: ChaseState, windows: readonly HackWindow[]): StickyCell[] {
+  if (windows.some((w) => w.result === "hit" || w.result === "fs")) return [];
+  const out: StickyCell[] = [];
+  for (let r = 0; r < board.length; r += 1) {
+    for (let c = 0; c < board[r].length; c += 1) {
+      const t = board[r][c];
+      if (!t) continue;
+      if (isFsCell(t, s.fsSym)) out.push({ r, c, sym: s.fsSym!, evidence: false });
+      else if (t.kind === "pay" && s.target && t.payId === s.target) out.push({ r, c, sym: s.target, evidence: true });
+    }
+  }
+  return out;
+}
+
+/** Puts the held cells on a freshly generated grid (new uids, pinned; targets stay EVIDENCE). */
+export function applySticky(grid: Cell[][], sticky: readonly StickyCell[] | undefined, uid: () => number): Cell[][] {
+  if (!sticky || sticky.length === 0) return grid;
+  const g = grid.map((row) => row.slice());
+  for (const k of sticky) {
+    if (!g[k.r] || k.c < 0 || k.c >= g[k.r].length) continue;
+    const base: Cell = k.sym === "scatter" ? { uid: uid(), kind: "scatter" } : { uid: uid(), kind: "pay", payId: k.sym };
+    g[k.r][k.c] = { ...base, pin: true, ...(k.evidence ? { evidence: true } : {}) };
+  }
+  return g;
+}
+
+/** Next ZÁSAH spin: held cells after an all-miss spin; a HACK or strike releases them and draws a new target. */
 export function advanceChase(
   rng: () => number,
+  board: Cell[][],
   live: ChaseState,
   rolled: { windows: readonly HackWindow[]; next: ChaseState },
 ): ChaseState {
   const released = rolled.windows.some((w) => w.result === "hit" || w.result === "fs");
   const target = released || !live.target ? rollTarget(rng, rolled.next.fsSym) : live.target;
-  return { ...rolled.next, spin: live.spin + 1, target };
+  return { ...rolled.next, spin: live.spin + 1, target, sticky: released ? [] : stickyCells(board, live, rolled.windows) };
 }

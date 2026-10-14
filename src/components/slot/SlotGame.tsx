@@ -542,6 +542,7 @@ export function SlotGame() {
               spinStrips={g.spinStrips}
               ticketLock={g.ticketLock}
               hackWindows={g.windows}
+              pinned={g.chase?.sticky ?? null}
               activeWindow={g.chase?.activeWindow}
               windowPhase={g.chase?.phase}
               chaseTarget={g.chase ? aim.id : null}

@@ -54,7 +54,7 @@ function session(rank: string, ante: boolean, n: number, seed: number) {
     // Live game: a ZÁSAH spin costs the full stake × COST_X (ante included) and keeps the ante reels.
     const cost = chasing ? stakeX * ZASAH.COST_X : stakeX;
     stake += cost; bStake += cost;
-    const sp = resolvePaidSpin(rng, { ante, globalMult: 0, blockScatter: chasing && chase!.fsSym === "scatter", orbBonus });
+    const sp = resolvePaidSpin(rng, { ante, globalMult: 0, blockScatter: chasing && chase!.fsSym === "scatter", sticky: chasing ? chase!.sticky : undefined, orbBonus });
     const gross = sp.paidX * (chasing ? ZASAH.BOOST : 1);
     // Tax period: base spins pay with it and count it down; ZÁSAH spins neither.
     const mul = chasing ? 1 : modMul(mod);
@@ -68,7 +68,7 @@ function session(rank: string, ante: boolean, n: number, seed: number) {
         if (out === "escape") mod = { kind: "bezDane", left: ZASAH.MOD_SPINS };
         else if (out === "unik") mod = { kind: "danUrad", left: ZASAH.MOD_SPINS };
         chase = null;
-      } else chase = advanceChase(rng, chase!, rolled);
+      } else chase = advanceChase(rng, sp.board, chase!, rolled);
     } else if (gross > 0) heat = Math.min(HEAT_MAX, heat + heatFromWin(gross * mul));
     pity += pityGain(sp.scatterPeak, gross <= 0);
     // Dead-spin rebate (perk), the spin that triggers 4KA TV is no dead spin.

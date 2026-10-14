@@ -379,7 +379,7 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
               ["Okná za spin", `1 (${winSpins(1)} spiny), 2 (${winSpins(2)} spiny), 3 (${winSpins(3)} spiny)`],
               ["HIT", "okno na cieľovom symbole (iný symbol = MIMO, nemení sa)"],
               ["Zásah", "okno na symbole Finančnej správy"],
-              ["EVIDENCE", "po ustálení spinu sa cieľ a symboly FS zamknú ako EVIDENCE: nevyplácajú, sú len cieľom okien. Ďalší spin je čistý; cieľ sa mení po HACKu alebo zásahu FS"],
+              ["EVIDENCE", "po ustálení spinu sa cieľové symboly označia ako EVIDENCE a nevyplácajú. Ak sú všetky okná MIMO, EVIDENCE aj symboly FS ostanú na mieste aj ďalší spin (nové sa pridajú). HACK alebo zásah FS ich uvoľní, príde nový cieľ a čistý spin"],
             ]}
           />
           <div className="man-outcomes">

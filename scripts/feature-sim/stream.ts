@@ -62,7 +62,7 @@ export function makeStream(n: number, seed: number): Stream {
       f |= 4;
     }
     const chasing = chase != null;
-    const sp = resolvePaidSpin(rng, { ante: false, globalMult: 0, blockScatter: chasing && chase!.fsSym === "scatter" });
+    const sp = resolvePaidSpin(rng, { ante: false, globalMult: 0, blockScatter: chasing && chase!.fsSym === "scatter", sticky: chasing ? chase!.sticky : undefined });
     let paid = sp.paidX * (chasing ? ZASAH.BOOST : 1);
     if (paid > 0) f |= 1;
     s.winX[i] = paid;
@@ -79,7 +79,7 @@ export function makeStream(n: number, seed: number): Stream {
         if (rolled.outcome === "escape") f |= 128;
         chase = null;
       } else {
-        chase = advanceChase(rng, chase!, rolled);
+        chase = advanceChase(rng, sp.board, chase!, rolled);
       }
     } else if (paid > 0) heat = Math.min(HEAT_MAX, heat + heatFromWin(paid));
     const add = pityGain(sp.scatterPeak, paid <= 0);

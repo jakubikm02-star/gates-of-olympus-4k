@@ -5,7 +5,7 @@ import { predecode } from "@/lib/slot/predecode";
 import { reportSpinFrames } from "@/lib/slot/perf-guard";
 import { emptySettle, settleReports, type SettleState } from "@/lib/slot/scatter-sfx";
 import { COLS, ROWS, symbolSrc, ticketArt, canTier, CAN_ART, FS_SYMBOL, PAY_SYMBOLS, SCATTER, TICKETS, type Cell, type PayId } from "@/lib/slot/symbols";
-import { isFsCell, type FsSymId, type HackWindow } from "@/lib/slot/zasah";
+import { isFsCell, type FsSymId, type HackWindow, type StickyCell } from "@/lib/slot/zasah";
 import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
 import { CanFx, CanValue } from "./Can";
 
@@ -37,6 +37,8 @@ interface Props {
   spinStrips?: Cell[][] | null;
   ticketLock?: boolean;
   hackWindows?: HackWindow[];
+  /** ZÁSAH sticky cells: drawn static over their reel while it spins, so they never spin away. */
+  pinned?: readonly StickyCell[] | null;
   activeWindow?: number;
   windowPhase?: "travel" | "hover" | "land" | "reveal";
   chaseTarget?: PayId | null;
@@ -110,7 +112,7 @@ const CellView = memo(function CellView({
         win ? "is-win" : "",
         cell.kind === "scatter" ? "is-scatter" : "",
         fsCell ? "is-fs-sym" : "",
-        cell.evidence && !cell.gone ? (fsCell ? "is-evidence is-evidence-fs" : "is-evidence") : "",
+        cell.evidence && !cell.gone && !fsCell ? "is-evidence" : "",
         cell.kind === "park" ? `is-park is-ticket-${cell.ticket ?? "stat"}` : "",
         cell.kind === "mult" ? `is-mult can-t${canTier(cell.mult ?? 2)}` : "",
         ticketLock && cell.kind !== "park" ? "is-dim" : "",
@@ -288,6 +290,7 @@ export function SlotGrid({
   spinStrips,
   ticketLock,
   hackWindows,
+  pinned,
   activeWindow = -1,
   windowPhase = "reveal",
   chaseTarget,
@@ -691,6 +694,29 @@ export function SlotGrid({
             {clusterPay.amount}
           </div>
         )}
+        {pinned && pinned.length > 0 && cascading ? (
+          <div className="pin-layer" aria-hidden="true">
+            {pinned
+              .filter((k) => k.c >= stoppedCols)
+              .map((k) => {
+                const art = k.evidence ? PAY_SYMBOLS.find((p) => p.id === k.sym)?.src : FS_SYMBOL.src;
+                return (
+                  <span
+                    key={`${k.r}-${k.c}`}
+                    className={`pin-cell${k.evidence ? " is-evidence" : " is-fs"}`}
+                    style={{ ["--x" as string]: String(k.c), ["--y" as string]: String(k.r) } as CSSProperties}
+                  >
+                    {art ? <img src={art} alt="" draggable={false} /> : null}
+                    {k.evidence ? (
+                      <span className="ev-tag">
+                        <b>EVIDENCE</b>
+                      </span>
+                    ) : null}
+                  </span>
+                );
+              })}
+          </div>
+        ) : null}
         {hackWindows && hackWindows.length > 0 ? (
           <div className="hack-layer">
             {hackWindows.map((w, i) => {

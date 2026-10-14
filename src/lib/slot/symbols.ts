@@ -28,6 +28,8 @@ export interface Cell {
   gone?: boolean;
   /** ZÁSAH EVIDENCE: target / FS cell locked on the settled board for the hack windows (pays nothing). */
   evidence?: boolean;
+  /** ZÁSAH sticky: held in place from the last chase spin (does not respin, holds its row in a tumble). */
+  pin?: boolean;
 }
 
 export interface PaySymbol {

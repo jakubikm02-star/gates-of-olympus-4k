@@ -100,14 +100,14 @@ function session(rank: string, ante: boolean, perDay: number, days: number, seed
       if (!chase && heat >= HEAT_MAX) { heat = 0; chase = { spin: 0, target: null, hits: 0, strikes: 0, fsSym: rollFsSymbol(rng) }; }
       const chasing = chase != null;
       stake += chasing ? ZASAH.COST_X : stakeX;
-      const sp = resolvePaidSpin(rng, { ante: ante && !chasing, globalMult: 0, blockScatter: chasing && chase!.fsSym === "scatter" });
+      const sp = resolvePaidSpin(rng, { ante: ante && !chasing, globalMult: 0, blockScatter: chasing && chase!.fsSym === "scatter", sticky: chasing ? chase!.sticky : undefined });
       const p = sp.paidX * (chasing ? ZASAH.BOOST : 1);
       paid += p;
       if (chasing) {
         const rolled = rollWindows(rng, sp.board, chase!, windowCount(chase!.spin));
         const played: number = chase!.spin + 1;
         if (rolled.outcome || played >= ZASAH.SPINS) chase = null;
-        else chase = advanceChase(rng, chase!, rolled);
+        else chase = advanceChase(rng, sp.board, chase!, rolled);
       } else if (p > 0) heat = Math.min(HEAT_MAX, heat + heatFromWin(p));
       pity += pityGain(sp.scatterPeak, p <= 0);
       if (sp.triggeredFs) {

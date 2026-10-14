@@ -592,7 +592,7 @@ export const JOB_RANGES: Record<string, Record<JobFloor, { need: Span; window: S
   // lower goals so their windows stay ≤ 400 spins (tune.ts NEEDS). priplatok ×2 needs ~295–440: capped at 400 (~37 %).
   // ZÁSAH every ~170 spins (10 spins, 4× HACK = únik in ~47 %). lup needs raised with BOOST 1.15→2.
   zasah: { lacna: { need: [1, 1], window: [110, 170] }, stred: { need: [1, 2], window: [160, 245] }, draha: { need: [2, 2], window: [190, 290] } },
-  hack: { lacna: { need: [1, 2], window: [165, 250] }, stred: { need: [2, 2], window: [160, 240] }, draha: { need: [2, 3], window: [115, 175] } },
+  hack: { lacna: { need: [2, 3], window: [165, 250] }, stred: { need: [3, 3], window: [160, 240] }, draha: { need: [3, 4], window: [115, 175] } },
   lup: { lacna: { need: [3, 5], window: [210, 315] }, stred: { need: [5, 9], window: [210, 310] }, draha: { need: [9, 14], window: [185, 280] } },
   kvota: { lacna: { need: [45, 65], window: [30, 50] }, stred: { need: [70, 100], window: [40, 60] }, draha: { need: [120, 155], window: [55, 80] } },
   urad: { lacna: { need: [1, 1], window: [35, 50] }, stred: { need: [1, 2], window: [50, 80] }, draha: { need: [2, 3], window: [75, 115] } },

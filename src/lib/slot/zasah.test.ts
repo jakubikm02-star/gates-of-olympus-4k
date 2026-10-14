@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { COLS, PAY_SYMBOLS, type Cell } from "./symbols.ts";
-import { resolvePaidSpin, withoutScatterPay, evaluate } from "./engine.ts";
+import { resolvePaidSpin, withoutScatterPay, evaluate, tumble } from "./engine.ts";
 import {
   FS_DRAW,
   advanceChase,
+  applySticky,
   markEvidence,
   isFsCell,
   modMul,
@@ -236,7 +237,7 @@ describe("ZÁSAH without lock-on", () => {
 
 describe("ZÁSAH EVIDENCE", () => {
   const pay = (payId: string): Cell => ({ uid: 1, kind: "pay", payId: payId as never });
-  it("marks every target and FS cell on the settled board, without touching the board or the win", () => {
+  it("stamps every target cell (never FS) on the settled board, without touching the board", () => {
     const board: Cell[][] = Array.from({ length: 5 }, () => Array.from({ length: COLS }, () => pay("hap")));
     for (const [r, c] of [[0, 0], [2, 2], [4, 5], [3, 1]]) board[r][c] = pay("pdf");
     board[1][1] = pay("rj45");
@@ -245,7 +246,7 @@ describe("ZÁSAH EVIDENCE", () => {
     const m = markEvidence(board, s);
     assert.equal(JSON.stringify(board), before);
     const marked = m.flatMap((row, r) => row.map((cell, c) => (cell.evidence ? `${r}${c}` : ""))).filter(Boolean).sort();
-    assert.deepEqual(marked, ["00", "11", "22", "31", "45"]);
+    assert.deepEqual(marked, ["00", "22", "31", "45"]);
   });
   it("evidence cells never count for a win", () => {
     const board: Cell[][] = Array.from({ length: 5 }, () => Array.from({ length: COLS }, (_, c) => pay(c % 2 ? "hap" : "rj45")));
@@ -257,14 +258,51 @@ describe("ZÁSAH EVIDENCE", () => {
   it("keeps the target after a miss, draws a new one after a HACK or strike; next spin is clean", () => {
     const s: ChaseState = { spin: 2, target: "pdf", hits: 1, strikes: 0, fsSym: "rj45" };
     const w = (result: "hit" | "fs" | "miss") => ({ windows: [{ cell: 0, hover: 1, result, lock: false }], next: s });
-    assert.equal(advanceChase(rngOf(1), s, w("miss")).target, "pdf");
+    assert.equal(advanceChase(rngOf(1), boardOf(rngOf(1)), s, w("miss")).target, "pdf");
     let changed = 0;
     for (let i = 0; i < 50; i += 1) {
-      const n = advanceChase(rngOf(10 + i), s, w(i % 2 ? "hit" : "fs"));
+      const n = advanceChase(rngOf(10 + i), boardOf(rngOf(2)), s, w(i % 2 ? "hit" : "fs"));
       assert.notEqual(n.target, "rj45");
       assert.equal(n.spin, 3);
+      assert.deepEqual(n.sticky, []);
       if (n.target !== "pdf") changed += 1;
     }
     assert.ok(changed > 30);
+  });
+});
+
+describe("ZÁSAH sticky EVIDENCE + FS", () => {
+  const pay = (payId: string): Cell => ({ uid: 1, kind: "pay", payId: payId as never });
+  const s: ChaseState = { spin: 2, target: "pdf", hits: 1, strikes: 0, fsSym: "rj45" };
+  it("after an all-miss spin every target and FS cell is held (no cap); targets stay EVIDENCE", () => {
+    const board: Cell[][] = Array.from({ length: 5 }, () => Array.from({ length: COLS }, () => pay("hap")));
+    for (let r = 0; r < 5; r += 1) board[r][0] = pay("pdf");
+    board[1][1] = pay("rj45");
+    const miss = { windows: [{ cell: 29, hover: 28, result: "miss" as const, lock: false }], next: s };
+    const n = advanceChase(rngOf(1), board, s, miss);
+    assert.equal(n.target, "pdf");
+    assert.equal(n.sticky!.length, 6);
+    assert.equal(n.sticky!.filter((k) => k.evidence).length, 5);
+    assert.deepEqual(n.sticky!.find((k) => !k.evidence), { r: 1, c: 1, sym: "rj45", evidence: false });
+    const g = applySticky(boardOf(rngOf(3)), n.sticky, () => 9);
+    assert.equal(g[1][1].payId, "rj45");
+    assert.equal(g[1][1].pin, true);
+    assert.equal(g[1][1].evidence, undefined);
+    assert.equal(g[3][0].evidence, true);
+  });
+  it("held cells keep their row through a tumble and EVIDENCE never pays", () => {
+    const sticky = [{ r: 0, c: 0, sym: "pdf" as const, evidence: true }, { r: 2, c: 3, sym: "rj45" as const, evidence: false }];
+    for (let seed = 1; seed < 400; seed += 1) {
+      const spin = resolvePaidSpin(rngOf(seed), { ante: false, globalMult: 0, sticky });
+      assert.equal(spin.board[0][0].payId, "pdf");
+      assert.equal(spin.board[0][0].evidence, true);
+      if (spin.board[2][3].pin) assert.equal(spin.board[2][3].payId, "rj45");
+    }
+    const board: Cell[][] = Array.from({ length: 5 }, () => Array.from({ length: COLS }, () => pay("hap")));
+    board[0][0] = { ...pay("pdf"), pin: true, evidence: true };
+    const mask = board.map((row) => row.map((c) => !c.pin));
+    const t = tumble(board, mask, rngOf(4), false);
+    assert.equal(t[0][0].payId, "pdf");
+    assert.equal(t[0][0].pin, true);
   });
 });
