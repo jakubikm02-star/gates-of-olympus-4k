@@ -7,6 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-10-15", text: "Na karte EVENT sú Podmienky zbalené. Šípka „Podmienky ▾ Rozbaliť“ ich otvorí, „▴ Zbaliť“ zatvorí. Otvorené podmienky sa rolujú vo vlastnom okne. Hore ostáva odpočet, stav hráča a poradie bez rolovania celej karty." },
   { day: "2026-10-15", text: "AUTO sa otvára ako list dole s tmavým pozadím a nezakrýva valce ani lístok. Celá veta o pauze ostáva čitateľná. DUAL lístok (ZÁKLAD a 4KA TV) sa zalamuje, dlhý text končí trojbodkou. V pravom hornom páse sedia jackpot aj SMRŤ EGA vedľa seba: miesto, živé RP (zelené v pluse, červené v mínuse) a KONČÍ O. Kto nie je v evente, vidí krátky vstup. Ťuknutie otvorí EVENT. Text sa už neprekrýva. Na šírku sú valce v strede a ovládanie v stĺpcoch, aj na tablete, úzkom kryte, rozloženom Z Fold a vo Flex režime." },
   { day: "2026-10-15", text: "SMRŤ EGA: skóre na karte je zelené v pluse a červené v mínuse. Odpočet týždňa je hore veľký a svieti namodro. Odkaz Admin je len na zariadení, ktoré event vedie." },
   { day: "2026-10-15", text: "SMRŤ EGA je na pohári v tabuli, karta EVENT. Výkričník na pohári svieti, keď si NEKONEČNO a ešte si nezaplatil, keď sa zmení tvoje miesto, alebo keď čaká kľúč. Jackpot sa s eventom už nestrieda. Tvoje skóre na karte sa hýbe pri každej zmene RP a pri ňom je napísané, že vstupné je už v skóre." },

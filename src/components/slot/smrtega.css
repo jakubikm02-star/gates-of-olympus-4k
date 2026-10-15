@@ -370,3 +370,108 @@
   font-size: 0.75rem;
   color: #9eb4c6;
 }
+
+/* EVENT sheet: header, countdown, status and the board stay on screen.
+   Only the opened rules and a long board scroll inside themselves. */
+.fb-sheet.is-ego {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: min(92dvh, 900px);
+  max-height: min(92dvh, 900px);
+}
+.fb-sheet.is-ego .fb-sticky {
+  position: static;
+  flex: 0 0 auto;
+}
+.fb-sheet.is-ego .ego-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.fb-sheet.is-ego .ego-card > :not(.ego-board-scroll) {
+  flex: 0 0 auto;
+}
+.ego-rules-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin: 8px 0 0;
+  padding: 9px 12px;
+  border: 1px solid #7fd4ff;
+  background: linear-gradient(180deg, rgba(18, 64, 96, 0.96), rgba(5, 14, 24, 0.96));
+  color: #f4fbff;
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+  box-shadow: 0 0 14px rgba(0, 150, 255, 0.4), inset 0 0 12px rgba(0, 160, 255, 0.12);
+  cursor: pointer;
+}
+.ego-rules-toggle.is-open {
+  border-color: #ffe56a;
+  color: #ffe56a;
+  box-shadow: 0 0 12px rgba(240, 196, 25, 0.28);
+}
+.ego-rules-scroll {
+  max-height: min(8.5rem, 24dvh);
+  margin-top: 6px;
+  overflow: auto;
+  border: 1px solid rgba(90, 190, 255, 0.35);
+  background: rgba(4, 12, 20, 0.72);
+  padding: 0 8px;
+}
+.ego-board-scroll {
+  flex: 1 1 auto;
+  min-height: 5.2rem;
+  margin-top: 4px;
+  overflow: auto;
+}
+.ego-board-scroll h4 { margin-top: 6px; }
+
+@media (max-height: 740px) {
+  .fb-sheet.is-ego .ego-rack,
+  .fb-sheet.is-ego .ego-spread { display: none; }
+  .fb-sheet.is-ego .ego-word { font-size: 1.55rem; }
+  .fb-sheet.is-ego .ego-product { font-size: 0.95rem; margin: 0; }
+  .fb-sheet.is-ego .ego-clock { margin-top: 6px; padding: 4px 8px 6px; }
+  .fb-sheet.is-ego .ego-clock strong { font-size: 1.35rem; }
+  .fb-sheet.is-ego .ego-status { margin-top: 6px; padding: 5px 8px; }
+  .fb-sheet.is-ego .ego-stand { margin-top: 6px; padding: 6px 8px; }
+  .ego-rules-scroll { max-height: min(6.5rem, 20dvh); }
+  .ego-board-scroll { min-height: 4.4rem; }
+}
+@media (max-height: 460px) {
+  .modal-back:has(.fb-sheet.is-ego) {
+    padding: 2px;
+  }
+  .fb-sheet.is-ego {
+    width: 100%;
+    height: calc(100dvh - 4px);
+    max-height: calc(100dvh - 4px);
+  }
+  .fb-sheet.is-ego .fb-sticky { padding: 4px 8px 2px; }
+  .fb-sheet.is-ego .fb-head h2 { font-size: 0.95rem; }
+  .fb-sheet.is-ego .ego-product,
+  .fb-sheet.is-ego .ego-kicker { display: none; }
+  .fb-sheet.is-ego .ego-word { font-size: 1.05rem; }
+  .fb-sheet.is-ego .ego-clock { margin-top: 2px; padding: 1px 6px 2px; }
+  .fb-sheet.is-ego .ego-clock span { letter-spacing: 0.16em; font-size: 0.58rem; }
+  .fb-sheet.is-ego .ego-clock strong { font-size: 0.95rem; }
+  .fb-sheet.is-ego .ego-status {
+    margin-top: 2px;
+    padding: 2px 6px;
+    font-size: 0.68rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .fb-sheet.is-ego .ego-fee { display: none; }
+  .fb-sheet.is-ego .ego-stand { margin-top: 2px; padding: 3px 6px; }
+  .fb-sheet.is-ego .ego-rules-toggle { margin-top: 2px; padding: 4px 8px; font-size: 0.74rem; }
+  .ego-rules-scroll { max-height: 4.2rem; }
+  .ego-board-scroll { min-height: 3.4rem; }
+}
