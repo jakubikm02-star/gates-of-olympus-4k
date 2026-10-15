@@ -19,7 +19,7 @@ import { ZlatyBarBadge, ZlatyHud, ZlatyResult, ZlatyReveal, ZlatySheet, ZlatyTea
 import { ZasahBattery } from "./ZasahBattery";
 import { KolesoBonus } from "./KolesoBonus";
 import { useSlotGame } from "@/hooks/use-slot-game";
-import { useShell } from "@/hooks/use-shell";
+import { useLayoutFlags, useShell } from "@/hooks/use-shell";
 import { useContainerVars } from "@/hooks/use-container-vars";
 // Short-phone compaction, keyed off html[data-short-vp] / [data-phone-vp] from hooks/use-shell.
 import "./short-vp.css";
@@ -32,7 +32,8 @@ import { RankBadge } from "./RankBadge";
 import { BootScreen } from "./BootScreen";
 import { AddToHome } from "./AddToHome";
 import { registerInstallSw } from "@/lib/slot/a2hs-client";
-import { useSmrtEga } from "./SmrtEga";
+import { EgoStrip, useSmrtEga } from "./SmrtEga";
+import "./layouts.css";
 import { LiveHits } from "./LiveHits";
 import { MachineFrame } from "./MachineFrame";
 import { RankPanel } from "./RankPanel";
@@ -204,6 +205,7 @@ export function SlotGame() {
     registerInstallSw();
   }, []);
   const shell = useShell();
+  const layout = useLayoutFlags();
   // Board containers publish their size as px vars (see hooks/use-container-vars): no cq re-resolve per layout.
   const boardStageRef = useContainerVars();
   const reelHostRef = useContainerVars();
@@ -212,7 +214,16 @@ export function SlotGame() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [manFocus, setManFocus] = useState<string | null>(null);
   const [boardOpen, setBoardOpen] = useState(false);
+  const [boardCard, setBoardCard] = useState<"tabula" | "event">("tabula");
   const [autoMenu, setAutoMenu] = useState(false);
+  useEffect(() => {
+    if (!autoMenu) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAutoMenu(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [autoMenu]);
   const [jobOpen, setJobOpen] = useState(false);
   const [, names] = useState(0);
   useEffect(() => subscribeTicketNames(() => names((n) => n + 1)), []);
@@ -262,7 +273,7 @@ export function SlotGame() {
 
   return (
     <div
-      className={`stage shell-${shell} rk-${g.rank.id} ${g.rankFlash?.event === "up" ? "is-rank-up" : ""} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.chase ? "in-chase" : ""} ${g.chase?.tension === "danger" ? "chase-danger" : ""} ${g.chase?.tension === "close" ? "chase-close" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""} ${g.exekucia ? "is-exekucia" : ""}${perfLite ? " perf-lite" : ""}`}
+      className={`stage shell-${shell} rk-${g.rank.id} ${layout.land ? "is-land" : ""} ${layout.fold ? `fold-${layout.fold}` : ""} ${autoMenu ? "is-auto-open" : ""} ${g.rankFlash?.event === "up" ? "is-rank-up" : ""} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.chase ? "in-chase" : ""} ${g.chase?.tension === "danger" ? "chase-danger" : ""} ${g.chase?.tension === "close" ? "chase-close" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""} ${g.exekucia ? "is-exekucia" : ""}${perfLite ? " perf-lite" : ""}`}
     >
       {g.stale ? (
         <div className="release-lock" role="alertdialog" aria-label="Nová verzia">
@@ -360,6 +371,16 @@ export function SlotGame() {
             </div>
             </div>
           </div>
+
+        {g.inFs ? null : (
+          <EgoStrip
+            line={ego.strip}
+            onOpen={() => {
+              setBoardCard("event");
+              setBoardOpen(true);
+            }}
+          />
+        )}
 
         <div className="arena">
           <aside
@@ -740,40 +761,10 @@ export function SlotGame() {
                   onClick={() => setAutoMenu((v) => !v)}
                   disabled={Boolean(g.chase)}
                   aria-expanded={autoMenu}
+                  aria-haspopup="dialog"
                 >
                   <Menu size={12} /> AUTO
                 </button>
-                {autoMenu ? (
-                  <>
-                    <button type="button" className="auto-back" aria-label="Zavrieť" onClick={() => setAutoMenu(false)} />
-                    <div className="auto-pop" role="menu">
-                      {AUTO_OPTS.map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          onClick={() => {
-                            setAutoMenu(false);
-                            g.startAuto(n);
-                          }}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                      <p className="auto-hint">
-                        {g.autoHalt
-                          ? "Výhra len pozastaví AUTO. Po VIDENÉ pokračuje. Jackpot tiež. ZÁSAH ručne. Pod 50 % kreditu stop."
-                          : "Bez zastávky do konca AUTO. Jackpot aj tak čaká na VIDENÉ. ZÁSAH ručne."}
-                      </p>
-                      <button
-                        type="button"
-                        className={`auto-halt${g.autoHalt ? " on" : ""}`}
-                        onClick={() => g.setAutoHalt(!g.autoHalt)}
-                      >
-                        PAUZA PRI VÝHRE {g.autoHalt ? "ON" : "OFF"}
-                      </button>
-                    </div>
-                  </>
-                ) : null}
               </div>
             )}
           </div>
@@ -1158,7 +1149,37 @@ export function SlotGame() {
         onClose={() => setPortOpen(false)}
       />
       <DebugOverlay busy={g.busy} perfLite={perfLite} reduced={reducedMotion} />
-      <Leaderboard open={boardOpen} nick={g.nick} deviceId={g.deviceId} onClose={() => setBoardOpen(false)} onSave={g.setNickName} ego={ego} rp={g.rank.rp} />
+      {autoMenu && !g.autoOn ? (
+        <div className="auto-layer">
+          <button type="button" className="auto-back" aria-label="Zavrieť" onClick={() => setAutoMenu(false)} />
+          <div className="auto-pop" role="dialog" aria-modal="true" aria-label="AUTO točenie">
+            <p className="auto-kicker">KOĽKO TOČENÍ</p>
+            <div className="auto-counts" role="group" aria-label="Počet točení">
+              {AUTO_OPTS.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => {
+                    setAutoMenu(false);
+                    g.startAuto(n);
+                  }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <p className="auto-hint">
+              {g.autoHalt
+                ? "Výhra len pozastaví AUTO. Po VIDENÉ pokračuje. Jackpot tiež. ZÁSAH ručne. Pod 50 % kreditu stop."
+                : "Bez zastávky do konca AUTO. Jackpot aj tak čaká na VIDENÉ. ZÁSAH ručne."}
+            </p>
+            <button type="button" className={`auto-halt${g.autoHalt ? " on" : ""}`} onClick={() => g.setAutoHalt(!g.autoHalt)}>
+              PAUZA PRI VÝHRE {g.autoHalt ? "ON" : "OFF"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+      <Leaderboard open={boardOpen} card={boardCard} nick={g.nick} deviceId={g.deviceId} onClose={() => setBoardOpen(false)} onSave={g.setNickName} ego={ego} rp={g.rank.rp} />
       <StatsSheet
         open={g.statsOpen}
         onClose={g.closeStats}

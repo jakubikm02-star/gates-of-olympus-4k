@@ -279,3 +279,19 @@ export function egoBanner(
   if (miss > 0) return `na vstupné chýba ${miss} RP`;
   return `výhra 4KA TV XL s archívom na 28 dní · vstupné ${egoFee(rp)} RP${left}`;
 }
+
+/**
+ * One line for the top strip. Pieces stay in a fixed order and the title appears once,
+ * so a marquee can repeat the whole line without two copies painting on top of each other.
+ */
+export function egoStripLine(
+  s: EgoState | null,
+  rp: number,
+  now: number,
+  live?: { score: number; place: number } | null,
+): string {
+  const status = egoBanner(s, rp, now, live, false);
+  const clock = s && s.weekEnd > now ? `končí o ${egoLeft(s.weekEnd - now)}` : "";
+  const players = s && s.players > 0 ? String(s.players) : "";
+  return [players, clock, "SMRŤ EGA", status].filter((part) => part.length > 0).join(" · ");
+}

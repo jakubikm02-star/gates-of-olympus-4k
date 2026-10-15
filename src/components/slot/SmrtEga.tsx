@@ -4,6 +4,7 @@ import {
   egoAdminVisible,
   egoAttention,
   egoBanner,
+  egoStripLine,
   egoDeltaTone,
   egoFee,
   egoLeft,
@@ -180,7 +181,24 @@ export function useSmrtEga(g: EgoGame) {
     live,
     attention: egoAttention(state, g.rp, now, seen),
     text: egoBanner(state, g.rp, now, live, false),
+    strip: egoStripLine(state, g.rp, now, live),
   };
+}
+
+/** Top event line. Two equal segments so the crawl moves by exactly half and never stacks on itself. */
+export function EgoStrip({ line, onOpen }: { line: string; onOpen: () => void }) {
+  return (
+    <button type="button" className="ego-strip" onClick={onOpen} aria-label={line}>
+      <span className="ego-clip">
+        <span className="ego-track">
+          <span className="ego-seg">{line}</span>
+          <span className="ego-seg" aria-hidden="true">
+            {line}
+          </span>
+        </span>
+      </span>
+    </button>
+  );
 }
 
 function RpNum({ n }: { n: number }) {

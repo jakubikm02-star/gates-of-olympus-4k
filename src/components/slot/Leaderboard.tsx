@@ -575,6 +575,7 @@ export function Leaderboard({
   onSave,
   ego,
   rp,
+  card: cardProp = "tabula",
 }: {
   open: boolean;
   nick: string;
@@ -583,9 +584,10 @@ export function Leaderboard({
   onSave: (name: string) => Promise<string | null>;
   ego: ReturnType<typeof useSmrtEga>;
   rp: number;
+  card?: "tabula" | "event";
 }) {
   const [scope, setScope] = useState<"today" | "all">("today");
-  const [card, setCard] = useState<"tabula" | "event">("tabula");
+  const [card, setCard] = useState<"tabula" | "event">(cardProp);
   const [rows, setRows] = useState<BoardRow[]>([]);
   const [err, setErr] = useState("");
   const [name, setName] = useState(nick);
@@ -594,8 +596,8 @@ export function Leaderboard({
   const [pub, setPub] = useState("");
   useEffect(() => setName(nick), [nick]);
   useEffect(() => {
-    if (!open) setCard("tabula");
-  }, [open]);
+    setCard(open ? cardProp : "tabula");
+  }, [open, cardProp]);
   useEffect(() => {
     if (open) void ego.refresh();
   }, [open, ego.refresh]);

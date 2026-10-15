@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { egoAdminVisible, egoAttention, egoBanner, egoDeltaTone, egoExpires, egoFee, egoLiveBoard, egoLiveScore, egoMissing, egoScore, egoSnapshot, egoWeekEnd, egoWeekStart, egoWinner, EGO_REPORT_EVERY, type EgoState } from "./smrtega.ts";
+import { egoAdminVisible, egoAttention, egoBanner, egoDeltaTone, egoExpires, egoFee, egoLiveBoard, egoLiveScore, egoMissing, egoScore, egoSnapshot, egoStripLine, egoWeekEnd, egoWeekStart, egoWinner, EGO_REPORT_EVERY, type EgoState } from "./smrtega.ts";
 import { egoClaim, egoCurrent, egoJoin, parseEgoState, setEgoFetcher } from "./smrtega-api.ts";
 import { handleEgoAdmin, type EgoAdminDeps } from "./smrtega-admin.server.ts";
 
@@ -155,6 +155,17 @@ test("banner texts", () => {
     /si 1\. \(bez nároku\) · cenu má zatiaľ Palica360/,
   );
   assert.equal(egoBanner(st({ prize: { status: "pending", deliveredAt: null, expiresAt: null } }), 0, 0), "vyhral si · kód sa pripravuje");
+});
+
+test("strip line is one sequence, title once", () => {
+  const line = egoStripLine(
+    st({ players: 517, me: { joined: true, score: 10, place: 1, fee: 500, admin: false } }),
+    0,
+    0,
+  );
+  assert.equal(line, "517 · končí o 2 d 05 h · SMRŤ EGA · si 1. · +10 RP");
+  assert.equal(line.split("SMRŤ EGA").length - 1, 1);
+  assert.equal(egoStripLine(null, 0, 0), "SMRŤ EGA · od NEKONEČNA · chýba ti 2\u00a0700 RP");
 });
 
 test("api goes through injected fetcher only (mock, no production)", async () => {
