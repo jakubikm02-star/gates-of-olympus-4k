@@ -14,6 +14,10 @@ export const EGO_FEE_MIN = 500;
 export const EGO_FEE_MAX = 2500;
 export const EGO_VALID_DAYS = 28;
 export const EGO_SLOTS = 4;
+/** Same key the admin page uses. A stored token means this device already opened the admin. */
+export const EGO_ADMIN_TOKEN_KEY = "parkizmus-ego-admin-token";
+/** Set once `me.admin` is true, so the link stays when this week has no entry yet. */
+export const EGO_ADMIN_DEVICE_KEY = "parkizmus-ego-admin-device";
 /** Client report cadence: every N RP changes while joined. Display still moves on each change. */
 export const EGO_REPORT_EVERY = 5;
 
@@ -175,6 +179,18 @@ export function fmtRp(n: number): string {
   return `${n < 0 ? "−" : n > 0 ? "+" : ""}${s}`;
 }
 
+/** Green / red / neutral for a net RP score. Zero stays neutral. */
+export function egoDeltaTone(n: number): "up" | "down" | "flat" {
+  if (n > 0) return "up";
+  if (n < 0) return "down";
+  return "flat";
+}
+
+/** Admin link on the event card. Only when this client already knows it is the event admin. */
+export function egoAdminVisible(meAdmin: boolean, token: string | null | undefined, remembered: boolean): boolean {
+  return meAdmin || remembered || Boolean(token && token.trim().length > 0);
+}
+
 export function egoLeft(ms: number): string {
   const m = Math.max(0, Math.floor(ms / 60_000));
   const d = Math.floor(m / 1440);
@@ -238,10 +254,16 @@ export interface EgoState {
 }
 
 /** Live status line on the event card. */
-export function egoBanner(s: EgoState | null, rp: number, now: number, live?: { score: number; place: number } | null): string {
+export function egoBanner(
+  s: EgoState | null,
+  rp: number,
+  now: number,
+  live?: { score: number; place: number } | null,
+  withClock = true,
+): string {
   if (s?.prize?.status === "pending") return "vyhral si · kód sa pripravuje";
   if (s?.prize?.status === "awarded") return "vyhral si · ťukni pre 4KA TV kľúč";
-  const left = s ? ` · končí o ${egoLeft(s.weekEnd - now)}` : "";
+  const left = withClock && s ? ` · končí o ${egoLeft(s.weekEnd - now)}` : "";
   if (s?.me?.joined) {
     const place = live?.place ?? s.me.place;
     const score = live?.score ?? s.me.score;

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { readLocalSave } from "@/lib/slot/player-save";
+import { EGO_ADMIN_TOKEN_KEY } from "@/lib/slot/smrtega";
 import "./smrtega.css";
 
-const TOKEN_KEY = "parkizmus-ego-admin-token";
+const TOKEN_KEY = EGO_ADMIN_TOKEN_KEY;
 
 interface Award {
   id: number;

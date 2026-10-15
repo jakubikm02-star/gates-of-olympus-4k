@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { egoAttention, egoBanner, egoExpires, egoFee, egoLiveBoard, egoLiveScore, egoMissing, egoScore, egoSnapshot, egoWeekEnd, egoWeekStart, egoWinner, EGO_REPORT_EVERY, type EgoState } from "./smrtega.ts";
+import { egoAdminVisible, egoAttention, egoBanner, egoDeltaTone, egoExpires, egoFee, egoLiveBoard, egoLiveScore, egoMissing, egoScore, egoSnapshot, egoWeekEnd, egoWeekStart, egoWinner, EGO_REPORT_EVERY, type EgoState } from "./smrtega.ts";
 import { egoClaim, egoCurrent, egoJoin, parseEgoState, setEgoFetcher } from "./smrtega-api.ts";
 import { handleEgoAdmin, type EgoAdminDeps } from "./smrtega-admin.server.ts";
 
@@ -64,6 +64,17 @@ test("winner: Martin 1st → runner-up wins; hard flag skipped; soft flag still 
 
 const st = (o: Partial<EgoState>): EgoState => ({
   weekStart: 0, weekEnd: 2 * 86_400_000 + 5 * 3_600_000, now: 0, players: 2, top: [], me: null, leader: null, prize: null, lastWinner: null, ...o,
+});
+
+test("score tone and admin link stay client-side", () => {
+  assert.equal(egoDeltaTone(12), "up");
+  assert.equal(egoDeltaTone(-1), "down");
+  assert.equal(egoDeltaTone(0), "flat");
+  assert.equal(egoAdminVisible(false, "", false), false);
+  assert.equal(egoAdminVisible(false, "   ", false), false);
+  assert.equal(egoAdminVisible(true, null, false), true);
+  assert.equal(egoAdminVisible(false, "tok", false), true);
+  assert.equal(egoAdminVisible(false, null, true), true);
 });
 
 test("live score moves with RP since the last report and re-sorts the visible board", () => {
