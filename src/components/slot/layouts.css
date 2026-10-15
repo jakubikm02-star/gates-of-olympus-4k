@@ -862,6 +862,18 @@
   text-align: right;
 }
 
+.stage.is-land .credit-stack .stake-line b {
+  flex: 0 0 auto;
+  min-width: max-content;
+  overflow: visible;
+}
+
+.stage.is-land .credit-stack .stake-line > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .stage.is-land .bet-lock {
   flex: 0 0 auto;
   margin: 0 0 0 4px;
@@ -1105,6 +1117,170 @@
 
 .stage.fold-flex-h.is-land .table {
   column-gap: 14px;
+}
+
+/* Narrow portrait and the unfolded Fold (portrait): jackpots on their own row,
+   SMRŤ EGA on the row under them. Labels and amounts stay whole. */
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .table-head,
+.stage.fold-inner:not(.is-land) .table-head,
+:root[data-short-vp] .stage:not(.is-land):is(.shell-mw, .shell-pwa) .table-head {
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+  align-items: start;
+}
+
+.stage.fold-inner:not(.is-land) .table-head {
+  position: relative;
+  grid-template-columns: max-content minmax(0, 1fr);
+  pointer-events: auto;
+}
+
+.stage.fold-inner:not(.is-land) .head-end,
+.stage.fold-inner:not(.is-land).shell-pc .head-end {
+  grid-column: 2;
+  max-width: none;
+  width: 100%;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .head-end:has(.ego-dock),
+.stage.fold-inner:not(.is-land) .head-end:has(.ego-dock),
+.stage.fold-inner:not(.is-land).shell-pc .head-end:has(.ego-dock) {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  height: auto;
+  overflow: visible;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .head-end:has(.ego-dock) .jp-stack.is-strip,
+.stage.fold-inner:not(.is-land) .head-end:has(.ego-dock) .jp-stack.is-strip,
+:root[data-short-vp] .stage:not(.is-land):is(.shell-mw, .shell-pwa) .head-end:has(.ego-dock) .jp-stack.is-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-auto-rows: auto;
+  align-items: center;
+  justify-items: stretch;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+  contain: none;
+  border-right: 0;
+  border-bottom: 1px solid rgb(125 212 255 / 0.35);
+  gap: 1px 8px;
+  padding: 3px 6px 2px;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .head-end:has(.ego-dock) .jp-stack.is-strip .jp-row,
+.stage.fold-inner:not(.is-land) .head-end:has(.ego-dock) .jp-stack.is-strip .jp-row {
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0;
+  min-width: 0;
+  overflow: visible;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .head-end:has(.ego-dock) .jp-stack.is-strip .jp-row span,
+.stage.fold-inner:not(.is-land) .head-end:has(.ego-dock) .jp-stack.is-strip .jp-row span {
+  flex: 0 0 auto;
+  max-width: 100%;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+  font-size: 0.48rem;
+  letter-spacing: 0.04em;
+  line-height: 1.05;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .head-end:has(.ego-dock) .jp-row b,
+.stage.fold-inner:not(.is-land) .head-end:has(.ego-dock) .jp-row b,
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .jp-stack.is-strip .jp-row.stat b,
+.stage.fold-inner:not(.is-land) .jp-stack.is-strip .jp-row.stat b,
+:root[data-short-vp] .stage:not(.is-land):is(.shell-mw, .shell-pwa) .jp-stack.is-strip .jp-row b,
+:root[data-short-vp] .stage:not(.is-land):is(.shell-mw, .shell-pwa) .jp-stack.is-strip .jp-row.stat b {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: max-content;
+  max-width: 100%;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+  font-size: clamp(0.62rem, 2.8vw, 0.78rem);
+  line-height: 1.05;
+  text-align: right;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .head-end:has(.ego-dock) .jp-stack.is-strip em,
+.stage.fold-inner:not(.is-land) .head-end:has(.ego-dock) .jp-stack.is-strip em {
+  position: static;
+  grid-column: 1 / -1;
+  justify-self: end;
+  width: auto;
+  pointer-events: none;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .ego-dock,
+.stage.fold-inner:not(.is-land) .ego-dock {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  align-content: center;
+  padding: 2px 6px 3px;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .ego-dock-kicker,
+.stage.fold-inner:not(.is-land) .ego-dock-kicker {
+  display: block;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .ego-dock-kicker,
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .ego-dock-place,
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .ego-dock-score,
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .ego-dock-clock,
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .ego-dock-hint,
+.stage.fold-inner:not(.is-land) .ego-dock-kicker,
+.stage.fold-inner:not(.is-land) .ego-dock-place,
+.stage.fold-inner:not(.is-land) .ego-dock-score,
+.stage.fold-inner:not(.is-land) .ego-dock-clock,
+.stage.fold-inner:not(.is-land) .ego-dock-hint {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+  min-width: max-content;
+  max-width: none;
+}
+
+/* Stake amount stays whole. The credit column cannot collapse under the spin cluster. */
+.stage:not(.is-land):is(.shell-mw, .shell-pwa) .bottom-hud {
+  grid-template-columns: minmax(8.6rem, 1fr) auto;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa) .credit-stack,
+:root[data-short-vp] .stage:not(.is-land):is(.shell-mw, .shell-pwa) .credit-stack {
+  min-width: 8.6rem;
+  max-height: none;
+  overflow: visible;
+}
+
+.stage:not(.is-land) .credit-stack .stake-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.35em;
+  row-gap: 0;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.stage:not(.is-land) .credit-stack .stake-line b {
+  flex: 0 0 auto;
+  min-width: max-content;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 /* Coarse portrait from a large phone up through the unfolded inner screen and
