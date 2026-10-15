@@ -238,3 +238,22 @@ describe("ZLATÁ SIM reveal: art layers, pop-out stages, reduced motion", () => 
     assert.match(css, /prefers-reduced-motion: reduce[\s\S]*\.zl-reveal \.zl-beam/);
   });
 });
+
+describe("golden SIM recharges until a golden bonus pays", () => {
+  it("a 0 golden run keeps today's gold waiting; a paying one spends it", async () => {
+    const { emptyZlaty, claimGold, goldWaiting, settleGold } = await import("./zlaty.ts");
+    const day = "2026-10-15";
+    let z = claimGold(emptyZlaty(), day);
+    assert.equal(goldWaiting(z, day), false);
+    const zero = settleGold(z, { mode: "kontrola", x: 0, cash: 0, extra: 0, day });
+    assert.equal(zero.recharged, true);
+    assert.equal(goldWaiting(zero.z, day), true);
+    assert.equal(zero.z.played, 0);
+    z = claimGold(zero.z, day);
+    const paid = settleGold(z, { mode: "zbox", x: 3, cash: 3, extra: 1, day });
+    assert.equal(paid.recharged, false);
+    assert.equal(goldWaiting(paid.z, day), false);
+    assert.equal(paid.z.played, 1);
+    assert.equal(goldWaiting(paid.z, "2026-10-16"), true);
+  });
+});

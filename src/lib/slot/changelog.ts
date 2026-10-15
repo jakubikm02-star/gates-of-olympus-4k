@@ -7,6 +7,10 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-10-15", text: "ZLATÝ BONUS už neskončí nulou. Keď zlatý bonus nič nevyplatí, zlatá SIM sa znova nabije a ďalší bonus z baru je opäť zlatý, až kým zlatý bonus niečo nevyplatí." },
+  { day: "2026-10-14", text: "ZÁSAH: okno na inom ako cieľovom symbole je vždy MIMO, symbol sa už nemení na cieľ. Po ustálení spinu sa cieľové symboly označia EVIDENCE a nevyplácajú, sú len cieľom okien." },
+  { day: "2026-10-14", text: "ZÁSAH: keď sú všetky okná MIMO, EVIDENCE aj symboly Finančnej správy ostanú na mieste aj ďalší spin. HACK alebo zásah FS ich uvoľní a príde nový cieľ. Úvod ZÁSAHU ukáže vyžrebovaný symbol a jeho premenu na Finančnú správu pomalšie." },
+  { day: "2026-10-14", text: "HACK lístky majú nové ciele: lacná 2–3, stredná 3, drahá 3–4 HACKy v jednom ZÁSAHU." },
   { day: "2026-10-12", text: "Nad AUTO je tiché počítadlo hráčov online. Zelená bodka blikne, keď sa počet zmení. Klik otvorí Park Bank s dnešným pretočeným." },
   { day: "2026-10-11", text: "KOLESO NEŠŤASTIA: písmeno si vyberáš sám z 3 náhodných (alebo nechaj Joža). Kto pozná tajničku, má výhodu. Výplaty kolesa ostávajú. A 40 nových tajničiek o podmienkach 4KA a parkovaní PAAS. Autospin sa pred KOLESOM zastaví, aby si mohol vyberať." },
   { day: "2026-10-11", text: "ZLATÝ BONUS: prvý bonus z baru každý deň je zlatý. Strop 100× namiesto 30× a zlatá karta podľa režimu: ZLATÁ POKUTA, ZLATÝ KURIÉR alebo ZLATÉ VÝSEKY. Nový deň začína o polnoci." },

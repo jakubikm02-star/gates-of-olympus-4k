@@ -368,6 +368,8 @@ export interface ZlatyResultInfo {
   bet: number;
   stake: number;
   streak: number;
+  /** Ended with 0: the golden SIM recharged, the next bar bonus is golden again. */
+  recharged?: boolean;
   key: number;
 }
 
@@ -425,7 +427,9 @@ export function ZlatyResult({ r, turbo, auto, onDone }: { r: ZlatyResultInfo; tu
             <b>{r.streak}</b>
           </li>
         </ul>
-        <p className="zl-res-next">Ďalší ZLATÝ BONUS o {label}</p>
+        <p className="zl-res-next">
+          {r.recharged ? "Zlatá SIM sa znova nabila: ďalší bonus je opäť ZLATÝ" : `Ďalší ZLATÝ BONUS o ${label}`}
+        </p>
         <button type="button" className="zl-btn" onClick={finish}>
           POKRAČOVAŤ
         </button>

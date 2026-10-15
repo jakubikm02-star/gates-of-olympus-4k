@@ -248,6 +248,25 @@ export function recordGold(
   };
 }
 
+/**
+ * A golden run settled. Only a golden bonus that pays (> 0) spends the day's gold: one that ends with 0
+ * recharges the golden SIM, so the next bar bonus is golden again, until one pays.
+ */
+export function settleGold(
+  z: ZlatyState,
+  r: { mode: BonusModeId; x: number; cash: number; extra: number; day: string },
+): { z: ZlatyState; recharged: boolean } {
+  if (r.cash > 0) return { z: recordGold(z, r), recharged: false };
+  return { z: rechargeGold(z, r.day), recharged: true };
+}
+
+/** Golden SIM charged again for `day` (the gold is waiting; the teaser may show again). */
+export function rechargeGold(z: ZlatyState, day: string): ZlatyState {
+  if (!DAY_RE.test(day) || z.usedDay < day) return z;
+  const back = prevDay(day);
+  return { ...z, usedDay: back, teasedDay: z.teasedDay >= day ? back : z.teasedDay };
+}
+
 /* ───────────── texts ───────────── */
 
 export interface ZlatyCard {

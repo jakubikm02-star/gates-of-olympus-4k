@@ -19,6 +19,8 @@ import { kolesoVipOf, playKoleso } from "../../src/lib/slot/koleso.ts";
 import { RANK_PERKS, fsSpinsOf } from "../../src/lib/slot/ranks.ts";
 import { ZLATE_VYSEKY_G, ZLATY_CAP_X, ZLATY_TARGET_UP, goldBoard, zlataPokutaOf, zlatyKurierOf } from "../../src/lib/slot/zlaty.ts";
 
+/** ZL_RECHARGE=0 runs the old rule (gold spent even when it pays 0). */
+const RECHARGE = process.env.ZL_RECHARGE !== "0";
 const perkOf = (id: string) => RANK_PERKS.find((p) => p.id === id)!;
 
 /** One bonus, normal and golden, from the same seed. */
@@ -92,7 +94,7 @@ function session(rank: string, ante: boolean, perDay: number, days: number, seed
   const fsBase = fsSpinsOf(rank);
   const stakeX = ante ? perk.anteMul : 1;
   let heat = 0, pity = 0, chase: ChaseState | null = null;
-  let stake = 0, paid = 0, extra = 0, bonuses = 0, goldDays = 0;
+  let stake = 0, paid = 0, extra = 0, bonuses = 0, goldDays = 0, zeroGold = 0;
   const gByMode: Record<string, { n: number; up: number }> = { kontrola: { n: 0, up: 0 }, zbox: { n: 0, up: 0 }, koleso: { n: 0, up: 0 } };
   for (let d = 0; d < days; d++) {
     let goldLeft = true;
@@ -130,8 +132,10 @@ function session(rank: string, ante: boolean, perDay: number, days: number, seed
         const pr = bonusPair(mode, rank, Math.floor(bonusSeeds() * 0x100000000));
         paid += pr.reg;
         if (goldLeft) {
-          goldLeft = false;
-          goldDays++;
+          // The golden SIM recharges after a golden run that pays 0 (game rule since 2026-10-15).
+          goldLeft = RECHARGE && pr.gold <= 0;
+          if (goldLeft) zeroGold++;
+          else goldDays++;
           extra += pr.gold - pr.reg;
           gByMode[mode].n++;
           gByMode[mode].up += pr.gold - pr.reg;
@@ -141,7 +145,7 @@ function session(rank: string, ante: boolean, perDay: number, days: number, seed
     }
   }
   return {
-    rank, ante, perDay, days, spins: perDay * days, seed,
+    rank, ante, perDay, days, spins: perDay * days, seed, recharge: RECHARGE, zeroGold,
     rtp: paid / stake, rtpGold: (paid + extra) / stake, deltaPp: (extra / stake) * 100,
     goldDayShare: goldDays / days, upPerGold: extra / Math.max(1, goldDays), spinsPerBar: (perDay * days) / bonuses,
     byMode: Object.fromEntries(Object.entries(gByMode).map(([m, v]) => [m, { n: v.n, up: v.n ? v.up / v.n : 0 }])),

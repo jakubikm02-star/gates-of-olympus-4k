@@ -52,6 +52,7 @@ import {
   kontrolaRegularX,
   noteStake,
   recordGold,
+  settleGold,
   usualStake,
   zlataPokutaOf,
   zlatyEnabled,
@@ -2238,11 +2239,13 @@ export function useSlotGame() {
   /** Golden result card: stats first (saved), then the card until tapped (auto under autoplay). */
   const showGoldResult = useCallback(
     async (r: { mode: BonusModeId; x: number; cash: number; regular: number; bet: number; stake: number; day: string }) => {
-      zlatyRef.current = recordGold(zlatyRef.current, { mode: r.mode, x: r.x, cash: r.cash, extra: +(r.cash - r.regular).toFixed(2), day: r.day });
+      // A golden run that ends with 0 does not spend the day's gold: the golden SIM recharges.
+      const settled = settleGold(zlatyRef.current, { mode: r.mode, x: r.x, cash: r.cash, extra: +(r.cash - r.regular).toFixed(2), day: r.day });
+      zlatyRef.current = settled.z;
       setZlaty(zlatyRef.current);
       persistNow();
       setGoldRun(null);
-      setGoldResult({ mode: r.mode, x: r.x, cash: r.cash, regular: r.regular, bet: r.bet, stake: r.stake, streak: zlatyRef.current.streak, key: Date.now() });
+      setGoldResult({ mode: r.mode, x: r.x, cash: r.cash, regular: r.regular, bet: r.bet, stake: r.stake, streak: zlatyRef.current.streak, recharged: settled.recharged, key: Date.now() });
       await new Promise<void>((resolve) => {
         goldResultWait.current = resolve;
       });
