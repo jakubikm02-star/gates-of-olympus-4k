@@ -1,0 +1,22 @@
+.ego-back{position:fixed;inset:0;z-index:90;background:rgba(5,0,6,.72);display:flex;align-items:flex-end;justify-content:center}
+.ego-sheet{position:relative;width:min(560px,100%);max-height:88vh;overflow:auto;background:linear-gradient(180deg,#1b0509,#0b0306);border:1px solid #ff3b4e;border-bottom:0;border-radius:18px 18px 0 0;padding:18px 18px 26px;color:#ffe3b0;box-shadow:0 -10px 40px rgba(255,59,78,.35)}
+.ego-x{position:absolute;right:12px;top:8px;background:none;border:0;color:#ffe3b0;font-size:28px;cursor:pointer}
+.ego-logo{margin:0;font-size:30px;letter-spacing:.08em;color:#ff3b4e;text-shadow:0 0 12px #ff3b4e,0 0 2px #ffd36b}
+.ego-sub{margin:4px 0 12px;font-size:12px;opacity:.8}
+.ego-rules{margin:0 0 12px;padding-left:18px;font-size:13px;line-height:1.4}
+.ego-btn{display:inline-block;margin:4px 6px 4px 0;padding:10px 14px;border-radius:10px;border:1px solid #ffd36b;background:#ff3b4e;color:#fff;font-weight:800;letter-spacing:.04em;cursor:pointer}
+.ego-btn:disabled{opacity:.5;cursor:default}
+.ego-btn.is-ghost{background:transparent;color:#ffe3b0}
+.ego-me{font-weight:700}
+.ego-err{color:#ff8a8a;font-size:13px}
+.ego-top{margin:0;padding-left:22px}
+.ego-top li{display:flex;gap:8px;align-items:center;padding:3px 0;border-bottom:1px solid rgba(255,227,176,.1)}
+.ego-top li span{flex:1}
+.ego-top li em{font-size:10px;font-style:normal;color:#ffd36b;border:1px solid #ffd36b;border-radius:6px;padding:0 4px}
+.ego-top li.is-empty{opacity:.6}
+.ego-last{font-size:12px;opacity:.8}
+.ego-prize{border:1px dashed #ffd36b;border-radius:12px;padding:10px 12px;margin-bottom:12px;background:rgba(255,211,107,.06)}
+.ego-prize b{color:#ffd36b}
+.ego-code{font:800 26px/1.2 ui-monospace,monospace;letter-spacing:.12em;margin:8px 0;color:#fff;user-select:all}
+.jp-event.is-ego{cursor:pointer}
+.ego-badge{display:inline-block;margin-left:6px;padding:0 6px;border-radius:9px;background:#ff3b4e;color:#fff;font-size:12px;font-style:normal}

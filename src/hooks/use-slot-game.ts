@@ -5098,6 +5098,16 @@ export function useSlotGame() {
     exekucia,
     dismissExekucia: () => setExekucia(null),
     broke: balance < BETS[0],
+    /** SMRŤ EGA: live progress for reports (RP, lifetime paid spins and wagered from stats). Read-only. */
+    egoProgress: () => ({
+      rp: rankRef.current.rp,
+      spins: statsRef.current.c["spins"] ?? 0,
+      wagered: statsRef.current.c["wagered"] ?? 0,
+    }),
+    /** SMRŤ EGA entry fee (server-computed). Plain RP deduction, no spin math touched. */
+    egoPay: (fee: number) => {
+      if (fee > 0) pushRank(-Math.round(fee), null, "ticket");
+    },
     canBust:
       balance < BETS[0] &&
       !busy &&

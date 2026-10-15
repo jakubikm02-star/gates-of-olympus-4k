@@ -33,6 +33,7 @@ import { BootScreen } from "./BootScreen";
 import { AddToHome } from "./AddToHome";
 import { registerInstallSw } from "@/lib/slot/a2hs-client";
 import { ContestBanner } from "./ContestBanner";
+import { SmrtEgaSheet, useSmrtEga } from "./SmrtEga";
 import { LiveHits } from "./LiveHits";
 import { MachineFrame } from "./MachineFrame";
 import { RankPanel } from "./RankPanel";
@@ -226,6 +227,8 @@ export function SlotGame() {
     return () => window.clearInterval(id);
   }, []);
   const showJpEvent = jpEvent && !g.jpHit;
+  const ego = useSmrtEga({ deviceId: g.deviceId, nick: g.nick, rp: g.rank.rp, rankTick: g.rankTick, egoProgress: g.egoProgress, egoPay: g.egoPay });
+  const [egoOpen, setEgoOpen] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     const apply = () => setReducedMotion(mq.matches);
@@ -334,10 +337,10 @@ export function SlotGame() {
           <div className="head-end">
             <div
               className={`jp-stack is-strip ${g.jpHit ? "is-hit" : ""} ${g.poolEligible ? "is-live" : "is-feed"} ${showJpEvent ? "is-event" : ""}`}
-              aria-label={showJpEvent ? "Týždenná súťaž, čoskoro" : "Park jackpoty"}
+              aria-label={showJpEvent ? "SMRŤ EGA, týždenný event" : "Park jackpoty"}
             >
               {showJpEvent ? (
-                <ContestBanner />
+                <ContestBanner text={ego.text} onOpen={() => setEgoOpen(true)} />
               ) : (
                 <>
               <span className="jp-mark">{g.inFs ? "4KA TV" : "PARKIZMUS"}</span>
@@ -1158,6 +1161,7 @@ export function SlotGame() {
         desk={g.desk}
         mine={g.mine}
       />
+      <SmrtEgaSheet open={egoOpen} onClose={() => setEgoOpen(false)} ego={ego} rp={g.rank.rp} deviceId={g.deviceId} />
       <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} playerId={g.deviceId} portBusy={g.busy || Boolean(g.duel) || Boolean(g.duelLink)} />
       <OldLinkLayer started={g.started} busy={g.busy || Boolean(g.duel) || Boolean(g.duelLink)} playerId={g.deviceId} />
       <MoveTargetLayer busy={g.busy || Boolean(g.duel) || Boolean(g.duelLink)} />

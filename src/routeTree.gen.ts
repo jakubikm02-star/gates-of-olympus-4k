@@ -11,10 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PrenosRouteImport } from './routes/prenos'
+import { Route as SmrtegaAdminRouteImport } from './routes/smrtega-admin'
 import { Route as ApiClockRouteImport } from './routes/api/clock'
 import { Route as ApiDuelRouteImport } from './routes/api/duel'
 import { Route as ApiReleaseRouteImport } from './routes/api/release'
 import { Route as ApiRtcRouteImport } from './routes/api/rtc'
+import { Route as ApiSmrtegaAdminRouteImport } from './routes/api/smrtega-admin'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -24,6 +26,11 @@ const IndexRoute = IndexRouteImport.update({
 const PrenosRoute = PrenosRouteImport.update({
   id: '/prenos',
   path: '/prenos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SmrtegaAdminRoute = SmrtegaAdminRouteImport.update({
+  id: '/smrtega-admin',
+  path: '/smrtega-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiClockRoute = ApiClockRouteImport.update({
@@ -46,55 +53,85 @@ const ApiRtcRoute = ApiRtcRouteImport.update({
   path: '/api/rtc',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSmrtegaAdminRoute = ApiSmrtegaAdminRouteImport.update({
+  id: '/api/smrtega-admin',
+  path: '/api/smrtega-admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/prenos': typeof PrenosRoute
+  '/smrtega-admin': typeof SmrtegaAdminRoute
   '/api/clock': typeof ApiClockRoute
   '/api/duel': typeof ApiDuelRoute
   '/api/release': typeof ApiReleaseRoute
   '/api/rtc': typeof ApiRtcRoute
+  '/api/smrtega-admin': typeof ApiSmrtegaAdminRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/prenos': typeof PrenosRoute
+  '/smrtega-admin': typeof SmrtegaAdminRoute
   '/api/clock': typeof ApiClockRoute
   '/api/duel': typeof ApiDuelRoute
   '/api/release': typeof ApiReleaseRoute
   '/api/rtc': typeof ApiRtcRoute
+  '/api/smrtega-admin': typeof ApiSmrtegaAdminRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/prenos': typeof PrenosRoute
+  '/smrtega-admin': typeof SmrtegaAdminRoute
   '/api/clock': typeof ApiClockRoute
   '/api/duel': typeof ApiDuelRoute
   '/api/release': typeof ApiReleaseRoute
   '/api/rtc': typeof ApiRtcRoute
+  '/api/smrtega-admin': typeof ApiSmrtegaAdminRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/prenos' | '/api/clock' | '/api/duel' | '/api/release' | '/api/rtc'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/prenos' | '/api/clock' | '/api/duel' | '/api/release' | '/api/rtc'
-  id:
-    | '__root__'
     | '/'
     | '/prenos'
+    | '/smrtega-admin'
     | '/api/clock'
     | '/api/duel'
     | '/api/release'
     | '/api/rtc'
+    | '/api/smrtega-admin'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/prenos'
+    | '/smrtega-admin'
+    | '/api/clock'
+    | '/api/duel'
+    | '/api/release'
+    | '/api/rtc'
+    | '/api/smrtega-admin'
+  id:
+    | '__root__'
+    | '/'
+    | '/prenos'
+    | '/smrtega-admin'
+    | '/api/clock'
+    | '/api/duel'
+    | '/api/release'
+    | '/api/rtc'
+    | '/api/smrtega-admin'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   PrenosRoute: typeof PrenosRoute
+  SmrtegaAdminRoute: typeof SmrtegaAdminRoute
   ApiClockRoute: typeof ApiClockRoute
   ApiDuelRoute: typeof ApiDuelRoute
   ApiReleaseRoute: typeof ApiReleaseRoute
   ApiRtcRoute: typeof ApiRtcRoute
+  ApiSmrtegaAdminRoute: typeof ApiSmrtegaAdminRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -111,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/prenos'
       fullPath: '/prenos'
       preLoaderRoute: typeof PrenosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/smrtega-admin': {
+      id: '/smrtega-admin'
+      path: '/smrtega-admin'
+      fullPath: '/smrtega-admin'
+      preLoaderRoute: typeof SmrtegaAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/clock': {
@@ -141,16 +185,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRtcRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/smrtega-admin': {
+      id: '/api/smrtega-admin'
+      path: '/api/smrtega-admin'
+      fullPath: '/api/smrtega-admin'
+      preLoaderRoute: typeof ApiSmrtegaAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PrenosRoute: PrenosRoute,
+  SmrtegaAdminRoute: SmrtegaAdminRoute,
   ApiClockRoute: ApiClockRoute,
   ApiDuelRoute: ApiDuelRoute,
   ApiReleaseRoute: ApiReleaseRoute,
   ApiRtcRoute: ApiRtcRoute,
+  ApiSmrtegaAdminRoute: ApiSmrtegaAdminRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
