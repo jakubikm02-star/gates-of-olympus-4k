@@ -690,9 +690,10 @@ export function SlotGame() {
               <p>
                 KREDIT <b><CountUp value={g.balance} meter /></b>
               </p>
-              <p>
-                STÁVKA <b>{formatMoney(g.stake)}</b>
-                {g.job ? <em className="bet-lock"> TIKET</em> : null}
+              <p className="stake-line">
+                <span>STÁVKA</span>
+                <b>{formatMoney(g.stake)}</b>
+                {g.job ? <em className="bet-lock">TIKET</em> : null}
               </p>
             </div>
           </div>
