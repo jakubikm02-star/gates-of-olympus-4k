@@ -296,18 +296,16 @@
 .stage.is-land.shell-mw .table,
 .stage.is-land.shell-pwa .table,
 .stage.is-land.shell-pc .table {
-  /* Cabinet width is 6×5 squares from the reel-host height. --land-cell is
-     written from that height (and the width left after the rail minimums).
-     Leftover width goes to the two rails, so the frame is never wider than the grid. */
-  --rail-min: 124px;
-  --cab-pad: 10px;
+  /* Rails stay only as wide as their controls. The cabinet takes the rest
+     and the grid fills it, so leftover rail space becomes bigger reels. */
+  --rail-min: 112px;
+  --cab-pad: 6px;
   --cab-gap: 2px;
-  --land-cell: 48px;
   display: grid;
   grid-template-columns:
-    minmax(var(--rail-min), 1fr)
-    minmax(0, calc(6 * var(--land-cell) + 5 * var(--cab-gap) + 2 * var(--cab-pad)))
-    minmax(var(--rail-min), 1fr);
+    minmax(var(--rail-min), 156px)
+    minmax(0, 1fr)
+    minmax(var(--rail-min), 180px);
   grid-template-rows: auto auto auto auto minmax(0, 1fr);
   width: 100%;
   max-width: none;
@@ -705,7 +703,7 @@
   align-items: flex-start;
   justify-content: center;
   /* The BONUS / HLÁSENIE strip occupies this band. The cabinet starts under it. */
-  padding: 32px 0 0;
+  padding: 30px 0 0;
   box-sizing: border-box;
   width: auto;
   height: auto;
@@ -728,19 +726,18 @@
   padding-top: 0;
 }
 
-/* Cabinet is exactly the 6×5 grid plus the bezel. Same numbers as the center column. */
+/* Cabinet fills the center column. Cells share that box; they are not letterboxed squares. */
 .stage.is-land .reel-frame,
 .stage.is-land.shell-mw .reel-frame,
 .stage.is-land.shell-pwa .reel-frame,
 .stage.is-land.shell-pc .reel-frame {
-  --pad: var(--cab-pad, 10px);
-  --gap: var(--cab-gap, 2px);
+  --pad: var(--cab-pad, 6px);
   --bz: 6px;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  width: calc(6 * var(--land-cell, 48px) + 5 * var(--gap) + 2 * var(--pad));
-  height: calc(5 * var(--land-cell, 48px) + 2 * var(--pad));
+  width: 100%;
+  height: 100%;
   max-width: 100%;
   max-height: 100%;
   min-height: 0;
@@ -759,14 +756,10 @@
 .stage.is-land.shell-pc .reel-window {
   --reel-pad: 0px;
   --reel-gap: 2px;
-  --sq: min(
-    calc((100% - 2 * var(--reel-pad) - 5 * var(--reel-gap)) / 6),
-    calc((100% - 2 * var(--reel-pad)) / 5)
-  );
-  grid-template-columns: repeat(6, var(--cell-h, var(--sq)));
-  grid-template-rows: calc(5 * var(--cell-h, var(--sq)));
-  justify-content: center;
-  align-content: center;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  justify-content: stretch;
+  align-content: stretch;
   flex: 1 1 auto;
   align-self: stretch;
   width: 100%;
@@ -777,16 +770,18 @@
 }
 
 .stage.is-land .cell {
-  aspect-ratio: 1;
+  aspect-ratio: auto;
+  min-width: 0;
+  min-height: 0;
 }
 
 .stage.is-land .hack-window,
 .stage.is-land .pin-cell {
-  --cell-w: var(--cell-h);
-  left: var(--grid-x, var(--reel-pad));
-  top: var(--grid-y, var(--reel-pad));
-  width: var(--cell-h);
-  height: var(--cell-h);
+  --cell-w: calc((100% - 2 * var(--reel-pad) - 5 * var(--reel-gap)) / 6);
+  left: var(--reel-pad);
+  top: var(--reel-pad);
+  width: var(--cell-w);
+  height: calc((100% - 2 * var(--reel-pad)) / 5);
 }
 
 .stage.is-land .bottom-hud,
@@ -1117,6 +1112,111 @@
 
 .stage.fold-flex-h.is-land .table {
   column-gap: 14px;
+}
+
+/* Portrait: the cabinet uses the width between a 4px inset and the safe area,
+   and the vertical slack under the meter and in the idle GOOD LUCK line. */
+.stage:not(.is-land):is(.shell-mw, .shell-pwa) .top-ticker.is-idle,
+.stage.fold-inner:not(.is-land) .top-ticker.is-idle,
+.stage.fold-flex-v:not(.is-land) .top-ticker.is-idle {
+  height: 0;
+  min-height: 0;
+  max-height: 0;
+  margin: 0;
+  padding: 0;
+  border-width: 0;
+  overflow: hidden;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa) .win-stack:not(:has(.has-win)),
+.stage.fold-inner:not(.is-land) .win-stack:not(:has(.has-win)),
+.stage.fold-flex-v:not(.is-land) .win-stack:not(:has(.has-win)) {
+  height: 1.05rem;
+  min-height: 1.05rem;
+  max-height: 1.05rem;
+  padding: 0 4px;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa) .win-stack:not(:has(.has-win)) .win-line,
+.stage.fold-inner:not(.is-land) .win-stack:not(:has(.has-win)) .win-line,
+.stage.fold-flex-v:not(.is-land) .win-stack:not(:has(.has-win)) .win-line {
+  font-size: 0.78rem;
+  line-height: 1.05rem;
+  height: 1.05rem;
+  min-height: 1.05rem;
+  max-height: 1.05rem;
+  letter-spacing: 0.1em;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa) .win-stack:not(:has(.has-win)) .pay-hint,
+.stage.fold-inner:not(.is-land) .win-stack:not(:has(.has-win)) .pay-hint,
+.stage.fold-flex-v:not(.is-land) .win-stack:not(:has(.has-win)) .pay-hint {
+  display: none;
+}
+
+.stage.fold-inner:not(.is-land) .table,
+.stage.fold-flex-v:not(.is-land) .table {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.stage.fold-inner:not(.is-land) .side-left,
+.stage.fold-flex-v:not(.is-land) .side-left {
+  position: static;
+  flex-direction: row;
+  width: 100%;
+  padding-top: 0;
+}
+
+.stage.fold-inner:not(.is-land) .ramp-col,
+.stage.fold-flex-v:not(.is-land) .ramp-col {
+  display: none;
+}
+
+.stage.fold-inner:not(.is-land) .board-stage,
+.stage.fold-flex-v:not(.is-land) .board-stage {
+  padding: 0;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.stage.fold-inner:not(.is-land) .board-stage-inner,
+.stage.fold-flex-v:not(.is-land) .board-stage-inner {
+  --bz: 6px;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.stage.fold-inner:not(.is-land) .reel-host,
+.stage.fold-flex-v:not(.is-land) .reel-host {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: stretch;
+  min-height: 0;
+  width: 100%;
+}
+
+.stage.fold-inner:not(.is-land) .reel-frame,
+.stage.fold-flex-v:not(.is-land) .reel-frame,
+.stage.fold-inner:not(.is-land) .reel-frame:has(> .mf),
+.stage.fold-flex-v:not(.is-land) .reel-frame:has(> .mf) {
+  --bz: 6px;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+}
+
+.stage.fold-inner:not(.is-land) .top-ticker.is-idle,
+.stage.fold-flex-v:not(.is-land) .top-ticker.is-idle {
+  height: 0;
+  min-height: 0;
+  max-height: 0;
 }
 
 /* Narrow portrait and the unfolded Fold (portrait): jackpots on their own row,

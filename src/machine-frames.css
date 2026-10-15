@@ -406,17 +406,16 @@
   animation-play-state: paused;
 }
 
-/* Phones: the 6 px bezel grows to 10 px by spending 4 px of the free space
-   around the frame; padding grows by the same 4 px, so the reel window keeps
-   its exact size and position. */
+/* Phones: the bezel stays inside the frame. The frame already fills the host,
+   so growing it outward would cover the meter or stick out past the screen. */
 .stage.shell-mw .reel-frame:has(> .mf),
 .stage.shell-pwa .reel-frame:has(> .mf) {
-  --bz: 10px;
-  width: calc(min(var(--cq-w, 100cqw), calc(var(--cq-h, 100cqh) * 6 / 5.45)) + 8px);
-  height: calc(min(var(--cq-h, 100cqh), calc(var(--cq-w, 100cqw) * 5.45 / 6)) + 8px);
-  max-width: none;
-  max-height: none;
-  margin: -4px;
+  --bz: 6px;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

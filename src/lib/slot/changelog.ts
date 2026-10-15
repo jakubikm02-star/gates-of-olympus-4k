@@ -7,6 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-10-15", text: "Skrinka na výšku ide takmer od okraja po okraj. Bunky sú väčšie, medzera pod BONUS a HLÁSENIE je preč a riadok GOOD LUCK je nižší. Na šírku voľné miesto v lištách patrí valcom. Všetkých päť radov ostáva vidno." },
   { day: "2026-10-15", text: "Na úzkej výške sú štyri jackpoty v mriežke 2×2 a pod nimi SMRŤ EGA: miesto, RP a KONČÍ O. Sumy sa už nestrihajú. V kredite je celá stávka, aj 1.00. To isté na rozloženom Z Fold na výšku." },
   { day: "2026-10-15", text: "Na skladacom telefóne má riadok TUMBLE vlastné miesto nad valcami a suma výhry ostáva čitateľná. Okno výhry sa zmestí aj na nízku obrazovku." },
   { day: "2026-10-15", text: "Na výšku symboly znova vyplnia šírku skrinky. Medzera nad valcami a pod nimi je preč a symboly sú aspoň také veľké ako predtým. Lišta prehliadača už nerozbíja rozloženie." },

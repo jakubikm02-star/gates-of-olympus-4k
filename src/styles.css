@@ -7890,7 +7890,7 @@ html:-webkit-full-screen {
 .stage.shell-pwa .table {
   height: 100%;
   max-height: 100%;
-  padding: 2px 6px 0;
+  padding: 2px 4px 0;
   gap: 2px;
 }
 
@@ -7951,17 +7951,19 @@ html:-webkit-full-screen {
   width: 100%;
   height: auto;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: stretch;
+  margin-top: 2px;
 }
 
 .stage.shell-mw .reel-frame,
 .stage.shell-pwa .reel-frame {
-  flex: none;
-  width: min(var(--cq-w, 100cqw), calc(var(--cq-h, 100cqh) * 6 / 5.45));
-  height: min(var(--cq-h, 100cqh), calc(var(--cq-w, 100cqw) * 5.45 / 6));
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
   max-width: 100%;
   max-height: 100%;
+  margin: 0;
 }
 
 .stage.shell-mw .reel-window,
@@ -8204,10 +8206,10 @@ html:-webkit-full-screen {
 
 .stage.shell-mw .board-meter,
 .stage.shell-pwa .board-meter {
-  height: 30px;
-  min-height: 30px;
-  max-height: 30px;
-  margin: 4px 0 2px;
+  height: 26px;
+  min-height: 26px;
+  max-height: 26px;
+  margin: 1px 0 0;
 }
 
 .stage.shell-mw .pity-bar b,
@@ -8279,12 +8281,22 @@ html:-webkit-full-screen {
 
 .stage.shell-mw .top-ticker,
 .stage.shell-pwa .top-ticker {
-  height: 1.55rem;
-  min-height: 1.55rem;
-  max-height: 1.55rem;
-  margin-bottom: 2px;
+  height: 1.2rem;
+  min-height: 1.2rem;
+  max-height: 1.2rem;
+  margin-bottom: 1px;
   display: flex;
   font-size: 11px;
+}
+
+.stage.shell-mw .top-ticker.is-idle,
+.stage.shell-pwa .top-ticker.is-idle {
+  height: 0;
+  min-height: 0;
+  max-height: 0;
+  margin: 0;
+  padding: 0;
+  border-width: 0;
 }
 
 .stage.shell-mw .board-job,
