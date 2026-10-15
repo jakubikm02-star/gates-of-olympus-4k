@@ -161,6 +161,10 @@ export interface ZlatyState {
   stakes: number[];
   /** Day a one-time golden refund was applied (REFUND_DAY). */
   refundDay?: string;
+  /** Second one-time re-arm (fix of 15.10): day applied. */
+  refund2Day?: string;
+  /** Day gold was claimed and its golden run has not settled yet (crash, reload, duel): re-armed on load. */
+  openDay?: string;
 }
 
 export function emptyZlaty(): ZlatyState {
@@ -203,6 +207,8 @@ export function sanitizeZlaty(raw: unknown): ZlatyState {
     z.byMode[m] = { n: Math.floor(num(s.n, 0, 1e7)), x: num(s.x, 0, 1e9) };
   }
   if (typeof r.refundDay === "string" && DAY_RE.test(r.refundDay)) z.refundDay = r.refundDay;
+  if (typeof r.refund2Day === "string" && DAY_RE.test(r.refund2Day)) z.refund2Day = r.refund2Day;
+  if (typeof r.openDay === "string" && DAY_RE.test(r.openDay)) z.openDay = r.openDay;
   z.stakes = Array.isArray(r.stakes) ? r.stakes.filter((x): x is number => typeof x === "number" && Number.isFinite(x) && x > 0).slice(-STAKE_WINDOW) : [];
   return z;
 }
@@ -214,7 +220,7 @@ export function goldWaiting(z: ZlatyState, today: string, enabled = true): boole
 
 /** The bar filled with the gold waiting: spend today's gold (saved with the pending bonus). */
 export function claimGold(z: ZlatyState, today: string): ZlatyState {
-  return { ...z, usedDay: today };
+  return { ...z, usedDay: today, openDay: today };
 }
 
 export function noteStake(z: ZlatyState, bet: number): ZlatyState {
@@ -259,8 +265,9 @@ export function settleGold(
   z: ZlatyState,
   r: { mode: BonusModeId; x: number; cash: number; extra: number; day: string },
 ): { z: ZlatyState; recharged: boolean } {
-  if (r.cash > 0) return { z: recordGold(z, r), recharged: false };
-  return { z: rechargeGold(z, r.day), recharged: true };
+  const closed = { ...z, openDay: undefined };
+  if (r.cash > 0) return { z: recordGold(closed, r), recharged: false };
+  return { z: rechargeGold(closed, r.day), recharged: true };
 }
 
 /** Golden SIM charged again for `day` (the gold is waiting; the teaser may show again). */
@@ -276,6 +283,20 @@ export const REFUND_DAY = "2026-10-15";
 export function refundGold(z: ZlatyState, today: string): ZlatyState {
   if (today !== REFUND_DAY || z.refundDay === REFUND_DAY || z.usedDay !== today) return z;
   return { ...rechargeGold(z, today), refundDay: REFUND_DAY };
+}
+
+/**
+ * On load (no golden bonus pending): one rule for every path. Gold claimed today whose run never settled
+ * (closed mid-bonus, duel) is armed again. Plus the second one-time re-arm of 15.10 (the first refund could
+ * end at 0 on a client that missed the recharge): old saves cannot tell a 0 run from a paid one.
+ */
+export function reviveGold(z: ZlatyState, today: string): ZlatyState {
+  let out = refundGold(z, today);
+  if (out.openDay && out.openDay === today && out.usedDay === today) out = { ...rechargeGold(out, today), openDay: undefined };
+  if (today === REFUND_DAY && out.refund2Day !== REFUND_DAY) {
+    out = { ...(out.usedDay === today ? rechargeGold(out, today) : out), refund2Day: REFUND_DAY };
+  }
+  return out;
 }
 
 /* ───────────── texts ───────────── */

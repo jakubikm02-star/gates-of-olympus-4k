@@ -7,6 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-10-15", text: "Oprava ZLATÉHO BONUSU: každý zlatý bonus s nulou zlatú SIM znova nabije, aj po kompenzácii. Nedohraný zlatý bonus (zatvorená hra) sa po načítaní vráti. Kto dnes zlato minul, má ho po načítaní ešte raz nabité." },
   { day: "2026-10-15", text: "Kompenzácia: kto dnes minul ZLATÝ BONUS, má dnešné zlato nabité znova. Ďalší bonus z baru je opäť zlatý." },
   { day: "2026-10-15", text: "ZLATÝ BONUS už neskončí nulou. Keď zlatý bonus nič nevyplatí, zlatá SIM sa znova nabije a ďalší bonus z baru je opäť zlatý, až kým zlatý bonus niečo nevyplatí." },
   { day: "2026-10-14", text: "ZÁSAH: okno na inom ako cieľovom symbole je vždy MIMO, symbol sa už nemení na cieľ. Po ustálení spinu sa cieľové symboly označia EVIDENCE a nevyplácajú, sú len cieľom okien." },

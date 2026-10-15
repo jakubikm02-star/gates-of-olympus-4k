@@ -269,3 +269,38 @@ describe("one-time golden refund for 2026-10-15", () => {
     assert.equal(refundGold(claimGold(emptyZlaty(), "2026-10-16"), "2026-10-16").refundDay, undefined);
   });
 });
+
+describe("gold recharge chain (refund → 0 → recharge → 0 → … → paid)", () => {
+  it("every 0 run recharges, whatever armed the gold; a paid run spends it", async () => {
+    const { emptyZlaty, claimGold, goldWaiting, settleGold, refundGold, reviveGold, sanitizeZlaty } = await import("./zlaty.ts");
+    const day = "2026-10-15";
+    const save = (z: unknown) => sanitizeZlaty(JSON.parse(JSON.stringify(z)));
+    let z = settleGold(claimGold(emptyZlaty(), day), { mode: "zbox", x: 2, cash: 2, extra: 1, day }).z;
+    assert.equal(goldWaiting(z, day), false);
+    z = save(refundGold(z, day));
+    assert.equal(goldWaiting(z, day), true);
+    for (const mode of ["kontrola", "zbox", "koleso"] as const) {
+      z = save(claimGold(z, day));
+      const r = settleGold(z, { mode, x: 0, cash: 0, extra: 0, day });
+      assert.equal(r.recharged, true);
+      z = save(reviveGold(r.z, day));
+      assert.equal(goldWaiting(z, day), true, mode);
+    }
+    z = save(settleGold(save(claimGold(z, day)), { mode: "kontrola", x: 5, cash: 5, extra: 4, day }).z);
+    assert.equal(goldWaiting(save(reviveGold(z, day)), day), false);
+  });
+  it("gold claimed but never settled (closed mid-bonus) is armed again on load", async () => {
+    const { emptyZlaty, claimGold, goldWaiting, reviveGold } = await import("./zlaty.ts");
+    const day = "2026-10-16";
+    const z = claimGold(emptyZlaty(), day);
+    assert.equal(goldWaiting(reviveGold(z, day), day), true);
+  });
+  it("15.10 second re-arm: a save that spent gold today (0 not detectable) gets it once more", async () => {
+    const { emptyZlaty, claimGold, goldWaiting, reviveGold, recordGold } = await import("./zlaty.ts");
+    const day = "2026-10-15";
+    const old = { ...recordGold(claimGold(emptyZlaty(), day), { mode: "zbox", x: 0, cash: 0, extra: 0, day }), refundDay: day, openDay: undefined };
+    const once = reviveGold(old, day);
+    assert.equal(goldWaiting(once, day), true);
+    assert.equal(goldWaiting(reviveGold(claimGold(once, day), day), day), true, "still open → armed");
+  });
+});

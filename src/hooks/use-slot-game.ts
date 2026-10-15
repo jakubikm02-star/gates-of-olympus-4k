@@ -53,7 +53,8 @@ import {
   noteStake,
   recordGold,
   settleGold,
-  refundGold,
+  rechargeGold,
+  reviveGold,
   usualStake,
   zlataPokutaOf,
   zlatyEnabled,
@@ -639,7 +640,7 @@ export function useSlotGame() {
     setPityByBet(s.pityByBet);
     bonusPendingRef.current = s.bonusPending ?? null;
     // One-time refund (REFUND_DAY): gold spent today is armed again, unless a golden bonus is still pending.
-    zlatyRef.current = s.bonusPending?.gold ? (s.zlaty ?? emptyZlaty()) : refundGold(s.zlaty ?? emptyZlaty(), braDay(serverNow()));
+    zlatyRef.current = s.bonusPending?.gold ? (s.zlaty ?? emptyZlaty()) : reviveGold(s.zlaty ?? emptyZlaty(), braDay(serverNow()));
     setZlaty(zlatyRef.current);
     if (s.zboxHelpOff && !zboxHelpOff()) setZboxHelpOff(true);
     if (s.kolesoHelpOff && !kolesoHelpOff()) setKolesoHelpOff(true);
@@ -2689,6 +2690,11 @@ export function useSlotGame() {
     });
     setModeStrip(null);
     noteStat({ t: "barMode", mode: pend.mode });
+    if (pend.gold && roundEscrowRef.current) {
+      // Gold cannot play in a duel round: it is not spent, the golden SIM stays charged.
+      zlatyRef.current = { ...rechargeGold(zlatyRef.current, pend.gold.day), openDay: undefined };
+      setZlaty(zlatyRef.current);
+    }
     if (pend.gold && !roundEscrowRef.current) {
       setGoldTeaser(false);
       setGoldReveal({ mode: pend.mode, key: Date.now() });
