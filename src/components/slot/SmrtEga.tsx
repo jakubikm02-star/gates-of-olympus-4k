@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   EGO_REPORT_EVERY,
+  egoAdminVisible,
   egoAttention,
   egoBanner,
+  egoDeltaTone,
   egoFee,
   egoLeft,
+  egoWeekEnd,
   egoLiveBoard,
   egoLiveScore,
   egoMissing,
   egoSnapshot,
   fmtRp,
+  EGO_ADMIN_DEVICE_KEY,
+  EGO_ADMIN_TOKEN_KEY,
   EGO_FLOOR,
   type EgoSeen,
   type EgoState,
@@ -174,8 +179,12 @@ export function useSmrtEga(g: EgoGame) {
     ack,
     live,
     attention: egoAttention(state, g.rp, now, seen),
-    text: egoBanner(state, g.rp, now, live),
+    text: egoBanner(state, g.rp, now, live, false),
   };
+}
+
+function RpNum({ n }: { n: number }) {
+  return <strong className={`ego-delta is-${egoDeltaTone(n)}`}>{fmtRp(n)}</strong>;
 }
 
 function Rack() {
@@ -229,9 +238,20 @@ export function SmrtEgaCard({
   const [code, setCode] = useState<string | null>(null);
   const [codeErr, setCodeErr] = useState("");
   const [ask, setAsk] = useState(false);
+  const [adminDevice, setAdminDevice] = useState(false);
   useEffect(() => {
     if (ego.state) ego.ack();
   }, [ego.state, ego.ack]);
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem(EGO_ADMIN_TOKEN_KEY);
+      const remembered = localStorage.getItem(EGO_ADMIN_DEVICE_KEY) === "1";
+      if (ego.state?.me?.admin) localStorage.setItem(EGO_ADMIN_DEVICE_KEY, "1");
+      setAdminDevice(egoAdminVisible(Boolean(ego.state?.me?.admin), token, remembered || Boolean(ego.state?.me?.admin)));
+    } catch {
+      setAdminDevice(Boolean(ego.state?.me?.admin));
+    }
+  }, [ego.state?.me?.admin]);
   const s = ego.state;
   const fee = egoFee(rp);
   const miss = egoMissing(rp);
@@ -262,6 +282,15 @@ export function SmrtEgaCard({
         <p className="ego-spread">NEKONEČNO</p>
         <p className="ego-product">4KA TV XL</p>
       </header>
+      <p className="ego-clock">
+        <span>KONČÍ O</span>
+        <strong>{egoLeft((s?.weekEnd ?? egoWeekEnd(ego.now)) - ego.now)}</strong>
+      </p>
+      {adminDevice ? (
+        <a className="ego-admin" href="/smrtega-admin">
+          ADMIN
+        </a>
+      ) : null}
       <p className="ego-status">{ego.text}</p>
 
       {prize ? (
@@ -303,7 +332,7 @@ export function SmrtEgaCard({
 
       {s?.me?.joined ? (
         <p className="ego-stand">
-          Si {myPlace}. · {fmtRp(myScore ?? 0)} RP{s.me.admin ? " · BEZ NÁROKU NA CENU" : ""}
+          Si {myPlace}. · <RpNum n={myScore ?? 0} /> RP{s.me.admin ? " · BEZ NÁROKU NA CENU" : ""}
           <small className="ego-fee">vrátane vstupného {fmtRp(-s.me.fee)} RP</small>
         </p>
       ) : rp < EGO_FLOOR ? (
@@ -332,14 +361,14 @@ export function SmrtEgaCard({
             <b>{i + 1}</b>
             <span>{t.nick}</span>
             {t.admin ? <em>BEZ NÁROKU</em> : null}
-            <strong>{fmtRp(t.score)}</strong>
+            <RpNum n={t.score} />
           </li>
         ))}
         {!rows.length ? <li className="is-empty">Zatiaľ nikto. Buď prvý.</li> : null}
       </ol>
       {s?.lastWinner ? (
         <p className="ego-last">
-          Posledný výherca: {s.lastWinner.nick} ({fmtRp(s.lastWinner.score)} RP)
+          Posledný výherca: {s.lastWinner.nick} (<RpNum n={s.lastWinner.score} /> RP)
         </p>
       ) : null}
     </section>
