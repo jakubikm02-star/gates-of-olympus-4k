@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { egoBanner, egoExpires, egoFee, egoMissing, egoScore, egoWeekEnd, egoWeekStart, egoWinner, type EgoState } from "./smrtega.ts";
+import { egoAttention, egoBanner, egoExpires, egoFee, egoLiveBoard, egoLiveScore, egoMissing, egoScore, egoSnapshot, egoWeekEnd, egoWeekStart, egoWinner, EGO_REPORT_EVERY, type EgoState } from "./smrtega.ts";
 import { egoClaim, egoCurrent, egoJoin, parseEgoState, setEgoFetcher } from "./smrtega-api.ts";
 import { handleEgoAdmin, type EgoAdminDeps } from "./smrtega-admin.server.ts";
 
@@ -64,6 +64,75 @@ test("winner: Martin 1st → runner-up wins; hard flag skipped; soft flag still 
 
 const st = (o: Partial<EgoState>): EgoState => ({
   weekStart: 0, weekEnd: 2 * 86_400_000 + 5 * 3_600_000, now: 0, players: 2, top: [], me: null, leader: null, prize: null, lastWinner: null, ...o,
+});
+
+test("live score moves with RP since the last report and re-sorts the visible board", () => {
+  assert.equal(EGO_REPORT_EVERY, 5);
+  assert.equal(egoLiveScore(500, 10_050, 10_000), 550);
+  assert.equal(egoLiveScore(500, 9_900, 10_000), 400);
+  assert.equal(egoLiveScore(-500, 9_500, null), -500);
+  const top = [
+    { nick: "A", score: 100, admin: false },
+    { nick: "Ja", score: 50, admin: false },
+    { nick: "B", score: 40, admin: false },
+  ];
+  const me = { score: 50, place: 2, admin: false };
+  const up = egoLiveBoard(top, me, 90, "Ja");
+  assert.equal(up.place, 2);
+  assert.deepEqual(up.top.map((t) => [t.nick, t.score, Boolean(t.mine)]), [
+    ["A", 100, false],
+    ["Ja", 90, true],
+    ["B", 40, false],
+  ]);
+  const lead = egoLiveBoard(top, me, 110, "Ja");
+  assert.equal(lead.place, 1);
+  assert.equal(lead.top[0]?.nick, "Ja");
+  const tied = egoLiveBoard(top, me, 100, "Ja");
+  assert.equal(tied.place, 2);
+  assert.equal(tied.top[0]?.nick, "A");
+  const crowd = Array.from({ length: 10 }, (_, i) => ({ nick: `P${i}`, score: 200 - i, admin: false }));
+  const still = egoLiveBoard(crowd, { score: 50, place: 15, admin: false }, 60, "Ja");
+  assert.equal(still.place, 15);
+  assert.equal(still.top.some((t) => t.mine), false);
+  const climb = egoLiveBoard(crowd, { score: 50, place: 15, admin: false }, 196, "Ja");
+  assert.equal(climb.place, 6);
+  assert.equal(climb.top.filter((t) => t.mine).length, 1);
+  assert.equal(climb.top.length, 10);
+});
+
+test("trophy badge: not entered, place change, prize — not a score tick", () => {
+  const open = st({ weekStart: 0, weekEnd: 100, me: null });
+  const joined = st({
+    weekStart: 0,
+    weekEnd: 100,
+    me: { joined: true, score: 100, place: 2, fee: 500, admin: false },
+  });
+  assert.equal(egoAttention(null, 50_000, 0, null), false);
+  assert.equal(egoAttention(open, 50_000, 10, null), true);
+  assert.equal(egoAttention(open, 2_000, 10, null), false);
+  const seenOpen = egoSnapshot(open);
+  assert.equal(egoAttention(open, 50_000, 10, seenOpen), true);
+  assert.equal(egoAttention(joined, 50_000, 10, null), true);
+  assert.equal(egoAttention(joined, 50_000, 10, egoSnapshot(joined)), false);
+  const moved = st({
+    weekStart: 0,
+    weekEnd: 100,
+    me: { joined: true, score: 9_000, place: 1, fee: 500, admin: false },
+  });
+  assert.equal(egoAttention(moved, 50_000, 10, egoSnapshot(joined)), true);
+  const richer = st({
+    weekStart: 0,
+    weekEnd: 100,
+    me: { joined: true, score: 9_000, place: 2, fee: 500, admin: false },
+  });
+  assert.equal(egoAttention(richer, 50_000, 10, egoSnapshot(joined)), false);
+  assert.equal(egoAttention(st({ weekStart: 0, weekEnd: 100, me: null }), 50_000, 100, null), false);
+  const prize = st({ prize: { status: "pending", deliveredAt: null, expiresAt: null }, me: { joined: true, score: 1, place: 1, fee: 500, admin: false } });
+  assert.equal(egoAttention(prize, 100, 10, egoSnapshot(joined)), true);
+  assert.equal(egoAttention(prize, 100, 10, egoSnapshot(prize)), false);
+  const awarded = st({ prize: { status: "awarded", deliveredAt: 1, expiresAt: 50 }, me: prize.me });
+  assert.equal(egoAttention(awarded, 100, 10, egoSnapshot(prize)), true);
+  assert.equal(egoAttention(awarded, 100, 50, egoSnapshot(prize)), false);
 });
 
 test("banner texts", () => {

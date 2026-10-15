@@ -18,5 +18,307 @@
 .ego-prize{border:1px dashed #ffd36b;border-radius:12px;padding:10px 12px;margin-bottom:12px;background:rgba(255,211,107,.06)}
 .ego-prize b{color:#ffd36b}
 .ego-code{font:800 26px/1.2 ui-monospace,monospace;letter-spacing:.12em;margin:8px 0;color:#fff;user-select:all}
-.jp-event.is-ego{cursor:pointer}
 .ego-badge{display:inline-block;margin-left:6px;padding:0 6px;border-radius:9px;background:#ff3b4e;color:#fff;font-size:12px;font-style:normal}
+
+/* Trophy attention mark. Sits on the existing cup, not a second button. */
+.icon-btn.is-ego {
+  position: relative;
+  border-color: #7fd4ff;
+  box-shadow: 0 0 0 1px rgba(20, 150, 255, 0.45), 0 0 12px rgba(20, 150, 255, 0.65);
+}
+.ego-ping,
+.ego-tab-ping {
+  position: absolute;
+  top: -7px;
+  right: -6px;
+  z-index: 2;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border: 1px solid #b9ecff;
+  background: #071018;
+  color: #7fd4ff;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 14px;
+  letter-spacing: 0;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 0 8px #1496ff, 3px 4px 0 rgba(0, 0, 0, 0.45);
+  animation: ego-pop 0.42s cubic-bezier(0.2, 1.5, 0.35, 1) both;
+}
+.ego-ping::after,
+.ego-tab-ping::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  bottom: -5px;
+  border-width: 5px 4px 0 0;
+  border-style: solid;
+  border-color: #b9ecff transparent transparent transparent;
+}
+.ego-tab-ping {
+  top: 4px;
+  right: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ego-ping,
+  .ego-tab-ping { animation: none; }
+}
+@keyframes ego-pop {
+  0% { transform: scale(0.15) translateY(4px); opacity: 0; }
+  100% { transform: none; opacity: 1; }
+}
+
+/* Event card: dark bay, cyan glow, grid, sharp metal. Admin sheet above stays as it was. */
+.ego-card {
+  position: relative;
+  margin: 4px 0 8px;
+  padding: 14px 14px 16px;
+  overflow: hidden;
+  color: #e7f3fc;
+  background:
+    radial-gradient(90% 55% at 50% 0%, rgba(0, 110, 190, 0.28), transparent 62%),
+    linear-gradient(180deg, #081018 0%, #05080c 46%, #030508 100%);
+  border: 1px solid #1d4564;
+  box-shadow: 0 0 0 1px #05080c, 0 0 22px rgba(0, 140, 255, 0.22), inset 0 0 40px rgba(0, 80, 140, 0.12);
+}
+.ego-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(120, 190, 255, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 190, 255, 0.09) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.35) 42%, transparent 78%);
+}
+.ego-card::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  pointer-events: none;
+  border: 1px dashed rgba(210, 228, 245, 0.38);
+}
+.ego-card > * { position: relative; z-index: 1; }
+.ego-tick {
+  position: absolute;
+  z-index: 2;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  border: 0 solid rgba(232, 242, 252, 0.92);
+}
+.ego-tick.is-tl { top: 4px; left: 4px; border-top-width: 2px; border-left-width: 2px; }
+.ego-tick.is-tr { top: 4px; right: 4px; border-top-width: 2px; border-right-width: 2px; }
+.ego-tick.is-bl { bottom: 4px; left: 4px; border-bottom-width: 2px; border-left-width: 2px; }
+.ego-tick.is-br { bottom: 4px; right: 4px; border-bottom-width: 2px; border-right-width: 2px; }
+.ego-rack {
+  display: block;
+  width: calc(100% - 8px);
+  height: auto;
+  margin: 6px auto 8px;
+  filter: drop-shadow(0 0 8px rgba(20, 150, 255, 0.35));
+}
+.ego-brand { text-align: center; padding: 2px 8px 0; }
+.ego-kicker {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.32em;
+  color: #8ea4b8;
+}
+.ego-word {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2rem, 9vw, 3.15rem);
+  line-height: 0.88;
+  letter-spacing: 0.08em;
+  background: linear-gradient(180deg, #ffffff 0%, #d5dee8 36%, #8d9aaa 48%, #f7fbff 52%, #667484 80%, #d0dae4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 0 #121920) drop-shadow(0 0 12px rgba(80, 180, 255, 0.4));
+}
+.ego-spread {
+  margin: 8px 0 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 0.74rem;
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  color: #d5dee8;
+}
+.ego-product {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.15rem, 4.8vw, 1.65rem);
+  letter-spacing: 0.2em;
+  color: #1496ff;
+  text-shadow: 0 0 8px rgba(20, 150, 255, 0.95), 0 0 22px rgba(0, 110, 220, 0.55);
+}
+.ego-status {
+  margin: 12px 0 0;
+  padding: 8px 10px;
+  border-left: 2px solid #1496ff;
+  background: rgba(6, 18, 32, 0.82);
+  color: #e7f4ff;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.ego-card h4 {
+  margin: 14px 0 6px;
+  font-family: var(--font-display);
+  font-size: 0.74rem;
+  letter-spacing: 0.18em;
+  color: #8ecfff;
+}
+.ego-card .ego-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ego-card .ego-rules li {
+  position: relative;
+  margin: 0;
+  padding: 7px 0 7px 14px;
+  border-top: 1px solid rgba(90, 170, 220, 0.18);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #d5e4f0;
+}
+.ego-card .ego-rules li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  width: 6px;
+  height: 6px;
+  background: #1496ff;
+  box-shadow: 0 0 6px #1496ff;
+}
+.ego-stand {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(80, 190, 255, 0.4);
+  background: linear-gradient(90deg, rgba(10, 36, 58, 0.92), rgba(5, 10, 16, 0.5));
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+  color: #f4fbff;
+}
+.ego-stand.is-lock { color: #b7c9d8; }
+.ego-fee {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: #9eb4c6;
+}
+.ego-board li.is-mine {
+  margin: 0 -6px;
+  padding-left: 8px;
+  padding-right: 6px;
+  background: rgba(12, 48, 74, 0.72);
+  box-shadow: inset 2px 0 0 #1496ff;
+}
+.ego-card .ego-join {
+  display: block;
+  width: 100%;
+  margin: 10px 0 0;
+  padding: 12px 12px;
+  border: 1px solid #7fd4ff;
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(16, 58, 88, 0.95), rgba(5, 12, 20, 0.96));
+  color: #f3fbff;
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  letter-spacing: 0.08em;
+  box-shadow: 0 0 16px rgba(0, 150, 255, 0.28), inset 0 0 12px rgba(0, 160, 255, 0.12);
+}
+.ego-card .ego-join:disabled { opacity: 0.45; box-shadow: none; }
+.ego-card .ego-join.is-ghost {
+  background: transparent;
+  color: #c5d8e8;
+  box-shadow: none;
+}
+.ego-ask {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(80, 190, 255, 0.35);
+  background: rgba(4, 10, 16, 0.72);
+}
+.ego-ask p { margin: 0 0 4px; }
+.ego-ask .ego-join { margin-top: 8px; }
+.ego-card .ego-err { margin: 8px 0 0; color: #ffd0c8; }
+.ego-card .ego-prize {
+  margin-top: 12px;
+  border-radius: 0;
+  border: 1px solid rgba(80, 190, 255, 0.65);
+  background: rgba(4, 16, 28, 0.82);
+  color: #e7f4ff;
+  box-shadow: inset 0 0 18px rgba(0, 140, 255, 0.12);
+}
+.ego-card .ego-prize b {
+  color: #9fe4ff;
+  font-family: var(--font-display);
+  letter-spacing: 0.12em;
+}
+.ego-card .ego-prize p { font-size: 0.8rem; line-height: 1.4; }
+.ego-card summary { cursor: pointer; color: #9fd8ff; letter-spacing: 0.04em; }
+.ego-card .ego-code {
+  color: #f4fbff;
+  text-shadow: 0 0 10px rgba(80, 190, 255, 0.65);
+}
+.ego-board {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ego-board li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 2px;
+  border-bottom: 1px solid rgba(90, 170, 220, 0.18);
+  font-size: 0.86rem;
+}
+.ego-board li b {
+  flex: none;
+  width: 1.3rem;
+  color: #7fd4ff;
+  font-family: var(--font-display);
+}
+.ego-board li span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ego-board li em {
+  flex: none;
+  font-style: normal;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  padding: 1px 4px;
+  border: 1px solid #7fd4ff;
+  color: #7fd4ff;
+}
+.ego-board li strong {
+  flex: none;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: #f4fbff;
+}
+.ego-board li.is-empty { opacity: 0.7; }
+.ego-card .ego-last {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: #9eb4c6;
+}

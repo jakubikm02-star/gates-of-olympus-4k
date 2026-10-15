@@ -7,7 +7,8 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
-  { day: "2026-10-15", text: "SMRŤ EGA: týždenný event pre NEKONEČNO, od pondelka 01:00 do ďalšieho pondelka 01:00. Vstupné 2,5 % RP (min 500, max 2 500). Vyhráva najviac čistých RP za týždeň (zisky aj straty). Výhra: kľúč 4KA TV XL s archívom na 28 dní, doručí sa sám. Strieda sa s jackpotom, ťukni naň." },
+  { day: "2026-10-15", text: "SMRŤ EGA je na pohári v tabuli, karta EVENT. Výkričník na pohári svieti, keď si NEKONEČNO a ešte si nezaplatil, keď sa zmení tvoje miesto, alebo keď čaká kľúč. Jackpot sa s eventom už nestrieda. Tvoje skóre na karte sa hýbe pri každej zmene RP a pri ňom je napísané, že vstupné je už v skóre." },
+  { day: "2026-10-15", text: "SMRŤ EGA: týždenný event pre NEKONEČNO, od pondelka 01:00 do ďalšieho pondelka 01:00. Vstupné 2,5 % RP (min 500, max 2 500). Vyhráva najviac čistých RP za týždeň (zisky aj straty). Výhra: kľúč 4KA TV XL s archívom na 28 dní, doručí sa sám." },
   { day: "2026-10-15", text: "Oprava ZLATÉHO BONUSU: každý zlatý bonus s nulou zlatú SIM znova nabije, aj po kompenzácii. Nedohraný zlatý bonus (zatvorená hra) sa po načítaní vráti. Kto dnes zlato minul, má ho po načítaní ešte raz nabité." },
   { day: "2026-10-15", text: "Kompenzácia: kto dnes minul ZLATÝ BONUS, má dnešné zlato nabité znova. Ďalší bonus z baru je opäť zlatý." },
   { day: "2026-10-15", text: "ZLATÝ BONUS už neskončí nulou. Keď zlatý bonus nič nevyplatí, zlatá SIM sa znova nabije a ďalší bonus z baru je opäť zlatý, až kým zlatý bonus niečo nevyplatí." },
