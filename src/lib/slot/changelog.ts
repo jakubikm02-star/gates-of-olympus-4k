@@ -7,6 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-10-15", text: "Na šírku je skrinka len taká široká ako päť radov valcov. BONUS a HLÁSENIE sedia na nej a symboly nezakrývajú. Pravá lišta pohltí voľné miesto: −, + a AUTO sú celé vnútri, TIKET a online sú v karte kreditu." },
   { day: "2026-10-15", text: "Symboly sú celé v bunke. Bunka je štvorec podľa užšej strany poľa a obrázok sa zmestí dnu, na výšku aj na šírku." },
   { day: "2026-10-15", text: "Na šírku sa −, + a AUTO zmestia do pravej lišty. Všetkých päť radov valcov je vidno celé. Rank NEKONEČNO sa už neskracuje." },
   { day: "2026-10-15", text: "Na šírku sú valce cez celú výšku medzi lištami. Vľavo je jeden panel: rank, lístok, KÚPIŤ 4KA, ANTE a režimy QUICK / TURBO / TIKETY / VERSUS v mriežke 2×2. Vpravo je kredit so stávkou, veľké točenie s − a + vedľa seba, pod ním AUTO a ikony. Jackpot a SMRŤ EGA sú len nad valcami. Lístok už nesedí na valcoch. Nápis v pozadí je stmavený." },

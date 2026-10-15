@@ -67,6 +67,7 @@ function egoBody() {
 
 function mockPayload(url, method) {
   if (url.includes("/rpc/ego_current")) return egoBody();
+  if (url.includes("park_online_beat")) return 17;
   if (method === "POST") return {};
   return [];
 }
@@ -103,6 +104,8 @@ const SHOTS = [
   ["fold8-inner-landscape", custom(1016, 984, "inner")],
   ["fold8-flex-portrait", custom(984, 1016, "flex-v")],
   ["fold8-flex-landscape", custom(1016, 984, "flex-h")],
+  ["landscape-915x412", custom(915, 412)],
+  ["landscape-932x430", custom(932, 430)],
 ];
 
 function viewportOf(spec) {

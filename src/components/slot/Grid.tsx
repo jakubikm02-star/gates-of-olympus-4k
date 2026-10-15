@@ -375,6 +375,36 @@ export function SlotGrid({
   useLayoutEffect(() => {
     const win = windowRef.current;
     if (!win || typeof ResizeObserver === "undefined") return;
+    // Landscape only: size the center column from the reel-host height so the
+    // cabinet hugs the 6×5 grid and the rails take whatever width is left.
+    const fitCabinet = () => {
+      const table = win.closest(".table");
+      const host = win.closest(".reel-host");
+      const stage = win.closest(".stage");
+      if (!(table instanceof HTMLElement) || !(host instanceof HTMLElement)) return;
+      if (!stage?.classList.contains("is-land")) {
+        if (table.style.getPropertyValue("--land-cell")) table.style.removeProperty("--land-cell");
+        return;
+      }
+      const cs = getComputedStyle(table);
+      const num = (prop: string, fallback: number) => {
+        const n = Number.parseFloat(cs.getPropertyValue(prop));
+        return Number.isFinite(n) ? n : fallback;
+      };
+      const padL = Number.parseFloat(cs.paddingLeft) || 0;
+      const padR = Number.parseFloat(cs.paddingRight) || 0;
+      const colGap = Number.parseFloat(cs.columnGap) || 0;
+      const railMin = num("--rail-min", 124);
+      const pad = num("--cab-pad", 10);
+      const gap = num("--cab-gap", 2);
+      const available = table.clientWidth - padL - padR - 2 * railMin - 2 * colGap;
+      const hcs = getComputedStyle(host);
+      const innerH = host.clientHeight - (Number.parseFloat(hcs.paddingTop) || 0) - (Number.parseFloat(hcs.paddingBottom) || 0);
+      const cell = Math.min((innerH - 2 * pad) / ROWS, (available - 2 * pad - (COLS - 1) * gap) / COLS);
+      if (cell <= 0) return;
+      const next = `${Math.round(cell * 64) / 64}px`;
+      if (table.style.getPropertyValue("--land-cell") !== next) table.style.setProperty("--land-cell", next);
+    };
     const apply = (innerW: number, innerH: number) => {
       if (innerW <= 0 || innerH <= 0) return;
       const cs = getComputedStyle(win);
@@ -397,6 +427,7 @@ export function SlotGrid({
       if (win.style.getPropertyValue("--grid-y") !== oy) win.style.setProperty("--grid-y", oy);
     };
     const read = () => {
+      fitCabinet();
       const r = win.getBoundingClientRect();
       const cs = getComputedStyle(win);
       const padX = (Number.parseFloat(cs.paddingLeft) || 0) + (Number.parseFloat(cs.paddingRight) || 0);
@@ -405,11 +436,20 @@ export function SlotGrid({
     };
     read();
     const ro = new ResizeObserver((entries) => {
+      fitCabinet();
       const e = entries[entries.length - 1];
+      if (e.target !== win) {
+        read();
+        return;
+      }
       const box = e.contentBoxSize?.[0];
       apply(box ? box.inlineSize : e.contentRect.width, box ? box.blockSize : e.contentRect.height);
     });
     ro.observe(win);
+    const table = win.closest(".table");
+    const host = win.closest(".reel-host");
+    if (table instanceof HTMLElement) ro.observe(table);
+    if (host instanceof HTMLElement) ro.observe(host);
     return () => ro.disconnect();
   }, []);
 

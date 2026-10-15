@@ -724,6 +724,7 @@ export function SlotGame() {
 
           <div className="hud-right">
             <OnlineMeter playerId={g.deviceId} desk={g.desk} mine={g.mine} />
+            <div className="spin-cluster">
             <button
               type="button"
               className="round-btn"
@@ -751,6 +752,7 @@ export function SlotGame() {
             >
               +
             </button>
+            </div>
             {g.autoOn ? (
               <button type="button" className="auto-pill on" onClick={g.stopAuto}>
                 STOP {g.autoLeft}
