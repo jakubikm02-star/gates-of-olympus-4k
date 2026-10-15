@@ -257,3 +257,15 @@ describe("golden SIM recharges until a golden bonus pays", () => {
     assert.equal(goldWaiting(paid.z, "2026-10-16"), true);
   });
 });
+
+describe("one-time golden refund for 2026-10-15", () => {
+  it("re-arms gold spent that day once; other days untouched", async () => {
+    const { emptyZlaty, claimGold, goldWaiting, refundGold, sanitizeZlaty } = await import("./zlaty.ts");
+    const z = claimGold(emptyZlaty(), "2026-10-15");
+    const r = refundGold(z, "2026-10-15");
+    assert.equal(goldWaiting(r, "2026-10-15"), true);
+    const again = refundGold(sanitizeZlaty(JSON.parse(JSON.stringify(claimGold(r, "2026-10-15")))), "2026-10-15");
+    assert.equal(goldWaiting(again, "2026-10-15"), false);
+    assert.equal(refundGold(claimGold(emptyZlaty(), "2026-10-16"), "2026-10-16").refundDay, undefined);
+  });
+});

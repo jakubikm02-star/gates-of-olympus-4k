@@ -159,6 +159,8 @@ export interface ZlatyState {
   byMode: Record<BonusModeId, ZlatyModeStat>;
   /** Ring of the last STAKE_WINDOW paid-spin stakes (base game, no duel, no free spins). */
   stakes: number[];
+  /** Day a one-time golden refund was applied (REFUND_DAY). */
+  refundDay?: string;
 }
 
 export function emptyZlaty(): ZlatyState {
@@ -200,6 +202,7 @@ export function sanitizeZlaty(raw: unknown): ZlatyState {
     const s = (bm[m] && typeof bm[m] === "object" ? bm[m] : {}) as Record<string, unknown>;
     z.byMode[m] = { n: Math.floor(num(s.n, 0, 1e7)), x: num(s.x, 0, 1e9) };
   }
+  if (typeof r.refundDay === "string" && DAY_RE.test(r.refundDay)) z.refundDay = r.refundDay;
   z.stakes = Array.isArray(r.stakes) ? r.stakes.filter((x): x is number => typeof x === "number" && Number.isFinite(x) && x > 0).slice(-STAKE_WINDOW) : [];
   return z;
 }
@@ -265,6 +268,14 @@ export function rechargeGold(z: ZlatyState, day: string): ZlatyState {
   if (!DAY_RE.test(day) || z.usedDay < day) return z;
   const back = prevDay(day);
   return { ...z, usedDay: back, teasedDay: z.teasedDay >= day ? back : z.teasedDay };
+}
+
+/** One-time refund: a golden bonus spent on this day (before the recharge rule shipped) is armed again. */
+export const REFUND_DAY = "2026-10-15";
+
+export function refundGold(z: ZlatyState, today: string): ZlatyState {
+  if (today !== REFUND_DAY || z.refundDay === REFUND_DAY || z.usedDay !== today) return z;
+  return { ...rechargeGold(z, today), refundDay: REFUND_DAY };
 }
 
 /* ───────────── texts ───────────── */

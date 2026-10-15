@@ -53,6 +53,7 @@ import {
   noteStake,
   recordGold,
   settleGold,
+  refundGold,
   usualStake,
   zlataPokutaOf,
   zlatyEnabled,
@@ -637,7 +638,8 @@ export function useSlotGame() {
     pityByBetRef.current = s.pityByBet;
     setPityByBet(s.pityByBet);
     bonusPendingRef.current = s.bonusPending ?? null;
-    zlatyRef.current = s.zlaty ?? emptyZlaty();
+    // One-time refund (REFUND_DAY): gold spent today is armed again, unless a golden bonus is still pending.
+    zlatyRef.current = s.bonusPending?.gold ? (s.zlaty ?? emptyZlaty()) : refundGold(s.zlaty ?? emptyZlaty(), braDay(serverNow()));
     setZlaty(zlatyRef.current);
     if (s.zboxHelpOff && !zboxHelpOff()) setZboxHelpOff(true);
     if (s.kolesoHelpOff && !kolesoHelpOff()) setKolesoHelpOff(true);

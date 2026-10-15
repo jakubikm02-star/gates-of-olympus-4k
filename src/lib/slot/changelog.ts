@@ -7,6 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-10-15", text: "Kompenzácia: kto dnes minul ZLATÝ BONUS, má dnešné zlato nabité znova. Ďalší bonus z baru je opäť zlatý." },
   { day: "2026-10-15", text: "ZLATÝ BONUS už neskončí nulou. Keď zlatý bonus nič nevyplatí, zlatá SIM sa znova nabije a ďalší bonus z baru je opäť zlatý, až kým zlatý bonus niečo nevyplatí." },
   { day: "2026-10-14", text: "ZÁSAH: okno na inom ako cieľovom symbole je vždy MIMO, symbol sa už nemení na cieľ. Po ustálení spinu sa cieľové symboly označia EVIDENCE a nevyplácajú, sú len cieľom okien." },
   { day: "2026-10-14", text: "ZÁSAH: keď sú všetky okná MIMO, EVIDENCE aj symboly Finančnej správy ostanú na mieste aj ďalší spin. HACK alebo zásah FS ich uvoľní a príde nový cieľ. Úvod ZÁSAHU ukáže vyžrebovaný symbol a jeho premenu na Finančnú správu pomalšie." },
