@@ -8648,6 +8648,68 @@ html:-webkit-full-screen {
   box-shadow: 0 0 14px rgb(227 16 27 / 0.35);
 }
 
+.fb-sheet {
+  overflow-x: clip;
+}
+
+.fb-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin: -18px -18px 10px;
+  padding: 14px 18px 8px;
+  background: #12161b;
+}
+
+.fb-sheet.is-ego {
+  background: #05080d;
+  border-color: rgba(80, 190, 255, 0.55);
+  border-radius: 2px;
+  box-shadow: 0 0 28px rgba(0, 140, 255, 0.22);
+}
+
+.fb-sheet.is-ego .fb-sticky {
+  background: #05080d;
+  border-bottom: 1px solid #1d4564;
+}
+
+.fb-sheet.is-ego .fb-head h2 {
+  color: #e7f6ff;
+  letter-spacing: 0.14em;
+}
+
+.fb-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.fb-cards button {
+  position: relative;
+  padding: 9px 0;
+  border: 1px solid #2c333b;
+  border-radius: 0;
+  background: #101418;
+  color: var(--fb-mute);
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  letter-spacing: 0.16em;
+}
+
+.fb-cards button.on {
+  color: #fff;
+  border-color: var(--fb-red);
+  background: linear-gradient(180deg, var(--fb-red), var(--fb-red-deep));
+}
+
+.fb-cards button.on.is-event {
+  color: #f2fbff;
+  border-color: #7fd4ff;
+  background: linear-gradient(180deg, #0e3d5c, #071018);
+  box-shadow: 0 0 14px rgba(0, 150, 255, 0.35);
+}
+
 .fb-note,
 .fb-foot {
   margin: 8px 14px;
@@ -11100,160 +11162,6 @@ html:-webkit-full-screen {
   font: inherit;
   border-radius: 4px;
   padding: 1px 6px;
-}
-
-/* Contest line inside the jackpot strip. Same box, so the reels do not move. */
-.jp-stack.is-strip.is-event {
-  justify-content: flex-start;
-  border-color: #3ec6e0;
-  box-shadow:
-    0 0 6px #3ec6e0,
-    0 0 14px rgb(62 198 224 / 0.65),
-    inset 0 0 8px rgb(240 196 25 / 0.28);
-  animation: jp-neon 1.8s ease-in-out infinite;
-}
-
-.jp-stack.is-strip.is-event::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  padding: 2px;
-  background: linear-gradient(110deg, #3ec6e0, #f0c419, #ffe56a, #3ec6e0, #f0c419);
-  background-size: 240% 100%;
-  animation: jp-neon-run 2.2s linear infinite;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
-}
-
-.stage.shell-mw .jp-stack.is-strip.is-event,
-.stage.shell-pwa .jp-stack.is-strip.is-event {
-  display: flex;
-}
-
-.jp-event {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  width: 100%;
-  text-align: left;
-  animation: jp-bill 0.45s ease;
-}
-
-.jp-event .cb-soon {
-  flex: 0 0 auto;
-  padding: 2px 7px;
-  border-radius: 999px;
-  border: 1px dashed rgb(243 244 246 / 0.28);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.58rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgb(243 244 246 / 0.42);
-}
-
-.jp-event .cb-copy {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.jp-event .cb-copy b {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #f0c419;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.jp-event .cb-crawl {
-  display: block;
-  overflow: hidden;
-  min-width: 0;
-  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
-}
-
-.jp-event .cb-crawl span {
-  display: inline-block;
-  white-space: nowrap;
-  color: #e8eef3;
-  font-size: 0.62rem;
-  line-height: 1.15;
-  font-weight: 560;
-  animation: cb-crawl 16s linear infinite;
-}
-
-.jp-event .cb-crawl i {
-  font-style: normal;
-  color: #3ec6e0;
-}
-
-@keyframes cb-crawl {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-@keyframes jp-bill {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes jp-neon {
-  0%,
-  100% {
-    box-shadow:
-      0 0 6px #3ec6e0,
-      0 0 14px rgb(62 198 224 / 0.7),
-      inset 0 0 8px rgb(62 198 224 / 0.35);
-    border-color: #3ec6e0;
-  }
-  50% {
-    box-shadow:
-      0 0 8px #f0c419,
-      0 0 18px rgb(240 196 25 / 0.75),
-      inset 0 0 8px rgb(240 196 25 / 0.4);
-    border-color: #f0c419;
-  }
-}
-
-@keyframes jp-neon-run {
-  from {
-    background-position: 0% 50%;
-  }
-  to {
-    background-position: 240% 50%;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .jp-stack.is-strip.is-event,
-  .jp-stack.is-strip.is-event::after {
-    animation: none;
-  }
 }
 
 /* ZÁSAH EVIDENCE: settled target / FS cell locked for the hack windows. Pays nothing: muted art, a thin

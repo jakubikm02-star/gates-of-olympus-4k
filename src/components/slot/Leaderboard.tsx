@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchBoard, publicId, boardNickLabel, isAnonNick, type BoardRow } from "@/lib/slot/board-api";
+import { SmrtEgaCard, useSmrtEga } from "./SmrtEga";
 import { canSrc, PAY_SYMBOLS, SCATTER, TICKETS, type PayId } from "@/lib/slot/symbols";
 import { cascadeWord, recipeSentence, type WinRecipe } from "@/lib/slot/win-recipe";
 import { BOARD_KIND, boardMark, isPoolKind, type BoardKind, type BoardMark } from "@/lib/slot/win-label";
@@ -572,14 +573,19 @@ export function Leaderboard({
   deviceId,
   onClose,
   onSave,
+  ego,
+  rp,
 }: {
   open: boolean;
   nick: string;
   deviceId: string;
   onClose: () => void;
   onSave: (name: string) => Promise<string | null>;
+  ego: ReturnType<typeof useSmrtEga>;
+  rp: number;
 }) {
   const [scope, setScope] = useState<"today" | "all">("today");
+  const [card, setCard] = useState<"tabula" | "event">("tabula");
   const [rows, setRows] = useState<BoardRow[]>([]);
   const [err, setErr] = useState("");
   const [name, setName] = useState(nick);
@@ -587,6 +593,15 @@ export function Leaderboard({
   const [busy, setBusy] = useState(false);
   const [pub, setPub] = useState("");
   useEffect(() => setName(nick), [nick]);
+  useEffect(() => {
+    if (!open) setCard("tabula");
+  }, [open]);
+  useEffect(() => {
+    if (open) void ego.refresh();
+  }, [open, ego.refresh]);
+  useEffect(() => {
+    if (open && card === "event") void ego.refresh();
+  }, [open, card, ego.refresh]);
   useEffect(() => {
     let stop = false;
     void publicId(deviceId)
@@ -615,15 +630,31 @@ export function Leaderboard({
   }, [open, scope]);
   if (!open) return null;
   const isMine = (row: BoardRow) => Boolean(deviceId) && (row.id === deviceId || (Boolean(pub) && row.id === pub));
+  const eventOn = card === "event";
   return (
     <div className="modal-back" onClick={onClose} role="presentation">
-      <div className="modal-card fb-sheet" role="dialog" aria-labelledby="board-title" onClick={(e) => e.stopPropagation()}>
-        <header className="modal-head fb-head">
-          <h2 id="board-title">Tabuľa</h2>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Zavrieť">
-            ×
-          </button>
-        </header>
+      <div className={`modal-card fb-sheet${eventOn ? " is-ego" : ""}`} role="dialog" aria-labelledby="board-title" onClick={(e) => e.stopPropagation()}>
+        <div className="fb-sticky">
+          <header className="modal-head fb-head">
+            <h2 id="board-title">{eventOn ? "Event" : "Tabuľa"}</h2>
+            <button type="button" className="icon-btn" onClick={onClose} aria-label="Zavrieť">
+              ×
+            </button>
+          </header>
+          <div className="fb-cards" role="tablist" aria-label="Karta">
+            <button type="button" role="tab" aria-selected={!eventOn} className={eventOn ? "" : "on"} onClick={() => setCard("tabula")}>
+              TABUĽA
+            </button>
+            <button type="button" role="tab" aria-selected={eventOn} className={eventOn ? "on is-event" : ""} onClick={() => setCard("event")}>
+              EVENT
+              {ego.attention && !eventOn ? <span className="ego-tab-ping" aria-hidden="true">!</span> : null}
+            </button>
+          </div>
+        </div>
+        {eventOn ? (
+          <SmrtEgaCard ego={ego} rp={rp} deviceId={deviceId} />
+        ) : (
+        <>
         <form
           className="nick-line"
           onSubmit={(e) => {
@@ -655,6 +686,8 @@ export function Leaderboard({
           isMine={isMine}
           note={rows.length === 0 && !err ? "Zatiaľ tu nikto nie je." : undefined}
         />
+        </>
+        )}
       </div>
     </div>
   );

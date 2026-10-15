@@ -32,8 +32,7 @@ import { RankBadge } from "./RankBadge";
 import { BootScreen } from "./BootScreen";
 import { AddToHome } from "./AddToHome";
 import { registerInstallSw } from "@/lib/slot/a2hs-client";
-import { ContestBanner } from "./ContestBanner";
-import { SmrtEgaSheet, useSmrtEga } from "./SmrtEga";
+import { useSmrtEga } from "./SmrtEga";
 import { LiveHits } from "./LiveHits";
 import { MachineFrame } from "./MachineFrame";
 import { RankPanel } from "./RankPanel";
@@ -210,7 +209,6 @@ export function SlotGame() {
   const reelHostRef = useContainerVars();
   const [reducedMotion, setReducedMotion] = useState(false);
   const [portOpen, setPortOpen] = useState(false);
-  const [jpEvent, setJpEvent] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [manFocus, setManFocus] = useState<string | null>(null);
   const [boardOpen, setBoardOpen] = useState(false);
@@ -222,13 +220,7 @@ export function SlotGame() {
     if (g.stale || noticeDismissed()) return;
     setPortOpen(true);
   }, [g.stale]);
-  useEffect(() => {
-    const id = window.setInterval(() => setJpEvent((on) => !on), 20_000);
-    return () => window.clearInterval(id);
-  }, []);
-  const showJpEvent = jpEvent && !g.jpHit;
   const ego = useSmrtEga({ deviceId: g.deviceId, nick: g.nick, rp: g.rank.rp, rankTick: g.rankTick, egoProgress: g.egoProgress, egoPay: g.egoPay });
-  const [egoOpen, setEgoOpen] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     const apply = () => setReducedMotion(mq.matches);
@@ -336,13 +328,9 @@ export function SlotGame() {
           </div>
           <div className="head-end">
             <div
-              className={`jp-stack is-strip ${g.jpHit ? "is-hit" : ""} ${g.poolEligible ? "is-live" : "is-feed"} ${showJpEvent ? "is-event" : ""}`}
-              aria-label={showJpEvent ? "SMRŤ EGA, týždenný event" : "Park jackpoty"}
+              className={`jp-stack is-strip ${g.jpHit ? "is-hit" : ""} ${g.poolEligible ? "is-live" : "is-feed"}`}
+              aria-label="Park jackpoty"
             >
-              {showJpEvent ? (
-                <ContestBanner text={ego.text} onOpen={() => setEgoOpen(true)} />
-              ) : (
-                <>
               <span className="jp-mark">{g.inFs ? "4KA TV" : "PARKIZMUS"}</span>
               {(["stat", "kraj", "okres", "ulica"] as const).map((id) => {
                 const t = g.pots[id];
@@ -368,8 +356,6 @@ export function SlotGame() {
                 </em>
               ) : g.poolEligible ? null : (
                 <em>100+</em>
-              )}
-                </>
               )}
             </div>
             </div>
@@ -653,11 +639,12 @@ export function SlotGame() {
             </button>
             <button
               type="button"
-              className="icon-btn is-gear"
+              className={`icon-btn is-gear${ego.attention ? " is-ego" : ""}`}
               onClick={() => setBoardOpen(true)}
-              aria-label="Rebríček"
+              aria-label={ego.attention ? "Rebríček, SMRŤ EGA" : "Rebríček"}
             >
               <Trophy size={15} />
+              {ego.attention ? <span className="ego-ping" aria-hidden="true">!</span> : null}
             </button>
             <button
               type="button"
@@ -1161,7 +1148,6 @@ export function SlotGame() {
         desk={g.desk}
         mine={g.mine}
       />
-      <SmrtEgaSheet open={egoOpen} onClose={() => setEgoOpen(false)} ego={ego} rp={g.rank.rp} deviceId={g.deviceId} />
       <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} playerId={g.deviceId} portBusy={g.busy || Boolean(g.duel) || Boolean(g.duelLink)} />
       <OldLinkLayer started={g.started} busy={g.busy || Boolean(g.duel) || Boolean(g.duelLink)} playerId={g.deviceId} />
       <MoveTargetLayer busy={g.busy || Boolean(g.duel) || Boolean(g.duelLink)} />
@@ -1172,7 +1158,7 @@ export function SlotGame() {
         onClose={() => setPortOpen(false)}
       />
       <DebugOverlay busy={g.busy} perfLite={perfLite} reduced={reducedMotion} />
-      <Leaderboard open={boardOpen} nick={g.nick} deviceId={g.deviceId} onClose={() => setBoardOpen(false)} onSave={g.setNickName} />
+      <Leaderboard open={boardOpen} nick={g.nick} deviceId={g.deviceId} onClose={() => setBoardOpen(false)} onSave={g.setNickName} ego={ego} rp={g.rank.rp} />
       <StatsSheet
         open={g.statsOpen}
         onClose={g.closeStats}
