@@ -748,6 +748,14 @@
 .stage.is-land.shell-pc .reel-window {
   --reel-pad: 0px;
   --reel-gap: 2px;
+  --sq: min(
+    calc((100% - 2 * var(--reel-pad) - 5 * var(--reel-gap)) / 6),
+    calc((100% - 2 * var(--reel-pad)) / 5)
+  );
+  grid-template-columns: repeat(6, var(--cell-h, var(--sq)));
+  grid-template-rows: calc(5 * var(--cell-h, var(--sq)));
+  justify-content: center;
+  align-content: center;
   flex: 1 1 auto;
   align-self: stretch;
   width: 100%;
@@ -755,6 +763,19 @@
   min-height: 0;
   max-height: none;
   box-shadow: none;
+}
+
+.stage.is-land .cell {
+  aspect-ratio: 1;
+}
+
+.stage.is-land .hack-window,
+.stage.is-land .pin-cell {
+  --cell-w: var(--cell-h);
+  left: var(--grid-x, var(--reel-pad));
+  top: var(--grid-y, var(--reel-pad));
+  width: var(--cell-h);
+  height: var(--cell-h);
 }
 
 .stage.is-land .bottom-hud,

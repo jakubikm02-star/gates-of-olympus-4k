@@ -407,10 +407,24 @@ export function SlotGrid({
     };
     const apply = (innerW: number, innerH: number) => {
       if (innerW <= 0 || innerH <= 0) return;
+      const land = Boolean(win.closest(".stage")?.classList.contains("is-land"));
       const cs = getComputedStyle(win);
       const gap = Number.parseFloat(cs.columnGap) || 0;
       const padL = Number.parseFloat(cs.paddingLeft) || 0;
       const padT = Number.parseFloat(cs.paddingTop) || 0;
+      if (!land) {
+        // Portrait and desktop: rows fill the window height. Columns are 1fr, so the grid
+        // meets the frame on every side. A square min() left a band above and below.
+        const h = Math.round((innerH / ROWS) * 64) / 64;
+        if (h <= 0) return;
+        if (h !== cellH.current) {
+          cellH.current = h;
+          win.style.setProperty("--cell-h", `${h}px`);
+        }
+        if (win.style.getPropertyValue("--grid-x")) win.style.removeProperty("--grid-x");
+        if (win.style.getPropertyValue("--grid-y")) win.style.removeProperty("--grid-y");
+        return;
+      }
       const cell = Math.round(Math.min((innerW - (COLS - 1) * gap) / COLS, innerH / ROWS) * 64) / 64;
       if (cell <= 0) return;
       const gridW = cell * COLS + gap * (COLS - 1);

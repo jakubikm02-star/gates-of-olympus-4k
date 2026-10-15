@@ -40,8 +40,8 @@
   html,
   body,
   #app {
-    height: var(--app-h, 100svh);
-    max-height: var(--app-h, 100svh);
+    height: var(--app-h, 100dvh);
+    max-height: var(--app-h, 100dvh);
     overflow: hidden;
   }
   body {
@@ -58,8 +58,8 @@
 
 .stage {
   position: relative;
-  height: var(--app-h, 100svh);
-  max-height: var(--app-h, 100svh);
+  height: var(--app-h, 100dvh);
+  max-height: var(--app-h, 100dvh);
   min-height: 0;
   isolation: isolate;
   overflow: hidden;
@@ -911,12 +911,12 @@
   --hw: #39ff88;
   --hw-soft: rgb(57 255 136 / 0.35);
   --hw-bg: rgb(4 14 9 / 0.38);
-  --cell-w: var(--cell-h);
+  --cell-w: calc((100% - 2 * var(--reel-pad) - 5 * var(--reel-gap)) / 6);
   position: absolute;
-  left: var(--grid-x, var(--reel-pad));
-  top: var(--grid-y, var(--reel-pad));
-  width: var(--cell-h);
-  height: var(--cell-h);
+  left: var(--reel-pad);
+  top: var(--reel-pad);
+  width: var(--cell-w);
+  height: calc((100% - 2 * var(--reel-pad)) / 5);
   margin: 0;
   display: grid;
   place-items: center;
@@ -1608,16 +1608,12 @@
   position: relative;
   z-index: 4;
   display: grid;
-  /* Square cells. --sq is only read on this element, so 100% is the window.
-     --cell-h (px, set from the window box) is the same size once measured. */
-  --sq: min(
-    calc((100% - 2 * var(--reel-pad) - 5 * var(--reel-gap)) / 6),
-    calc((100% - 2 * var(--reel-pad)) / 5)
-  );
-  grid-template-columns: repeat(6, var(--cell-h, var(--sq)));
-  grid-template-rows: calc(5 * var(--cell-h, var(--sq)));
-  justify-content: center;
-  align-content: center;
+  /* Portrait and desktop: six columns share the window width and the row fills
+     its height, so the cabinet hugs the grid. Landscape overrides this with squares. */
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr);
+  justify-content: stretch;
+  align-content: stretch;
   justify-items: stretch;
   align-items: stretch;
   column-gap: var(--reel-gap);
@@ -1946,11 +1942,11 @@
 
 .cell {
   position: relative;
-  /* --cell-h: square side from the window (min of width/6 and height/5). The travel strip uses the same value. */
+  /* --cell-h: px row height. Portrait uses the column height / 5 so five rows fill the window.
+     Landscape sets the same variable to the square side. The travel strip uses it too. */
   flex: 0 0 var(--cell-h, 20cqh);
   height: var(--cell-h, 20cqh);
   width: 100%;
-  aspect-ratio: 1;
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -5095,8 +5091,8 @@
 
 @media (max-width: 720px) {
   .stage {
-    height: var(--app-h, 100svh);
-    max-height: var(--app-h, 100svh);
+    height: var(--app-h, 100dvh);
+    max-height: var(--app-h, 100dvh);
   }
   .table {
     padding: 2px 4px 0;
@@ -5145,8 +5141,8 @@
   }
   .pk-app {
     width: 100%;
-    height: var(--app-h, 100svh);
-    max-height: var(--app-h, 100svh);
+    height: var(--app-h, 100dvh);
+    max-height: var(--app-h, 100dvh);
     border-radius: 0;
   }
   .win-log {
@@ -7979,6 +7975,17 @@ html:-webkit-full-screen {
   box-sizing: border-box;
   object-fit: contain;
   object-position: center;
+}
+
+/* Portrait and desktop: the bitmap fills the cell the way it did before the square pass.
+   8% padding on a width-limited square made the symbols smaller and left a band of frame. */
+.stage:not(.is-land) .cell > .cell-img,
+.stage:not(.is-land) .cell.is-scatter > .cell-img,
+.stage:not(.is-land) .cell.is-mult > .cell-img,
+.stage:not(.is-land) .cell.is-park > .cell-img {
+  width: 98%;
+  height: 98%;
+  padding: 0;
 }
 
 .stage.shell-mw .cell.is-win .cell-img,
@@ -11267,12 +11274,12 @@ html:-webkit-full-screen {
 /* Sticky cells held over a spinning reel: same box as a hack window, static, opaque. */
 .pin-layer { position: absolute; inset: 0; z-index: 7; pointer-events: none; }
 .pin-cell {
-  --cell-w: var(--cell-h);
+  --cell-w: calc((100% - 2 * var(--reel-pad) - 5 * var(--reel-gap)) / 6);
   position: absolute;
-  left: var(--grid-x, var(--reel-pad));
-  top: var(--grid-y, var(--reel-pad));
-  width: var(--cell-h);
-  height: var(--cell-h);
+  left: var(--reel-pad);
+  top: var(--reel-pad);
+  width: var(--cell-w);
+  height: calc((100% - 2 * var(--reel-pad)) / 5);
   display: grid;
   place-items: center;
   background: rgb(10 12 16 / 0.96);

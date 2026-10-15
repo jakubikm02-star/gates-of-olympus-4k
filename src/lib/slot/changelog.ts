@@ -7,6 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-10-15", text: "Na výšku symboly znova vyplnia šírku skrinky. Medzera nad valcami a pod nimi je preč a symboly sú aspoň také veľké ako predtým. Lišta prehliadača už nerozbíja rozloženie." },
   { day: "2026-10-15", text: "Na šírku je skrinka len taká široká ako päť radov valcov. BONUS a HLÁSENIE sedia na nej a symboly nezakrývajú. Pravá lišta pohltí voľné miesto: −, + a AUTO sú celé vnútri, TIKET a online sú v karte kreditu." },
   { day: "2026-10-15", text: "Symboly sú celé v bunke. Bunka je štvorec podľa užšej strany poľa a obrázok sa zmestí dnu, na výšku aj na šírku." },
   { day: "2026-10-15", text: "Na šírku sa −, + a AUTO zmestia do pravej lišty. Všetkých päť radov valcov je vidno celé. Rank NEKONEČNO sa už neskracuje." },
