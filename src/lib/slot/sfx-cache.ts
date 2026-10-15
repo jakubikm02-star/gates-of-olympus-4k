@@ -1,13 +1,15 @@
 /**
- * Uploaded sounds (Supabase sfx_cue, served base64 by the sfx_audio RPC) kept in Cache Storage as raw bytes.
+ * Uploaded sounds kept in Cache Storage as raw bytes (device cache, one entry per md5).
  *
- * Before: every visit pulled ~33 MB raw / ~45 MB base64 by POST (never HTTP-cacheable) — the bulk of the
- * project's egress. Now a cue is downloaded once per version and read from the device afterwards.
+ * A cue with `path` is fetched once from the public Storage bucket (CDN, immutable Cache-Control on a
+ * hash-named object) and written here. Without `path` — or when that GET fails — the same slot still
+ * comes from the sfx_audio RPC (base64 POST, not HTTP-cacheable) and is written here too.
  *
- * Version of a cue: `v` from sfx_keys2 (md5 of the bytes, migration 20261011_sfx_keys2.sql). Without that
- * RPC (not migrated yet) the version is the mime type only, so a re-upload of the same slot is picked up
- * after UNVERSIONED_TTL_MS (a re-upload in the admin panel on this device refreshes it at once).
+ * Version of a cue: `v` from sfx_keys2 (md5 of the bytes). Without that RPC the version is the mime type
+ * only, so a re-upload of the same slot is picked up after UNVERSIONED_TTL_MS (a re-upload in the admin
+ * panel on this device refreshes it at once).
  */
+import { storagePathForRow } from "./sfx-storage.ts";
 
 export const SFX_CACHE = "parkizmus-sfx-v1";
 /** Unversioned entries are re-downloaded after this long. */
@@ -20,6 +22,8 @@ export interface CueRow {
   v?: string;
   /** raw byte length (sfx_keys2) */
   len?: number;
+  /** Object key in the public `sfx` bucket (`key/md5.ext`). Absent until the upload script fills it. */
+  path?: string;
 }
 
 export function cueVersion(row: CueRow): { ver: string; versioned: boolean } {
@@ -48,6 +52,8 @@ export function parseCueRows(raw: unknown, known: (key: string) => boolean): Cue
     if (typeof r.v === "string") row.v = r.v;
     const len = Number(r.len);
     if (Number.isFinite(len) && len > 0) row.len = Math.floor(len);
+    const path = storagePathForRow({ path: typeof r.path === "string" ? r.path : undefined, v: row.v });
+    if (path) row.path = path;
     out.push(row);
   }
   return out;
