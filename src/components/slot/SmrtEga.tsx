@@ -5,6 +5,7 @@ import {
   egoAttention,
   egoBanner,
   egoDeltaTone,
+  egoDockView,
   egoFee,
   egoLeft,
   egoWeekEnd,
@@ -183,6 +184,41 @@ export function useSmrtEga(g: EgoGame) {
   };
 }
 
+/** Event half of the jackpot strip. Place, live RP and countdown share the cell; no marquee. */
+export function EgoDock({
+  state,
+  rp,
+  now,
+  live,
+  onOpen,
+}: {
+  state: EgoState | null;
+  rp: number;
+  now: number;
+  live: { score: number; place: number } | null;
+  onOpen: () => void;
+}) {
+  const view = egoDockView(state, rp, now, live);
+  const score = view.score;
+  const label = view.joined
+    ? `SMRŤ EGA, miesto ${view.place}, ${fmtRp(score ?? 0)} RP${view.clock ? `, končí o ${view.clock}` : ""}`
+    : `SMRŤ EGA, ${view.hint}${view.clock ? `, končí o ${view.clock}` : ""}`;
+  return (
+    <button type="button" className={`ego-dock${view.joined ? " is-in" : " is-out"}`} onClick={onOpen} aria-label={label}>
+      <span className="ego-dock-kicker">SMRŤ EGA</span>
+      {view.joined ? (
+        <span className="ego-dock-stat">
+          <b className="ego-dock-place">{view.place}</b>
+          <b className={`ego-dock-score is-${egoDeltaTone(score ?? 0)}`}>{fmtRp(score ?? 0)}</b>
+        </span>
+      ) : (
+        <span className="ego-dock-hint">{view.hint}</span>
+      )}
+      {view.clock ? <span className="ego-dock-clock">KONČÍ O {view.clock}</span> : <span className="ego-dock-clock">EVENT</span>}
+    </button>
+  );
+}
+
 function RpNum({ n }: { n: number }) {
   return <strong className={`ego-delta is-${egoDeltaTone(n)}`}>{fmtRp(n)}</strong>;
 }
@@ -238,6 +274,7 @@ export function SmrtEgaCard({
   const [code, setCode] = useState<string | null>(null);
   const [codeErr, setCodeErr] = useState("");
   const [ask, setAsk] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const [adminDevice, setAdminDevice] = useState(false);
   useEffect(() => {
     if (ego.state) ego.ack();
@@ -322,14 +359,6 @@ export function SmrtEgaCard({
         </div>
       ) : null}
 
-      <h4>PODMIENKY</h4>
-      <ul className="ego-rules">
-        <li>Výhra: párovací kľúč 4KA TV XL s archívom, platí 28 dní od doručenia. Doručí sa sám v pondelok 01:00.</li>
-        <li>Vstupné 2,5 % tvojich RP (min 500, max 2 500). Strhne sa hneď a prepadá.</li>
-        <li>Skóre = čisté RP za týždeň: zisky aj straty od vstupu, vstupné sa ráta. RP z firmy sa rátajú rovnako, bez boostov.</li>
-        <li>Martin hrá bez nároku na cenu. Keď je 1., vyhrá najlepší pod ním.</li>
-      </ul>
-
       {s?.me?.joined ? (
         <p className="ego-stand">
           Si {myPlace}. · <RpNum n={myScore ?? 0} /> RP{s.me.admin ? " · BEZ NÁROKU NA CENU" : ""}
@@ -354,23 +383,47 @@ export function SmrtEgaCard({
       )}
       {ego.err ? <p className="ego-err">{ego.err}</p> : null}
 
-      <h4>PORADIE · {s?.players ?? 0}</h4>
-      <ol className="ego-board">
-        {rows.map((t, i) => (
-          <li key={`${t.nick}-${i}`} className={`${t.admin ? "is-admin" : ""}${"mine" in t && t.mine ? " is-mine" : ""}`}>
-            <b>{i + 1}</b>
-            <span>{t.nick}</span>
-            {t.admin ? <em>BEZ NÁROKU</em> : null}
-            <RpNum n={t.score} />
-          </li>
-        ))}
-        {!rows.length ? <li className="is-empty">Zatiaľ nikto. Buď prvý.</li> : null}
-      </ol>
-      {s?.lastWinner ? (
-        <p className="ego-last">
-          Posledný výherca: {s.lastWinner.nick} (<RpNum n={s.lastWinner.score} /> RP)
-        </p>
-      ) : null}
+      <button
+        type="button"
+        className={`ego-rules-toggle${rulesOpen ? " is-open" : ""}`}
+        aria-expanded={rulesOpen}
+        aria-controls="ego-rules-panel"
+        onClick={() => setRulesOpen((v) => !v)}
+      >
+        {rulesOpen ? "▴ Zbaliť" : "Podmienky ▾ Rozbaliť"}
+      </button>
+      {rulesOpen ? (
+        <div className="ego-rules-scroll" id="ego-rules-panel" role="region" aria-label="Podmienky">
+          <ul className="ego-rules">
+            <li>Výhra: párovací kľúč 4KA TV XL s archívom, platí 28 dní od doručenia. Doručí sa sám v pondelok 01:00.</li>
+            <li>Vstupné 2,5 % tvojich RP (min 500, max 2 500). Strhne sa hneď a prepadá.</li>
+            <li>Skóre = čisté RP za týždeň: zisky aj straty od vstupu, vstupné sa ráta. RP z firmy sa rátajú rovnako, bez boostov.</li>
+            <li>Martin hrá bez nároku na cenu. Keď je 1., vyhrá najlepší pod ním.</li>
+          </ul>
+        </div>
+      ) : (
+        <div id="ego-rules-panel" hidden />
+      )}
+
+      <div className="ego-board-scroll">
+        <h4>PORADIE · {s?.players ?? 0}</h4>
+        <ol className="ego-board">
+          {rows.map((t, i) => (
+            <li key={`${t.nick}-${i}`} className={`${t.admin ? "is-admin" : ""}${"mine" in t && t.mine ? " is-mine" : ""}`}>
+              <b>{i + 1}</b>
+              <span>{t.nick}</span>
+              {t.admin ? <em>BEZ NÁROKU</em> : null}
+              <RpNum n={t.score} />
+            </li>
+          ))}
+          {!rows.length ? <li className="is-empty">Zatiaľ nikto. Buď prvý.</li> : null}
+        </ol>
+        {s?.lastWinner ? (
+          <p className="ego-last">
+            Posledný výherca: {s.lastWinner.nick} (<RpNum n={s.lastWinner.score} /> RP)
+          </p>
+        ) : null}
+      </div>
     </section>
   );
 }

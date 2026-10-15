@@ -1,0 +1,1105 @@
+/* Responsive shells.
+   Phones (portrait) keep the stacked HUD. Landscape, tablets, the unfolded inner
+   screen and Flex mode put the reels in the centre and the controls in side columns.
+   Safe areas come from env(safe-area-inset-*). Fold class is set in use-shell
+   (cover ~21:9, inner near-square, flex-v / flex-h for half-fold). Real devices
+   also match vertical-viewport-segments / horizontal-viewport-segments.
+
+   Overlay stack, low to high:
+   1–9 machine chrome (jackpot, ticket, ticker)
+   12 HUD
+   60 AUTO sheet — under win screens, and in portrait the table reserves its height
+      so the panel itself never covers the reels or the ticket
+   80 win banner, job sheet, rank
+   90 feature takeovers
+   240 modal dialogs
+*/
+
+/* Portrait: the sheet is in the stage flow, so the reels and the ticket shrink
+   by its real height instead of hiding under a fixed panel. The dim layer stays
+   over the table; the panel itself sits underneath it. */
+.stage.is-auto-open:not(.is-land) {
+  display: flex;
+  flex-direction: column;
+}
+
+.stage.is-auto-open:not(.is-land) .table {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  padding-bottom: 0;
+}
+
+.stage.is-auto-open:not(.is-land) .auto-layer {
+  position: relative;
+  inset: auto;
+  flex: 0 0 auto;
+  z-index: 60;
+}
+
+.stage.is-auto-open:not(.is-land) .auto-back {
+  position: fixed;
+}
+
+.stage.is-land .auto-layer,
+.stage.fold-flex-h .auto-layer {
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.stage.is-land .auto-pop,
+.stage.fold-flex-h .auto-pop {
+  width: min(280px, 24vw);
+  max-height: calc(100dvh - 12px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+}
+
+.stage.fold-flex-h .auto-pop {
+  width: min(320px, 40%);
+  max-height: min(78dvh, 520px);
+}
+
+/* —— Jackpot strip shares its cell with the live SMRŤ EGA status. No marquee. —— */
+.stage .head-end:has(.ego-dock),
+.stage.shell-mw .head-end:has(.ego-dock),
+.stage.shell-pwa .head-end:has(.ego-dock),
+.stage.shell-pc .head-end:has(.ego-dock) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(5.6rem, 11rem);
+  gap: 0;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid #1d6ea8;
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(120, 190, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 190, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(180deg, #0c1c28 0%, #071018 55%, #05080c 100%);
+  background-size: 12px 12px, 12px 12px, auto;
+  box-shadow: 0 0 14px rgb(20 150 255 / 0.32), inset 0 0 16px rgb(0 80 140 / 0.2);
+  container-type: inline-size;
+  container-name: headend;
+}
+
+.stage .head-end:has(.ego-dock) .jp-stack.is-strip,
+.stage.shell-mw .head-end:has(.ego-dock) .jp-stack.is-strip,
+.stage.shell-pwa .head-end:has(.ego-dock) .jp-stack.is-strip,
+.stage.shell-pc .head-end:has(.ego-dock) .jp-stack.is-strip {
+  width: auto;
+  min-width: 0;
+  height: 100%;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  border-right: 1px solid rgb(125 212 255 / 0.35);
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+
+.stage .head-end:has(.ego-dock) .jp-row b,
+.stage.shell-mw .head-end:has(.ego-dock) .jp-row b,
+.stage.shell-pwa .head-end:has(.ego-dock) .jp-row b {
+  min-width: 0;
+}
+
+.ego-dock {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "kicker stat"
+    "clock clock";
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 1px;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 3px 6px 4px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #e7f4ff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ego-dock.is-out {
+  grid-template-areas:
+    "kicker kicker"
+    "hint hint"
+    "clock clock";
+}
+
+.ego-dock-kicker {
+  grid-area: kicker;
+  font-family: var(--font-display);
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #7fd4ff;
+  white-space: nowrap;
+}
+
+.ego-dock-stat {
+  grid-area: stat;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 5px;
+  min-width: 0;
+}
+
+.ego-dock-place {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 1;
+  color: #b9ecff;
+  text-shadow: 0 0 8px rgb(20 150 255 / 0.65);
+}
+
+.ego-dock-score {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ego-dock-score.is-up { color: #3ee08f; text-shadow: 0 0 8px rgb(62 224 143 / 0.45); }
+.ego-dock-score.is-down { color: #ff5b6a; text-shadow: 0 0 8px rgb(255 91 106 / 0.4); }
+.ego-dock-score.is-flat { color: #d5e2ee; }
+
+.ego-dock-hint,
+.ego-dock-clock {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ego-dock-hint {
+  grid-area: hint;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #ffe56a;
+}
+
+.ego-dock-clock {
+  grid-area: clock;
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.06em;
+  color: #9fd4ff;
+}
+
+@container headend (max-width: 240px) {
+  .ego-dock-kicker { display: none; }
+  .ego-dock.is-in { grid-template-areas: "stat stat" "clock clock"; }
+}
+
+/* —— Ticket strip: dual counters wrap; a single long label ellipsizes. —— */
+.stage .board-job.has-job {
+  container-type: inline-size;
+  container-name: ticket;
+}
+
+.stage .board-job.has-job:has(.job-chip.is-dual),
+.stage .board-job.has-job:has(.job-chip.is-split),
+.stage.shell-mw .board-job.has-job:has(.job-chip.is-dual),
+.stage.shell-mw .board-job.has-job:has(.job-chip.is-split),
+.stage.shell-pwa .board-job.has-job:has(.job-chip.is-dual),
+.stage.shell-pwa .board-job.has-job:has(.job-chip.is-split) {
+  height: auto;
+  min-height: 2.75rem;
+  max-height: none;
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+.job-chip.is-compact.is-dual,
+.job-chip.is-compact.is-split,
+.stage.shell-mw .job-chip.is-compact.is-dual,
+.stage.shell-mw .job-chip.is-compact.is-split,
+.stage.shell-pwa .job-chip.is-compact.is-dual,
+.stage.shell-pwa .job-chip.is-compact.is-split {
+  height: auto;
+  min-height: 100%;
+  grid-template-rows: auto auto;
+}
+
+.job-chip.is-compact.is-dual .jc-row:last-child,
+.job-chip.is-compact.is-split .jc-row:last-child {
+  flex-wrap: wrap;
+  white-space: normal;
+  row-gap: 3px;
+  min-height: 1rem;
+}
+
+.job-chip.is-compact.is-dual .tb-legs,
+.job-chip.is-compact.is-split .tb-legs {
+  flex-wrap: wrap;
+  overflow: visible;
+  row-gap: 3px;
+}
+
+.job-chip.is-compact.is-dual .tb-leg,
+.job-chip.is-compact.is-split .tb-leg {
+  flex: 1 1 7.2rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tb-leg em,
+.tb-leg b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@container ticket (max-width: 340px) {
+  .job-chip.is-compact.is-dual .tb-leg,
+  .job-chip.is-compact.is-split .tb-leg {
+    flex-basis: 100%;
+  }
+}
+
+/* —— Landscape: full-height reels, equal rails, jackpot strip only above the reels.
+   Phone, tablet, unfolded inner and Flex landscape all use this shell.
+   Ancestors are display:contents so each piece can sit in the table grid
+   without moving the portrait / desktop DOM. —— */
+.stage.is-land.shell-pc {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.stage.is-land .stage-bg {
+  filter: saturate(0.25) brightness(0.16) contrast(1.05);
+}
+
+.stage.is-land .stage-glow,
+.stage.is-land .park-lines {
+  opacity: 0.2;
+}
+
+.stage.is-land .table,
+.stage.is-land.shell-mw .table,
+.stage.is-land.shell-pwa .table,
+.stage.is-land.shell-pc .table {
+  /* Cabinet width is 6×5 squares from the reel-host height. --land-cell is
+     written from that height (and the width left after the rail minimums).
+     Leftover width goes to the two rails, so the frame is never wider than the grid. */
+  --rail-min: 124px;
+  --cab-pad: 10px;
+  --cab-gap: 2px;
+  --land-cell: 48px;
+  display: grid;
+  grid-template-columns:
+    minmax(var(--rail-min), 1fr)
+    minmax(0, calc(6 * var(--land-cell) + 5 * var(--cab-gap) + 2 * var(--cab-pad)))
+    minmax(var(--rail-min), 1fr);
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: max(4px, env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px)) max(4px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px));
+  gap: 4px 8px;
+  overflow: hidden;
+  position: relative;
+  background: #05080c;
+}
+
+/* Solid rails. The pseudo spans every row, including the gaps, so the
+   controls read as one panel instead of floating on the garage photo. */
+.stage.is-land .table::before,
+.stage.is-land .table::after {
+  content: "";
+  pointer-events: none;
+  z-index: 0;
+  grid-row: 1 / 6;
+  border-radius: 12px;
+  border: 1px solid #7fd4ff;
+  background:
+    linear-gradient(rgb(140 210 255 / 0.22) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(140 210 255 / 0.22) 1px, transparent 1px),
+    linear-gradient(180deg, #16344a 0%, #0c2030 52%, #08141e 100%);
+  background-size: 14px 14px, 14px 14px, auto;
+  box-shadow:
+    0 0 22px rgb(40 180 255 / 0.45),
+    inset 0 0 0 1px rgb(190 235 255 / 0.28),
+    inset 0 0 28px rgb(0 80 140 / 0.35);
+}
+
+.stage.is-land .table::before { grid-column: 1; }
+.stage.is-land .table::after { grid-column: 3; }
+
+.stage.is-land .table-head,
+.stage.is-land .arena,
+.stage.is-land .board-wrap,
+.stage.is-land .board-stage,
+.stage.is-land .board-stage-inner,
+.stage.is-land.shell-mw .board-stage-inner,
+.stage.is-land.shell-pwa .board-stage-inner,
+.stage.is-land.shell-pc .board-stage-inner,
+.stage.is-land .hud-left {
+  display: contents;
+}
+
+.stage.is-land .head-center,
+.stage.is-land .ramp-col,
+.stage.is-land .win-log,
+.stage.is-land .ls-spin,
+.stage.is-land .board-job:not(.has-job),
+.stage.is-land .top-ticker.is-idle,
+.stage.is-land .pay-hint {
+  display: none;
+}
+
+.stage.is-land .head-rank {
+  grid-column: 1;
+  grid-row: 1;
+  position: relative;
+  z-index: 2;
+  align-self: center;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 4px 0;
+  gap: 3px;
+  overflow: visible;
+}
+
+.stage.is-land .rank-chip,
+.stage.is-land.shell-pc .rank-chip,
+.stage.is-land.shell-mw .rank-chip,
+.stage.is-land.shell-pwa .rank-chip {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  min-height: 28px;
+  max-height: none;
+  min-width: 0;
+  justify-content: flex-start;
+  overflow: visible;
+  gap: 2px;
+  padding: 2px 4px 2px 2px;
+}
+
+.stage.is-land .rank-chip.rf-pill .rf {
+  margin: 0 1px 0 2px;
+  transform: scale(0.78);
+  transform-origin: center;
+}
+
+.stage.is-land .rank-chip em,
+.stage.is-land.shell-mw .rank-chip em,
+.stage.is-land.shell-pwa .rank-chip em,
+.stage.is-land.shell-pc .rank-chip em {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+  font-size: 0.58rem;
+  letter-spacing: 0;
+}
+
+.stage.is-land .sucho-chip {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 0.62rem;
+}
+
+.stage.is-land .head-end,
+.stage.is-land.shell-pc .head-end,
+.stage.is-land.shell-mw .head-end,
+.stage.is-land.shell-pwa .head-end {
+  grid-column: 2;
+  grid-row: 1;
+  position: relative;
+  z-index: 2;
+  align-self: stretch;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  pointer-events: auto;
+}
+
+.stage.is-land .head-end:has(.ego-dock) {
+  min-height: 0;
+}
+
+.stage.is-land .board-job,
+.stage.is-land .board-job.has-job {
+  grid-column: 1;
+  grid-row: 2;
+  position: relative;
+  z-index: 2;
+  align-self: start;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  max-height: 7.2rem;
+  margin: 0;
+  padding: 4px 6px 2px;
+  overflow: auto;
+  box-sizing: border-box;
+  border-radius: 8px;
+}
+
+.stage.is-land .job-chip.is-compact,
+.stage.is-land.shell-mw .job-chip.is-compact,
+.stage.is-land.shell-pwa .job-chip.is-compact,
+.stage.is-land.shell-pc .job-chip.is-compact {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  gap: 2px;
+  padding: 0;
+  font-size: 0.62rem;
+}
+
+.stage.is-land .job-chip.is-compact .jc-row {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  white-space: normal;
+  gap: 2px 4px;
+  height: auto;
+}
+
+.stage.is-land .job-chip.is-compact .jc-goal {
+  flex: 1 1 100%;
+  font-size: 0.58rem;
+  line-height: 1.2;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.stage.is-land .job-chip.is-compact.is-dual .tb-legs,
+.stage.is-land .job-chip.is-compact.is-split .tb-legs {
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  gap: 2px;
+}
+
+.stage.is-land .job-chip.is-compact.is-dual .tb-leg,
+.stage.is-land .job-chip.is-compact.is-split .tb-leg {
+  flex: 1 1 auto;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.stage.is-land .tb-leg em,
+.stage.is-land .tb-leg b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stage.is-land .board-job .jc-cta { display: none; }
+
+.stage.is-land .side-left,
+.stage.is-land.shell-mw .side-left,
+.stage.is-land.shell-pwa .side-left,
+.stage.is-land.shell-pc .side-left {
+  grid-column: 1;
+  grid-row: 3;
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  z-index: 2;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  height: auto;
+  margin: 0;
+  padding: 0 6px;
+  gap: 4px;
+}
+
+.stage.is-land .parchment,
+.stage.is-land.shell-mw .parchment,
+.stage.is-land.shell-pwa .parchment {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  padding: 5px 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label value"
+    "label switch";
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 0;
+}
+
+.stage.is-land .parchment em {
+  grid-area: label;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+}
+
+.stage.is-land .parchment strong {
+  grid-area: value;
+  margin: 0;
+  font-size: 0.82rem;
+  text-align: right;
+}
+
+.stage.is-land .ante-switch {
+  grid-area: switch;
+  margin: 0;
+  justify-self: end;
+}
+
+.stage.is-land .ante-pool { display: none; }
+
+.stage.is-land .extra-row,
+.stage.is-land.shell-mw .extra-row,
+.stage.is-land.shell-pwa .extra-row,
+.stage.is-land.shell-pc .extra-row {
+  grid-column: 1;
+  grid-row: 4;
+  position: relative;
+  z-index: 2;
+  align-self: start;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: auto;
+  height: auto;
+  max-height: none;
+  margin: 0;
+  padding: 0 6px 6px;
+  gap: 4px;
+}
+
+.stage.is-land .extra-row .chip-btn {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  height: auto;
+  padding: 0 4px;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+}
+
+.stage.is-land .extra-row .auto-stop {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.stage.is-land .board-meter,
+.stage.is-land.shell-mw .board-meter,
+.stage.is-land.shell-pwa .board-meter,
+.stage.is-land.shell-pc .board-meter {
+  grid-column: 2;
+  grid-row: 2;
+  position: relative;
+  z-index: 6;
+  align-self: start;
+  justify-self: stretch;
+  width: auto;
+  height: 28px;
+  min-height: 28px;
+  max-height: 28px;
+  margin: 0;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.stage.is-land .meter-split {
+  height: 100%;
+  gap: 6px;
+}
+
+.stage.is-land .pity-bar,
+.stage.is-land .heat-bar,
+.stage.is-land.shell-mw .pity-bar,
+.stage.is-land.shell-pwa .pity-bar {
+  height: 100%;
+  border-width: 1px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #14202a, #0a1016);
+  padding: 0 8px;
+  gap: 6px;
+}
+
+.stage.is-land .pity-kicker,
+.stage.is-land .pity-name,
+.stage.is-land .pity-stake {
+  display: none;
+}
+
+.stage.is-land .pity-mini,
+.stage.is-land.shell-pc .pity-mini {
+  display: inline;
+  flex-shrink: 0;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #f0c419;
+}
+
+.stage.is-land .heat-kicker {
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+}
+
+.stage.is-land .pity-track,
+.stage.is-land.shell-mw .pity-track,
+.stage.is-land.shell-pwa .pity-track {
+  height: 8px;
+}
+
+.stage.is-land .top-ticker:not(.is-idle) {
+  grid-column: 2;
+  grid-row: 3;
+  align-self: start;
+  z-index: 4;
+  width: auto;
+  height: 22px;
+  min-height: 22px;
+  max-height: 22px;
+  margin: 0;
+  pointer-events: none;
+}
+
+.stage.is-land .reel-host,
+.stage.is-land.shell-mw .reel-host,
+.stage.is-land.shell-pwa .reel-host,
+.stage.is-land.shell-pc .reel-host {
+  grid-column: 2;
+  grid-row: 2 / 6;
+  position: relative;
+  z-index: 2;
+  align-self: stretch;
+  justify-self: stretch;
+  container-type: size;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  /* The BONUS / HLÁSENIE strip occupies this band. The cabinet starts under it. */
+  padding: 32px 0 0;
+  box-sizing: border-box;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  background: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+/* Cabinet is exactly the 6×5 grid plus the bezel. Same numbers as the center column. */
+.stage.is-land .reel-frame,
+.stage.is-land.shell-mw .reel-frame,
+.stage.is-land.shell-pwa .reel-frame,
+.stage.is-land.shell-pc .reel-frame {
+  --pad: var(--cab-pad, 10px);
+  --gap: var(--cab-gap, 2px);
+  --bz: 6px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: calc(6 * var(--land-cell, 48px) + 5 * var(--gap) + 2 * var(--pad));
+  height: calc(5 * var(--land-cell, 48px) + 2 * var(--pad));
+  max-width: 100%;
+  max-height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: var(--pad);
+  box-sizing: border-box;
+}
+
+.stage.is-land .reel-frame::before {
+  inset: 2px;
+}
+
+.stage.is-land .reel-window,
+.stage.is-land.shell-mw .reel-window,
+.stage.is-land.shell-pwa .reel-window,
+.stage.is-land.shell-pc .reel-window {
+  --reel-pad: 0px;
+  --reel-gap: 2px;
+  flex: 1 1 auto;
+  align-self: stretch;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  box-shadow: none;
+}
+
+.stage.is-land .bottom-hud,
+.stage.is-land.shell-mw .bottom-hud,
+.stage.is-land.shell-pwa .bottom-hud,
+.stage.is-land.shell-pc .bottom-hud {
+  grid-column: 3;
+  grid-row: 1 / 6;
+  position: static;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  align-self: stretch;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: none;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 6px 6px 4px;
+  gap: 8px;
+  background: none;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.stage.is-land .credit-stack,
+.stage.is-land.shell-mw .credit-stack,
+.stage.is-land.shell-pwa .credit-stack {
+  order: 1;
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 5px 6px 4px;
+  overflow: hidden;
+  background: rgb(4 12 18 / 0.55);
+  border: 1px solid rgb(125 212 255 / 0.35);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  box-shadow: none;
+  text-shadow: none;
+  box-sizing: border-box;
+}
+
+.stage.is-land .credit-stack p {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 4px;
+  margin: 0;
+  min-width: 0;
+  white-space: nowrap;
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #8fd4ff;
+}
+
+.stage.is-land .credit-stack b {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  font-size: 0.72rem;
+  line-height: 1.15;
+  color: #fff6c8;
+  text-align: right;
+}
+
+.stage.is-land .bet-lock {
+  flex: 0 0 auto;
+  margin: 0 0 0 4px;
+  padding: 0 4px;
+  border-radius: 999px;
+  border: 1px solid rgb(255 229 106 / 0.45);
+  background: rgb(255 229 106 / 0.12);
+  color: #ffe56a;
+  font-size: 0.44rem;
+  letter-spacing: 0.08em;
+  line-height: 1.45;
+}
+
+.stage.is-land .hud-right,
+.stage.is-land.shell-mw .hud-right,
+.stage.is-land.shell-pwa .hud-right,
+.stage.is-land.shell-pc .hud-right {
+  order: 2;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.stage.is-land .online-hold {
+  position: static;
+  right: auto;
+  bottom: auto;
+  order: -1;
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  /* Cancel the rail gap so this reads as the footer of the credit card. */
+  margin: -8px 0 0;
+  padding: 1px 6px 4px;
+  box-sizing: border-box;
+  border: 1px solid rgb(125 212 255 / 0.35);
+  border-top: 1px solid rgb(125 212 255 / 0.16);
+  border-radius: 0 0 8px 8px;
+  background: rgb(4 12 18 / 0.55);
+  pointer-events: auto;
+}
+
+.stage.is-land .online-meter {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #9fd4ee;
+  gap: 4px;
+}
+
+.stage.is-land .online-meter b {
+  font-size: 0.62rem;
+}
+
+.stage.is-land .online-meter span {
+  font-size: 0.48rem;
+  letter-spacing: 0.1em;
+}
+
+.spin-cluster {
+  display: contents;
+}
+
+.stage.is-land .spin-cluster {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  order: 3;
+  margin-top: auto;
+}
+
+.stage.is-land .hud-right > .auto-menu,
+.stage.is-land .hud-right > .auto-pill.on,
+.stage.is-land .hud-right > button.auto-pill {
+  order: 4;
+}
+
+.stage.is-land .auto-menu {
+  display: flex;
+  justify-content: center;
+  align-self: center;
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  margin-bottom: auto;
+}
+
+.stage.is-land .hud-right > button.auto-pill {
+  margin-bottom: auto;
+}
+
+.stage.is-land .spin-btn,
+.stage.is-land .hud-spin,
+.stage.is-land.shell-mw .spin-btn,
+.stage.is-land.shell-pwa .spin-btn,
+.stage.is-land.shell-pc .spin-btn {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 46px;
+  height: 46px;
+  min-width: 0;
+  max-width: 46px;
+  max-height: 46px;
+  aspect-ratio: 1;
+  flex: 0 0 46px;
+  border-width: 3px;
+  box-shadow:
+    0 2px 0 #5a4808,
+    0 3px 8px rgb(0 0 0 / 0.35),
+    inset 0 1px 0 #fff8d2;
+}
+
+.stage.is-land .spin-btn svg,
+.stage.is-land.shell-mw .spin-btn svg,
+.stage.is-land.shell-pwa .spin-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.stage.is-land .round-btn,
+.stage.is-land.shell-mw .round-btn,
+.stage.is-land.shell-pwa .round-btn,
+.stage.is-land.shell-pc .round-btn {
+  box-sizing: border-box;
+  width: 26px;
+  height: 26px;
+  min-width: 0;
+  max-width: 26px;
+  padding: 0;
+  flex: 0 0 26px;
+  border-width: 2px;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.stage.is-land .auto-pill,
+.stage.is-land .auto-menu .auto-pill,
+.stage.is-land.shell-mw .auto-pill,
+.stage.is-land.shell-pwa .auto-pill {
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 24px;
+  margin: 0;
+  padding: 2px 8px;
+  box-sizing: border-box;
+  font-size: 0.62rem;
+}
+
+.stage.is-land .hud-icons,
+.stage.is-land.shell-mw .hud-icons,
+.stage.is-land.shell-pwa .hud-icons {
+  order: 3;
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  justify-items: center;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  height: auto;
+  margin-top: 4px;
+}
+
+.stage.is-land .icon-btn {
+  width: 26px;
+  height: 26px;
+  min-width: 0;
+}
+
+.stage.is-land .win-stack:not(:has(.has-win)),
+.stage.is-land.shell-mw .win-stack:not(:has(.has-win)),
+.stage.is-land.shell-pwa .win-stack:not(:has(.has-win)) {
+  display: none;
+}
+
+.stage.is-land .win-stack:has(.has-win) {
+  position: absolute;
+  left: 50%;
+  right: auto;
+  top: 58px;
+  transform: translateX(-50%);
+  width: calc(6 * var(--land-cell, 48px) + 5 * var(--cab-gap, 2px) + 2 * var(--cab-pad, 10px));
+  z-index: 7;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  padding: 2px 8px;
+  order: 0;
+  pointer-events: none;
+  background: rgb(6 12 18 / 0.9);
+  border: 1px solid rgb(125 212 255 / 0.45);
+  border-radius: 8px;
+}
+
+.stage.fold-flex-h.is-land .table {
+  column-gap: 14px;
+}
+
+/* Tablet portrait (coarse, not a fold): keep a centred column instead of the desktop side art. */
+@media (pointer: coarse) and (min-width: 700px) and (max-width: 1100px) and (orientation: portrait) {
+  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .ramp-col {
+    display: none;
+  }
+  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .side-left {
+    position: static;
+    flex-direction: row;
+    width: 100%;
+    padding-top: 0;
+  }
+  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .table-head {
+    position: relative;
+  }
+  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .board-stage {
+    padding: 8px 0 0;
+  }
+  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .arena {
+    display: flex;
+    flex-direction: column;
+  }
+  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .bottom-hud {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .win-stack {
+    position: static;
+    transform: none;
+    width: 100%;
+    order: -1;
+    height: auto;
+    max-height: none;
+  }
+  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .hud-left,
+  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .hud-right {
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: flex-end;
+  }
+  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .hud-right {
+    flex-wrap: wrap;
+  }
+  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .spin-btn,
+  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .hud-spin {
+    width: 72px;
+    height: 72px;
+  }
+}

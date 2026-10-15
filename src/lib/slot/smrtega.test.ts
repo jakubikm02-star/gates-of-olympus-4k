@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { egoAdminVisible, egoAttention, egoBanner, egoDeltaTone, egoExpires, egoFee, egoLiveBoard, egoLiveScore, egoMissing, egoScore, egoSnapshot, egoWeekEnd, egoWeekStart, egoWinner, EGO_REPORT_EVERY, type EgoState } from "./smrtega.ts";
+import { egoAdminVisible, egoAttention, egoBanner, egoClock, egoDeltaTone, egoDockView, egoExpires, egoFee, egoLiveBoard, egoLiveScore, egoMissing, egoScore, egoSnapshot, egoStripLine, egoWeekEnd, egoWeekStart, egoWinner, EGO_REPORT_EVERY, type EgoState } from "./smrtega.ts";
 import { egoClaim, egoCurrent, egoJoin, parseEgoState, setEgoFetcher } from "./smrtega-api.ts";
 import { handleEgoAdmin, type EgoAdminDeps } from "./smrtega-admin.server.ts";
 
@@ -155,6 +155,44 @@ test("banner texts", () => {
     /si 1\. \(bez nároku\) · cenu má zatiaľ Palica360/,
   );
   assert.equal(egoBanner(st({ prize: { status: "pending", deliveredAt: null, expiresAt: null } }), 0, 0), "vyhral si · kód sa pripravuje");
+});
+
+test("header dock: place, live score, countdown, or a short join hint", () => {
+  assert.equal(egoClock(2 * 86_400_000 + 5 * 3_600_000 + 12 * 60_000), "2d 05h 12m");
+  assert.equal(egoClock(4 * 3_600_000 + 7 * 60_000), "4h 07m");
+  assert.equal(egoClock(3 * 60_000), "3m");
+  const joined = egoDockView(
+    st({ me: { joined: true, score: 10, place: 4, fee: 500, admin: false } }),
+    8000,
+    0,
+    { place: 1, score: 10 },
+  );
+  assert.equal(joined.joined, true);
+  assert.equal(joined.place, "1.");
+  assert.equal(joined.score, 10);
+  assert.equal(joined.clock, "2d 05h 00m");
+  assert.equal(joined.hint, "");
+  const down = egoDockView(st({ me: { joined: true, score: -40, place: 3, fee: 500, admin: false } }), 8000, 0, null);
+  assert.equal(down.place, "3.");
+  assert.equal(down.score, -40);
+  const guest = egoDockView(st({ me: null }), 800, 0, null);
+  assert.equal(guest.joined, false);
+  assert.equal(guest.hint, "LEN NEKONEČNO");
+  assert.equal(guest.score, null);
+  const fee = egoDockView(st({ me: null }), 50_000, 0, null);
+  assert.match(fee.hint, /^VSTUP \d+ RP$/);
+  assert.equal(egoDockView(null, 0, 0, null).hint, "SMRŤ EGA");
+});
+
+test("strip line is one sequence, title once", () => {
+  const line = egoStripLine(
+    st({ players: 517, me: { joined: true, score: 10, place: 1, fee: 500, admin: false } }),
+    0,
+    0,
+  );
+  assert.equal(line, "517 · končí o 2 d 05 h · SMRŤ EGA · si 1. · +10 RP");
+  assert.equal(line.split("SMRŤ EGA").length - 1, 1);
+  assert.equal(egoStripLine(null, 0, 0), "SMRŤ EGA · od NEKONEČNA · chýba ti 2\u00a0700 RP");
 });
 
 test("api goes through injected fetcher only (mock, no production)", async () => {

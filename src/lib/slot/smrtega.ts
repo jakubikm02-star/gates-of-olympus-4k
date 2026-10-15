@@ -199,6 +199,50 @@ export function egoLeft(ms: number): string {
   return d > 0 ? `${d} d ${String(h).padStart(2, "0")} h` : `${h} h ${String(mm).padStart(2, "0")} min`;
 }
 
+/** Compact d/h/m for the header. Minutes stay visible even when days remain. */
+export function egoClock(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 60_000));
+  const d = Math.floor(total / 1440);
+  const h = Math.floor((total % 1440) / 60);
+  const m = total % 60;
+  if (d > 0) return `${d}d ${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m`;
+  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m`;
+  return `${m}m`;
+}
+
+/** What the jackpot strip's event half shows. Score is the live one when the player has joined. */
+export interface EgoDockView {
+  joined: boolean;
+  place: string;
+  score: number | null;
+  clock: string;
+  hint: string;
+}
+
+export function egoDockView(
+  s: EgoState | null,
+  rp: number,
+  now: number,
+  live?: { score: number; place: number } | null,
+): EgoDockView {
+  const clock = s && s.weekEnd > now ? egoClock(s.weekEnd - now) : "";
+  if (s?.prize?.status === "pending") return { joined: false, place: "", score: null, clock, hint: "KĽÚČ SA PRIPRAVUJE" };
+  if (s?.prize?.status === "awarded") return { joined: false, place: "", score: null, clock, hint: "ŤUKNI PRE KĽÚČ" };
+  if (s?.me?.joined) {
+    const place = live?.place ?? s.me.place;
+    const score = live?.score ?? s.me.score;
+    return { joined: true, place: `${place}.`, score, clock, hint: "" };
+  }
+  let hint = "SMRŤ EGA";
+  if (s) {
+    const miss = egoMissing(rp);
+    if (rp < EGO_FLOOR) hint = "LEN NEKONEČNO";
+    else if (miss > 0) hint = `CHÝBA ${miss} RP`;
+    else hint = `VSTUP ${egoFee(rp)} RP`;
+  }
+  return { joined: false, place: "", score: null, clock, hint };
+}
+
 export type EgoPrizeStatus = "pending" | "awarded" | "revoked" | "expired";
 
 /** What the player last saw on the event card. Place, not score: score ticks would flash the badge mid-spin. */
@@ -278,4 +322,20 @@ export function egoBanner(
   if (rp < EGO_FLOOR) return `od NEKONEČNA · chýba ti ${fmtRp(miss).replace("+", "")} RP`;
   if (miss > 0) return `na vstupné chýba ${miss} RP`;
   return `výhra 4KA TV XL s archívom na 28 dní · vstupné ${egoFee(rp)} RP${left}`;
+}
+
+/**
+ * One line for the top strip. Pieces stay in a fixed order and the title appears once,
+ * so a marquee can repeat the whole line without two copies painting on top of each other.
+ */
+export function egoStripLine(
+  s: EgoState | null,
+  rp: number,
+  now: number,
+  live?: { score: number; place: number } | null,
+): string {
+  const status = egoBanner(s, rp, now, live, false);
+  const clock = s && s.weekEnd > now ? `končí o ${egoLeft(s.weekEnd - now)}` : "";
+  const players = s && s.players > 0 ? String(s.players) : "";
+  return [players, clock, "SMRŤ EGA", status].filter((part) => part.length > 0).join(" · ");
 }
