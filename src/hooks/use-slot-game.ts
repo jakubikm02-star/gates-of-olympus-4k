@@ -246,6 +246,14 @@ function useOnce<T>(init: () => T): T {
   return useState(init)[0];
 }
 
+/** Dev only. `?spinSeed=` deals the spin strips and the landing grid from one stream. */
+function scriptedSpinRng(): (() => number) | null {
+  if (!import.meta.env.DEV || typeof window === "undefined") return null;
+  const q = new URLSearchParams(window.location.search).get("spinSeed");
+  if (!q || !/^\d+$/.test(q)) return null;
+  return createRng(Number(q));
+}
+
 export function useSlotGame() {
   const [started, setStarted] = useState(false);
   const [bootReady, setBootReady] = useState(false);
@@ -2814,7 +2822,9 @@ export function useSlotGame() {
       setStoppedCols(0);
       setAnticipate(false);
       setHoldGrid(cloneGrid(gridRef.current));
-      const spinRng = createRng();
+      // Dev layout tests pass ?spinSeed= so the strips and the grid share one stream.
+      const scripted = scriptedSpinRng();
+      const spinRng = scripted ?? createRng();
       setSpinStrips(Array.from({ length: 6 }, () => makeSpinStrip(spinRng, isFree)));
       setPhase("spinning");
       setSpinPace("full");
@@ -2832,7 +2842,7 @@ export function useSlotGame() {
       const pot = await settleWithin(poolP, Math.max(POOL_WAIT_MIN_MS, dur(STOPS[0]) - (performance.now() - spunAt)));
       const spunTicket = pot?.ticket ?? null;
 
-      const rng = createRng();
+      const rng = scripted ?? createRng();
       let next = opts?.buy
         ? generateBuyGrid(rng)
         : generateGrid(rng, opts?.free ? false : anteRef.current, !!opts?.free);
