@@ -370,78 +370,25 @@ export function SlotGrid({
     ),
   );
 
-  // Square cell from the window content box: min(width/6, height/5). Measured here, not at spin start.
+  // Row height from the window content box, so the spin strip matches the visible cells.
   const cellH = useRef(0);
   useLayoutEffect(() => {
     const win = windowRef.current;
     if (!win || typeof ResizeObserver === "undefined") return;
-    // Landscape only: size the center column from the reel-host height so the
-    // cabinet hugs the 6×5 grid and the rails take whatever width is left.
-    const fitCabinet = () => {
-      const table = win.closest(".table");
-      const host = win.closest(".reel-host");
-      const stage = win.closest(".stage");
-      if (!(table instanceof HTMLElement) || !(host instanceof HTMLElement)) return;
-      if (!stage?.classList.contains("is-land")) {
-        if (table.style.getPropertyValue("--land-cell")) table.style.removeProperty("--land-cell");
-        return;
-      }
-      const cs = getComputedStyle(table);
-      const num = (prop: string, fallback: number) => {
-        const n = Number.parseFloat(cs.getPropertyValue(prop));
-        return Number.isFinite(n) ? n : fallback;
-      };
-      const padL = Number.parseFloat(cs.paddingLeft) || 0;
-      const padR = Number.parseFloat(cs.paddingRight) || 0;
-      const colGap = Number.parseFloat(cs.columnGap) || 0;
-      const railMin = num("--rail-min", 124);
-      const pad = num("--cab-pad", 10);
-      const gap = num("--cab-gap", 2);
-      const available = table.clientWidth - padL - padR - 2 * railMin - 2 * colGap;
-      const hcs = getComputedStyle(host);
-      const innerH = host.clientHeight - (Number.parseFloat(hcs.paddingTop) || 0) - (Number.parseFloat(hcs.paddingBottom) || 0);
-      const cell = Math.min((innerH - 2 * pad) / ROWS, (available - 2 * pad - (COLS - 1) * gap) / COLS);
-      if (cell <= 0) return;
-      const next = `${Math.round(cell * 64) / 64}px`;
-      if (table.style.getPropertyValue("--land-cell") !== next) table.style.setProperty("--land-cell", next);
-    };
     const apply = (innerW: number, innerH: number) => {
       if (innerW <= 0 || innerH <= 0) return;
-      const land = Boolean(win.closest(".stage")?.classList.contains("is-land"));
-      const cs = getComputedStyle(win);
-      const gap = Number.parseFloat(cs.columnGap) || 0;
-      const padL = Number.parseFloat(cs.paddingLeft) || 0;
-      const padT = Number.parseFloat(cs.paddingTop) || 0;
-      if (!land) {
-        // Portrait and desktop: rows fill the window height. Columns are 1fr, so the grid
-        // meets the frame on every side. A square min() left a band above and below.
-        const h = Math.round((innerH / ROWS) * 64) / 64;
-        if (h <= 0) return;
-        if (h !== cellH.current) {
-          cellH.current = h;
-          win.style.setProperty("--cell-h", `${h}px`);
-        }
-        if (win.style.getPropertyValue("--grid-x")) win.style.removeProperty("--grid-x");
-        if (win.style.getPropertyValue("--grid-y")) win.style.removeProperty("--grid-y");
-        return;
+      // Every layout: five rows share the window height and six columns share its width.
+      // A square min() left empty bands beside and above the grid.
+      const h = Math.round((innerH / ROWS) * 64) / 64;
+      if (h <= 0) return;
+      if (h !== cellH.current) {
+        cellH.current = h;
+        win.style.setProperty("--cell-h", `${h}px`);
       }
-      const cell = Math.round(Math.min((innerW - (COLS - 1) * gap) / COLS, innerH / ROWS) * 64) / 64;
-      if (cell <= 0) return;
-      const gridW = cell * COLS + gap * (COLS - 1);
-      const gridH = cell * ROWS;
-      const originX = padL + (innerW - gridW) / 2;
-      const originY = padT + (innerH - gridH) / 2;
-      if (cell !== cellH.current) {
-        cellH.current = cell;
-        win.style.setProperty("--cell-h", `${cell}px`);
-      }
-      const ox = `${Math.round(originX * 64) / 64}px`;
-      const oy = `${Math.round(originY * 64) / 64}px`;
-      if (win.style.getPropertyValue("--grid-x") !== ox) win.style.setProperty("--grid-x", ox);
-      if (win.style.getPropertyValue("--grid-y") !== oy) win.style.setProperty("--grid-y", oy);
+      if (win.style.getPropertyValue("--grid-x")) win.style.removeProperty("--grid-x");
+      if (win.style.getPropertyValue("--grid-y")) win.style.removeProperty("--grid-y");
     };
     const read = () => {
-      fitCabinet();
       const r = win.getBoundingClientRect();
       const cs = getComputedStyle(win);
       const padX = (Number.parseFloat(cs.paddingLeft) || 0) + (Number.parseFloat(cs.paddingRight) || 0);
@@ -450,7 +397,6 @@ export function SlotGrid({
     };
     read();
     const ro = new ResizeObserver((entries) => {
-      fitCabinet();
       const e = entries[entries.length - 1];
       if (e.target !== win) {
         read();
