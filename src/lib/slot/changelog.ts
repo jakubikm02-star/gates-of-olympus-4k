@@ -7,6 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-10-15", text: "Na šírku sa −, + a AUTO zmestia do pravej lišty. Všetkých päť radov valcov je vidno celé. Rank NEKONEČNO sa už neskracuje." },
   { day: "2026-10-15", text: "Na šírku sú valce cez celú výšku medzi lištami. Vľavo je jeden panel: rank, lístok, KÚPIŤ 4KA, ANTE a režimy QUICK / TURBO / TIKETY / VERSUS v mriežke 2×2. Vpravo je kredit so stávkou, veľké točenie s − a + vedľa seba, pod ním AUTO a ikony. Jackpot a SMRŤ EGA sú len nad valcami. Lístok už nesedí na valcoch. Nápis v pozadí je stmavený." },
   { day: "2026-10-15", text: "Na karte EVENT sú Podmienky zbalené. Šípka „Podmienky ▾ Rozbaliť“ ich otvorí, „▴ Zbaliť“ zatvorí. Otvorené podmienky sa rolujú vo vlastnom okne. Hore ostáva odpočet, stav hráča a poradie bez rolovania celej karty." },
   { day: "2026-10-15", text: "AUTO sa otvára ako list dole s tmavým pozadím a nezakrýva valce ani lístok. Celá veta o pauze ostáva čitateľná. DUAL lístok (ZÁKLAD a 4KA TV) sa zalamuje, dlhý text končí trojbodkou. V pravom hornom páse sedia jackpot aj SMRŤ EGA vedľa seba: miesto, živé RP (zelené v pluse, červené v mínuse) a KONČÍ O. Kto nie je v evente, vidí krátky vstup. Ťuknutie otvorí EVENT. Text sa už neprekrýva. Na šírku sú valce v strede a ovládanie v stĺpcoch, aj na tablete, úzkom kryte, rozloženom Z Fold a vo Flex režime." },
