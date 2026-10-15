@@ -41,6 +41,7 @@ import {
 } from "./cue-volume.ts";
 import { rampOut, scheduleEnd } from "./voice-fade.ts";
 import { b64Size, forgetCue, parseCueRows, pruneCues, readCue, writeCue, type CueRow } from "./sfx-cache.ts";
+import { sfxPublicUrl, storagePathForRow } from "./sfx-storage.ts";
 import {
   FADE_LOCAL_KEY,
   endPlan,
@@ -407,12 +408,13 @@ function fileToB64(file: Blob): Promise<string> {
 }
 
 /* ---------- Uploaded cues (Supabase sfx_cue) ----------
-   1. List: sfx_keys2 (key, mime, md5, len) when migrated, else sfx_keys (key, mime).
-   2. A cue whose upload is byte-identical to the file shipped in public/sfx (md5 from the build, or — without
-      sfx_keys2 — every slot whose default already is the shipped upload in /sfx/pack/) plays the static file:
+   1. List: sfx_keys2 (key, mime, md5, len, path) when migrated, else sfx_keys (key, mime). Metadata only.
+   2. A cue whose upload is byte-identical to the file shipped in public/sfx plays that static file:
       Vercel serves it with a year-long immutable cache, nothing comes from Supabase.
-   3. Any other upload is downloaded once (sfx_audio) and kept in Cache Storage (sfx-cache.ts).
-   The boot preloader (preloader.ts) drives all of it before HRAŤ; nothing here downloads during play. */
+   3. Any other upload is downloaded once, and only if this slot needs it (remotePlan / pullCue):
+      from the public Storage URL when `path` matches the md5, else sfx_audio (base64). Either way the
+      bytes land in Cache Storage (sfx-cache.ts) and are not fetched again until the hash changes.
+   The boot preloader (preloader.ts) drives step 3 before HRAŤ; nothing here downloads during play. */
 
 /** Rows of the last listing; null = not listed yet. */
 let cueRows: CueRow[] | null = null;
@@ -498,8 +500,9 @@ export function shipsAsFile(row: CueRow): boolean {
   return false;
 }
 
-/** Expected download size of an upload (progress bar). */
+/** Expected download size of an upload (progress bar). Storage sends raw bytes; the RPC sends base64. */
 export function cueBytesHint(row: CueRow): number {
+  if (row.len && storagePathForRow(row)) return row.len;
   if (row.len) return b64Size(row.len);
   return 160 * 1024;
 }
@@ -558,8 +561,9 @@ async function readBody(res: Response, onBytes?: (n: number) => void): Promise<U
 const byHash = new Map<string, { bytes: ArrayBuffer; type: string }>();
 
 /**
- * One upload onto the device: Cache Storage first, else sfx_audio (base64) once, then cached.
- * Throws on a network / server failure so the preloader can retry. `signal` aborts a stalled download.
+ * One upload onto the device: Cache Storage first, else the public Storage object (when `path` is the
+ * current md5), else sfx_audio (base64). Throws on a network / server failure so the preloader can retry.
+ * `signal` aborts a stalled download. A missing object falls through to the RPC instead of failing the slot.
  */
 export async function pullCue(row: CueRow, onBytes?: (n: number) => void, signal?: AbortSignal): Promise<void> {
   const key = row.key;
@@ -576,6 +580,28 @@ export async function pullCue(row: CueRow, onBytes?: (n: number) => void, signal
     if (row.v) byHash.set(row.v, { bytes: hit.bytes, type: hit.type });
     onBytes?.(cueBytesHint(row));
     return;
+  }
+  const cdnPath = storagePathForRow(row);
+  if (cdnPath) {
+    try {
+      const cdn = await fetch(sfxPublicUrl(SUPA_URL, cdnPath), { method: "GET", signal, cache: "force-cache" });
+      if (cdn.ok) {
+        const raw = await readBody(cdn, onBytes);
+        if (raw.byteLength >= 8) {
+          sfxNet.downloaded += 1;
+          sfxNet.bytes += raw.byteLength;
+          const bytes = new ArrayBuffer(raw.byteLength);
+          new Uint8Array(bytes).set(raw);
+          const type = sniffMime(bytes, row.mime || "");
+          acceptCue(key, bytes, type);
+          if (row.v) byHash.set(row.v, { bytes, type });
+          await writeCue(row, bytes, type);
+          return;
+        }
+      }
+    } catch (err) {
+      if (signal?.aborted) throw err;
+    }
   }
   const res = await fetch(`${SUPA_URL}/rest/v1/rpc/sfx_audio`, {
     method: "POST",
