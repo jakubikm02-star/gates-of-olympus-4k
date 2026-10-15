@@ -45,6 +45,8 @@ const SAVE = {
   },
 };
 
+let egoJoined = true;
+
 function egoBody() {
   const now = Date.now();
   const end = now + (3 * 24 + 4) * 3600 * 1000 + 40 * 60 * 1000;
@@ -54,7 +56,9 @@ function egoBody() {
     now,
     players: 517,
     top: [{ nick: "layout", score: 10, admin: false }],
-    me: { joined: true, score: 10, place: 1, fee: 500, admin: false },
+    me: egoJoined
+      ? { joined: true, score: 10, place: 1, fee: 500, admin: false }
+      : { joined: false, score: 0, place: 0, fee: 0, admin: false },
     leader: null,
     prize: null,
     last_winner: null,
@@ -193,7 +197,12 @@ async function audit(name) {
       return { x: r.x, y: r.y, w: r.width, h: r.height, right: r.right, bottom: r.bottom };
     };
     const stage = document.querySelector(".stage");
-    const segs = [...document.querySelectorAll(".ego-seg")].map(box);
+    const dock = document.querySelector(".ego-dock");
+    const jp = document.querySelector(".jp-row");
+    const dockBox = box(dock);
+    const jpBox = box(jp);
+    const ox = dockBox && jpBox ? Math.min(dockBox.right, jpBox.right) - Math.max(dockBox.x, jpBox.x) : 0;
+    const oy = dockBox && jpBox ? Math.min(dockBox.bottom, jpBox.bottom) - Math.max(dockBox.y, jpBox.y) : 0;
     const legs = [...document.querySelectorAll(".board-job .tb-leg")].map((el) => {
       const em = el.querySelector("em");
       const b = el.querySelector("b");
@@ -211,7 +220,9 @@ async function audit(name) {
       fold: [...(stage?.classList ?? [])].find((c) => c.startsWith("fold-")) ?? "",
       shell: [...(stage?.classList ?? [])].find((c) => c.startsWith("shell-")) ?? "",
       orient: root.dataset.orient ?? "",
-      segs,
+      dock: dock?.textContent?.replace(/\s+/g, " ").trim() ?? "",
+      dockOff: dockBox ? dockBox.right > window.innerWidth + 2 || dockBox.bottom > window.innerHeight + 2 : true,
+      dockJp: ox > 2 && oy > 2 ? Math.round(ox * oy) : 0,
       legs,
       goal: goal?.textContent?.trim() ?? "",
       goalClip: goal ? goal.scrollWidth > goal.clientWidth + 2 : false,
@@ -231,6 +242,10 @@ for (const [name, spec] of SHOTS) {
 }
 
 await applyShot(SHOTS.find(([n]) => n === "galaxy-s24-ultra-portrait")[1]);
+await page.locator(".ego-dock").click();
+await page.locator('button[role="tab"][aria-selected="true"]', { hasText: "EVENT" }).waitFor({ timeout: 8000 });
+await page.locator('button[aria-label="Zavrieť"]').click();
+await page.locator(".modal-card").waitFor({ state: "hidden", timeout: 8000 });
 await page.locator("button.auto-pill").click();
 await page.locator(".auto-pop").waitFor({ state: "visible" });
 await page.waitForTimeout(250);
@@ -275,8 +290,21 @@ const summary = {
   shots: report,
 };
 
-await writeFile(path.join(OUT, "audit.json"), JSON.stringify(summary, null, 2));
-console.log(JSON.stringify({ leaked: summary.leaked, errors: summary.consoleErrors.length, auto: summary.auto }, null, 2));
+egoJoined = false;
+await page.reload({ waitUntil: "domcontentloaded", timeout: 120_000 });
+await page.waitForFunction(() => {
+  const b = document.querySelector("button.bs-cta");
+  return b && !b.disabled;
+}, { timeout: 180_000 });
+await page.locator("button.bs-cta").click();
+await page.waitForFunction(() => (document.querySelector(".ego-dock")?.textContent || "").includes("VSTUP"), null, { timeout: 30_000 });
+await page.waitForTimeout(300);
+await page.screenshot({ path: path.join(OUT, "galaxy-s24-ultra-portrait-join.png"), fullPage: false });
+const joinText = await page.locator(".ego-dock").innerText();
+
+await writeFile(path.join(OUT, "audit.json"), JSON.stringify({ ...summary, joinText }, null, 2));
+const badDock = report.filter((s) => !s.dock.includes("KONČÍ O") || !s.dock.includes("1.") || s.dockJp > 0 || s.dockOff);
+console.log(JSON.stringify({ leaked: summary.leaked, errors: summary.consoleErrors.length, joinText, badDock: badDock.map((s) => ({ name: s.name, dock: s.dock, off: s.dockOff, jp: s.dockJp })), auto: summary.auto.overlap }, null, 2));
 
 await browser.close();
 
@@ -288,4 +316,8 @@ if (autoOverlap.reels > 8 || autoOverlap.ticket > 8) {
 if (autoAudit.hintClip || !autoAudit.hint.includes("kreditu stop.")) {
   console.error("AUTO hint clipped or missing", autoAudit.hint, autoAudit.hintClip);
   process.exit(4);
+}
+if (badDock.length || !joinText.includes("VSTUP")) {
+  console.error("ego dock", badDock.length, joinText);
+  process.exit(5);
 }

@@ -61,67 +61,149 @@
   max-height: min(78dvh, 520px);
 }
 
-/* —— SMRŤ EGA strip: one line, two equal segments, clip. The title is not repeated inside the segment. —— */
-.ego-strip {
-  display: flex;
-  align-items: center;
-  flex: 0 0 auto;
+/* —— Jackpot strip shares its cell with the live SMRŤ EGA status. No marquee. —— */
+.stage .head-end:has(.ego-dock),
+.stage.shell-mw .head-end:has(.ego-dock),
+.stage.shell-pwa .head-end:has(.ego-dock),
+.stage.shell-pc .head-end:has(.ego-dock) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(5.6rem, 11rem);
+  gap: 0;
+  align-items: stretch;
   width: 100%;
-  height: 1.4rem;
-  min-height: 1.4rem;
-  max-height: 1.4rem;
-  margin: 0;
-  padding: 0 8px;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
-  border: 1px solid #1496ff;
-  border-radius: 6px;
-  background: #071018;
+  border: 1px solid #1d6ea8;
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(120, 190, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 190, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(180deg, #0c1c28 0%, #071018 55%, #05080c 100%);
+  background-size: 12px 12px, 12px 12px, auto;
+  box-shadow: 0 0 14px rgb(20 150 255 / 0.32), inset 0 0 16px rgb(0 80 140 / 0.2);
+  container-type: inline-size;
+  container-name: headend;
+}
+
+.stage .head-end:has(.ego-dock) .jp-stack.is-strip,
+.stage.shell-mw .head-end:has(.ego-dock) .jp-stack.is-strip,
+.stage.shell-pwa .head-end:has(.ego-dock) .jp-stack.is-strip,
+.stage.shell-pc .head-end:has(.ego-dock) .jp-stack.is-strip {
+  width: auto;
+  min-width: 0;
+  height: 100%;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  border-right: 1px solid rgb(125 212 255 / 0.35);
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+
+.stage .head-end:has(.ego-dock) .jp-row b,
+.stage.shell-mw .head-end:has(.ego-dock) .jp-row b,
+.stage.shell-pwa .head-end:has(.ego-dock) .jp-row b {
+  min-width: 0;
+}
+
+.ego-dock {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "kicker stat"
+    "clock clock";
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 1px;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 3px 6px 4px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #e7f4ff;
   text-align: left;
   cursor: pointer;
-  box-shadow: inset 0 0 12px rgb(0 120 220 / 0.18);
 }
 
-.ego-clip {
-  display: block;
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  mask-image: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+.ego-dock.is-out {
+  grid-template-areas:
+    "kicker kicker"
+    "hint hint"
+    "clock clock";
 }
 
-.ego-track {
-  display: flex;
-  width: max-content;
-  animation: ego-marquee 22s linear infinite;
-}
-
-.ego-seg {
-  flex: 0 0 auto;
-  padding-right: 3rem;
+.ego-dock-kicker {
+  grid-area: kicker;
+  font-family: var(--font-display);
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #7fd4ff;
   white-space: nowrap;
-  font-family: var(--font-sans);
+}
+
+.ego-dock-stat {
+  grid-area: stat;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 5px;
+  min-width: 0;
+}
+
+.ego-dock-place {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 1;
+  color: #b9ecff;
+  text-shadow: 0 0 8px rgb(20 150 255 / 0.65);
+}
+
+.ego-dock-score {
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 600;
-  line-height: 1.4rem;
-  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-@keyframes ego-marquee {
-  from { transform: translate3d(0, 0, 0); }
-  to { transform: translate3d(-50%, 0, 0); }
+.ego-dock-score.is-up { color: #3ee08f; text-shadow: 0 0 8px rgb(62 224 143 / 0.45); }
+.ego-dock-score.is-down { color: #ff5b6a; text-shadow: 0 0 8px rgb(255 91 106 / 0.4); }
+.ego-dock-score.is-flat { color: #d5e2ee; }
+
+.ego-dock-hint,
+.ego-dock-clock {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .ego-track { animation: none; }
-  .ego-seg[aria-hidden="true"] { display: none; }
-  .ego-seg {
-    display: block;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding-right: 0;
-  }
+.ego-dock-hint {
+  grid-area: hint;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #ffe56a;
+}
+
+.ego-dock-clock {
+  grid-area: clock;
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.06em;
+  color: #9fd4ff;
+}
+
+@container headend (max-width: 240px) {
+  .ego-dock-kicker { display: none; }
+  .ego-dock.is-in { grid-template-areas: "stat stat" "clock clock"; }
 }
 
 /* —— Ticket strip: dual counters wrap; a single long label ellipsizes. —— */
@@ -204,10 +286,9 @@
 .stage.is-land.shell-pc .table {
   display: grid;
   grid-template-columns: minmax(112px, 22vw) minmax(0, 1fr) minmax(124px, 24vw);
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas:
     "head head head"
-    "ego ego ego"
     "left board right";
   width: 100%;
   height: 100%;
@@ -233,10 +314,6 @@
   overflow: visible;
   pointer-events: auto;
   padding: 0;
-}
-
-.stage.is-land .ego-strip {
-  grid-area: ego;
 }
 
 .stage.is-land .arena,
@@ -467,7 +544,7 @@
   .stage.is-land .table-head,
   .stage.is-land.shell-mw .table-head,
   .stage.is-land.shell-pwa .table-head {
-    max-height: 44px;
+    max-height: 58px;
     overflow: hidden;
   }
   .stage.is-land .pay-hint { display: none; }
@@ -479,12 +556,11 @@
     max-height: 1.15rem;
     padding: 0;
   }
-  .stage.is-land .ego-strip {
-    height: 1.15rem;
-    min-height: 1.15rem;
-    max-height: 1.15rem;
+  .stage.is-land .ego-dock {
+    padding: 1px 4px 2px;
   }
-  .stage.is-land .ego-seg { line-height: 1.15rem; font-size: 0.6rem; }
+  .stage.is-land .ego-dock-place { font-size: 0.85rem; }
+  .stage.is-land .ego-dock-clock { font-size: 0.5rem; }
   .stage.is-land .spin-btn,
   .stage.is-land .hud-spin {
     width: 52px;
@@ -514,11 +590,9 @@
   max-height: 2.7rem;
 }
 
-.stage.fold-cover .ego-strip {
-  height: 1.2rem;
-  min-height: 1.2rem;
-  max-height: 1.2rem;
-}
+.stage.fold-cover .ego-dock-place { font-size: 0.85rem; }
+.stage.fold-cover .ego-dock-clock,
+.stage.fold-cover .ego-dock-hint { font-size: 0.5rem; }
 
 .stage.fold-cover .spin-btn {
   width: 60px;
@@ -673,7 +747,6 @@
   grid-template-columns: minmax(0, 1fr) minmax(200px, 42%);
   grid-template-areas:
     "head head"
-    "ego ego"
     "board controls";
   column-gap: 16px;
   background:

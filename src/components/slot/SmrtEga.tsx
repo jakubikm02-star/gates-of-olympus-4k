@@ -4,8 +4,8 @@ import {
   egoAdminVisible,
   egoAttention,
   egoBanner,
-  egoStripLine,
   egoDeltaTone,
+  egoDockView,
   egoFee,
   egoLeft,
   egoWeekEnd,
@@ -181,22 +181,40 @@ export function useSmrtEga(g: EgoGame) {
     live,
     attention: egoAttention(state, g.rp, now, seen),
     text: egoBanner(state, g.rp, now, live, false),
-    strip: egoStripLine(state, g.rp, now, live),
   };
 }
 
-/** Top event line. Two equal segments so the crawl moves by exactly half and never stacks on itself. */
-export function EgoStrip({ line, onOpen }: { line: string; onOpen: () => void }) {
+/** Event half of the jackpot strip. Place, live RP and countdown share the cell; no marquee. */
+export function EgoDock({
+  state,
+  rp,
+  now,
+  live,
+  onOpen,
+}: {
+  state: EgoState | null;
+  rp: number;
+  now: number;
+  live: { score: number; place: number } | null;
+  onOpen: () => void;
+}) {
+  const view = egoDockView(state, rp, now, live);
+  const score = view.score;
+  const label = view.joined
+    ? `SMRŤ EGA, miesto ${view.place}, ${fmtRp(score ?? 0)} RP${view.clock ? `, končí o ${view.clock}` : ""}`
+    : `SMRŤ EGA, ${view.hint}${view.clock ? `, končí o ${view.clock}` : ""}`;
   return (
-    <button type="button" className="ego-strip" onClick={onOpen} aria-label={line}>
-      <span className="ego-clip">
-        <span className="ego-track">
-          <span className="ego-seg">{line}</span>
-          <span className="ego-seg" aria-hidden="true">
-            {line}
-          </span>
+    <button type="button" className={`ego-dock${view.joined ? " is-in" : " is-out"}`} onClick={onOpen} aria-label={label}>
+      <span className="ego-dock-kicker">SMRŤ EGA</span>
+      {view.joined ? (
+        <span className="ego-dock-stat">
+          <b className="ego-dock-place">{view.place}</b>
+          <b className={`ego-dock-score is-${egoDeltaTone(score ?? 0)}`}>{fmtRp(score ?? 0)}</b>
         </span>
-      </span>
+      ) : (
+        <span className="ego-dock-hint">{view.hint}</span>
+      )}
+      {view.clock ? <span className="ego-dock-clock">KONČÍ O {view.clock}</span> : <span className="ego-dock-clock">EVENT</span>}
     </button>
   );
 }

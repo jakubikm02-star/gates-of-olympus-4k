@@ -32,7 +32,7 @@ import { RankBadge } from "./RankBadge";
 import { BootScreen } from "./BootScreen";
 import { AddToHome } from "./AddToHome";
 import { registerInstallSw } from "@/lib/slot/a2hs-client";
-import { EgoStrip, useSmrtEga } from "./SmrtEga";
+import { EgoDock, useSmrtEga } from "./SmrtEga";
 import "./layouts.css";
 import { LiveHits } from "./LiveHits";
 import { MachineFrame } from "./MachineFrame";
@@ -369,18 +369,20 @@ export function SlotGame() {
                 <em>100+</em>
               )}
             </div>
+            {g.inFs ? null : (
+              <EgoDock
+                state={ego.state}
+                rp={g.rank.rp}
+                now={ego.now}
+                live={ego.live}
+                onOpen={() => {
+                  setBoardCard("event");
+                  setBoardOpen(true);
+                }}
+              />
+            )}
             </div>
           </div>
-
-        {g.inFs ? null : (
-          <EgoStrip
-            line={ego.strip}
-            onOpen={() => {
-              setBoardCard("event");
-              setBoardOpen(true);
-            }}
-          />
-        )}
 
         <div className="arena">
           <aside
