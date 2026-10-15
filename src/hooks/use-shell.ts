@@ -93,7 +93,8 @@ function readLayout(): LayoutFlags {
     const longSide = Math.max(w, h);
     // Cover is ~21:9 or narrower. Phones sit around 19.5:9, so they stay on the phone layout.
     if (w <= 430 && tall >= 2.28) fold = "cover";
-    else if (shortSide >= 640 && longSide <= 1100 && longSide / shortSide <= 1.25) fold = "inner";
+    // Unfolded inner is near-square. Real Fold CSS viewports reach about 884×1104.
+    else if (shortSide >= 640 && longSide <= 1280 && longSide / shortSide <= 1.28) fold = "inner";
   }
   const coarse = window.matchMedia("(pointer: coarse)").matches;
   const land =

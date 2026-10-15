@@ -3931,9 +3931,10 @@
   z-index: 80;
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: max(8px, env(safe-area-inset-top, 0px)) 12px max(8px, env(safe-area-inset-bottom, 0px));
   background: rgb(7 9 11 / 0.62);
   cursor: pointer;
+  overflow: auto;
 }
 
 .banner-card {
@@ -3941,6 +3942,8 @@
   padding: 0;
   border-radius: 0;
   width: min(540px, 94vw);
+  max-height: calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  overflow: auto;
   background: #d4d0c8;
   border: 2px solid;
   border-color: #fff #404040 #404040 #fff;
@@ -4210,6 +4213,21 @@
 .wb-status span + span::before {
   content: "│ ";
   color: #808080;
+}
+
+@media (max-height: 520px) {
+  .wb-term {
+    min-height: 0;
+    margin: 3px 4px;
+    padding: 6px 8px 8px;
+  }
+  .wb-kicker {
+    margin: 4px 0 2px;
+    font-size: 1.25rem;
+  }
+  .wb-amt {
+    font-size: 1.15rem;
+  }
 }
 
 .banner-card.epic .wb-kicker,

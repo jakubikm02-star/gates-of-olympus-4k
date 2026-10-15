@@ -363,8 +363,7 @@
 .stage.is-land .win-log,
 .stage.is-land .ls-spin,
 .stage.is-land .board-job:not(.has-job),
-.stage.is-land .top-ticker.is-idle,
-.stage.is-land .pay-hint {
+.stage.is-land .top-ticker.is-idle {
   display: none;
 }
 
@@ -680,8 +679,9 @@
 .stage.is-land .top-ticker:not(.is-idle) {
   grid-column: 2;
   grid-row: 3;
-  align-self: start;
-  z-index: 4;
+  align-self: end;
+  position: relative;
+  z-index: 8;
   width: auto;
   height: 22px;
   min-height: 22px;
@@ -715,6 +715,17 @@
   background: none;
   border-radius: 0;
   overflow: visible;
+}
+
+/* While the tumble line is on screen it owns its grid row. The cabinet starts
+   on the next row, so a tall ticket beside the meter cannot pull the reels up
+   through the line. */
+.stage.is-land .table:has(.top-ticker:not(.is-idle)) .reel-host,
+.stage.is-land.shell-mw .table:has(.top-ticker:not(.is-idle)) .reel-host,
+.stage.is-land.shell-pwa .table:has(.top-ticker:not(.is-idle)) .reel-host,
+.stage.is-land.shell-pc .table:has(.top-ticker:not(.is-idle)) .reel-host {
+  grid-row: 4 / 6;
+  padding-top: 0;
 }
 
 /* Cabinet is exactly the 6×5 grid plus the bezel. Same numbers as the center column. */
@@ -1048,78 +1059,116 @@
   display: none;
 }
 
+/* In the right rail, under the credit and above the spin. An absolute bar
+   here used to cover the jackpot and the meter, and the rail clipped it. */
 .stage.is-land .win-stack:has(.has-win) {
-  position: absolute;
-  left: 50%;
+  position: relative;
+  left: auto;
   right: auto;
-  top: 58px;
-  transform: translateX(-50%);
-  width: calc(6 * var(--land-cell, 48px) + 5 * var(--cab-gap, 2px) + 2 * var(--cab-pad, 10px));
-  z-index: 7;
+  top: auto;
+  transform: none;
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
+  z-index: 3;
   height: auto;
   min-height: 0;
   max-height: none;
   margin: 0;
-  padding: 2px 8px;
-  order: 0;
+  padding: 3px 6px;
+  order: 2;
+  overflow: visible;
   pointer-events: none;
-  background: rgb(6 12 18 / 0.9);
+  box-sizing: border-box;
+  background: rgb(6 12 18 / 0.92);
   border: 1px solid rgb(125 212 255 / 0.45);
   border-radius: 8px;
+}
+
+.stage.is-land .win-stack:has(.has-win) .win-line {
+  height: auto;
+  min-height: 1.15em;
+  max-height: none;
+  font-size: 0.78rem;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+}
+
+.stage.is-land .win-stack:has(.has-win) .pay-hint {
+  display: flex;
+  position: static;
+  height: auto;
+  min-height: 16px;
+  max-height: none;
+  overflow: hidden;
 }
 
 .stage.fold-flex-h.is-land .table {
   column-gap: 14px;
 }
 
-/* Tablet portrait (coarse, not a fold): keep a centred column instead of the desktop side art. */
+/* Coarse portrait from a large phone up through the unfolded inner screen and
+   Flex. One column: the tumble line stays on the reels and the win amount
+   takes a full-width row above the controls. */
 @media (pointer: coarse) and (min-width: 700px) and (max-width: 1100px) and (orientation: portrait) {
-  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .ramp-col {
+  .stage:not(.is-land) .ramp-col {
     display: none;
   }
-  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .side-left {
+  .stage:not(.is-land) .side-left {
     position: static;
     flex-direction: row;
     width: 100%;
     padding-top: 0;
   }
-  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .table-head {
+  .stage:not(.is-land) .table-head {
     position: relative;
+    z-index: 6;
   }
-  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .board-stage {
+  .stage:not(.is-land) .board-stage {
     padding: 8px 0 0;
   }
-  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .arena {
+  .stage:not(.is-land) .top-ticker:not(.is-idle) {
+    position: relative;
+    z-index: 8;
+    width: 100%;
+    max-width: 100%;
+    flex: 0 0 auto;
+  }
+  .stage:not(.is-land) .arena {
     display: flex;
     flex-direction: column;
   }
-  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .bottom-hud {
+  .stage:not(.is-land) .bottom-hud {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     max-width: 100%;
-    overflow: hidden;
+    overflow: visible;
   }
-  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .win-stack {
-    position: static;
+  .stage:not(.is-land) .win-stack {
+    position: relative;
+    z-index: 8;
     transform: none;
     width: 100%;
     order: -1;
     height: auto;
+    min-height: calc(1.35em + 18px);
     max-height: none;
+    overflow: visible;
+    flex: 1 0 100%;
   }
-  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .hud-left,
-  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .hud-right {
+  .stage:not(.is-land) .hud-left,
+  .stage:not(.is-land) .hud-right {
     flex: 1 1 auto;
     min-width: 0;
     justify-content: flex-end;
   }
-  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .hud-right {
+  .stage:not(.is-land) .hud-right {
     flex-wrap: wrap;
   }
-  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .spin-btn,
-  .stage:not(.is-land):not(.fold-inner):not(.fold-flex-v) .hud-spin {
+  .stage:not(.is-land) .spin-btn,
+  .stage:not(.is-land) .hud-spin {
     width: 72px;
     height: 72px;
   }
