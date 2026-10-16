@@ -54,6 +54,7 @@ import {
   kontrolaRegularX,
   noteStake,
   settleGold,
+  stampRefund3,
   usualStake,
   zlataPokutaOf,
   zlatyEnabled,
@@ -1069,6 +1070,7 @@ export function useSlotGame() {
     let cached = readLocal();
     // Kaucia left pending by the previous page: settle it once, before anything else is saved.
     const marker = takeAppReloadMarker();
+    // Stamp from before the refund. A newer mirror copy must still win, then the refund bumps past it.
     const bootAt = cached?.updatedAt ?? 0;
     let bootDeposit: DepositSettlement | null = null;
     const foldDeposit = (save: PlayerSave | null) => {
@@ -1082,6 +1084,7 @@ export function useSlotGame() {
         duelDeposit: null,
       };
     };
+    const armRefund = (save: PlayerSave | null) => (save ? stampRefund3(save, braDay(serverNow())) : save);
     cached = foldDeposit(cached);
     depositRef.current = null;
     if (cached) applySave(cached);
@@ -1099,26 +1102,35 @@ export function useSlotGame() {
       flushMirrorPush();
     };
 
+    const keep = (save: PlayerSave | null, force: boolean) => {
+      const stamped = armRefund(save);
+      if (!stamped) return;
+      if (force || stamped !== save) {
+        applySave(stamped);
+        writeLocal(stamped);
+      }
+    };
+
     // The other link may hold a newer save. Wait briefly so opening this page cannot stamp
     // over it. The hop in the document head has usually copied it into this origin already.
     const timer = window.setTimeout(finish, 1600);
     void pullMirrorSave(cached).then((remote) => {
       if (cancel) return;
       window.clearTimeout(timer);
-      if (remote && remote.updatedAt > bootAt && !startedRef.current && !busyRef.current) {
+      const remoteNewer = Boolean(remote && remote.updatedAt > bootAt);
+      const takeRemote = Boolean(remoteNewer && remote && !startedRef.current && !busyRef.current);
+      if (takeRemote && remote) {
         bootDeposit = null;
         cached = foldDeposit(remote);
         depositRef.current = null;
-        if (cached) {
-          applySave(cached);
-          writeLocalSave(cached);
-          scheduleMirrorPush(cached);
-        }
       }
+      // Refund the copy we keep and bump updatedAt. A newer cloud save the player already started over stays put.
+      if (!remoteNewer || takeRemote) keep(cached, takeRemote);
       finish();
     }).catch(() => {
       if (cancel) return;
       window.clearTimeout(timer);
+      keep(cached, false);
       finish();
     });
     return () => {
