@@ -166,6 +166,8 @@ export interface ZlatyState {
   refundDay?: string;
   /** Second one-time re-arm (fix of 15.10): day applied. */
   refund2Day?: string;
+  /** Third one-time re-arm (16.–17. 10.): the day it was applied. Set once, never cleared. */
+  refund3Day?: string;
   /** Day gold was claimed and its golden run has not settled yet (crash, reload, duel): re-armed on load. */
   openDay?: string;
 }
@@ -211,6 +213,7 @@ export function sanitizeZlaty(raw: unknown): ZlatyState {
   }
   if (typeof r.refundDay === "string" && DAY_RE.test(r.refundDay)) z.refundDay = r.refundDay;
   if (typeof r.refund2Day === "string" && DAY_RE.test(r.refund2Day)) z.refund2Day = r.refund2Day;
+  if (typeof r.refund3Day === "string" && DAY_RE.test(r.refund3Day)) z.refund3Day = r.refund3Day;
   if (typeof r.openDay === "string" && DAY_RE.test(r.openDay)) z.openDay = r.openDay;
   z.stakes = Array.isArray(r.stakes) ? r.stakes.filter((x): x is number => typeof x === "number" && Number.isFinite(x) && x > 0).slice(-STAKE_WINDOW) : [];
   return z;
@@ -333,7 +336,43 @@ export function reviveGold(z: ZlatyState, today: string): ZlatyState {
   if (today === REFUND_DAY && out.refund2Day !== REFUND_DAY) {
     out = { ...(out.usedDay === today ? rechargeGold(out, today) : out), refund2Day: REFUND_DAY };
   }
-  return out;
+  return refund3Gold(out, today);
+}
+
+/**
+ * One-time refund for gold spent on 15. 10. or 16. 10. (the day was consumed on a zero / missed ZLATÁ POKUTA).
+ * Loads on 16. 10. or 17. 10. (Europe/Bratislava) re-arm once: usedDay and openDay are cleared.
+ * `refund3Day` is the day it fired, so a second load does nothing.
+ */
+export const REFUND3_LOAD = ["2026-10-16", "2026-10-17"] as const;
+export const REFUND3_USED = ["2026-10-15", "2026-10-16"] as const;
+
+export function refund3Gold(z: ZlatyState, today: string): ZlatyState {
+  if (z.refund3Day) return z;
+  if (!(REFUND3_LOAD as readonly string[]).includes(today)) return z;
+  if (!(REFUND3_USED as readonly string[]).includes(z.usedDay)) return z;
+  const teased = (REFUND3_USED as readonly string[]).includes(z.teasedDay) ? "" : z.teasedDay;
+  return { ...z, usedDay: "", openDay: undefined, teasedDay: teased, refund3Day: today };
+}
+
+/** Save-shaped fields the refund needs. Kept structural so this module does not import the player save. */
+export interface Refund3Save {
+  zlaty?: ZlatyState;
+  updatedAt: number;
+  bonusPending?: { gold?: unknown } | null;
+}
+
+/**
+ * Apply the 16. 10. refund on a save. A pending golden run is left alone (it still plays).
+ * When the refund fires, `updatedAt` moves forward so an older mirror copy cannot write the spent day back.
+ * Returns the same object when nothing changed.
+ */
+export function stampRefund3<T extends Refund3Save>(save: T, today: string, now = Date.now()): T {
+  if (save.bonusPending?.gold) return save;
+  const prev = save.zlaty ?? emptyZlaty();
+  const next = refund3Gold(prev, today);
+  if (next === prev) return save;
+  return { ...save, zlaty: next, updatedAt: Math.max(now, (save.updatedAt || 0) + 1) };
 }
 
 /* ───────────── texts ───────────── */

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { afterEach, describe, it } from "node:test";
 import { readFileSync } from "node:fs";
 import { createRng } from "./engine.ts";
 import { dealPickBoard, rankPeekIds } from "./pick-bonus.ts";
@@ -30,11 +30,16 @@ import {
   kontrolaRegularX,
   noteStake,
   recordGold,
+  refund3Gold,
   sanitizeZlaty,
   settleGold,
+  stampRefund3,
   usualStake,
   zlatyEnabled,
 } from "./zlaty.ts";
+import { CHANGELOG } from "./changelog.ts";
+import { MIRROR_BRIDGE_KEY } from "./mirror-bridge.ts";
+import { flushMirrorPush, pullMirrorSave, resetMirrorSession, scheduleMirrorPush, setMirrorFetch } from "./mirror-cloud.ts";
 
 const src = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8");
 
@@ -196,6 +201,7 @@ describe("ZLATÝ BONUS: wiring", () => {
     assert.match(hook, /\.\.\.\(gold \? \{ gold \} : \{\}\)/);
     assert.match(hook, /syncServerClock\(\)/);
     assert.match(hook, /goldOnLoad\(s\.zlaty, Boolean\(s\.bonusPending\?\.gold\), braDay\(serverNow\(\)\)\)/);
+    assert.match(hook, /stampRefund3\(save, braDay\(serverNow\(\)\)\)/);
     assert.match(hook, /hit: goldPickedRef\.current/);
     assert.equal((hook.match(/settleGold\(/g) ?? []).length, 1, "one settle path for spin, tumble, auto, turbo and tickets");
     assert.equal((hook.match(/abortGold\(/g) ?? []).length, 3, "duel, discarded bar, crash");
@@ -424,5 +430,136 @@ describe("gold recharge chain (refund → 0 → recharge → 0 → … → paid)
     const once = reviveGold(old, day);
     assert.equal(goldWaiting(once, day), true);
     assert.equal(goldWaiting(reviveGold(claimGold(once, day), day), day), true, "still open → armed");
+  });
+});
+
+describe("one-time golden refund for 16. 10. and 17. 10.", () => {
+  afterEach(() => {
+    setMirrorFetch(null);
+    resetMirrorSession();
+  });
+
+  it("Zmeny says the golden bonus was returned", () => {
+    assert.ok(CHANGELOG.some((n) => n.day === "2026-10-16" && n.text.startsWith("Zlatý bonus vrátený")));
+  });
+
+  it("re-arms once when usedDay is 15. or 16. and the load day is 16. or 17.", () => {
+    for (const today of ["2026-10-16", "2026-10-17"]) {
+      for (const used of ["2026-10-15", "2026-10-16"]) {
+        const spent = { ...claimGold(emptyZlaty(), used), openDay: used, teasedDay: used };
+        const back = refund3Gold(spent, today);
+        assert.equal(back.usedDay, "", `${today} ${used}`);
+        assert.equal(back.openDay, undefined);
+        assert.equal(back.teasedDay, "");
+        assert.equal(back.refund3Day, today);
+        assert.equal(goldWaiting(back, today), true);
+        const again = claimGold(back, used);
+        assert.equal(refund3Gold(again, today), again, "flag blocks a second refund");
+        assert.equal(goldWaiting(again, used), false);
+      }
+    }
+    assert.equal(refund3Gold(claimGold(emptyZlaty(), "2026-10-14"), "2026-10-16").refund3Day, undefined);
+    assert.equal(refund3Gold(claimGold(emptyZlaty(), "2026-10-16"), "2026-10-18").refund3Day, undefined);
+    const kept = sanitizeZlaty(JSON.parse(JSON.stringify(refund3Gold(claimGold(emptyZlaty(), "2026-10-16"), "2026-10-16"))));
+    assert.equal(kept.refund3Day, "2026-10-16");
+    assert.equal(kept.usedDay, "");
+  });
+
+  it("load path clears a spent 16. 10. and leaves a pending golden run to finish", () => {
+    const back = goldOnLoad(claimGold(emptyZlaty(), "2026-10-16"), false, "2026-10-16");
+    assert.equal(back.usedDay, "");
+    assert.equal(back.openDay, undefined);
+    assert.equal(back.refund3Day, "2026-10-16");
+    const pending = goldOnLoad(claimGold(emptyZlaty(), "2026-10-16"), true, "2026-10-16");
+    assert.equal(pending.usedDay, "2026-10-16");
+    assert.equal(pending.refund3Day, undefined);
+  });
+
+  it("bumps updatedAt so an older mirror copy cannot restore the spent day", () => {
+    const spent = {
+      ...emptyPlayerSave(),
+      playerId: "player-1234",
+      updatedAt: 500,
+      zlaty: claimGold(emptyZlaty(), "2026-10-16"),
+    };
+    const same = stampRefund3(spent, "2026-10-18", 9_000);
+    assert.equal(same, spent);
+    const stamped = stampRefund3(spent, "2026-10-16", 400);
+    assert.notEqual(stamped, spent);
+    assert.equal(stamped.updatedAt, 501);
+    assert.equal(stamped.zlaty?.usedDay, "");
+    assert.equal(stamped.zlaty?.refund3Day, "2026-10-16");
+    assert.ok(stamped.updatedAt > spent.updatedAt);
+    const ahead = stampRefund3({ ...spent, updatedAt: 8_000 }, "2026-10-17", 100);
+    assert.equal(ahead.updatedAt, 8_001);
+    const mid = stampRefund3(
+      { ...spent, bonusPending: { mode: "zbox" as const, bet: 1, mod: null, modLeft: 0, at: 1, gold: { day: "2026-10-16", stake: 1 } } },
+      "2026-10-16",
+      9_000,
+    );
+    assert.equal(mid.updatedAt, 500);
+    assert.equal(mid.zlaty?.usedDay, "2026-10-16");
+  });
+
+  it("mocked mirror stores the refund and does not hand back the spent copy", async () => {
+    const ls = new Map<string, string>();
+    Object.defineProperty(globalThis, "localStorage", {
+      value: {
+        getItem: (k: string) => (ls.has(k) ? (ls.get(k) as string) : null),
+        setItem: (k: string, v: string) => ls.set(k, String(v)),
+        removeItem: (k: string) => ls.delete(k),
+        key: (i: number) => [...ls.keys()][i] ?? null,
+        get length() {
+          return ls.size;
+        },
+      },
+      configurable: true,
+    });
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    let key = "";
+    for (const b of bytes) key += String.fromCharCode(b);
+    ls.set(MIRROR_BRIDGE_KEY, btoa(key));
+    const store = new Map<string, string>();
+    const urls: string[] = [];
+    setMirrorFetch(async (url, init) => {
+      urls.push(String(url));
+      const body = JSON.parse(String(init?.body)) as { p_id?: string; p_blob?: string };
+      const name = String(url).includes("mirror_put") ? "put" : "get";
+      if (name === "put") {
+        store.set(body.p_id || "", body.p_blob || "");
+        return new Response(null, { status: 204 });
+      }
+      return new Response(JSON.stringify(store.get(body.p_id || "") ?? null), { status: 200 });
+    });
+    const spent = {
+      ...emptyPlayerSave(),
+      playerId: "player-1234",
+      updatedAt: 500,
+      zlaty: claimGold(emptyZlaty(), "2026-10-16"),
+    };
+    assert.equal(await pullMirrorSave(spent), null);
+    scheduleMirrorPush(spent);
+    flushMirrorPush();
+    await new Promise((r) => setTimeout(r, 20));
+    resetMirrorSession();
+    const local = { ...spent, updatedAt: 100 };
+    const remote = await pullMirrorSave(local);
+    assert.equal(remote?.zlaty?.usedDay, "2026-10-16");
+    assert.equal(remote?.updatedAt, 500);
+    const stamped = stampRefund3(remote ?? spent, "2026-10-16", 9_000);
+    assert.equal(stamped.zlaty?.usedDay, "");
+    assert.equal(stamped.zlaty?.openDay, undefined);
+    assert.ok(stamped.updatedAt > 500);
+    scheduleMirrorPush(stamped);
+    flushMirrorPush();
+    await new Promise((r) => setTimeout(r, 20));
+    resetMirrorSession();
+    const back = await pullMirrorSave({ ...spent, updatedAt: 500 });
+    assert.equal(back?.zlaty?.usedDay, "");
+    assert.equal(back?.zlaty?.refund3Day, "2026-10-16");
+    assert.equal(back?.updatedAt, stamped.updatedAt);
+    assert.ok(urls.length > 0);
+    assert.ok(urls.every((u) => u.includes("/rest/v1/rpc/mirror_")));
   });
 });

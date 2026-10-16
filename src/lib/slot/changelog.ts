@@ -7,6 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-10-16", text: "Zlatý bonus vrátený. Kto ho 15. alebo 16. októbra minul, má ho po načítaní 16. alebo 17. októbra nabitý znova. Raz." },
   { day: "2026-10-16", text: "Oprava ZLATÉHO BONUSU: zlatá SIM sa minie až keď zlatý bonus naozaj niečo pridá. Minutá ZLATÁ POKUTA alebo nulová zlatá výhra SIM znova nabije, aj v AUTO, pri rýchlom točení a po načítaní hry." },
   { day: "2026-10-15", text: "Valce držia jednu veľkosť. Riadok TUMBLE, GOOD LUCK, lístok aj pás jackpotu majú stále rovnaké miesto, aj keď sú prázdne. Bonus ani výhra skrinku nepohnú." },
   { day: "2026-10-15", text: "Skrinka na výšku ide takmer od okraja po okraj. Bunky sú väčšie, medzera pod BONUS a HLÁSENIE je preč a riadok GOOD LUCK je nižší. Na šírku voľné miesto v lištách patrí valcom. Všetkých päť radov ostáva vidno." },
