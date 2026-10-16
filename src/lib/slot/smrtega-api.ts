@@ -51,7 +51,18 @@ export function parseEgoState(raw: unknown): EgoState {
     players: num(o.players),
     top: (Array.isArray(o.top) ? o.top : []).map((t) => {
       const x = obj(t);
-      return { nick: String(x.nick ?? "Niekto"), score: num(x.score), admin: Boolean(x.admin) };
+      const opt = (key: string) => (x[key] == null || x[key] === "" ? undefined : num(x[key]));
+      const fee = opt("fee");
+      const spins = opt("spins") ?? opt("reports");
+      const day = opt("day") ?? opt("day_delta") ?? opt("delta");
+      return {
+        nick: String(x.nick ?? "Niekto"),
+        score: num(x.score),
+        admin: Boolean(x.admin),
+        ...(fee != null ? { fee } : {}),
+        ...(spins != null ? { spins } : {}),
+        ...(day != null ? { day } : {}),
+      };
     }),
     me: me ? { joined: Boolean(me.joined), score: num(me.score), place: num(me.place), fee: num(me.fee), admin: Boolean(me.admin) } : null,
     leader: leader ? { nick: String(leader.nick ?? "Niekto"), score: num(leader.score) } : null,

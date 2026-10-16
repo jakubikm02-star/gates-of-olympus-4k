@@ -431,6 +431,167 @@
   overflow: auto;
 }
 .ego-board-scroll h4 { margin-top: 6px; }
+.ego-board-scroll { position: relative; container-type: inline-size; }
+
+/* The countdown lives on the scoreboard. The rack and the big clock would push the rows off screen. */
+.fb-sheet.is-ego .ego-rack,
+.fb-sheet.is-ego .ego-clock { display: none; }
+.fb-sheet.is-ego .ego-word { font-size: clamp(1.25rem, 4.5vw, 1.7rem); }
+.fb-sheet.is-ego .ego-brand { padding-top: 0; }
+
+/* Call of Duty-style scoreboard, TECHNIK ENERGY colors. */
+.cod-board {
+  --cod-row: 26px;
+  --cod-cols: 1.7rem 1.15rem minmax(0, 1fr) 4.6rem 3.4rem;
+  background: rgba(5, 12, 20, 0.78);
+  border: 1px solid rgba(127, 212, 255, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 16px rgba(0, 140, 255, 0.14);
+  backdrop-filter: blur(8px);
+}
+.cod-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 36px;
+  padding: 0 8px;
+  background: linear-gradient(90deg, rgba(8, 36, 58, 0.95), rgba(5, 12, 20, 0.35) 72%);
+  border-bottom: 1px solid rgba(127, 212, 255, 0.4);
+}
+.cod-team { min-width: 0; }
+.cod-team b {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  color: #f4fbff;
+}
+.cod-team span {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  color: #8ecfff;
+}
+.cod-team strong {
+  color: #1aa4ff;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(26, 164, 255, 0.85);
+}
+.cod-head > em {
+  flex: none;
+  font-style: normal;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  line-height: 1;
+  color: #7fd4ff;
+  text-shadow: 0 0 10px rgba(20, 150, 255, 0.75);
+}
+.cod-cols,
+.cod-line {
+  display: grid;
+  grid-template-columns: var(--cod-cols);
+  align-items: center;
+  column-gap: 6px;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+.cod-cols {
+  height: 16px;
+  align-items: end;
+  padding-bottom: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.54rem;
+  letter-spacing: 0.08em;
+  color: #8ecfff;
+}
+.cod-cols > span:not(.cod-who) { text-align: right; }
+.cod-who { text-align: left; }
+.cod-rows { list-style: none; margin: 0; padding: 0; }
+.cod-line {
+  height: var(--cod-row);
+  border-bottom: 1px solid rgba(127, 212, 255, 0.16);
+  font-size: 0.72rem;
+}
+.cod-line.is-alt { background: rgba(127, 212, 255, 0.05); }
+.cod-line.is-mine {
+  background: rgba(255, 98, 48, 0.18);
+  box-shadow: inset 0 0 0 1px #ff6a33, inset 0 0 16px rgba(255, 80, 30, 0.28);
+  position: relative;
+  z-index: 1;
+}
+.cod-line.is-empty {
+  display: block;
+  height: auto;
+  padding: 8px;
+  opacity: 0.7;
+  color: #9eb4c6;
+}
+.cod-place,
+.cod-fee,
+.cod-line > .ego-delta,
+.cod-opt {
+  justify-self: end;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.cod-place { color: #9fd4ff; font-weight: 700; }
+.cod-fee { color: #d5e4f0; }
+.cod-pip {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  line-height: 1;
+  color: #b9ecff;
+  background: linear-gradient(180deg, #143044, #071018);
+  border: 1px solid #3d7ea8;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+.cod-pip.is-lead { border-color: #ffe56a; color: #ffe56a; }
+.cod-pip.is-admin { border-color: #ff8a62; color: #ffc2ae; }
+.cod-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: #f4fbff;
+}
+.cod-name em {
+  margin-left: 6px;
+  padding: 0 3px;
+  border: 1px solid rgba(127, 212, 255, 0.55);
+  font-style: normal;
+  font-weight: 600;
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  color: #7fd4ff;
+}
+@container (min-width: 560px) {
+  .cod-board[data-spins="1"]:not([data-day="1"]) { --cod-cols: 1.6rem 1.15rem minmax(0, 1fr) 4.4rem 3.1rem 3.4rem; }
+  .cod-board[data-day="1"]:not([data-spins="1"]) { --cod-cols: 1.6rem 1.15rem minmax(0, 1fr) 4.4rem 3.1rem 3.6rem; }
+  .cod-board[data-spins="1"][data-day="1"] { --cod-cols: 1.5rem 1.1rem minmax(0, 1fr) 4.2rem 2.9rem 3.2rem 3.5rem; }
+}
+@container (max-width: 559px) {
+  .cod-opt { display: none; }
+}
+@media (max-height: 520px) {
+  .cod-board { --cod-row: 22px; }
+  .cod-head { height: 30px; }
+  .cod-team b { font-size: 0.78rem; }
+  .fb-sheet.is-ego .ego-brand,
+  .fb-sheet.is-ego .ego-stand .ego-fee { display: none; }
+  .fb-sheet.is-ego .ego-status { margin-top: 2px; }
+}
 
 @media (max-height: 740px) {
   .fb-sheet.is-ego .ego-rack,
@@ -474,4 +635,45 @@
   .fb-sheet.is-ego .ego-rules-toggle { margin-top: 2px; padding: 4px 8px; font-size: 0.74rem; }
   .ego-rules-scroll { max-height: 4.2rem; }
   .ego-board-scroll { min-height: 3.4rem; }
+}
+
+/* Scoreboard owns the sheet: the title and countdown sit on the board, so the card chrome stays short enough for about ten rows. */
+.fb-sheet.is-ego {
+  padding: 8px 10px 2px;
+}
+.fb-sheet.is-ego .fb-sticky {
+  margin: -8px -10px 4px;
+  padding: 8px 10px 4px;
+}
+.fb-sheet.is-ego .ego-spread { display: none; }
+.fb-sheet.is-ego .ego-product {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.1;
+  letter-spacing: 0.16em;
+}
+.fb-sheet.is-ego .ego-status { margin-top: 6px; padding: 4px 8px; }
+.fb-sheet.is-ego .ego-stand { margin-top: 6px; padding: 5px 8px; }
+.fb-sheet.is-ego .ego-stand .ego-fee { display: none; }
+.fb-sheet.is-ego .ego-rules-toggle { margin-top: 4px; padding: 6px 8px; }
+.cod-lock {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(5, 12, 20, 0.96);
+}
+@media (max-height: 520px) {
+  .fb-sheet.is-ego { padding: 2px 6px 0; }
+  .fb-sheet.is-ego .fb-sticky { margin: -2px -6px 0; padding: 2px 6px 0; }
+  .fb-sheet.is-ego .fb-cards { margin-top: 2px; gap: 4px; }
+  .fb-sheet.is-ego .fb-cards button { padding: 3px 0; font-size: 0.72rem; line-height: 1.1; }
+  .fb-sheet.is-ego .ego-status { display: none; }
+  .fb-sheet.is-ego .ego-stand { margin-top: 2px; padding: 2px 6px; font-size: 0.75rem; }
+  .fb-sheet.is-ego .ego-rules-toggle { margin-top: 2px; padding: 2px 6px; font-size: 0.68rem; }
+  .fb-sheet.is-ego .ego-board-scroll { margin-top: 2px; }
+  .fb-sheet.is-ego .cod-head { height: 26px; }
+  .fb-sheet.is-ego .cod-cols { height: 14px; padding-bottom: 1px; }
+}
+@media (max-height: 400px) {
+  .fb-sheet.is-ego .ego-stand { display: none; }
 }

@@ -109,6 +109,17 @@ test("live score moves with RP since the last report and re-sorts the visible bo
   assert.equal(climb.place, 6);
   assert.equal(climb.top.filter((t) => t.mine).length, 1);
   assert.equal(climb.top.length, 10);
+  const withFee = egoLiveBoard(
+    [{ nick: "A", score: 100, admin: false, fee: 800, spins: 12, day: -20 }, { nick: "Ja", score: 50, admin: false, fee: 500 }],
+    me,
+    90,
+    "Ja",
+  );
+  assert.equal(withFee.top.find((t) => t.nick === "A")?.fee, 800);
+  assert.equal(withFee.top.find((t) => t.nick === "A")?.spins, 12);
+  assert.equal(withFee.top.find((t) => t.mine)?.fee, 500);
+  assert.equal(parseEgoState({ top: [{ nick: "A", score: 1, fee: 500, spins: 4, day_delta: 15 }] }).top[0]?.day, 15);
+  assert.equal("fee" in (parseEgoState({ top: [{ nick: "A", score: 1 }] }).top[0] ?? {}), false);
 });
 
 test("trophy badge: not entered, place change, prize — not a score tick", () => {

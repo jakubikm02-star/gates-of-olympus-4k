@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   EGO_REPORT_EVERY,
   egoAdminVisible,
@@ -17,6 +17,7 @@ import {
   EGO_ADMIN_DEVICE_KEY,
   EGO_ADMIN_TOKEN_KEY,
   EGO_FLOOR,
+  type EgoBoardRow,
   type EgoSeen,
   type EgoState,
 } from "@/lib/slot/smrtega";
@@ -179,6 +180,7 @@ export function useSmrtEga(g: EgoGame) {
     now,
     ack,
     live,
+    nick: g.nick,
     attention: egoAttention(state, g.rp, now, seen),
     text: egoBanner(state, g.rp, now, live, false),
   };
@@ -221,6 +223,18 @@ export function EgoDock({
 
 function RpNum({ n }: { n: number }) {
   return <strong className={`ego-delta is-${egoDeltaTone(n)}`}>{fmtRp(n)}</strong>;
+}
+
+function feeText(n: number): string {
+  return Math.abs(Math.round(n)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
+}
+
+function RankPip({ lead, admin }: { lead: boolean; admin: boolean }) {
+  return (
+    <span className={`cod-pip${lead ? " is-lead" : ""}${admin ? " is-admin" : ""}`} aria-hidden="true">
+      ∞
+    </span>
+  );
 }
 
 function Rack() {
@@ -306,6 +320,33 @@ export function SmrtEgaCard({
   const rows = (s?.me?.joined && ego.live ? ego.live.top : s?.top) ?? [];
   const myPlace = ego.live?.place ?? s?.me?.place;
   const myScore = ego.live?.score ?? s?.me?.score;
+  const mineInList = rows.some((t) => "mine" in t && t.mine);
+  const pinned =
+    s?.me?.joined && !mineInList
+      ? {
+          nick: ego.nick || "Niekto",
+          score: myScore ?? s.me.score,
+          admin: s.me.admin,
+          mine: true as const,
+          fee: s.me.fee,
+          place: myPlace ?? s.me.place,
+        }
+      : null;
+  const shown: Array<EgoBoardRow & { place: number }> = pinned
+    ? [...rows.map((t, i) => ({ ...t, place: i + 1 })), pinned]
+    : rows.map((t, i) => ({ ...t, place: i + 1 }));
+  const showSpins = shown.some((t) => typeof t.spins === "number");
+  const showDay = shown.some((t) => typeof t.day === "number");
+  const mineRef = useRef<HTMLLIElement>(null);
+  useLayoutEffect(() => {
+    const row = mineRef.current;
+    const scroller = row?.closest(".ego-board-scroll");
+    if (!row || !(scroller instanceof HTMLElement)) return;
+    const top = row.offsetTop;
+    const bottom = top + row.offsetHeight;
+    if (top < scroller.scrollTop) scroller.scrollTop = Math.max(0, top - 2);
+    else if (bottom > scroller.scrollTop + scroller.clientHeight) scroller.scrollTop = bottom - scroller.clientHeight + 2;
+  }, [myPlace, myScore, shown.length, showSpins, showDay]);
   return (
     <section className="ego-card" aria-label="SMRŤ EGA">
       <i className="ego-tick is-tl" aria-hidden="true" />
@@ -406,18 +447,49 @@ export function SmrtEgaCard({
       )}
 
       <div className="ego-board-scroll">
-        <h4>PORADIE · {s?.players ?? 0}</h4>
-        <ol className="ego-board">
-          {rows.map((t, i) => (
-            <li key={`${t.nick}-${i}`} className={`${t.admin ? "is-admin" : ""}${"mine" in t && t.mine ? " is-mine" : ""}`}>
-              <b>{i + 1}</b>
-              <span>{t.nick}</span>
-              {t.admin ? <em>BEZ NÁROKU</em> : null}
-              <RpNum n={t.score} />
-            </li>
-          ))}
-          {!rows.length ? <li className="is-empty">Zatiaľ nikto. Buď prvý.</li> : null}
-        </ol>
+        <div className={`cod-board${showSpins ? " has-spins" : ""}${showDay ? " has-day" : ""}`} data-spins={showSpins ? "1" : "0"} data-day={showDay ? "1" : "0"}>
+          <div className="cod-lock">
+          <header className="cod-head">
+            <div className="cod-team">
+              <b>SMRŤ EGA</b>
+              <span>
+                KONČÍ O <strong>{egoLeft((s?.weekEnd ?? egoWeekEnd(ego.now)) - ego.now)}</strong>
+              </span>
+            </div>
+            <em>{s?.players ?? 0}</em>
+          </header>
+          <div className="cod-cols" aria-hidden="true">
+            <span>#</span>
+            <span />
+            <span className="cod-who">HRÁČ</span>
+            <span>SKÓRE</span>
+            <span>VSTUP</span>
+            {showSpins ? <span className="cod-opt">REPORTY</span> : null}
+            {showDay ? <span className="cod-opt">Δ DNES</span> : null}
+          </div>
+          </div>
+          <ol className="cod-rows">
+            {shown.map((t, i) => {
+              const mine = "mine" in t && Boolean(t.mine);
+              const fee = typeof t.fee === "number" ? t.fee : mine && s?.me ? s.me.fee : null;
+              return (
+                <li key={`${t.nick}-${t.place}-${i}`} ref={mine ? mineRef : undefined} className={`cod-line${mine ? " is-mine" : ""}${t.admin ? " is-admin" : ""}${i % 2 === 1 ? " is-alt" : ""}`}>
+                  <b className="cod-place">{t.place}</b>
+                  <RankPip lead={t.place === 1} admin={t.admin} />
+                  <span className="cod-name">
+                    {t.nick}
+                    {t.admin ? <em>BEZ</em> : null}
+                  </span>
+                  <RpNum n={t.score} />
+                  <span className="cod-fee">{fee == null ? "—" : feeText(fee)}</span>
+                  {showSpins ? <span className="cod-opt">{typeof t.spins === "number" ? t.spins : "—"}</span> : null}
+                  {showDay ? <span className="cod-opt">{typeof t.day === "number" ? <RpNum n={t.day} /> : "—"}</span> : null}
+                </li>
+              );
+            })}
+            {!shown.length ? <li className="cod-line is-empty">Zatiaľ nikto. Buď prvý.</li> : null}
+          </ol>
+        </div>
         {s?.lastWinner ? (
           <p className="ego-last">
             Posledný výherca: {s.lastWinner.nick} (<RpNum n={s.lastWinner.score} /> RP)
