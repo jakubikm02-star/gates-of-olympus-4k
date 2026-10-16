@@ -44,17 +44,16 @@ import { P_CAN, playZbox, zboxVipOf, type ZPlay } from "@/lib/slot/zbox";
 import {
   ZLATY_CAP_X,
   ZLATE_VYSEKY_G,
+  abortGold,
   claimGold,
   emptyZlaty,
   goldBoard,
   goldCash,
+  goldOnLoad,
   goldWaiting,
   kontrolaRegularX,
   noteStake,
-  recordGold,
   settleGold,
-  rechargeGold,
-  reviveGold,
   usualStake,
   zlataPokutaOf,
   zlatyEnabled,
@@ -647,8 +646,8 @@ export function useSlotGame() {
     pityByBetRef.current = s.pityByBet;
     setPityByBet(s.pityByBet);
     bonusPendingRef.current = s.bonusPending ?? null;
-    // One-time refund (REFUND_DAY): gold spent today is armed again, unless a golden bonus is still pending.
-    zlatyRef.current = s.bonusPending?.gold ? (s.zlaty ?? emptyZlaty()) : reviveGold(s.zlaty ?? emptyZlaty(), braDay(serverNow()));
+    // Pending Ž-BOX / KOLESO gold is replayed. Anything else open (KONTROLA cleared its row, crash, duel) is armed again.
+    zlatyRef.current = goldOnLoad(s.zlaty, Boolean(s.bonusPending?.gold), braDay(serverNow()));
     setZlaty(zlatyRef.current);
     if (s.zboxHelpOff && !zboxHelpOff()) setZboxHelpOff(true);
     if (s.kolesoHelpOff && !kolesoHelpOff()) setKolesoHelpOff(true);
@@ -2247,11 +2246,19 @@ export function useSlotGame() {
     done?.();
   }, []);
 
-  /** Golden result card: stats first (saved), then the card until tapped (auto under autoplay). */
+  /** Golden result card: stats first (saved), then the card until tapped (auto, turbo and quick all wait here). */
   const showGoldResult = useCallback(
-    async (r: { mode: BonusModeId; x: number; cash: number; regular: number; bet: number; stake: number; day: string }) => {
-      // A golden run that ends with 0 does not spend the day's gold: the golden SIM recharges.
-      const settled = settleGold(zlatyRef.current, { mode: r.mode, x: r.x, cash: r.cash, extra: +(r.cash - r.regular).toFixed(2), day: r.day });
+    async (r: { mode: BonusModeId; x: number; cash: number; regular: number; bet: number; stake: number; day: string; hit?: boolean }) => {
+      // Spend the day only after a confirmed golden win (uplift > 0, and ZLATÁ POKUTA actually picked).
+      // Turbo, quick, autospin and a ticket spin all come through here; the card wait is after the save.
+      const settled = settleGold(zlatyRef.current, {
+        mode: r.mode,
+        x: r.x,
+        cash: r.cash,
+        extra: +(r.cash - r.regular).toFixed(2),
+        day: r.day,
+        hit: r.hit,
+      });
       zlatyRef.current = settled.z;
       setZlaty(zlatyRef.current);
       persistNow();
@@ -2397,7 +2404,16 @@ export function useSlotGame() {
     });
     if (gold) {
       const k = cash0 > 0 ? cash / cash0 : 1;
-      await showGoldResult({ mode: "kontrola", x: goldX, cash, regular: +(regX * betNow * k).toFixed(2), bet: betNow, stake: gold.stake, day: gold.day });
+      await showGoldResult({
+        mode: "kontrola",
+        x: goldX,
+        cash,
+        regular: +(regX * betNow * k).toFixed(2),
+        bet: betNow,
+        stake: gold.stake,
+        day: gold.day,
+        hit: goldPickedRef.current,
+      });
     }
   }, [waitForPick, pushRank, noteResult, noteHeat, noteStat, settleJob, bumpToday, showGoldResult]);
 
@@ -2700,7 +2716,7 @@ export function useSlotGame() {
     noteStat({ t: "barMode", mode: pend.mode });
     if (pend.gold && roundEscrowRef.current) {
       // Gold cannot play in a duel round: it is not spent, the golden SIM stays charged.
-      zlatyRef.current = { ...rechargeGold(zlatyRef.current, pend.gold.day), openDay: undefined };
+      zlatyRef.current = abortGold(zlatyRef.current, pend.gold.day);
       setZlaty(zlatyRef.current);
     }
     if (pend.gold && !roundEscrowRef.current) {
@@ -4268,7 +4284,13 @@ export function useSlotGame() {
       if (r === "max" || roundEscrowRef.current) {
         kontrolaArmedRef.current = false;
         if (bonusPendingRef.current) {
+          const dropped = bonusPendingRef.current;
           bonusPendingRef.current = null;
+          // Max win and a duel round never play the bar. Gold reserved on that spin goes back on the SIM.
+          if (dropped.gold) {
+            zlatyRef.current = abortGold(zlatyRef.current, dropped.gold.day);
+            setZlaty(zlatyRef.current);
+          }
           persistNow();
         }
       } else if (r === "pick" || kontrolaArmedRef.current) {
@@ -4324,6 +4346,13 @@ export function useSlotGame() {
       setAnticipate(false);
       setHoldGrid(null);
       setSpinStrips(null);
+      // KONTROLA clears its pending row when it starts. A crash before the result must not leave the day spent.
+      // Ž-BOX / KOLESO keep pending gold and replay it, so they are left for goldOnLoad.
+      if (zlatyRef.current.openDay && !bonusPendingRef.current?.gold) {
+        zlatyRef.current = abortGold(zlatyRef.current, zlatyRef.current.openDay);
+        setZlaty(zlatyRef.current);
+        persistNow();
+      }
     } finally {
       busyRef.current = false;
       setBusy(false);

@@ -66,7 +66,7 @@ export interface PendingBonus {
   at: number;
   /** Ž-BOX / KOLESO: seed of its run, fixed when it starts (a reload mid-run replays the same run). */
   seed?: number;
-  /** ZLATÝ BONUS: today's gold was spent on this bonus when the bar filled (lib/slot/zlaty). */
+  /** ZLATÝ BONUS: today's gold is reserved on this bonus until it pays a golden win (lib/slot/zlaty). */
   gold?: GoldRun;
   /** KOLESO: the player's letter choices so far (one per offer, null = Jožo), so a reload replays them. */
   kpicks?: (string | null)[];

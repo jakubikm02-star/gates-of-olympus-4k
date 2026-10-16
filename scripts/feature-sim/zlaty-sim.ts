@@ -132,8 +132,9 @@ function session(rank: string, ante: boolean, perDay: number, days: number, seed
         const pr = bonusPair(mode, rank, Math.floor(bonusSeeds() * 0x100000000));
         paid += pr.reg;
         if (goldLeft) {
-          // The golden SIM recharges after a golden run that pays 0 (game rule since 2026-10-15).
-          goldLeft = RECHARGE && pr.gold <= 0;
+          // The golden SIM stays charged until the golden run pays more than the same run without gold
+          // (missed ZLATÁ POKUTA, or a 0 / non-uplift Ž-BOX / KOLESO). ZL_RECHARGE=0 is the old rule.
+          goldLeft = RECHARGE && !(pr.gold - pr.reg > 1e-9);
           if (goldLeft) zeroGold++;
           else goldDays++;
           extra += pr.gold - pr.reg;

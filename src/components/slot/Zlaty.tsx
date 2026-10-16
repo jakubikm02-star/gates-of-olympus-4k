@@ -368,7 +368,7 @@ export interface ZlatyResultInfo {
   bet: number;
   stake: number;
   streak: number;
-  /** Ended with 0: the golden SIM recharged, the next bar bonus is golden again. */
+  /** No golden win (0, or ZLATÁ POKUTA missed): the golden SIM recharged, the next bar bonus is golden again. */
   recharged?: boolean;
   key: number;
 }
