@@ -702,8 +702,9 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  /* The BONUS / HLÁSENIE strip occupies this band. The cabinet starts under it. */
-  padding: 30px 0 0;
+  /* Meter (28px) plus the reserved tumble line (22px) plus a gap. The line is
+     taken out of flow; this padding stays whether or not TUMBLE is showing. */
+  padding: 56px 0 0;
   box-sizing: border-box;
   width: auto;
   height: auto;
@@ -713,17 +714,6 @@
   background: none;
   border-radius: 0;
   overflow: visible;
-}
-
-/* While the tumble line is on screen it owns its grid row. The cabinet starts
-   on the next row, so a tall ticket beside the meter cannot pull the reels up
-   through the line. */
-.stage.is-land .table:has(.top-ticker:not(.is-idle)) .reel-host,
-.stage.is-land.shell-mw .table:has(.top-ticker:not(.is-idle)) .reel-host,
-.stage.is-land.shell-pwa .table:has(.top-ticker:not(.is-idle)) .reel-host,
-.stage.is-land.shell-pc .table:has(.top-ticker:not(.is-idle)) .reel-host {
-  grid-row: 4 / 6;
-  padding-top: 0;
 }
 
 /* Cabinet fills the center column. Cells share that box; they are not letterboxed squares. */

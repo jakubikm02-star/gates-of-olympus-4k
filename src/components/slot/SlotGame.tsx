@@ -34,6 +34,7 @@ import { AddToHome } from "./AddToHome";
 import { registerInstallSw } from "@/lib/slot/a2hs-client";
 import { EgoDock, useSmrtEga } from "./SmrtEga";
 import "./layouts.css";
+import "./reel-lock.css";
 import { LiveHits } from "./LiveHits";
 import { MachineFrame } from "./MachineFrame";
 import { RankPanel } from "./RankPanel";

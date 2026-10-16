@@ -370,7 +370,9 @@ export function SlotGrid({
     ),
   );
 
-  // Row height from the window content box, so the spin strip matches the visible cells.
+  // Row height from the window content box. That box is sized from the viewport
+  // (dvh, width, orientation, safe area) minus fixed chrome slots — see reel-lock.css —
+  // so a tumble line, win, ticket, or bonus does not change --cell-h.
   const cellH = useRef(0);
   useLayoutEffect(() => {
     const win = windowRef.current;

@@ -1,0 +1,398 @@
+/* Reel box is a function of the viewport only.
+   The stage is --app-h (visual viewport) tall. Every row that appears and
+   disappears during play — tumble line, GOOD LUCK / VÝHRA, ticket strip,
+   jackpot head, bonus meter — keeps one outer height. Idle content is
+   visibility:hidden inside that slot. Pay lines and the win banner stay
+   absolutely positioned, so they never reflow the grid.
+   Cell size is the window height / 5 (Grid.tsx). The window no longer changes. */
+
+/* —— Portrait phone, installed PWA, Fold cover —— */
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) {
+  --slot-head: 7rem;
+  --slot-meter: 26px;
+  --slot-ticker: 26px;
+  --slot-job: 4rem;
+  --slot-win: calc(1.2rem + 18px);
+  --slot-side: 50px;
+  --slot-spin: 52px;
+  --slot-icons: 44px;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .table-head,
+:root[data-short-vp] .stage:not(.is-land):is(.shell-mw, .shell-pwa) .table-head {
+  height: var(--slot-head);
+  min-height: var(--slot-head);
+  max-height: var(--slot-head);
+  flex: 0 0 var(--slot-head);
+  overflow: hidden;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .jp-stack.is-strip {
+  position: relative;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .head-end:has(.ego-dock) .jp-stack.is-strip em,
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .jp-stack.is-strip em {
+  position: absolute;
+  right: 6px;
+  bottom: 1px;
+  grid-column: auto;
+  width: max-content;
+  max-width: calc(100% - 12px);
+  pointer-events: none;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa) .side-left {
+  height: var(--slot-side);
+  min-height: var(--slot-side);
+  max-height: var(--slot-side);
+  flex: 0 0 var(--slot-side);
+  overflow: hidden;
+}
+
+.stage.shell-mw:not(.is-land) .board-meter,
+.stage.shell-pwa:not(.is-land) .board-meter,
+.stage.shell-mw.in-fs:not(.is-land) .board-meter,
+.stage.shell-pwa.in-fs:not(.is-land) .board-meter,
+.stage.fold-cover:not(.is-land) .board-meter,
+.stage.fold-cover.in-fs:not(.is-land) .board-meter,
+:root[data-short-vp] .stage:not(.is-land):is(.shell-mw, .shell-pwa) .board-meter,
+:root[data-short-vp] .stage:not(.is-land):is(.shell-mw, .shell-pwa).in-fs .board-meter {
+  height: var(--slot-meter, 26px);
+  min-height: var(--slot-meter, 26px);
+  max-height: var(--slot-meter, 26px);
+  margin: 1px 0 0;
+  overflow: hidden;
+  flex: 0 0 var(--slot-meter, 26px);
+}
+
+.stage.shell-mw:not(.is-land) .top-ticker,
+.stage.shell-pwa:not(.is-land) .top-ticker,
+.stage.shell-mw:not(.is-land) .top-ticker.is-idle,
+.stage.shell-pwa:not(.is-land) .top-ticker.is-idle,
+.stage.fold-cover:not(.is-land) .top-ticker,
+.stage.fold-cover:not(.is-land) .top-ticker.is-idle,
+.stage:not(.is-land):is(.shell-mw, .shell-pwa) .top-ticker.is-idle,
+.stage.shell-mw:not(.is-land) .top-ticker.is-chase,
+.stage.shell-pwa:not(.is-land) .top-ticker.is-chase,
+.stage.fold-cover:not(.is-land) .top-ticker.is-chase,
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .top-ticker,
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .top-ticker:not(.is-chase),
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .top-ticker.is-chase {
+  height: var(--slot-ticker, 1.2rem);
+  min-height: var(--slot-ticker, 1.2rem);
+  max-height: var(--slot-ticker, 1.2rem);
+  margin: 0 0 1px;
+  padding: 0 8px;
+  flex: 0 0 var(--slot-ticker, 1.2rem);
+  box-sizing: border-box;
+  overflow: hidden;
+  line-height: 1;
+}
+
+.stage.shell-mw:not(.is-land) .top-ticker strong,
+.stage.shell-pwa:not(.is-land) .top-ticker strong,
+.stage.fold-cover:not(.is-land) .top-ticker strong {
+  line-height: 1;
+}
+
+.stage.shell-mw:not(.is-land) .board-job,
+.stage.shell-pwa:not(.is-land) .board-job,
+.stage.shell-mw:not(.is-land) .board-job.has-job,
+.stage.shell-pwa:not(.is-land) .board-job.has-job,
+.stage.fold-cover:not(.is-land) .board-job,
+.stage.fold-cover:not(.is-land) .board-job.has-job,
+.stage.shell-mw:not(.is-land) .board-job.has-job:has(.job-chip.is-dual),
+.stage.shell-mw:not(.is-land) .board-job.has-job:has(.job-chip.is-split),
+.stage.shell-pwa:not(.is-land) .board-job.has-job:has(.job-chip.is-dual),
+.stage.shell-pwa:not(.is-land) .board-job.has-job:has(.job-chip.is-split),
+.stage.fold-cover:not(.is-land) .board-job.has-job:has(.job-chip.is-dual),
+.stage.fold-cover:not(.is-land) .board-job.has-job:has(.job-chip.is-split),
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .board-job,
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .board-job:not(.has-job),
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .board-job.has-job,
+:root[data-short-vp] .stage:is(.shell-mw, .shell-pwa) .board-job.has-job:has(.job-chip.is-dual) {
+  --job-h: var(--slot-job, 4rem);
+  flex: 0 0 var(--job-h);
+  height: var(--job-h);
+  min-height: var(--job-h);
+  max-height: var(--job-h);
+  margin: 6px 0 0;
+  padding: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .win-stack,
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .win-stack:not(:has(.has-win)),
+:root[data-short-vp] .stage:not(.is-land):is(.shell-mw, .shell-pwa) .win-stack,
+:root[data-short-vp] .stage:not(.is-land):is(.shell-mw, .shell-pwa) .win-stack:not(:has(.has-win)) {
+  height: var(--slot-win, calc(1.2rem + 18px));
+  min-height: var(--slot-win, calc(1.2rem + 18px));
+  max-height: var(--slot-win, calc(1.2rem + 18px));
+  padding: 0 8px;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+:root[data-short-vp] .stage:not(.is-land):is(.shell-mw, .shell-pwa) .win-stack,
+:root[data-short-vp] .stage:not(.is-land):is(.shell-mw, .shell-pwa) .win-stack:not(:has(.has-win)) {
+  --slot-win: 31px;
+  height: 31px;
+  min-height: 31px;
+  max-height: 31px;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa, .fold-cover) .win-stack:not(:has(.has-win)) .pay-hint,
+.stage.fold-inner:not(.is-land) .win-stack:not(:has(.has-win)) .pay-hint,
+.stage.fold-flex-v:not(.is-land) .win-stack:not(:has(.has-win)) .pay-hint {
+  display: flex;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa) .bottom-hud {
+  grid-template-rows: var(--slot-win) var(--slot-icons) var(--slot-spin);
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa) .credit-stack,
+:root[data-short-vp] .stage:not(.is-land):is(.shell-mw, .shell-pwa) .credit-stack {
+  height: var(--slot-spin, 52px);
+  max-height: var(--slot-spin, 52px);
+  overflow: hidden;
+}
+
+:root[data-short-vp] .stage:not(.is-land):is(.shell-mw, .shell-pwa) {
+  --slot-spin: var(--svp-spin);
+  --slot-icons: var(--svp-icon);
+  --slot-win: 31px;
+  --slot-meter: 22px;
+}
+
+.stage:not(.is-land):is(.shell-mw, .shell-pwa) .extra-row {
+  box-sizing: border-box;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  height: calc(36px + 2px + max(8px, env(safe-area-inset-bottom, 0px)));
+  min-height: calc(36px + 2px + max(8px, env(safe-area-inset-bottom, 0px)));
+  max-height: calc(36px + 2px + max(8px, env(safe-area-inset-bottom, 0px)));
+}
+
+:root[data-short-vp] .stage:not(.is-land):is(.shell-mw, .shell-pwa) .extra-row {
+  height: calc(var(--svp-chip) + 2px + max(4px, env(safe-area-inset-bottom, 0px)));
+  min-height: calc(var(--svp-chip) + 2px + max(4px, env(safe-area-inset-bottom, 0px)));
+  max-height: calc(var(--svp-chip) + 2px + max(4px, env(safe-area-inset-bottom, 0px)));
+}
+
+.stage.in-fs .board-wrap,
+.stage.shell-mw.in-fs .board-wrap,
+.stage.shell-pwa.in-fs .board-wrap,
+.stage.fold-inner.in-fs .board-wrap,
+.stage.fold-flex-v.in-fs .board-wrap {
+  margin-top: 0;
+}
+
+/* —— Unfolded Fold and Flex, portrait —— */
+.stage.fold-inner:not(.is-land),
+.stage.fold-flex-v:not(.is-land) {
+  --slot-head: 8.75rem;
+  --slot-meter: 1.7rem;
+  --slot-ticker: 1.7rem;
+  --slot-job: 2.75rem;
+  --slot-win: 3rem;
+}
+
+.stage.fold-inner:not(.is-land) .table-head,
+.stage.fold-flex-v:not(.is-land) .table-head {
+  height: var(--slot-head);
+  min-height: var(--slot-head);
+  max-height: var(--slot-head);
+  flex: 0 0 var(--slot-head);
+  overflow: hidden;
+}
+
+.stage.fold-inner:not(.is-land) .jp-stack.is-strip,
+.stage.fold-flex-v:not(.is-land) .jp-stack.is-strip {
+  position: relative;
+}
+
+.stage.fold-inner:not(.is-land) .head-end:has(.ego-dock) .jp-stack.is-strip em,
+.stage.fold-flex-v:not(.is-land) .jp-stack.is-strip em {
+  position: absolute;
+  right: 6px;
+  bottom: 1px;
+  grid-column: auto;
+  width: max-content;
+  max-width: calc(100% - 12px);
+  pointer-events: none;
+}
+
+.stage.fold-inner:not(.is-land) .board-meter,
+.stage.fold-flex-v:not(.is-land) .board-meter,
+.stage.fold-inner:not(.is-land).in-fs .board-meter,
+.stage.fold-flex-v:not(.is-land).in-fs .board-meter {
+  height: var(--slot-meter);
+  min-height: var(--slot-meter);
+  max-height: var(--slot-meter);
+  margin: 0 0 4px;
+  overflow: hidden;
+  flex: 0 0 var(--slot-meter);
+}
+
+.stage.fold-inner:not(.is-land) .top-ticker,
+.stage.fold-flex-v:not(.is-land) .top-ticker,
+.stage.fold-inner:not(.is-land) .top-ticker.is-idle,
+.stage.fold-flex-v:not(.is-land) .top-ticker.is-idle,
+.stage.fold-inner:not(.is-land) .top-ticker.is-chase,
+.stage.fold-flex-v:not(.is-land) .top-ticker.is-chase {
+  height: var(--slot-ticker);
+  min-height: var(--slot-ticker);
+  max-height: var(--slot-ticker);
+  margin: 0 0 6px;
+  flex: 0 0 var(--slot-ticker);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.stage.fold-inner:not(.is-land) .board-job,
+.stage.fold-flex-v:not(.is-land) .board-job,
+.stage.fold-inner:not(.is-land) .board-job.has-job,
+.stage.fold-flex-v:not(.is-land) .board-job.has-job,
+.stage.fold-inner:not(.is-land) .board-job.has-job:has(.job-chip.is-dual),
+.stage.fold-inner:not(.is-land) .board-job.has-job:has(.job-chip.is-split),
+.stage.fold-flex-v:not(.is-land) .board-job.has-job:has(.job-chip.is-dual),
+.stage.fold-flex-v:not(.is-land) .board-job.has-job:has(.job-chip.is-split) {
+  --job-h: var(--slot-job);
+  flex: 0 0 var(--job-h);
+  height: var(--job-h);
+  min-height: var(--job-h);
+  max-height: var(--job-h);
+  margin: 6px 0 0;
+  padding: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.stage.fold-inner:not(.is-land) .win-stack,
+.stage.fold-flex-v:not(.is-land) .win-stack,
+.stage.fold-inner:not(.is-land) .win-stack:not(:has(.has-win)),
+.stage.fold-flex-v:not(.is-land) .win-stack:not(:has(.has-win)) {
+  height: var(--slot-win);
+  min-height: var(--slot-win);
+  max-height: var(--slot-win);
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+/* —— Landscape, including Fold inner and Flex horizontal ——
+   The tumble line is pinned under the meter. It does not take a grid row,
+   and the cabinet padding does not change when the line appears. */
+.stage.is-land .head-end,
+.stage.is-land .head-end:has(.ego-dock),
+.stage.is-land.shell-pc .head-end,
+.stage.is-land.shell-mw .head-end,
+.stage.is-land.shell-pwa .head-end {
+  height: 56px;
+  min-height: 56px;
+  max-height: 56px;
+  overflow: hidden;
+}
+
+.stage.is-land .head-end .jp-stack.is-strip {
+  position: relative;
+}
+
+.stage.is-land .top-ticker,
+.stage.is-land .top-ticker.is-idle,
+.stage.is-land .top-ticker:not(.is-idle),
+.stage.is-land .top-ticker.is-chase {
+  display: flex;
+  position: absolute;
+  grid-column: 2;
+  grid-row: 2;
+  top: 30px;
+  left: 0;
+  right: 0;
+  align-self: start;
+  justify-self: stretch;
+  width: auto;
+  height: 22px;
+  min-height: 22px;
+  max-height: 22px;
+  margin: 0;
+  padding: 0 8px;
+  z-index: 8;
+  box-sizing: border-box;
+  overflow: hidden;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.stage.is-land .top-ticker.is-idle {
+  visibility: hidden;
+}
+
+.stage.is-land .reel-host,
+.stage.is-land.shell-mw .reel-host,
+.stage.is-land.shell-pwa .reel-host,
+.stage.is-land.shell-pc .reel-host,
+.stage.is-land .table:has(.top-ticker:not(.is-idle)) .reel-host,
+.stage.is-land.shell-mw .table:has(.top-ticker:not(.is-idle)) .reel-host,
+.stage.is-land.shell-pwa .table:has(.top-ticker:not(.is-idle)) .reel-host,
+.stage.is-land.shell-pc .table:has(.top-ticker:not(.is-idle)) .reel-host {
+  grid-row: 2 / 6;
+  padding-top: 56px;
+}
+
+.stage.is-land .board-meter,
+.stage.is-land.in-fs .board-meter,
+.stage.is-land.shell-mw .board-meter,
+.stage.is-land.shell-mw.in-fs .board-meter,
+.stage.is-land.shell-pwa .board-meter,
+.stage.is-land.shell-pwa.in-fs .board-meter,
+.stage.is-land.shell-pc .board-meter,
+.stage.is-land.shell-pc.in-fs .board-meter {
+  height: 28px;
+  min-height: 28px;
+  max-height: 28px;
+  overflow: hidden;
+}
+
+.stage.is-land .board-job:not(.has-job),
+.stage.is-land .board-job,
+.stage.is-land .board-job.has-job,
+.stage.is-land .board-job.has-job:has(.job-chip.is-dual),
+.stage.is-land .board-job.has-job:has(.job-chip.is-split) {
+  display: block;
+  min-width: 0;
+  height: 4.5rem;
+  min-height: 4.5rem;
+  max-height: 4.5rem;
+  margin: 0;
+  padding: 4px 6px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.stage.is-land .board-job:not(.has-job) {
+  visibility: hidden;
+  background: transparent;
+  border-color: transparent;
+}
+
+.stage.is-land .win-stack,
+.stage.is-land .win-stack:not(:has(.has-win)),
+.stage.is-land .win-stack:has(.has-win),
+.stage.is-land.shell-mw .win-stack:not(:has(.has-win)),
+.stage.is-land.shell-pwa .win-stack:not(:has(.has-win)) {
+  display: flex;
+  flex: 0 0 40px;
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  margin: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.stage.is-land .win-stack:not(:has(.has-win)) {
+  visibility: hidden;
+}
