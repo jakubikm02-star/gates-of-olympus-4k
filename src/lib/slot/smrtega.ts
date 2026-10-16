@@ -47,11 +47,26 @@ export function egoLiveScore(serverScore: number, rpNow: number, rpAtReport: num
   return Math.round(serverScore + (rpNow - rpAtReport));
 }
 
-export interface EgoBoardRow {
+/** Optional columns. Present only when the payload actually carries them. */
+export interface EgoBoardStats {
+  fee?: number;
+  spins?: number;
+  day?: number;
+}
+
+export interface EgoBoardRow extends EgoBoardStats {
   nick: string;
   score: number;
   admin: boolean;
   mine?: boolean;
+}
+
+function boardStats(t: EgoBoardStats): EgoBoardStats {
+  return {
+    ...(typeof t.fee === "number" ? { fee: t.fee } : {}),
+    ...(typeof t.spins === "number" ? { spins: t.spins } : {}),
+    ...(typeof t.day === "number" ? { day: t.day } : {}),
+  };
 }
 
 /**
@@ -59,12 +74,12 @@ export interface EgoBoardRow {
  * Place counts people we can see, plus anyone the server already had ahead of us and we have not passed.
  */
 export function egoLiveBoard(
-  top: readonly { nick: string; score: number; admin: boolean }[],
+  top: readonly (EgoBoardStats & { nick: string; score: number; admin: boolean })[],
   me: { score: number; place: number; admin: boolean },
   liveScore: number,
   nick: string,
 ): { score: number; place: number; top: EgoBoardRow[] } {
-  const rows = top.map((t, i) => ({ nick: t.nick, score: t.score, admin: t.admin, i }));
+  const rows = top.map((t, i) => ({ nick: t.nick, score: t.score, admin: t.admin, ...boardStats(t), i, mine: false }));
   let mineAt = rows.findIndex((t) => t.nick === nick && t.score === me.score && t.admin === me.admin);
   if (mineAt < 0) {
     const same = rows.filter((t) => t.score === me.score && t.admin === me.admin);
@@ -84,6 +99,7 @@ export function egoLiveBoard(
     score: liveScore,
     admin: me.admin,
     mine: true,
+    ...(inTop ? boardStats(rows[mineAt]!) : {}),
     i: inTop ? rows[mineAt]!.i : 1_000_000,
   };
   const byRank = (a: { score: number; i: number; mine?: boolean }, b: { score: number; i: number; mine?: boolean }) => {
@@ -94,8 +110,7 @@ export function egoLiveBoard(
     return a.i - b.i;
   };
   const rankedOthers = [...others].sort(byRank);
-  const ranked: { nick: string; score: number; admin: boolean; mine?: boolean }[] =
-    place <= 10 ? [...others, mine].sort(byRank).slice(0, 10) : rankedOthers.slice(0, 10);
+  const ranked = (place <= 10 ? [...others, mine].sort(byRank).slice(0, 10) : rankedOthers.slice(0, 10)) as typeof rows;
   return {
     score: liveScore,
     place,
@@ -103,7 +118,8 @@ export function egoLiveBoard(
       nick: row.nick,
       score: row.score,
       admin: row.admin,
-      ...(row.mine ? { mine: true } : {}),
+      ...boardStats(row),
+      ...(row.mine ? { mine: true as const } : {}),
     })),
   };
 }
@@ -290,7 +306,7 @@ export interface EgoState {
   weekEnd: number;
   now: number;
   players: number;
-  top: { nick: string; score: number; admin: boolean }[];
+  top: (EgoBoardStats & { nick: string; score: number; admin: boolean })[];
   me: { joined: boolean; score: number; place: number; fee: number; admin: boolean } | null;
   leader: { nick: string; score: number } | null;
   prize: { status: EgoPrizeStatus; deliveredAt: number | null; expiresAt: number | null } | null;
