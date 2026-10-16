@@ -7,6 +7,9 @@
  *   KOLESO    · ZLATÉ VÝSEKY  — value slices and KURIÉR pay × g (same wheel path as a normal run).
  * Anti max-bet: the golden part pays on at most the player's usual stake (median of the last paid spins):
  *   cash = regularX × bet + (goldX − regularX) × min(bet, usual)   (regularX = the same run without gold).
+ * The day's gold is spent only after a confirmed golden win (credited uplift > 0, and for KONTROLA the
+ * ZLATÁ POKUTA tile was actually picked). A 0, a miss of the gold tile, or a run the gold did not raise
+ * recharges the SIM. Payout math of a single run is unchanged.
  * Tuning and acceptance: scripts/feature-sim/zlaty-sim.ts (EV per mode × rank, RTP at 100/500/1000 spins/day).
  */
 import type { BonusModeId } from "./bonus-mode.ts";
@@ -218,7 +221,11 @@ export function goldWaiting(z: ZlatyState, today: string, enabled = true): boole
   return enabled && DAY_RE.test(today) && z.usedDay < today;
 }
 
-/** The bar filled with the gold waiting: spend today's gold (saved with the pending bonus). */
+/**
+ * The bar filled with the gold waiting: reserve today's gold with the pending bonus.
+ * `usedDay` here is only the reservation. `settleGold` spends it after a golden win, or `rechargeGold` /
+ * `abortGold` puts it back. A crash mid-run keeps `openDay` so a reload can arm it again.
+ */
 export function claimGold(z: ZlatyState, today: string): ZlatyState {
   return { ...z, usedDay: today, openDay: today };
 }
@@ -258,16 +265,46 @@ export function recordGold(
 }
 
 /**
- * A golden run settled. Only a golden bonus that pays (> 0) spends the day's gold: one that ends with 0
- * recharges the golden SIM, so the next bar bonus is golden again, until one pays.
+ * Confirmed golden win. The 15. 10. fix looked at `cash` (the whole bonus, ordinary tickets included), so a
+ * KONTROLA that missed ZLATÁ POKUTA still spent the day whenever another tile paid. The golden win is the
+ * credited uplift (`extra` > 0). `hit: false` is an explicit miss of ZLATÁ POKUTA and never spends the day.
+ * A zero payout does not spend it either.
+ */
+export function goldenWin(r: { cash: number; extra: number; hit?: boolean }): boolean {
+  if (!(r.cash > 0) || !(r.extra > 0)) return false;
+  if (r.hit === false) return false;
+  return true;
+}
+
+/**
+ * A golden run settled. Only a confirmed golden win spends the day's gold. Anything else (0, missed
+ * ZLATÁ POKUTA, gold that did not raise the pay) recharges the SIM, so the next bar bonus is golden again.
  */
 export function settleGold(
   z: ZlatyState,
-  r: { mode: BonusModeId; x: number; cash: number; extra: number; day: string },
+  r: { mode: BonusModeId; x: number; cash: number; extra: number; day: string; hit?: boolean },
 ): { z: ZlatyState; recharged: boolean } {
   const closed = { ...z, openDay: undefined };
-  if (r.cash > 0) return { z: recordGold(closed, r), recharged: false };
+  if (goldenWin(r)) return { z: recordGold(closed, r), recharged: false };
   return { z: rechargeGold(closed, r.day), recharged: true };
+}
+
+/**
+ * A reserved golden run was thrown away before it paid (max win, duel, crash, KONTROLA closed mid-pick).
+ * The SIM is armed again. A pending Ž-BOX / KOLESO that will still replay must not call this.
+ */
+export function abortGold(z: ZlatyState, day: string): ZlatyState {
+  return { ...rechargeGold(z, day), openDay: undefined };
+}
+
+/**
+ * On load. A golden run still saved on the pending bonus is replayed and is not a finished spend.
+ * Anything else (KONTROLA already cleared its pending row, a crash, a duel) is armed again.
+ */
+export function goldOnLoad(z: ZlatyState | null | undefined, pendingHasGold: boolean, today: string): ZlatyState {
+  const base = z ?? emptyZlaty();
+  if (pendingHasGold) return base;
+  return reviveGold(base, today);
 }
 
 /** Golden SIM charged again for `day` (the gold is waiting; the teaser may show again). */

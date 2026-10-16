@@ -19,15 +19,19 @@ import {
   ZLATY_FLAG_DEFAULT,
   ZLATY_KURIER_K,
   ZLATY_TARGET_UP,
+  abortGold,
   claimGold,
   emptyZlaty,
   goldBoard,
   goldCash,
+  goldOnLoad,
   goldWaiting,
+  goldenWin,
   kontrolaRegularX,
   noteStake,
   recordGold,
   sanitizeZlaty,
+  settleGold,
   usualStake,
   zlatyEnabled,
 } from "./zlaty.ts";
@@ -191,6 +195,10 @@ describe("ZLATÝ BONUS: wiring", () => {
     assert.match(hook, /claimGold\(zlatyRef\.current, today\)/);
     assert.match(hook, /\.\.\.\(gold \? \{ gold \} : \{\}\)/);
     assert.match(hook, /syncServerClock\(\)/);
+    assert.match(hook, /goldOnLoad\(s\.zlaty, Boolean\(s\.bonusPending\?\.gold\), braDay\(serverNow\(\)\)\)/);
+    assert.match(hook, /hit: goldPickedRef\.current/);
+    assert.equal((hook.match(/settleGold\(/g) ?? []).length, 1, "one settle path for spin, tumble, auto, turbo and tickets");
+    assert.equal((hook.match(/abortGold\(/g) ?? []).length, 3, "duel, discarded bar, crash");
   });
   it("all three modes pay through goldCash and the 100× cap; RP from the regular part", () => {
     assert.equal((hook.match(/goldCash\(/g) ?? []).length, 3);
@@ -236,6 +244,120 @@ describe("ZLATÁ SIM reveal: art layers, pop-out stages, reduced motion", () => 
     assert.match(ui, /useState<SimStage>\(reduced \? 4 : 0\)/);
     assert.match(css, /\.zl-reveal\.is-reduced \*[^{]*\{ animation: none !important; transition: none !important; \}/);
     assert.match(css, /prefers-reduced-motion: reduce[\s\S]*\.zl-reveal \.zl-beam/);
+  });
+});
+
+describe("golden win is the uplift, not the ordinary bonus cash", () => {
+  const day = "2026-10-16";
+
+  /** One KONTROLA pick list priced the way the hook prices it. `hit` is whether ZLATÁ POKUTA was tapped. */
+  function priced(hit: boolean, payX: number[]) {
+    const tiles = goldBoard(dealPickBoard(() => 0), 0, 0, ZLATA_POKUTA_X.kredit);
+    const gold = tiles.find((t) => t.kind === "zlata");
+    assert.ok(gold);
+    const goldX = +payX.reduce((s, x) => s + x, 0).toFixed(4);
+    const regX = kontrolaRegularX(
+      tiles,
+      tiles.map((t) => t.kind === "zlata" && hit),
+      false,
+      goldX,
+    );
+    const bet = 2;
+    const cash = goldCash(Math.min(ZLATY_CAP_X, goldX), regX, bet, bet);
+    const regular = +(regX * bet).toFixed(2);
+    return { x: goldX, cash, extra: +(cash - regular).toFixed(2), hit, day, mode: "kontrola" as const };
+  }
+
+  it("a missed ZLATÁ POKUTA recharges even when other tickets paid", () => {
+    const miss = priced(false, [2, 0.5]);
+    assert.ok(miss.cash > 0, "ordinary tickets still pay");
+    assert.equal(miss.extra, 0);
+    assert.equal(goldenWin(miss), false);
+    let z = claimGold(emptyZlaty(), day);
+    assert.equal(goldWaiting(z, day), false);
+    const settled = settleGold(z, miss);
+    assert.equal(settled.recharged, true);
+    assert.equal(settled.z.played, 0);
+    assert.equal(goldWaiting(settled.z, day), true);
+    const caught = priced(true, [ZLATA_POKUTA_X.kredit]);
+    assert.ok(caught.extra > 0);
+    assert.equal(goldenWin(caught), true);
+    z = settleGold(claimGold(settled.z, day), caught).z;
+    assert.equal(goldWaiting(z, day), false);
+    assert.equal(z.played, 1);
+  });
+
+  it("zero-outcome recharge loop stays armed until a golden win", () => {
+    let z = emptyZlaty();
+    for (const mode of ["kontrola", "zbox", "koleso"] as const) {
+      z = claimGold(z, day);
+      const zero = settleGold(z, { mode, x: 0, cash: 0, extra: 0, day, hit: false });
+      assert.equal(zero.recharged, true, mode);
+      z = sanitizeZlaty(JSON.parse(JSON.stringify(zero.z)));
+      assert.equal(goldWaiting(z, day), true, mode);
+      assert.equal(z.played, 0);
+      assert.equal(z.openDay, undefined);
+    }
+    // Ordinary cash with no golden uplift is the same loop, not a spend.
+    z = claimGold(z, day);
+    z = settleGold(z, { mode: "zbox", x: 4, cash: 8, extra: 0, day }).z;
+    assert.equal(goldWaiting(z, day), true);
+    z = settleGold(claimGold(z, day), { mode: "koleso", x: 6, cash: 12, extra: 3, day }).z;
+    assert.equal(goldWaiting(z, day), false);
+    assert.equal(z.played, 1);
+    assert.equal(z.byMode.koleso.n, 1);
+  });
+
+  it("reload mid-bonus does not spend the day", () => {
+    const claimed = claimGold(emptyZlaty(), day);
+    // KONTROLA clears the pending row when the map opens. A reload arms the SIM again.
+    const kont = goldOnLoad(sanitizeZlaty(JSON.parse(JSON.stringify(claimed))), false, day);
+    assert.equal(goldWaiting(kont, day), true);
+    assert.equal(kont.played, 0);
+    assert.equal(kont.openDay, undefined);
+    // Ž-BOX / KOLESO keep the pending gold, so the same run replays and is not a finished spend.
+    const saved = sanitizePlayerSave({
+      ...emptyPlayerSave(),
+      zlaty: claimed,
+      bonusPending: { mode: "zbox", bet: 1, mod: null, modLeft: 0, at: 1, seed: 3, gold: { day, stake: 1 } },
+    });
+    const mid = goldOnLoad(saved.zlaty, Boolean(saved.bonusPending?.gold), day);
+    assert.equal(mid.openDay, day);
+    assert.equal(mid.played, 0);
+    assert.equal(goldWaiting(mid, day), false);
+    const after = settleGold(mid, { mode: "zbox", x: 0, cash: 0, extra: 0, day });
+    assert.equal(after.recharged, true);
+    const round = sanitizeZlaty(JSON.parse(JSON.stringify(after.z)));
+    assert.equal(goldWaiting(goldOnLoad(round, false, day), day), true);
+  });
+
+  it("autospin, turbo and a discarded bar do not spend gold before a golden win", () => {
+    const hook = src("../../hooks/use-slot-game.ts");
+    const show = hook.slice(hook.indexOf("const showGoldResult"), hook.indexOf("const finishGoldResult"));
+    assert.match(show, /settleGold\(/);
+    const settleAt = show.indexOf("settleGold(");
+    const waitAt = show.indexOf("await new Promise");
+    assert.ok(settleAt >= 0 && waitAt > settleAt, "the day is saved before the result card, so turbo and autospin cannot skip it");
+    assert.match(hook, /autoRef\.current && autoHaltRef/);
+    // Autospin starts the next spin only after playRound clears busy, which is after the awaited bonus.
+    const play = hook.indexOf("const r = await runSequence");
+    const bonus = hook.indexOf("await runBonus()", play);
+    const cleared = hook.indexOf("busyRef.current = false", bonus);
+    assert.ok(play > 0 && bonus > play && cleared > bonus);
+    let z = emptyZlaty();
+    // Three auto spins: two golden bonuses end with nothing, the third catches the win.
+    for (let i = 0; i < 2; i++) {
+      z = settleGold(claimGold(z, day), { mode: "kontrola", x: 1, cash: 2, extra: 0, day, hit: false }).z;
+      assert.equal(goldWaiting(z, day), true, `auto ${i}`);
+    }
+    z = settleGold(claimGold(z, day), { mode: "kontrola", x: 8, cash: 16, extra: 12, day, hit: true }).z;
+    assert.equal(z.played, 1);
+    assert.equal(goldWaiting(z, day), false);
+    // Max win, duel or a crash drops the reserved run. The SIM is armed in the same session, not only after a reload.
+    const dropped = abortGold(claimGold(emptyZlaty(), day), day);
+    assert.equal(goldWaiting(dropped, day), true);
+    assert.equal(dropped.played, 0);
+    assert.equal(dropped.openDay, undefined);
   });
 });
 
