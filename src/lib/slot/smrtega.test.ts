@@ -258,3 +258,14 @@ test("admin endpoint: only ADMIN_EMAILS or token, write-only code", async () => 
   const bad = await handleEgoAdmin(new Request("http://x/api/smrtega-admin", { method: "POST", body: JSON.stringify({ action: "code", slot: 5, code: "abcd" }) }), deps());
   assert.equal(bad.status, 400);
 });
+
+test("admin endpoint: replace sends award + trimmed code, rejects bad input", async () => {
+  const d = deps();
+  const r = await handleEgoAdmin(new Request("http://x/api/smrtega-admin", { method: "POST", body: JSON.stringify({ action: "replace", award: 1, code: " 830854 " }) }), d);
+  assert.equal(r.status, 200);
+  assert.match(d.seen[0], /ego_admin_replace \{"p_award":1,"p_code":"830854"\}/);
+  for (const body of [{ action: "replace", award: 0, code: "abcd" }, { action: "replace", award: 1, code: "ab" }, { action: "replace", code: "abcd" }]) {
+    const bad = await handleEgoAdmin(new Request("http://x/api/smrtega-admin", { method: "POST", body: JSON.stringify(body) }), deps());
+    assert.equal(bad.status, 400);
+  }
+});

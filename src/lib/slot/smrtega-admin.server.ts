@@ -85,6 +85,12 @@ export async function handleEgoAdmin(request: Request, deps: EgoAdminDeps = defa
       if (!Number.isInteger(id) || id <= 0) return json({ error: "input" }, 400);
       return call("ego_revoke", { p_award: id, p_reassign: Boolean(b.reassign) });
     }
+    case "replace": {
+      const id = Number(b.award);
+      const code = typeof b.code === "string" ? b.code.trim() : "";
+      if (!Number.isInteger(id) || id <= 0 || code.length < 4 || code.length > 64) return json({ error: "input" }, 400);
+      return call("ego_admin_replace", { p_award: id, p_code: code });
+    }
     case "player": {
       const pid = typeof b.playerId === "string" ? b.playerId.trim() : "";
       if (pid.length < 8 || pid.length > 64) return json({ error: "input" }, 400);

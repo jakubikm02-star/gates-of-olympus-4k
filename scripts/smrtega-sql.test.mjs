@@ -6,6 +6,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 
 const sql = await readFile(new URL("../supabase/migrations/20261015_smrtega.sql", import.meta.url), "utf8");
+const sqlReplace = await readFile(new URL("../supabase/migrations/20261019_smrtega_replace.sql", import.meta.url), "utf8");
 
 async function fresh() {
   const db = new PGlite({ extensions: { pgcrypto } });
@@ -16,6 +17,7 @@ async function fresh() {
     insert into vault.decrypted_secrets values ('smrtega_key', 'test-only-key');
   `);
   await db.exec(sql);
+  await db.exec(sqlReplace);
   return db;
 }
 const one = async (db, q, p = []) => (await db.query(q, p)).rows[0];
@@ -60,8 +62,8 @@ test("join, report, settle with Martin 1st, pending → delivered on code, claim
   // end the week: move it into the past
   await db.exec(`
     alter table ego_entry drop constraint ego_entry_week_start_fkey;
-    update ego_entry set week_start = week_start - interval '7 days';
-    update ego_week set week_start = week_start - interval '7 days', week_end = week_end - interval '7 days';
+    update ego_entry set week_start = week_start - interval '8 days';
+    update ego_week set week_start = week_start - interval '8 days', week_end = week_end - interval '8 days';
     alter table ego_entry add foreign key (week_start) references ego_week (week_start);`);
   await db.query(`select ego_settle()`);
   const w = await one(db, `select status, winner_id from ego_week order by week_start limit 1`);
@@ -106,8 +108,8 @@ test("void week when everyone is negative; key entered ahead is kept ready", asy
   await j(db, `select ego_join('b-player-01', 'B', 20000, 0, 0, ${hash("b")})`);
   await db.exec(`
     alter table ego_entry drop constraint ego_entry_week_start_fkey;
-    update ego_entry set week_start = week_start - interval '7 days';
-    update ego_week set week_start = week_start - interval '7 days', week_end = week_end - interval '7 days';
+    update ego_entry set week_start = week_start - interval '8 days';
+    update ego_week set week_start = week_start - interval '8 days', week_end = week_end - interval '8 days';
     alter table ego_entry add foreign key (week_start) references ego_week (week_start);`);
   await db.query(`select ego_settle()`);
   assert.equal((await one(db, `select status from ego_week order by week_start limit 1`)).status, "void");
@@ -115,4 +117,42 @@ test("void week when everyone is negative; key entered ahead is kept ready", asy
   // settle is idempotent
   await db.query(`select ego_settle()`);
   assert.equal(Number((await one(db, `select count(*) n from ego_week`)).n), 2);
+});
+
+test("replace: new key on the same live award, 28 days from now, unrevealed; draw and slots untouched", async () => {
+  const db = await fresh();
+  await j(db, `select ego_join('palica-dev-1', 'Palica360', 20000, 10, 5, ${hash("p")})`);
+  await db.query(`select ego_report('palica-dev-1', 23000, 400, 200)`);
+  await db.exec(`
+    alter table ego_entry drop constraint ego_entry_week_start_fkey;
+    update ego_entry set week_start = week_start - interval '8 days';
+    update ego_week set week_start = week_start - interval '8 days', week_end = week_end - interval '8 days';
+    alter table ego_entry add foreign key (week_start) references ego_week (week_start);`);
+  await db.query(`select ego_settle()`);
+  await j(db, `select ego_admin_code(1::smallint, 'OLD-KEY-1')`);
+  assert.equal((await j(db, `select ego_claim('palica-dev-1', 'p')`)).code, "OLD-KEY-1");
+  await db.exec(`update ego_award set expires_at = now() + interval '3 days'`);
+  const aid = (await one(db, `select id from ego_award`)).id;
+  // refused: bad code, unknown award
+  assert.equal((await j(db, `select ego_admin_replace(${aid}, 'ab')`)).error, "code");
+  assert.equal((await j(db, `select ego_admin_replace(999, '830854')`)).error, "award");
+  const r = await j(db, `select ego_admin_replace(${aid}, ' 830854 ')`);
+  assert.equal(r.ok, true);
+  assert.equal(r.nick, "Palica360");
+  assert.equal(r.slot, 1);
+  assert.equal(r.length, 6);
+  const a = await one(db, `select player_id, status, slot, revealed_at, round(extract(epoch from expires_at - now())/86400) d from ego_award`);
+  assert.deepEqual({ ...a, d: Number(a.d) }, { player_id: "palica-dev-1", status: "awarded", slot: 1, revealed_at: null, d: 28 });
+  assert.equal((await j(db, `select ego_claim('palica-dev-1', 'p')`)).code, "830854");
+  assert.ok(!JSON.stringify(r).includes("830854"));
+  assert.ok(!JSON.stringify(await j(db, `select ego_admin_state()`)).includes("830854"));
+  assert.equal(Number((await one(db, `select count(*) n from ego_award`)).n), 1);
+  assert.deepEqual((await db.query(`select slot, status from ego_code order by slot`)).rows.map((x) => x.status), ["used", "empty", "empty", "empty"]);
+  // revoked award cannot be replaced; anon cannot call it
+  await j(db, `select ego_revoke(${aid}, false)`);
+  assert.equal((await j(db, `select ego_admin_replace(${aid}, '123456')`)).error, "award");
+  const g = await one(db, `select has_function_privilege('anon', 'ego_admin_replace(bigint,text)', 'execute') a,
+    has_function_privilege('authenticated', 'ego_admin_replace(bigint,text)', 'execute') b,
+    has_function_privilege('service_role', 'ego_admin_replace(bigint,text)', 'execute') c`);
+  assert.deepEqual(g, { a: false, b: false, c: true });
 });

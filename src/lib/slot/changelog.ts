@@ -7,6 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-10-19", text: "SMRŤ EGA: keď kľúč 4KA TV zmizne z profilu moja.4ka.tv, výherca dostane náhradný kľúč na tom istom mieste v karte EVENT. Platí ďalších 28 dní a treba ho znova odkryť." },
   { day: "2026-10-16", text: "Poradie na karte EVENT je výsledková tabuľa. Tmavý panel, riadky na celú šírku, stĺpce miesto, odznak, meno, SKÓRE a VSTUP. Tvoj riadok svieti oranžovo a ostáva na obrazovke. Na úzkom paneli sa vedľajšie stĺpce schovajú." },
   { day: "2026-10-16", text: "Zlatý bonus vrátený. Kto ho 15. alebo 16. októbra minul, má ho po načítaní 16. alebo 17. októbra nabitý znova. Raz." },
   { day: "2026-10-16", text: "Oprava ZLATÉHO BONUSU: zlatá SIM sa minie až keď zlatý bonus naozaj niečo pridá. Minutá ZLATÁ POKUTA alebo nulová zlatá výhra SIM znova nabije, aj v AUTO, pri rýchlom točení a po načítaní hry." },

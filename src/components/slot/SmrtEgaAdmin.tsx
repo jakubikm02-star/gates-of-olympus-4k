@@ -36,6 +36,7 @@ export function SmrtEgaAdminPage() {
   const [st, setSt] = useState<AdminState | null>(null);
   const [msg, setMsg] = useState("");
   const [codes, setCodes] = useState<Record<number, string>>({});
+  const [swap, setSwap] = useState<Record<number, string>>({});
 
   const api = useCallback(
     async (body?: Record<string, unknown>) => {
@@ -134,6 +135,24 @@ export function SmrtEgaAdminPage() {
                 }}
               >
                 ULOŽIŤ
+              </button>
+            </p>
+          ) : null}
+          {s.award?.status === "awarded" ? (
+            <p>
+              Kľúč zmizol z moja.4ka.tv? Vymeniť kód pre {s.award.nick} (28 dní odteraz):{" "}
+              <input value={swap[s.award.id] ?? ""} onChange={(e) => s.award && setSwap({ ...swap, [s.award.id]: e.target.value })} placeholder="nový párovací kľúč" />
+              <button
+                type="button"
+                className="ego-btn"
+                onClick={() => {
+                  const a = s.award;
+                  if (!a || !confirm(`Vymeniť kód pre ${a.nick}?`)) return;
+                  void act({ action: "replace", award: a.id, code: swap[a.id] ?? "" }, "Kód vymenený (už ho neuvidíš).");
+                  setSwap({ ...swap, [a.id]: "" });
+                }}
+              >
+                VYMENIŤ KÓD
               </button>
             </p>
           ) : null}
