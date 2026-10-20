@@ -227,16 +227,27 @@ const VOWS = Object.keys(KOLESO_FREQ).filter((c) => KOLESO_VOWELS.includes(c));
 /** Letters in the used-letter row (base letters, alphabet order). */
 export const KOLESO_ALPHABET: readonly string[] = "abcdefghijklmnopqrstuvwxyz".split("");
 
-/** Base letter of a character (lower case, diacritics folded), null for anything that is not a letter. */
+/**
+ * Base letter of a character (lower case, diacritics folded), null for anything that is not a letter.
+ * NFC first, so a decomposed á (a + acute) matches the same offer as á. "ch" stays two letters (c, h):
+ * both are in the offer pool. Comma, digit, hyphen, colon and other marks are not letters.
+ */
 export function kolesoBase(ch: string): string | null {
-  const l = ch.toLowerCase();
+  const flat = ch.normalize("NFC");
+  if ([...flat].length !== 1) return null;
+  const l = flat.toLowerCase();
   const b = FOLD[l] ?? l;
   return b in KOLESO_FREQ ? b : null;
 }
 
-/** Board text: the phrase without its final period, upper case. */
+/** Letters the wheel can offer (the folded alphabet). Every board letter folds onto one of these. */
+export function kolesoOfferable(): readonly string[] {
+  return Object.keys(KOLESO_FREQ);
+}
+
+/** Board text: NFC, the phrase without its final period, upper case. */
 export function kolesoBoardText(text: string): string {
-  return text.replace(/\.$/, "").toLocaleUpperCase("sk");
+  return text.normalize("NFC").replace(/\.$/, "").toLocaleUpperCase("sk");
 }
 
 /** Word wrap on KOLESO_COLS columns. null when a word or the row count does not fit. */
@@ -250,6 +261,65 @@ export function kolesoRows(text: string, cols = KOLESO_COLS, rows = KOLESO_ROWS)
     else out.push(w);
   }
   return out.length <= rows ? out : null;
+}
+
+/** One cell of the tajnička board. */
+export interface KCell {
+  /** Glyph, or "" for an empty column. */
+  ch: string;
+  /**
+   * Reveal id of a guessable letter, in reading order (0 … n−1).
+   * −1 for a blank and for anything that is not a letter (space is a blank; comma, digit,
+   * hyphen, colon stay on screen from the start). Those must not take a letter id: the old
+   * board counted them, so a letter after a comma no longer matched the tile the pick opened,
+   * and the end-of-round reveal stopped before the last letters.
+   */
+  id: number;
+  /** Folded base letter, null when the cell is not a guessable letter. */
+  base: string | null;
+}
+
+/** The phrase laid out on the 16-column board. Letter ids skip blanks and non-letters. */
+export function kolesoGrid(text: string, cols = KOLESO_COLS): KCell[][] {
+  const wrapped = kolesoRows(text) ?? [kolesoBoardText(text)];
+  let id = 0;
+  return wrapped.map((r) => {
+    const pad = Math.floor((cols - r.length) / 2);
+    const cells: KCell[] = [];
+    for (let c = 0; c < cols; c++) {
+      const ch = c >= pad && c < pad + r.length ? r[c - pad] : "";
+      if (!ch || ch === " ") {
+        cells.push({ ch: "", id: -1, base: null });
+        continue;
+      }
+      const base = kolesoBase(ch);
+      cells.push(base ? { ch, id: id++, base } : { ch, id: -1, base: null });
+    }
+    return cells;
+  });
+}
+
+/** Guessable letter tiles in reading order. */
+export function kolesoLetterTiles(text: string): { id: number; ch: string; base: string }[] {
+  const out: { id: number; ch: string; base: string }[] = [];
+  for (const row of kolesoGrid(text)) {
+    for (const c of row) if (c.base != null) out.push({ id: c.id, ch: c.ch, base: c.base });
+  }
+  return out;
+}
+
+/** Tile ids a called letter opens. `letter` may be a base letter or the glyph on the tile. */
+export function kolesoRevealIds(text: string, letter: string): number[] {
+  const base = kolesoBase(letter);
+  if (!base) return [];
+  const ids: number[] = [];
+  for (const t of kolesoLetterTiles(text)) if (t.base === base) ids.push(t.id);
+  return ids;
+}
+
+/** Every guessable tile. The round end (solved or not) shows the whole tajnička through this. */
+export function kolesoRevealAll(text: string): number[] {
+  return kolesoLetterTiles(text).map((t) => t.id);
 }
 
 export interface KStep {
@@ -382,7 +452,7 @@ export function playKoleso(rng: () => number, opts: KOpts = {}): KPlay {
   const ph = KOLESO_PHRASES[pi];
   const cnt: Record<string, number> = {};
   let letters = 0;
-  for (const ch of ph.text) {
+  for (const ch of ph.text.normalize("NFC")) {
     const b = kolesoBase(ch);
     if (b) {
       cnt[b] = (cnt[b] ?? 0) + 1;
