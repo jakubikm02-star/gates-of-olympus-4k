@@ -13,9 +13,11 @@ import {
   KOLESO_TAX,
   KOLESO_VOWEL_COST,
   KOLESO_WHEEL,
-  kolesoBase,
-  kolesoRows,
+  kolesoGrid,
+  kolesoRevealAll,
+  kolesoRevealIds,
   kolesoSolveLabel,
+  type KCell,
   type KPlay,
   type KSegKind,
   type KStep,
@@ -137,22 +139,13 @@ function wedge(r0: number, r1: number): string {
   return `M${p(r0, a0)} L${p(r1, a0)} A${r1},${r1} 0 0 1 ${p(r1, a1)} L${p(r0, a1)} A${r0},${r0} 0 0 0 ${p(r0, a0)} Z`;
 }
 
+const blankCell = (): KCell => ({ ch: "", id: -1, base: null });
+
 /** The tile board: rows centred on KOLESO_COLS columns; a tile flips when its letter is called. */
-function Board({ rows, shown, flipping, cat, solved, missed }: { rows: string[]; shown: Set<number>; flipping: Set<number>; cat: string; solved: boolean; missed: boolean }) {
-  let idx = 0;
-  const grid = rows.map((r) => {
-    const pad = Math.floor((KOLESO_COLS - r.length) / 2);
-    const cells: { ch: string | null; id: number; letter: boolean }[] = [];
-    for (let c = 0; c < KOLESO_COLS; c++) {
-      const ch = c >= pad && c < pad + r.length ? r[c - pad] : null;
-      if (ch && ch !== " ") {
-        const letter = !!kolesoBase(ch);
-        cells.push({ ch, id: idx++, letter });
-      } else cells.push({ ch: null, id: -1, letter: false });
-    }
-    return cells;
-  });
-  const rowsAll = grid.length < 4 ? [...(grid.length < 3 ? [null] : []), ...grid, ...(grid.length < 2 ? [null, null] : grid.length < 4 ? [null] : [])].slice(0, 4) : grid;
+function Board({ grid, shown, flipping, cat, solved, missed }: { grid: KCell[][]; shown: Set<number>; flipping: Set<number>; cat: string; solved: boolean; missed: boolean }) {
+  const rowsAll: (KCell[] | null)[] =
+    grid.length < 4 ? [...(grid.length < 3 ? [null] : []), ...grid, ...(grid.length < 2 ? [null, null] : grid.length < 4 ? [null] : [])].slice(0, 4) : grid;
+  const emptyRow = Array.from({ length: KOLESO_COLS }, blankCell);
   return (
     <div className={`kn-board ${solved ? "is-solved" : ""} ${missed ? "is-missed" : ""}`}>
       <div className="kn-cat">
@@ -161,12 +154,14 @@ function Board({ rows, shown, flipping, cat, solved, missed }: { rows: string[];
       </div>
       <div className="kn-grid">
         {rowsAll.map((row, ri) =>
-          (row ?? Array.from({ length: KOLESO_COLS }, () => ({ ch: null, id: -1, letter: false }))).map((c, ci) => {
+          (row ?? emptyRow).map((c, ci) => {
             if (!c.ch) return <i key={`${ri}-${ci}`} className="kn-t is-void" />;
-            const open = !c.letter || shown.has(c.id);
-            const flip = flipping.has(c.id);
+            // Non-letters (comma, digit, hyphen, colon) are open from the first frame. Their id is −1,
+            // so they never sit in the letter-id space the picks and the end reveal use.
+            const open = c.base == null || shown.has(c.id);
+            const flip = c.id >= 0 && flipping.has(c.id);
             return (
-              <i key={`${ri}-${ci}`} className={`kn-t ${c.letter ? "is-letter" : "is-punct"} ${open ? "is-open" : "is-hid"} ${flip ? "is-flip" : ""}`}>
+              <i key={`${ri}-${ci}`} className={`kn-t ${c.base ? "is-letter" : "is-punct"} ${open ? "is-open" : "is-hid"} ${flip ? "is-flip" : ""}`}>
                 <b>{open ? c.ch : ""}</b>
               </i>
             );
@@ -230,13 +225,7 @@ export function KolesoBonus({ play: play0, replay, settle, picks0, onPicks, bet,
   /** Wheel angle (deg, clockwise) and the pointer spring; driven by one rAF loop, written straight to the DOM. */
   const wheel = useRef({ rot: 0, p: 0, pv: 0, spin: null as null | { from: number; delta: number; t0: number; dur: number; done: () => void }, lastIdx: 0, lastTick: 0 });
 
-  const rows = useMemo(() => kolesoRows(play.text) ?? [play.text.toUpperCase()], [play.text]);
-  /** Board letters in reading order with their base letter (tile ids = index here). */
-  const tiles = useMemo(() => {
-    const out: string[] = [];
-    for (const r of rows) for (const ch of r) if (ch !== " " && kolesoBase(ch)) out.push(kolesoBase(ch)!);
-    return out;
-  }, [rows]);
+  const grid = useMemo(() => kolesoGrid(play.text), [play.text]);
 
   // Fit. Portrait: the wheel fills the width under the board; landscape: wheel left of centre, board on the right.
   useLayoutEffect(() => {
@@ -382,9 +371,10 @@ export function KolesoBonus({ play: play0, replay, settle, picks0, onPicks, bet,
       setBank(v * bet);
       setBankFx((f) => ({ k: (f?.k ?? 0) + 1, tone, t }));
     };
-    /** Betka Frekvencová turns every tile of `letter`, one by one. */
+    const phrase = play0.text;
+    /** Betka Frekvencová turns every tile of `letter`, one by one. Ids come from the board, so a comma or a digit cannot shift them. */
     const reveal = async (letter: string, gap = 240) => {
-      const ids = tiles.map((c, i) => (c === letter ? i : -1)).filter((i) => i >= 0 && !shownNow.has(i));
+      const ids = kolesoRevealIds(phrase, letter).filter((i) => !shownNow.has(i));
       let n = 0;
       for (const id of ids) {
         shownNow.add(id);
@@ -608,14 +598,15 @@ export function KolesoBonus({ play: play0, replay, settle, picks0, onPicks, bet,
         setBanner({ kind: "end", who: "Peter Marcipán", title: "KONIEC KOLA", sub: "Riešenie bolo…" });
       }
       await wait(1200);
-      // show the whole phrase
-      const rest = tiles.map((_, i) => i).filter((i) => !shownNow.has(i));
+      // Whole tajnička, solved or not. kolesoRevealAll is every letter tile; punctuation is already open.
+      const rest = kolesoRevealAll(phrase).filter((i) => !shownNow.has(i));
       for (const id of rest) {
         shownNow.add(id);
         setShown(new Set(shownNow));
         if (loud() && fin.solved) sfx.playKolesoLetter(id);
         await wait(fin.solved ? 70 : 40);
       }
+      setShown(new Set(kolesoRevealAll(phrase)));
       await wait(1600);
       setBanner(null);
       setPhase("pay");
@@ -783,7 +774,7 @@ export function KolesoBonus({ play: play0, replay, settle, picks0, onPicks, bet,
           <b>NEŠŤASTIA</b>
           <span>s Petrom Marcipánom</span>
         </div>
-        <Board rows={rows} shown={shown} flipping={flipping} cat={play.cat} solved={solvedFx} missed={missed} />
+        <Board grid={grid} shown={shown} flipping={flipping} cat={play.cat} solved={solvedFx} missed={missed} />
         <div className="kn-called" aria-label="Volané písmená">
           {called.map((c, i) => (
             <i key={i}>{c}</i>
