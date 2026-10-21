@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { changeDayLabel, recentChanges } from "./changelog.ts";
+import { CHANGELOG, changeDayLabel, recentChanges } from "./changelog.ts";
 
 const noon = (day: string) => Date.parse(`${day}T12:00:00`);
 
@@ -18,6 +18,12 @@ describe("update log", () => {
     const packed = groups.find((g) => g.day === "2026-10-09");
     assert.ok(packed && packed.items.length >= 2);
     assert.equal(new Set(packed.items).size, packed.items.length);
+  });
+
+  it("records the landscape reel fix", () => {
+    const note = CHANGELOG.find((n) => n.text.includes("valce sa opäť vykreslia celé"));
+    assert.ok(note);
+    assert.equal(note.day, "2026-10-21");
   });
 
   it("labels today and yesterday", () => {
