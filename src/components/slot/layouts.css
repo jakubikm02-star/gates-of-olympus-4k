@@ -747,7 +747,12 @@
   --reel-pad: 0px;
   --reel-gap: 2px;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  grid-template-rows: repeat(5, minmax(0, 1fr));
+  /* The grid items are the six reel columns, not the thirty cells. Five
+     equal rows parked every column in row 1; overflow:hidden then clipped
+     the other four symbols (unfolded Fold landscape and every other
+     landscape shell, including S24 Ultra). One row lets each column use
+     the full window, and --cell-h (window / 5) fills it. */
+  grid-template-rows: minmax(0, 1fr);
   justify-content: stretch;
   align-content: stretch;
   flex: 1 1 auto;

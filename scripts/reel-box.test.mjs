@@ -18,6 +18,10 @@ const VIEWS = [
   { name: "fold-inner-884x1104", w: 884, h: 1104, fold: "inner" },
   { name: "fold-inner-1104x884", w: 1104, h: 884, fold: "inner" },
   { name: "landscape-824x384", w: 824, h: 384 },
+  { name: "fold-land-1084x790", w: 1084, h: 790, dpr: 2.625 },
+  { name: "fold-land-968x840", w: 968, h: 840, dpr: 3 },
+  { name: "s24-land-915x412", w: 915, h: 412, dpr: 3.5 },
+  { name: "s24-land-870x360", w: 870, h: 360, dpr: 3 },
 ];
 
 const UA =
@@ -42,7 +46,7 @@ function near(a, b, name, state) {
 }
 
 describe("reel grid box", () => {
-  it("stays fixed across idle, tumble, win, bonus, and ticket states", { timeout: 180_000 }, async (t) => {
+  it("stays fixed across idle, tumble, win, bonus, and ticket states", { timeout: 300_000 }, async (t) => {
     if (!CHROME || !(await serverUp())) {
       t.skip("needs system Chrome and the dev server on :8080");
       return;
@@ -56,7 +60,7 @@ describe("reel grid box", () => {
       for (const view of VIEWS) {
         const ctx = await browser.newContext({
           viewport: { width: view.w, height: view.h },
-          deviceScaleFactor: 1,
+          deviceScaleFactor: view.dpr ?? 1,
           isMobile: true,
           hasTouch: true,
           userAgent: view.h > view.w ? UA : UA.replace(" Mobile", ""),
@@ -137,6 +141,25 @@ describe("reel grid box", () => {
         const idle = await read();
         assert.ok(idle.frame && idle.win, `${view.name} missing reel`);
         assert.equal(idle.cells, 30, `${view.name} cell count`);
+        const painted = await page.evaluate(() => {
+          const win = document.querySelector(".reel-window");
+          const col = document.querySelector(".reel-col");
+          const r = win.getBoundingClientRect();
+          const hits = [0.1, 0.3, 0.5, 0.7, 0.9].filter((t) => {
+            const el = document.elementFromPoint(r.left + r.width * 0.42, r.top + r.height * t);
+            return Boolean(el?.closest(".cell"));
+          }).length;
+          return { hits, colH: col.clientHeight, winH: r.height, scroll: col.scrollHeight };
+        });
+        assert.equal(painted.hits, 5, `${view.name} painted rows ${painted.hits} (col ${painted.colH} / win ${painted.winH})`);
+        assert.ok(
+          painted.colH > painted.winH / 3,
+          `${view.name} column ${painted.colH}px is one row of window ${painted.winH}px`,
+        );
+        assert.ok(
+          painted.scroll <= painted.colH + 8,
+          `${view.name} column clips cells (scroll ${painted.scroll} > col ${painted.colH})`,
+        );
         assert.ok(idle.frame.y >= -1, `${view.name} frame above viewport`);
         assert.ok(idle.frame.y + idle.frame.h <= idle.vh + 1, `${view.name} frame below viewport ${idle.frame.y + idle.frame.h} > ${idle.vh}`);
         assert.ok(idle.frame.h > 80, `${view.name} frame too short`);

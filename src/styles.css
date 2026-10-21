@@ -1608,8 +1608,9 @@
   position: relative;
   z-index: 4;
   display: grid;
-  /* Portrait and desktop: six columns share the window width and the row fills
-     its height, so the cabinet hugs the grid. Landscape overrides this with squares. */
+  /* Six columns share the window width. One row fills its height, so each
+     column can stack five cells. Landscape uses the same row count: a
+     five-row template clips every column to the top symbol. */
   grid-template-columns: repeat(6, minmax(0, 1fr));
   grid-template-rows: minmax(0, 1fr);
   justify-content: stretch;
