@@ -140,7 +140,8 @@
   line-height: 1.3;
   color: #d5dde6;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  /* Safety cap only: every line in ribbons.ts fits in 4 lines at 344px next to the 16:9 art. */
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

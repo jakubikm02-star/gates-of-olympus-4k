@@ -287,7 +287,7 @@ export function RibbonToast({ turbo }: { turbo: boolean }) {
   if (!def) return null;
   return (
     <div className={`rib-toast${turbo ? " is-turbo" : ""}`} role="status">
-      <RibbonBadge id={def.id} size={40} latest />
+      <RibbonBadge id={def.id} size={34} latest />
       <span className="rib-toast-copy">
         <strong>{def.name}</strong>
         <p>{def.line}</p>
