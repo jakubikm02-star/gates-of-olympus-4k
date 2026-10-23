@@ -11,6 +11,7 @@ import { sanitizeTicketPause, type TicketPause } from "./ticket-pause.ts";
 import { antiStreak } from "./anticipation.ts";
 import { sanitizeIdle, sanitizeRpDay, type RpDay } from "./rp-tickets.ts";
 import { sanitizeSuchoMul } from "./sucho-rtp.ts";
+import { emptySpectrum, sanitizeSpectrum, type SpectrumState } from "./spectrum.ts";
 
 export const SAVE_KEY = "parkizmus-v1";
 const LEGACY_KEYS = ["olympus4k-v1"];
@@ -92,6 +93,11 @@ export interface PlayerSave {
   fsSuchoDelta?: number;
   /** ZLATÝ BONUS: day used, stats, recent stakes (lib/slot/zlaty). Older saves: gold waiting today. */
   zlaty?: ZlatyState;
+  /**
+   * PARKVOLT SPEKTRUM (Nálada dňa). Older saves omit it: the day rolls on the next
+   * eligible spin and nothing is taken retroactively.
+   */
+  spectrum?: SpectrumState;
 }
 
 export function emptyPlayerSave(): PlayerSave {
@@ -152,6 +158,7 @@ export function emptyPlayerSave(): PlayerSave {
     antiStreak: 0,
     duelDeposit: null,
     ticketPause: null,
+    spectrum: emptySpectrum(),
   };
 }
 
@@ -371,6 +378,7 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.pityByBet = pityMap(r.pityByBet);
   s.bonusPending = sanitizePendingBonus(r.bonusPending);
   s.zlaty = sanitizeZlaty(r.zlaty);
+  s.spectrum = sanitizeSpectrum(r.spectrum);
   s.zboxHelpOff = bool(r.zboxHelpOff, false);
   s.kolesoHelpOff = bool(r.kolesoHelpOff, false);
   s.rp = Math.max(0, Math.floor(num(r.rp, 0)));

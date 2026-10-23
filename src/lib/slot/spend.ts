@@ -1043,6 +1043,8 @@ export interface JobEvent {
   bonusArmed?: boolean;
   /** A bar bonus just paid (its own event, spun: false). */
   bonus?: BonusResult;
+  /** PARKVOLT SPEKTRUM: orange PRÍPLATOK adds one step on a unit-count ticket. */
+  spectrumStep?: boolean;
 }
 
 /** One finished bar bonus, as feature tickets read it. */
@@ -1145,6 +1147,13 @@ function jobOnThisSpin(job: JobCard, ev: JobEvent): boolean {
   return true;
 }
 
+/** Kinds that move one step per event. Cash, signal, hydra, tumbles and feature tickets are not steps. */
+function spectrumUnit(kind: JobCard["kind"], ev: JobEvent): number {
+  if (!ev.spectrumStep) return 0;
+  if (kind === "wins" || kind === "deads" || kind === "chain" || kind === "live" || kind === "ticket" || kind === "pdf" || kind === "symbol" || kind === "buy") return 1;
+  return 0;
+}
+
 function countOne(job: JobCard, ev: JobEvent): { have: number; haveB: number } {
   let add = 0;
   let have = job.have;
@@ -1169,6 +1178,7 @@ function countOne(job: JobCard, ev: JobEvent): { have: number; haveB: number } {
   if (job.kind === "collect") add = collectAdd(job, ev);
   if (job.kind === "buy" && ev.win) add = 1;
   if (job.kind === "cash") add = Math.max(0, +(ev.cash ?? 0).toFixed(2));
+  add += spectrumUnit(job.kind, ev);
   let haveB = job.haveB ?? 0;
   if (job.kind === "hydra") {
     if (job.payId && ev.pays?.includes(job.payId)) add = 1;
@@ -1318,6 +1328,7 @@ export function tickJob(job: JobCard, ev: JobEvent): JobCard {
   if (job.kind === "collect") add = collectAdd(job, ev);
   if (job.kind === "buy" && ev.win) add = 1;
   if (job.kind === "cash") add = Math.max(0, +(ev.cash ?? 0).toFixed(2));
+  add += spectrumUnit(job.kind, ev);
   let haveB = job.haveB ?? 0;
   if (job.kind === "hydra") {
     if (job.payId && ev.pays?.includes(job.payId)) add = 1;

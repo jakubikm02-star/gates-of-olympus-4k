@@ -7,6 +7,7 @@ import { emptySettle, settleReports, type SettleState } from "@/lib/slot/scatter
 import { COLS, ROWS, symbolSrc, ticketArt, canTier, CAN_ART, FS_SYMBOL, PAY_SYMBOLS, SCATTER, TICKETS, type Cell, type PayId } from "@/lib/slot/symbols";
 import { isFsCell, type FsSymId, type HackWindow, type StickyCell } from "@/lib/slot/zasah";
 import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
+import type { SpectrumMark } from "@/lib/slot/spectrum";
 import { CanFx, CanValue } from "./Can";
 
 export interface ClusterPay {
@@ -53,10 +54,13 @@ interface Props {
    * stopped it). Once per reel per spin, in stop order. Drives the scatter land sound.
    */
   onReelSettled?: (c: number) => void;
+  /** PARKVOLT SPEKTRUM tint for the can that just resolved. Does not change cell size. */
+  specMark?: SpectrumMark | null;
 }
 
 /** Reel strips and the board read the swapped symbol from here, so every CellView agrees. */
 const FsSymContext = createContext<FsSymId | null>(null);
+const SpecMarkContext = createContext<SpectrumMark | null>(null);
 
 /**
  * Memoized: the board re-renders on every hook state change (column stops, pots, toasts), often while
@@ -96,6 +100,8 @@ const CellView = memo(function CellView({
   aim?: "on" | "dim" | null;
 }) {
   const fsSym = useContext(FsSymContext);
+  const spec = useContext(SpecMarkContext);
+  const specOn = Boolean(spec && cell.kind === "mult" && !cell.gone && (spec.uid == null || spec.uid === cell.uid));
   const fsCell = isFsCell(cell, fsSym);
   const ticketId = cell.ticket ?? "stat";
   const ticketCustom = cell.kind === "park" && ticketLabel(ticketId) !== TICKETS[ticketId].name;
@@ -103,6 +109,9 @@ const CellView = memo(function CellView({
     ["--r"]: String(r),
     ["--c"]: String(c),
     ...(tumbleFall ? { ["--fall"]: String(tumbleFall) } : {}),
+    ...(specOn && spec
+      ? { ["--spec-hue"]: `${spec.hue}deg`, ["--spec-hex"]: spec.hex }
+      : {}),
   } as CSSProperties;
   return (
     <div
@@ -115,6 +124,9 @@ const CellView = memo(function CellView({
         cell.evidence && !cell.gone && !fsCell ? "is-evidence" : "",
         cell.kind === "park" ? `is-park is-ticket-${cell.ticket ?? "stat"}` : "",
         cell.kind === "mult" ? `is-mult can-t${canTier(cell.mult ?? 2)}` : "",
+        specOn && spec?.color === 7 ? "is-spec is-white" : "",
+        specOn && spec?.color === 8 ? "is-spec is-black" : "",
+        specOn && spec && spec.color < 7 ? "is-spec" : "",
         ticketLock && cell.kind !== "park" ? "is-dim" : "",
         ticketLock && cell.kind === "park" ? "is-lock" : "",
         hot ? "is-struck" : "",
@@ -145,6 +157,7 @@ const CellView = memo(function CellView({
       )}
       {!cell.gone && cell.kind === "mult" && <CanFx mult={cell.mult ?? 2} />}
       {!cell.gone && cell.kind === "mult" && <CanValue mult={cell.mult ?? 2} />}
+      {specOn && spec ? <span className="spec-tag">{spec.label}</span> : null}
       {!cell.gone && win && <span className="win-fx" aria-hidden="true" />}
       {!cell.gone && cell.evidence && (
         <span className="ev-tag" aria-label="EVIDENCE · nevypláca">
@@ -298,6 +311,7 @@ export function SlotGrid({
   fsSym = null,
   frame = null,
   onReelSettled,
+  specMark = null,
 }: Props) {
   const [, names] = useState(0);
   useEffect(() => subscribeTicketNames(() => names((n) => n + 1)), []);
@@ -602,6 +616,7 @@ export function SlotGrid({
 
   return (
     <FsSymContext.Provider value={fsSym}>
+    <SpecMarkContext.Provider value={specMark}>
     <div
       className={`reel-frame${fsSym ? " has-fs-sym" : ""}${aimOn && chaseTarget ? " is-aiming" : ""}`}
       aria-label="Herné pole 6×5"
@@ -756,6 +771,7 @@ export function SlotGrid({
         ) : null}
       </div>
     </div>
+    </SpecMarkContext.Provider>
     </FsSymContext.Provider>
   );
 }

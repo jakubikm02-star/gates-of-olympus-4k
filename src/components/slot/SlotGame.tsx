@@ -24,6 +24,7 @@ import { useContainerVars } from "@/hooks/use-container-vars";
 // Short-phone compaction, keyed off html[data-short-vp] / [data-phone-vp] from hooks/use-shell.
 import "./short-vp.css";
 import { SlotGrid } from "./Grid";
+import { SpektrumDock } from "./Spektrum";
 import { CanValue } from "./Can";
 import { Paytable } from "./Paytable";
 import { PickBonus } from "./PickBonus";
@@ -316,6 +317,7 @@ export function SlotGame() {
       )}
 
       <div className="table">
+        <SpektrumDock hud={g.specHud} mark={g.specMark} tip={g.specTip} flash={g.specFlash} />
         <div className="table-head">
           <div className="head-rank">
             <RankBadge stand={g.rank} perkTitle={g.perk.title} plain onOpen={() => g.setRankOpen(true)} />
@@ -562,6 +564,7 @@ export function SlotGame() {
               aimOn={Boolean(g.chase && aim.id && aim.played && !g.inFs && g.phase !== "spinning")}
               fsSym={g.chase?.fsSym ?? null}
               frame={<MachineFrame id={g.rank.id} division={g.rank.division} />}
+              specMark={g.specMark}
             />
             {g.flies.map((f) => (
               <span

@@ -1941,6 +1941,169 @@
 
 
 
+.cell.is-spec {
+  overflow: visible;
+  z-index: 5;
+}
+
+.cell.is-spec .cell-img {
+  filter: hue-rotate(var(--spec-hue, 0deg)) saturate(1.65) drop-shadow(0 0 6px var(--spec-hex, #fff));
+}
+
+.cell.is-spec.is-white .cell-img {
+  filter: grayscale(1) brightness(1.75) drop-shadow(0 0 8px #fff);
+}
+
+.cell.is-spec.is-black .cell-img {
+  filter: grayscale(1) brightness(0.28) drop-shadow(0 0 8px #000);
+}
+
+.spec-tag {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  top: 6%;
+  transform: translateX(-50%);
+  max-width: 140%;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: rgb(8 8 10 / 0.82);
+  color: var(--spec-hex, #fff);
+  font-family: var(--font-display);
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 1px 0 #000;
+}
+
+.spec-dock {
+  position: absolute;
+  z-index: 8;
+  left: 50%;
+  top: 34px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: max-content;
+  max-width: min(280px, 70vw);
+  overflow: hidden;
+  padding: 3px 6px 4px;
+  border-radius: 8px;
+  background: rgb(6 8 12 / 0.78);
+  pointer-events: none;
+}
+
+.spec-legend {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.spec-role {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  max-width: 32%;
+}
+
+.spec-role i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px currentColor;
+  flex: 0 0 auto;
+}
+
+.spec-role b {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #f2f4f6;
+  text-shadow: 0 1px 0 #000;
+  max-width: 78px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spec-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.spec-ring {
+  width: 36px;
+  height: 36px;
+  filter: drop-shadow(0 1px 1px #000);
+}
+
+.spec-fttb {
+  fill: #ff8a1e;
+  font-size: 14px;
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.spec-weather,
+.spec-now {
+  font-family: var(--font-display);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #d5dde4;
+  text-shadow: 0 1px 0 #000;
+}
+
+.spec-tip {
+  margin: 0;
+  max-width: 240px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: rgb(8 10 14 / 0.88);
+  color: #f4f7fb;
+  font-size: 10px;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.spec-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+  animation: spec-flash 700ms ease-out forwards;
+}
+
+.spec-flash.is-white {
+  background: radial-gradient(circle at 50% 45%, rgb(255 255 255 / 0.55), transparent 62%);
+}
+
+.spec-flash.is-black {
+  background: radial-gradient(circle at 50% 45%, rgb(0 0 0 / 0.72), transparent 68%);
+}
+
+@keyframes spec-flash {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.stage.is-land .spec-dock,
+.stage.shell-pc .spec-dock {
+  top: 4px;
+  left: 8px;
+  transform: none;
+  align-items: flex-start;
+}
+
 .cell {
   position: relative;
   /* --cell-h: px row height. Portrait uses the column height / 5 so five rows fill the window.
@@ -1975,6 +2138,18 @@
   width: 88%;
   height: 90%;
   filter: drop-shadow(0 6px 8px rgb(0 0 0 / 0.55));
+}
+
+.cell.is-mult.is-spec .cell-img {
+  filter: hue-rotate(var(--spec-hue, 0deg)) saturate(1.65) drop-shadow(0 0 6px var(--spec-hex, #fff));
+}
+
+.cell.is-mult.is-spec.is-white .cell-img {
+  filter: grayscale(1) brightness(1.75) drop-shadow(0 0 8px #fff);
+}
+
+.cell.is-mult.is-spec.is-black .cell-img {
+  filter: grayscale(1) brightness(0.28) drop-shadow(0 0 8px #000);
 }
 
 /* PARKVOLT multiplier can. Art is pre-rendered per tier (public/symbols/can-t*.webp);

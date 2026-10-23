@@ -63,6 +63,21 @@ import {
   type ZlatyState,
 } from "@/lib/slot/zlaty";
 import { braDay, msToReset, serverNow, syncServerClock } from "@/lib/slot/server-day";
+import {
+  applySpectrum,
+  emptySpectrum,
+  hash32,
+  rollUlicaEcho,
+  spectrumEnabled,
+  spectrumHud,
+  spectrumMark,
+  syncSpectrumDay,
+  takeUlicaPending,
+  ULICA_ECHO,
+  type SpectrumFx,
+  type SpectrumHud,
+  type SpectrumMark,
+} from "@/lib/slot/spectrum";
 import type { ZlatyResultInfo } from "@/components/slot/Zlaty";
 import { setZboxHelpOff, zboxHelpOff } from "@/lib/slot/zbox-help";
 import { pauseTicket, resumePlan, ticketCounts, tickUnlessPaused, ticketReserve, type TicketPause } from "@/lib/slot/ticket-pause";
@@ -542,6 +557,15 @@ export function useSlotGame() {
   const fsAnteRef = useRef(false);
   const heatRef = useRef(0);
   const [heat, setHeat] = useState(0);
+  const spectrumOnRef = useRef(true);
+  const [spectrumOn] = useState(() => spectrumEnabled());
+  spectrumOnRef.current = spectrumOn;
+  const spectrumRef = useRef(emptySpectrum());
+  const [specHud, setSpecHud] = useState<SpectrumHud>(() => spectrumHud(emptySpectrum(), false));
+  const [specMark, setSpecMark] = useState<SpectrumMark | null>(null);
+  const [specTip, setSpecTip] = useState<string | null>(null);
+  const [specFlash, setSpecFlash] = useState<"white" | "black" | null>(null);
+  const [specRev, setSpecRev] = useState(0);
   const klientiRef = useRef(0);
   const [klienti, setKlienti] = useState(0);
   const chaseRef = useRef<ChaseState | null>(null);
@@ -650,6 +674,11 @@ export function useSlotGame() {
     // Pending Ž-BOX / KOLESO gold is replayed. Anything else open (KONTROLA cleared its row, crash, duel) is armed again.
     zlatyRef.current = goldOnLoad(s.zlaty, Boolean(s.bonusPending?.gold), braDay(serverNow()));
     setZlaty(zlatyRef.current);
+    spectrumRef.current = s.spectrum ?? emptySpectrum();
+    if (spectrumOnRef.current && standing(s.rp).id === "nekonecno") {
+      syncSpectrumDay(spectrumRef.current, s.playerId || "hrac", braDay(serverNow()));
+    }
+    setSpecHud(spectrumHud(spectrumRef.current, spectrumOnRef.current && standing(s.rp).id === "nekonecno"));
     if (s.zboxHelpOff && !zboxHelpOff()) setZboxHelpOff(true);
     if (s.kolesoHelpOff && !kolesoHelpOff()) setKolesoHelpOff(true);
     setRp(s.rp);
@@ -815,6 +844,7 @@ export function useSlotGame() {
       rpIdle: rpIdleRef.current,
       rpDay: rpDayRef.current,
       zlaty: zlatyRef.current,
+      spectrum: spectrumRef.current,
     };
     if (dead) writeLocal(saveSnapRef.current);
   }, []);
@@ -922,6 +952,7 @@ export function useSlotGame() {
       rpIdle: rpIdleRef.current,
       rpDay: rpDayRef.current,
       zlaty: zlatyRef.current,
+      spectrum: spectrumRef.current,
       duelDeposit: depositRef.current,
       updatedAt: Date.now(),
     };
@@ -1141,6 +1172,9 @@ export function useSlotGame() {
 
   useEffect(() => {
     if (!hydrated || !readySave.current) return;
+    const specOn = spectrumOnRef.current && standing(rankRef.current.rp).id === "nekonecno";
+    if (specOn) syncSpectrumDay(spectrumRef.current, playerIdRef.current || "hrac", braDay(serverNow()));
+    setSpecHud(spectrumHud(spectrumRef.current, specOn));
     const payload: PlayerSave = {
       balance,
       betIndex,
@@ -1204,12 +1238,13 @@ export function useSlotGame() {
       rpIdle: rpIdleRef.current,
       rpDay: rpDayRef.current,
       zlaty: zlatyRef.current,
+      spectrum: spectrumRef.current,
       duelDeposit: depositRef.current,
     };
     const stamped = carryStamp(saveSnapRef.current, payload);
     saveSnapRef.current = stamped;
     writeLocal(stamped);
-  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, autoHalt, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pots, reloadStreak, weekDue, fsLeft, inFs, globalMult, job, ticketPause, daily, heat, klienti, chase, chaseMod]);
+  }, [hydrated, balance, betIndex, muted, turbo, quick, ante, autoHalt, bestWin, pityByBet, rp, rankPeak, rankShield, winStreak, pots, reloadStreak, weekDue, fsLeft, inFs, globalMult, job, ticketPause, daily, heat, klienti, chase, chaseMod, specRev]);
 
   useEffect(() => {
     let stop = false;
@@ -1972,6 +2007,14 @@ export function useSlotGame() {
         await wait(400);
         const claimed = await withRetry(() => postParkClaim(tier, playerIdRef.current));
         applyBoard(claimed);
+        if (tier === "ulica") {
+          const parked = takeUlicaPending(spectrumRef.current);
+          if (parked > 0) {
+            balanceRef.current = +(balanceRef.current + parked).toFixed(2);
+            setBalance(balanceRef.current);
+            setSpecRev((n) => n + 1);
+          }
+        }
         await payPoolHit(claimed, `LÍSTOK ${TICKETS[tier].name}`, { v: 1, mode: "ticket", pays: [], ticket: tier });
       } catch {
         /* keep lock off */
@@ -2769,6 +2812,14 @@ export function useSlotGame() {
       if (!isFree) lastChasingRef.current = Boolean(chasing);
       let cost = opts?.buy ? +(currentBet * buyXOf(perk.id)).toFixed(2) : isFree ? 0 : currentStake;
       if (chasing) cost = +(currentStake * ZASAH.COST_X).toFixed(2);
+      const specLive =
+        spectrumOnRef.current &&
+        standing(rankRef.current.rp).id === "nekonecno" &&
+        !isFree &&
+        !chasing &&
+        !opts?.buy &&
+        !duelRef.current &&
+        !roundEscrowRef.current;
 
       if (!isFree && balanceRef.current < cost) {
         skipDuelTick.current = true;
@@ -2806,6 +2857,9 @@ export function useSlotGame() {
       setExpiredUids([]);
       setActivatingMult(false);
       setStruckUids([]);
+      setSpecMark(null);
+      setSpecTip(null);
+      setSpecFlash(null);
       setStrike(null);
       setFlies([]);
       setWinTier(0);
@@ -2869,6 +2923,18 @@ export function useSlotGame() {
       // A ticket that arrives later is not lost; the server keeps it pending and returns it on the next spin.
       const pot = await settleWithin(poolP, Math.max(POOL_WAIT_MIN_MS, dur(STOPS[0]) - (performance.now() - spunAt)));
       const spunTicket = pot?.ticket ?? null;
+      if (specLive && spectrumRef.current.fttb > 0 && !spunTicket) {
+        const echoDay = braDay(serverNow());
+        const echoRng = createRng(hash32(`${playerIdRef.current}|${spectrumRef.current.n}|${echoDay}|echo`));
+        if (rollUlicaEcho(echoRng)) {
+          const parked = takeUlicaPending(spectrumRef.current);
+          const pay = +(ULICA_ECHO + parked).toFixed(2);
+          balanceRef.current = +(balanceRef.current + pay).toFixed(2);
+          setBalance(balanceRef.current);
+          setTopLine("1-FTTB · OZVENA");
+          setSpecRev((n) => n + 1);
+        }
+      }
 
       const rng = scripted ?? createRng();
       let next = opts?.buy
@@ -3141,12 +3207,46 @@ export function useSlotGame() {
         await wait(dur(180), abort.current);
       }
 
+      let specFx: SpectrumFx | null = null;
+      const boardOrbs = listOrbs(board);
+      const boardOrbSum = boardOrbs.reduce((s, o) => s + o.mult, 0);
+      if (specLive) {
+        const basePaidX = sequenceX > 0 && boardOrbSum > 0 ? sequenceX * boardOrbSum : sequenceX;
+        const day = braDay(serverNow());
+        const side = createRng(hash32(`${playerIdRef.current}|${spectrumRef.current.n}|${day}|sp`));
+        specFx = applySpectrum(
+          spectrumRef.current,
+          {
+            sequenceX,
+            orbSum: boardOrbSum,
+            tumbles: tumbleN,
+            orbs: boardOrbs.map((o) => ({ uid: o.uid, mult: o.mult })),
+            hitMax: basePaidX >= MAX_WIN_X,
+            basePaidX,
+          },
+          side,
+          { day, playerId: playerIdRef.current || "hrac" },
+        );
+        if (specFx.ulicaX > 0) {
+          spectrumRef.current.pending = +((spectrumRef.current.pending + specFx.ulicaX * currentBet).toFixed(2));
+        }
+        setSpecMark(spectrumMark(specFx));
+        if (specFx.tip) {
+          const tip = specFx.tip;
+          setSpecTip(tip);
+          window.setTimeout(() => setSpecTip((cur) => (cur === tip ? null : cur)), 6000);
+        }
+        if (specFx.event === "white" || specFx.event === "black") setSpecFlash(specFx.event);
+        setSpecHud(spectrumHud(spectrumRef.current, true));
+        setSpecRev(spectrumRef.current.n);
+      }
+
       // KONTROLA is off in a duel (both modes): no pity gain, no trigger; the saved meter stays as it was.
       if (!fsNow && !roundEscrowRef.current) {
         // ZLATÝ BONUS: remember paid stakes for the usual stake (golden part pays on at most that).
         zlatyRef.current = noteStake(zlatyRef.current, currentBet);
         const dead = sequenceX <= 0;
-        const add = pityGain(scatterPeak, dead);
+        const add = pityGain(scatterPeak, dead) + (specFx?.pity ?? 0);
         if (add > 0) {
           const nextMap = bumpPity(pityByBetRef.current, currentBet, add);
           const stored = readPity(nextMap, currentBet);
@@ -3188,8 +3288,8 @@ export function useSlotGame() {
         }
       }
 
-      const orbs = listOrbs(board);
-      const orbSum = orbs.reduce((s, o) => s + o.mult, 0);
+      const orbs = boardOrbs;
+      const orbSum = boardOrbSum;
       const willThrow = sequenceX > 0 && orbSum > 0;
       let applied = 1;
       tally.scatters = scatterPeak;
@@ -3221,11 +3321,12 @@ export function useSlotGame() {
           setGlobalMult(gm);
           applied = Math.max(1, gm);
         } else {
-          applied = orbSum;
+          applied = specFx?.touched ? Math.max(0, specFx.appliedSum) : orbSum;
         }
-        setSeqMult(applied);
+        setSeqMult(applied > 0 ? applied : 1);
         const baseCash = +(sequenceX * currentBet).toFixed(2);
-        const boosted = +(sequenceX * applied * currentBet).toFixed(2);
+        const shownX = specFx ? specFx.paidX : sequenceX * applied;
+        const boosted = +(shownX * currentBet).toFixed(2);
         setBaseWin(baseCash);
         setSpinWin(baseCash);
         if (!isFree) setDisplayWin(baseCash);
@@ -3234,14 +3335,14 @@ export function useSlotGame() {
         if (!isFree) setDisplayWin(boosted);
         setTopLine(`TUMBLE ${formatMoney(boosted)}`);
         sfx.playMult();
-        await wait(dur(520), abort.current);
+        await wait(specFx?.label ? (turboRef.current ? 300 : 780) : dur(520), abort.current);
         setThrowBolt(false);
         setActivatingMult(false);
       } else {
         setSeqMult(1);
       }
 
-      let paidX = sequenceX * applied;
+      let paidX = specFx ? specFx.paidX : sequenceX * applied;
       if (chasing) paidX *= ZASAH.BOOST;
       // 4KA TV triggered in ZÁSAH: ×2 on every free-spin win, before the MAX WIN cap and before the tax period.
       const zasahFs = isFree && fsSessionRef.current.zasah && !roundEscrowRef.current;
@@ -3338,6 +3439,10 @@ export function useSlotGame() {
         }
       }
       if (cashTax > 0 && !chaseEnded && !roundEscrowRef.current) noteHeat(cashTax, currentBet, Boolean(isFree || opts?.buy || pendingFs || inFsRef.current));
+      if (specFx && specFx.heat > 0 && !chaseRef.current && !roundEscrowRef.current) {
+        heatRef.current = Math.min(HEAT_MAX, heatRef.current + specFx.heat);
+        setHeat(heatRef.current);
+      }
       if (!isFree && cash0 > 0 && Math.abs(taxDelta) >= 0.01) {
         // Gross first, then the modifier chip, then the meter glides to the net amount.
         setSpinWin(cash0);
@@ -3397,7 +3502,17 @@ export function useSlotGame() {
 
       if (!isFree && !opts?.buy && !pendingFs) {
         if (cash0 > 0) {
-          const streak = noteResult(true);
+          let streak = noteResult(true);
+          if (specFx?.streak === 1) {
+            streak += 1;
+            streakRef.current = streak;
+            setWinStreak(streak);
+          } else if (specFx?.streak === -1) {
+            streak = 0;
+            streakRef.current = 0;
+            holdUsedRef.current = false;
+            setWinStreak(0);
+          }
           const parts = rpFromSpin({
             cash: cashTax,
             bet: currentBet,
@@ -3411,7 +3526,8 @@ export function useSlotGame() {
             rankId: standing(rankRef.current.rp).id,
           });
           // Held-back duel wins build no rank: the loser never gets them.
-          if (!escrow) pushRank(parts.total, parts);
+          const specRp = specFx?.rp ?? 0;
+          if (!escrow) pushRank(parts.total + specRp, specRp ? { ...parts, total: parts.total + specRp } : parts);
           if (!escrow) {
             const step = nextRebate({
               rate: 0,
@@ -3488,6 +3604,7 @@ export function useSlotGame() {
           chaseOver: chaseEnded,
           pityAdd: pityAdd || undefined,
           bonusArmed: pendingPick,
+          spectrumStep: Boolean(specFx && specFx.ticket > 0),
         });
       }
 
@@ -5051,6 +5168,10 @@ export function useSlotGame() {
     rankParts,
     perk,
     rankId,
+    specHud,
+    specMark,
+    specTip,
+    specFlash,
     buyX,
     weekDue,
     weekTarget: standing(dropOneDivision(rp)),
