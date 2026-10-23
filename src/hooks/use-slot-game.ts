@@ -70,6 +70,7 @@ import { playKoleso, kolesoVipOf, type KPlay } from "@/lib/slot/koleso";
 import { postLiveHit } from "@/lib/slot/live-hit";
 import { kolesoHelpOff, setKolesoHelpOff } from "@/lib/slot/koleso-help";
 import { freshRpDay, rollRpDay, rpParts, scaleSpinGain, scaledParts, suchoLeague, suchoStep, ticketRp, type RpDay } from "@/lib/slot/rp-tickets";
+import { hydrateRibbons, pushRibbon, pushStat, ribbonLog } from "@/lib/slot/ribbon-store";
 import { shields, ticketShield, type TicketShield } from "@/lib/slot/sucho-guard";
 import { suchoActive, suchoCash, suchoPayMul, type SuchoPayKind } from "@/lib/slot/sucho-rtp";
 import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision, fsSpinsOf, nextRebate, perkOf, rpFromDead, rpFromSpin, settleBuyRank, standing, RELOAD_STABILIZE, WEEK_MS, type RankBreakdown, type RankFlash } from "@/lib/slot/ranks";
@@ -636,6 +637,7 @@ export function useSlotGame() {
   const resumeOnce = useRef(false);
 
   const applySave = useCallback((s: PlayerSave) => {
+    hydrateRibbons(s.ribbons);
     setBalance(s.balance);
     setBetIndex(s.betIndex);
     setMuted(s.muted);
@@ -815,6 +817,7 @@ export function useSlotGame() {
       rpIdle: rpIdleRef.current,
       rpDay: rpDayRef.current,
       zlaty: zlatyRef.current,
+      ribbons: ribbonLog(),
     };
     if (dead) writeLocal(saveSnapRef.current);
   }, []);
@@ -923,6 +926,7 @@ export function useSlotGame() {
       rpDay: rpDayRef.current,
       zlaty: zlatyRef.current,
       duelDeposit: depositRef.current,
+      ribbons: ribbonLog(),
       updatedAt: Date.now(),
     };
     saveSnapRef.current = next;
@@ -944,6 +948,11 @@ export function useSlotGame() {
   }, []);
 
   const noteStat = useCallback((ev: StatEvent) => {
+    try {
+      pushStat(ev);
+    } catch {
+      /* a ribbon must never stop the spin */
+    }
     const next = applyStat(statsRef.current, ev);
     statsRef.current = next;
     statsDirtyRef.current = true;
@@ -1205,6 +1214,7 @@ export function useSlotGame() {
       rpDay: rpDayRef.current,
       zlaty: zlatyRef.current,
       duelDeposit: depositRef.current,
+      ribbons: ribbonLog(),
     };
     const stamped = carryStamp(saveSnapRef.current, payload);
     saveSnapRef.current = stamped;
@@ -2273,6 +2283,11 @@ export function useSlotGame() {
       });
       zlatyRef.current = settled.z;
       setZlaty(zlatyRef.current);
+      try {
+        pushRibbon({ t: "gold", paid: !settled.recharged });
+      } catch {
+        /* cosmetic */
+      }
       persistNow();
       setGoldRun(null);
       setGoldResult({ mode: r.mode, x: r.x, cash: r.cash, regular: r.regular, bet: r.bet, stake: r.stake, streak: zlatyRef.current.streak, recharged: settled.recharged, key: Date.now() });

@@ -1,4 +1,12 @@
+import { noteDuelRibbon } from "./ribbon-peers.ts";
 import { clampPlayers, type DuelMode } from "./duel.ts";
+
+/** Latest ribbon packed into the seat name. Empty keeps the old 4-field string. */
+let packedRibbon = "";
+
+export function setPackedRibbon(id: string): void {
+  packedRibbon = /^[a-z0-9-]{2,24}$/.test(id) ? id : "";
+}
 
 const SUPA_URL = "https://xgpnmxkquxzbhgktjipa.supabase.co";
 const SUPA_ANON =
@@ -13,6 +21,8 @@ export type DuelSnapSeat = {
   seen: number;
   /** Forfeited (3-4 seat rooms: `<seat>_out`; 2 seats: host_out / guest_out phase). */
   out: boolean;
+  /** Latest ribbon packed in the seat name. Absent on older phones. */
+  ribbon?: string;
 };
 
 /** A seat's call after the match. Null means that phone has not tapped yet. */
@@ -94,19 +104,25 @@ function num(v: number | string | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function unpack(raw: string): { name: string; ante: boolean; net: boolean; seen: number } {
+export function unpackSeat(raw: string): { name: string; ante: boolean; net: boolean; seen: number; ribbon: string } {
   const parts = (raw || "").split("|");
+  const ribbon = parts.length >= 5 && /^[a-z0-9-]{2,24}$/.test(parts[4] ?? "") ? parts[4]! : "";
   if (parts.length >= 3) {
     return {
       name: parts[0] || "HRÁČ",
       ante: parts[1] === "1",
       net: parts[2] === "1",
       seen: Number(parts[3]) || 0,
+      ribbon,
     };
   }
   const m = /^(.*)\|([01])$/.exec(raw || "");
-  if (!m) return { name: raw || "", ante: false, net: false, seen: 0 };
-  return { name: m[1] || "HRÁČ", ante: m[2] === "1", net: false, seen: 0 };
+  if (!m) return { name: raw || "", ante: false, net: false, seen: 0, ribbon: "" };
+  return { name: m[1] || "HRÁČ", ante: m[2] === "1", net: false, seen: 0, ribbon: "" };
+}
+
+function unpack(raw: string): { name: string; ante: boolean; net: boolean; seen: number; ribbon: string } {
+  return unpackSeat(raw);
 }
 
 function voteOf(v: unknown): SeatVote {
@@ -121,9 +137,14 @@ export function voteOutcome(votes: SeatVote[]): "wait" | "go" | "stop" {
   return votes.every((v) => v === "rematch") ? "go" : "stop";
 }
 
-function pack(name: string, ante: boolean, net = false, seen = Date.now()): string {
+export function packSeat(name: string, ante: boolean, net = false, seen = Date.now()): string {
   const clean = name.replace(/\|/g, "").trim().slice(0, 12) || "HRÁČ";
-  return `${clean}|${ante ? "1" : "0"}|${net ? "1" : "0"}|${seen}`;
+  const base = `${clean}|${ante ? "1" : "0"}|${net ? "1" : "0"}|${seen}`;
+  return packedRibbon ? `${base}|${packedRibbon}` : base;
+}
+
+function pack(name: string, ante: boolean, net = false, seen = Date.now()): string {
+  return packSeat(name, ante, net, seen);
 }
 
 function snap(r: Row): DuelSnap {
@@ -140,9 +161,11 @@ function snap(r: Row): DuelSnap {
       seen: packed.seen,
       out: rec[`${p}_out`] === true,
       ante: packed.ante,
+      ribbon: packed.ribbon,
     };
   };
   const all = PREFIX.slice(0, players).map(cell);
+  for (const one of all) noteDuelRibbon(one.name, one.ribbon);
   const host = all[0]!;
   const guest = all[1]!;
   // 2 seats: a forfeit is the phase (works on the original table). 3-4 seats: per seat `<p>_out` columns.
@@ -156,7 +179,7 @@ function snap(r: Row): DuelSnap {
   return {
     code: r.code,
     players,
-    seats: all.map(({ ante: _a, ...x }) => x),
+    seats: all.map(({ ante: _a, ribbon, ...x }) => (ribbon ? { ...x, ribbon } : x)),
     hostName: host.name,
     guestName: guest.name,
     mode: r.mode === "live" ? "live" : "spins",

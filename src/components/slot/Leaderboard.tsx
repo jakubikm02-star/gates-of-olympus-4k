@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchBoard, publicId, boardNickLabel, isAnonNick, type BoardRow } from "@/lib/slot/board-api";
+import { RibbonSlot, RibbonWatch } from "./RibbonBadge";
 import { SmrtEgaCard, useSmrtEga } from "./SmrtEga";
 import { canSrc, PAY_SYMBOLS, SCATTER, TICKETS, type PayId } from "@/lib/slot/symbols";
 import { cascadeWord, recipeSentence, type WinRecipe } from "@/lib/slot/win-recipe";
@@ -370,6 +371,7 @@ function Grade({ row, rank, mine }: { row: BoardRow; rank: number; mine: boolean
         <span className="fb-rank" aria-label={`${rank}. miesto`}>
           {rank}
         </span>
+        <RibbonSlot playerId={row.id} nick={row.nick} mine={mine} size={18} />
         <span className={`fb-nick${isAnonNick(row.nick) ? " is-anon" : ""}`}>{boardNickLabel(row.nick)}</span>
         {mine ? <em className="fb-me">TY</em> : null}
       </div>
@@ -636,6 +638,7 @@ export function Leaderboard({
   return (
     <div className="modal-back" onClick={onClose} role="presentation">
       <div className={`modal-card fb-sheet${eventOn ? " is-ego" : ""}`} role="dialog" aria-labelledby="board-title" onClick={(e) => e.stopPropagation()}>
+        <RibbonWatch />
         <div className="fb-sticky">
           <header className="modal-head fb-head">
             <h2 id="board-title">{eventOn ? "Event" : "Tabuľa"}</h2>
