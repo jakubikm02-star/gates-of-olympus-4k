@@ -78,7 +78,7 @@ export const RIBBONS: readonly RibbonDef[] = [
   { id: "vzdal-som", name: "ÚTEK S NOHAVICAMI", tier: "bezny", icon: "ban", line: "Vzdal si VERSUS. Niekedy je útek lacnejší, hlavne keď ti už visí zadok." },
   { id: "listok-sedy", name: "LÍSTOK SA NEHANBÍ", tier: "bezny", icon: "ticket", line: "Tiket prešiel. Parkovací lístok dnes nie je pokuta, len výnimka z tvojho pechu." },
   { id: "pretrhnuty", name: "DVA LÍSTKY V KOŠI", tier: "ostre", icon: "ticket", line: "Dva tikety v koši. Podmienky boli, ty si ich nesplnil a ešte si sa hádal s papierom." },
-  { id: "max-rage", name: "MAX DO PRÁZDNEJ RIŤ", tier: "ostre", icon: "flame", line: "Päť max stávok do prázdna za sebou. Toto je hnev, nie stratégia, a tečú ti sliny." },
+  { id: "max-rage", name: "MAX DO PRÁZDNEJ RITI", tier: "ostre", icon: "flame", line: "Päť max stávok do prázdna za sebou. Toto je hnev, nie stratégia, a tečú ti sliny." },
   { id: "stavka-na-dno", name: "DNO MÁ TVOJE MENO", tier: "bezny", icon: "flame", line: "Dvanásť spinov na maximum. Dno má tvoje meno vypálené a ešte smrdí po stávke." },
   { id: "auto-maraton", name: "PALEC UŽ ZDOCHOL", tier: "ostre", icon: "bolt", line: "Šesťdesiat spinov na AUTO. Palec už ani netreba, leží vedľa a hanbí sa." },
   { id: "turbo-mozg", name: "MOZOG ODIŠIEL PRVÝ", tier: "bezny", icon: "bolt", line: "Osemdesiat turbo spinov. Obraz ide rýchlejšie než rozhodnutie, ktoré si nechal včera." },
