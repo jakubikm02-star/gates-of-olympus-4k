@@ -7,6 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-10-24", text: "Tituly majú novú grafiku v štýle BF4 stužiek: v Tabuli, SMRTI EGA, VERSUS, okienku nového titulu aj v Štatistikách. Obrázky sa sťahujú, až keď sú na obrazovke." },
   { day: "2026-10-24", text: "Okienko nového titulu je späť: ukáže sa nad výhrou, bonusom aj otvoreným oknom, s odznakom, názvom a popisom, a samo zmizne. Ťuknutie mimo PRESKOČIŤ ide do hry pod ním." },
   { day: "2026-10-24", text: "Denné tituly majú nové, drsnejšie názvy v štýle čierneho stand-upu. V Tabuli, SMRTI EGA a vo VERSUS je celé meno hráča a pod ním celý názov titulu, nič sa neskracuje. V Štatistikách „Dnešné tituly“ ukážu všetky dnešné tituly s popisom, úrovňou a časom, najnovší navrchu." },
   { day: "2026-10-23", text: "Denné ribbony: titul za to, čo dnes naozaj spravíš. Najnovší svieti v štatistikách, ostatní vidia posledný pri mene. O polnoci sa mažú." },

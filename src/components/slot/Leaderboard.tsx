@@ -373,7 +373,7 @@ function Grade({ row, rank, mine }: { row: BoardRow; rank: number; mine: boolean
         </span>
         <span className="rib-who">
           <span className={`fb-nick${isAnonNick(row.nick) ? " is-anon" : ""}`}>{boardNickLabel(row.nick)}</span>
-          <RibbonTag playerId={row.id} nick={row.nick} mine={mine} size={16} />
+          <RibbonTag playerId={row.id} nick={row.nick} mine={mine} size={18} />
         </span>
         {mine ? <em className="fb-me">TY</em> : null}
       </div>

@@ -1,12 +1,12 @@
 {
   "headers": [
     {
-      "source": "/(symbols|art|koleso|zbox|fx|machine|machine-ai|ranks|frames|massive|sfx)/(.*)",
+      "source": "/(symbols|art|koleso|zbox|fx|machine|machine-ai|ranks|frames|massive|sfx|ribbons)/(.*)",
       "missing": [{ "type": "query", "key": "v" }],
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }]
     },
     {
-      "source": "/(symbols|art|koleso|zbox|fx|machine|machine-ai|ranks|frames|massive|sfx)/(.*)",
+      "source": "/(symbols|art|koleso|zbox|fx|machine|machine-ai|ranks|frames|massive|sfx|ribbons)/(.*)",
       "has": [{ "type": "query", "key": "v" }],
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     },

@@ -7,6 +7,15 @@
   filter: drop-shadow(0 1px 0 rgb(0 0 0 / 0.45));
 }
 .rib svg { display: block; }
+/* 16:9 ribbon art. Fixed width/height come from the img attributes; nothing may scale it. */
+.rib.is-art img {
+  display: block;
+  flex: none;
+  max-width: none;
+  object-fit: contain;
+  -webkit-user-drag: none;
+  user-select: none;
+}
 .rib.is-latest svg { animation: rib-pop 0.45s ease; }
 
 .rib-today {

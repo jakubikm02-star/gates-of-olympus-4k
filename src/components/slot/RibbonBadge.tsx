@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { peerRibbon, peerStamp, subscribePeers } from "@/lib/slot/ribbon-peers";
 import { watchPeerRibbons } from "@/lib/slot/ribbon-api";
 import {
@@ -82,21 +82,63 @@ function Glyph({ icon }: { icon: RibbonIcon }) {
   }
 }
 
-export function RibbonBadge({ id, size = 22, latest = false }: { id: string; size?: number; latest?: boolean }) {
+/** Static ribbon art (public/ribbons, Vercel static). Bump RIBBON_ART_V when the files change. */
+export const RIBBON_ART_V = 1;
+export function ribbonArtUrl(id: string, big = false): string {
+  return `/ribbons/${id}${big ? "" : "-small"}.webp?v=${RIBBON_ART_V}`;
+}
+
+function RibbonSvg({ id, size }: { id: string; size: number }) {
   const def = ribbonById(id);
   if (!def) return null;
   const [a, b, c] = TIER_STRIPES[def.tier];
   const h = Math.round(size * 1.15);
   return (
-    <span className={`rib is-${def.tier}${latest ? " is-latest" : ""}`} title={`${def.name} — ${def.line}`} aria-label={`${def.name}. ${def.line}`}>
-      <svg width={size} height={h} viewBox="0 0 32 36" aria-hidden="true">
-        <path d="M8 2 h16 v16 l-8 4 -8-4 z" fill={a} />
-        <path d="M8 8 h16 v3.2 H8 z" fill={b} />
-        <path d="M8 13 h16 v2.4 H8 z" fill={c} />
-        <path d="M9 18 h5 l-2.5 8 z" fill={b} />
-        <path d="M18 18 h5 l-2.5 8 z" fill={b} />
-        <Glyph icon={def.icon} />
-      </svg>
+    <svg width={size} height={h} viewBox="0 0 32 36" aria-hidden="true">
+      <path d="M8 2 h16 v16 l-8 4 -8-4 z" fill={a} />
+      <path d="M8 8 h16 v3.2 H8 z" fill={b} />
+      <path d="M8 13 h16 v2.4 H8 z" fill={c} />
+      <path d="M9 18 h5 l-2.5 8 z" fill={b} />
+      <path d="M18 18 h5 l-2.5 8 z" fill={b} />
+      <Glyph icon={def.icon} />
+    </svg>
+  );
+}
+
+/**
+ * Ribbon emblem. `size` is the height in CSS px of the 16:9 art (the old SVG used it as width;
+ * the SVG fallback keeps that). `big` loads the 1024×576 art: only for large spots, never in a list
+ * that renders on startup. The image is lazy, has fixed width/height (no layout shift), and falls
+ * back to the stripe SVG if the file fails to load.
+ */
+export function RibbonBadge({ id, size = 22, latest = false, big = false }: { id: string; size?: number; latest?: boolean; big?: boolean }) {
+  const def = ribbonById(id);
+  const src = ribbonArtUrl(id, big);
+  const [failedSrc, setFailedSrc] = useState("");
+  const failed = failedSrc === src;
+  if (!def) return null;
+  const h = Math.round(size);
+  const w = Math.round((h * 16) / 9);
+  return (
+    <span
+      className={`rib is-${def.tier}${latest ? " is-latest" : ""}${failed ? "" : " is-art"}`}
+      title={`${def.name} — ${def.line}`}
+      aria-label={`${def.name}. ${def.line}`}
+    >
+      {failed ? (
+        <RibbonSvg id={def.id} size={Math.round(h / 1.15)} />
+      ) : (
+        <img
+          src={src}
+          width={w}
+          height={h}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onError={() => setFailedSrc(src)}
+        />
+      )}
     </span>
   );
 }
@@ -168,7 +210,7 @@ export function RibbonToday() {
       </header>
       {def && latest ? (
         <article className="rib-latest">
-          <RibbonBadge id={latest.id} size={36} latest />
+          <RibbonBadge id={latest.id} size={40} latest big />
           <div>
             <em>NAJNOVŠÍ · {TIER_LABEL[def.tier]}</em>
             <strong>{def.name}</strong>
@@ -194,7 +236,7 @@ export function RibbonToday() {
                 const time = earnedTime(e.at);
                 return (
                   <li key={e.id} className={`rib-all-item is-${r.tier}${i === 0 ? " is-newest" : ""}`}>
-                    <RibbonBadge id={e.id} size={28} />
+                    <RibbonBadge id={e.id} size={54} big />
                     <div className="rib-all-copy">
                       <div className="rib-all-meta">
                         {i === 0 ? <em>NAJNOVŠÍ</em> : null}
@@ -245,7 +287,7 @@ export function RibbonToast({ turbo }: { turbo: boolean }) {
   if (!def) return null;
   return (
     <div className={`rib-toast${turbo ? " is-turbo" : ""}`} role="status">
-      <RibbonBadge id={def.id} size={28} latest />
+      <RibbonBadge id={def.id} size={40} latest />
       <span className="rib-toast-copy">
         <strong>{def.name}</strong>
         <p>{def.line}</p>
