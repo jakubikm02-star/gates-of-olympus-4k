@@ -63,27 +63,37 @@ export interface SpectrumTune {
   stormW: number;
   /** P(ŽIVÁ VODA | triad), before the once-per-day cap. */
   whiteP: number;
+  /**
+   * Rolling window, in spins, for the day's three colours.
+   * ŽIVÁ VODA may fire when all three have landed inside this window,
+   * not only when three lamps are lit at once. Omit to use TRIAD_WINDOW.
+   * The 12-spin ring lamps are unchanged.
+   */
+  triadSpan?: number;
   /** Scales credit deltas (1 = the sizes in the spec). */
   amp: number;
 }
 
 /**
  * Tuned on the CRN session sim (NEKONEČNO, with and without ante, 20 M).
- * Can colours sit a little under 0.5 so pairs stay paid for. Yellow is a bit
- * over 0.5: its bad face cuts the win, its good face fills HLÁSENIE.
+ * p_c sits under 0.5 so the extra ŽIVÁ VODA stays inside the RTP band.
  * amp scales every credit delta (1 would be the sizes in the spec).
- * Every legal overlap is a combination, still at most one per 20 spins, and
- * every triad is ŽIVÁ VODA. With a 12-spin ring and the 50 % neutral roll the
- * three daily colours rarely overlap, so white stays under once a week.
- * Getting to once a week would mean changing that grammar.
+ * Every legal lamp overlap is a combination, still at most one per 20 spins.
+ * ŽIVÁ VODA also opens when the day's three colours have each landed inside
+ * TRIAD_WINDOW spins (a cancel still counts). The 12-spin lamps stay as they
+ * are, and white is still at most once per day. An active NEKONEČNO day
+ * (~1 000 spins) sees it about 1–2 times a week.
  */
+export const TRIAD_WINDOW = 28;
+
 export const SPECTRUM_TUNE: SpectrumTune = {
-  p: [0.43, 0.71, 0.58, 0.41, 0.5, 0.5, 0.5],
+  p: [0.33, 0.56, 0.47, 0.31, 0.39, 0.5, 0.5],
   comboP: 1,
   calmW: 0.5,
   normalW: 0.4,
   stormW: 0.1,
   whiteP: 1,
+  triadSpan: TRIAD_WINDOW,
   amp: 0.58,
 };
 
@@ -142,6 +152,11 @@ export interface SpectrumState {
   seen: number[];
   /** Spins left on each of the 7 ring slots. */
   lit: number[];
+  /**
+   * Spins since each colour last landed. 999 = not in this day.
+   * Longer than the lamp: ŽIVÁ VODA reads this window, the HUD still uses `lit`.
+   */
+  ringAge: number[];
   sinceCombo: number;
   badId: number;
   badN: number;
@@ -171,6 +186,7 @@ export function emptySpectrum(): SpectrumState {
     prevStorms: [],
     seen: [],
     lit: [0, 0, 0, 0, 0, 0, 0],
+    ringAge: [999, 999, 999, 999, 999, 999, 999],
     sinceCombo: 20,
     badId: -1,
     badN: 0,
@@ -217,6 +233,11 @@ export function sanitizeSpectrum(raw: unknown): SpectrumState {
   e.seen = idList(r.seen, 12, 8);
   const lit = idList(r.lit, 7, 12);
   for (let i = 0; i < 7; i++) e.lit[i] = lit[i] ?? 0;
+  const ages = Array.isArray(r.ringAge) ? r.ringAge : [];
+  for (let i = 0; i < 7; i++) {
+    const n = ages[i];
+    e.ringAge[i] = typeof n === "number" && n >= 0 && n <= 999 ? Math.floor(n) : 999;
+  }
   e.sinceCombo = clampInt(r.sinceCombo, 0, 10_000, 20);
   e.badId = clampInt(r.badId, -1, 6, -1);
   e.badN = clampInt(r.badN, 0, 8, 0);
@@ -385,6 +406,28 @@ function tipFor(state: SpectrumState, id: number): string | null {
   return COLOR_TIP[id] ?? null;
 }
 
+function spanOf(tune: SpectrumTune): number {
+  const n = tune.triadSpan ?? TRIAD_WINDOW;
+  if (!Number.isFinite(n)) return TRIAD_WINDOW;
+  return Math.max(0, Math.min(999, Math.floor(n)));
+}
+
+function markRing(state: SpectrumState, color: number): void {
+  if (!state.ringAge) state.ringAge = [999, 999, 999, 999, 999, 999, 999];
+  if (color >= 0 && color <= 6) state.ringAge[color] = 0;
+}
+
+/** Day's three colours have each landed inside the window. Lamps may already be out. */
+function dayWindowOpen(state: SpectrumState, span: number): boolean {
+  const ages = state.ringAge;
+  if (!ages) return false;
+  const ids = [state.mood, state.support, state.opponent];
+  for (const id of ids) {
+    if (!(ages[id] <= span)) return false;
+  }
+  return true;
+}
+
 function weatherMul(state: SpectrumState, tune: SpectrumTune): { w: number; amplified: boolean } {
   const amp = tune.amp > 0 ? tune.amp : 1;
   if (state.weather === 0) return { w: 0.5 * amp, amplified: false };
@@ -489,7 +532,10 @@ function finishPaid(bag: Bag, input: SpectrumInput, tune: SpectrumTune): { paid:
 
 function tick(state: SpectrumState, amplified: boolean): void {
   state.n += 1;
-  for (let i = 0; i < 7; i++) if (state.lit[i] > 0) state.lit[i] -= 1;
+  for (let i = 0; i < 7; i++) {
+    if (state.lit[i] > 0) state.lit[i] -= 1;
+    if (state.ringAge && state.ringAge[i] < 999) state.ringAge[i] += 1;
+  }
   if (state.fttb > 0) state.fttb -= 1;
   state.neutrals = state.neutrals.map((a) => a + 1).filter((a) => a < 50);
   if (amplified) state.sinceStorm = 0;
@@ -510,6 +556,7 @@ function ensureDay(state: SpectrumState, playerId: string, day: string, tune: Sp
     state.white = 0;
     state.black = 0;
     state.triad = [];
+    state.ringAge = [999, 999, 999, 999, 999, 999, 999];
   }
   const plan = rollDay(playerId || "hrac", day || "1970-01-01", state.prevMoods, state.prevStorms, tune);
   state.day = day;
@@ -583,6 +630,7 @@ export function applySpectrum(
     else color = state.opponent;
   }
   if (color < 0 || color > 6) color = state.mood;
+  markRing(state, color);
 
   const orb = orbs[Math.floor(rng() * orbs.length)] ?? orbs[0];
   const opp = COLORS[color].opposite;
@@ -634,8 +682,9 @@ export function applySpectrum(
   for (let i = 0; i < 7; i++) if (state.lit[i] > 0) litIds.push(i);
   const comboReady = state.sinceCombo >= 20 && rng() < Math.min(1, Math.max(0, tune.comboP));
   const adjacent = litIds.filter((id) => id !== color && (Math.abs(id - color) === 1 || Math.abs(id - color) === 6));
-  const triad = litIds.length >= 3 && comboReady;
-  const pair = !triad && adjacent.length > 0 && comboReady;
+  const litTriad = litIds.length >= 3 && comboReady;
+  const windowTriad = dayWindowOpen(state, spanOf(tune)) && comboReady;
+  const pair = !litTriad && adjacent.length > 0 && comboReady;
 
   const { w: w0, amplified } = weatherMul(state, tune);
   const bag: Bag = {
@@ -659,7 +708,7 @@ export function applySpectrum(
   let label = "";
   let show = color;
 
-  if (triad && state.white === 0 && (hooks?.forceWhite || rng() < tune.whiteP)) {
+  if ((litTriad || windowTriad) && state.white === 0 && (hooks?.forceWhite || rng() < tune.whiteP)) {
     bag.white = true;
     bag.sum = sum0;
     state.white = 1;
@@ -695,7 +744,7 @@ export function applySpectrum(
       state.badN += 1;
       applyBad(color, w0, bag, rng);
     }
-    if (triad) {
+    if (litTriad) {
       state.triad = litIds.slice(0, 3);
       state.sinceCombo = -1;
       event = "triad";

@@ -169,6 +169,60 @@ describe("spektrum opposites", () => {
 });
 
 describe("spektrum once a day", () => {
+  it("fires ŽIVÁ VODA from a rolling window, once per day", () => {
+    const tune = {
+      p: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+      comboP: 1,
+      calmW: 0,
+      normalW: 1,
+      stormW: 0,
+      whiteP: 1,
+      triadSpan: 40,
+      amp: 1,
+    };
+    const s = fresh();
+    s.sinceCombo = 20;
+    s.lit = [0, 0, 0, 0, 0, 0, 0];
+    s.ringAge = [4, 12, 999, 999, 999, 9, 999];
+    const first = applySpectrum(s, spin(), scripted([0, 0]), { day: s.day, playerId: "p" }, { forceColor: 0 }, tune);
+    assert.equal(first.event, "white");
+    assert.equal(first.label, "ŽIVÁ VODA");
+    assert.ok(first.paidX > 50);
+    assert.equal(s.lit.filter((n) => n > 0).length, 1);
+    s.sinceCombo = 20;
+    s.lit = [0, 0, 0, 0, 0, 0, 0];
+    s.ringAge = [1, 2, 999, 999, 999, 3, 999];
+    const second = applySpectrum(s, spin(), scripted([0, 0]), { day: s.day, playerId: "p" }, { forceColor: 0 }, tune);
+    assert.notEqual(second.event, "white");
+    assert.equal(s.white, 1);
+    const stale = fresh();
+    stale.sinceCombo = 20;
+    stale.ringAge = [4, 80, 999, 999, 999, 9, 999];
+    const missed = applySpectrum(stale, spin(), scripted([0, 0]), { day: stale.day, playerId: "p" }, { forceColor: 0 }, tune);
+    assert.notEqual(missed.event, "white");
+  });
+
+  it("clears the window when the day changes", () => {
+    const tune = {
+      p: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+      comboP: 1,
+      calmW: 0,
+      normalW: 1,
+      stormW: 0,
+      whiteP: 1,
+      triadSpan: 40,
+      amp: 1,
+    };
+    const s = fresh();
+    s.white = 1;
+    s.sinceCombo = 20;
+    s.ringAge = [1, 1, 999, 999, 999, 1, 999];
+    const fx = applySpectrum(s, spin(), scripted([0, 0]), { day: "2026-10-24", playerId: "p" }, { forceColor: 0 }, tune);
+    assert.notEqual(fx.event, "white");
+    assert.equal(s.white, 0);
+    assert.ok(s.ringAge[1] === 999 || s.ringAge[1] > 40);
+  });
+
   it("fires ŽIVÁ VODA at most once", () => {
     const tune = {
       p: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
@@ -220,5 +274,9 @@ describe("spektrum save", () => {
     assert.equal(s.spectrum?.pending, 0);
     assert.equal(sanitizeSpectrum({ lit: [99, -3, "x", 4], pending: -8, day: "2026-10-23" }).lit[0], 12);
     assert.equal(sanitizeSpectrum({ pending: -8 }).pending, 0);
+    assert.equal(sanitizeSpectrum({ day: "2026-10-23" }).ringAge[0], 999);
+    assert.equal(sanitizeSpectrum({ ringAge: [3, 1000, -1] }).ringAge[0], 3);
+    assert.equal(sanitizeSpectrum({ ringAge: [3, 1000, -1] }).ringAge[1], 999);
+    assert.equal(sanitizeSpectrum({ ringAge: [3, 1000, -1] }).ringAge[2], 999);
   });
 });
