@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { watchPeerRibbons } from "@/lib/slot/ribbon-api";
+import { duelRibbonId } from "@/lib/slot/ribbon-peers";
+import { RibbonSlot } from "./RibbonBadge";
 import { formatMoney } from "@/lib/slot/format";
 import { duelCreate, duelForfeitIf, duelJoinSeat, duelLeave, duelPoll, duelStart, duelTick, roomFull, type DuelSnap, type SeatVote } from "@/lib/slot/duel-api";
 import {
@@ -147,6 +150,7 @@ export function DuelSeatRow({
     <div className={`duel-seat ${SEAT_CLASS[seat] ?? "p1"} ${you ? "is-you" : ""} ${win ? "is-win" : ""}`}>
       <span className="duel-seat-name">
         <i className="duel-chip" aria-hidden="true" />
+        <RibbonSlot playerId={name ? duelRibbonId(name) : undefined} nick={name} mine={Boolean(you)} size={16} />
         <span className="duel-seat-label">{name || "…"}</span>
         {you ? <small className="duel-you">TY</small> : null}
         {win ? <small className="duel-crown">VÍŤAZ</small> : null}
@@ -319,6 +323,7 @@ export function DuelLink({
   const onVotesRef = useRef(onVotes);
   const onAloneRef = useRef(onAlone);
   const inFsRef = useRef(inFs);
+  useEffect(() => watchPeerRibbons(), []);
   const onRoomFailRef = useRef(onRoomFail);
   const tickOk = useRef(0);
   // Link fields and the bet are read through refs: a link rewrite (beginOnline adds seat + players at the

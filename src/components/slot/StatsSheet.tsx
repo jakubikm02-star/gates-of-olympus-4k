@@ -21,6 +21,7 @@ import {
   setStatsBackupEnabled,
 } from "@/lib/slot/stats";
 import { statsDrop } from "@/lib/slot/stats-api";
+import { RibbonToday } from "./RibbonBadge";
 import "./stats-sheet.css";
 
 const TABS = [
@@ -648,6 +649,7 @@ export function StatsSheet({
         <p className="st-sub">
           od {formatBratislava(s.since)} · {formatDuration(playMs)} · demo kredit
         </p>
+        <RibbonToday />
         <nav className="st-tabs" aria-label="Kategórie štatistík">
           {TABS.map((t) => (
             <button

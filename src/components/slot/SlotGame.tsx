@@ -19,6 +19,7 @@ import { ZlatyBarBadge, ZlatyHud, ZlatyResult, ZlatyReveal, ZlatySheet, ZlatyTea
 import { ZasahBattery } from "./ZasahBattery";
 import { KolesoBonus } from "./KolesoBonus";
 import { useSlotGame } from "@/hooks/use-slot-game";
+import { RibbonBind, RibbonToast } from "./RibbonBadge";
 import { useLayoutFlags, useShell } from "@/hooks/use-shell";
 import { useContainerVars } from "@/hooks/use-container-vars";
 // Short-phone compaction, keyed off html[data-short-vp] / [data-phone-vp] from hooks/use-shell.
@@ -1145,6 +1146,8 @@ export function SlotGame() {
         desk={g.desk}
         mine={g.mine}
       />
+      <RibbonBind id={g.deviceId} nick={g.nick} />
+      <RibbonToast turbo={g.turbo} />
       <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} playerId={g.deviceId} portBusy={g.busy || Boolean(g.duel) || Boolean(g.duelLink)} />
       <OldLinkLayer started={g.started} busy={g.busy || Boolean(g.duel) || Boolean(g.duelLink)} playerId={g.deviceId} />
       <MoveTargetLayer busy={g.busy || Boolean(g.duel) || Boolean(g.duelLink)} />

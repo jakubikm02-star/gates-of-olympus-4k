@@ -22,6 +22,8 @@ import {
   type EgoState,
 } from "@/lib/slot/smrtega";
 import { egoClaim, egoCurrent, egoJoin, egoReport, egoSecret, sha256Hex, type EgoProgress } from "@/lib/slot/smrtega-api";
+import { pushRibbon } from "@/lib/slot/ribbon-store";
+import { RibbonSlot } from "./RibbonBadge";
 import { serverNow, syncServerClock } from "@/lib/slot/server-day";
 import "./smrtega.css";
 
@@ -103,6 +105,11 @@ export function useSmrtEga(g: EgoGame) {
     void egoReport(cur.deviceId, p)
       .then(() => {
         if (gen !== reportGen.current) return;
+        try {
+          pushRibbon({ t: "ego" });
+        } catch {
+          /* cosmetic */
+        }
         anchor.current = { rp: p.rp, week: stateRef.current?.weekStart ?? anchor.current?.week ?? null };
         return refresh();
       })
@@ -477,7 +484,8 @@ export function SmrtEgaCard({
                   <b className="cod-place">{t.place}</b>
                   <RankPip lead={t.place === 1} admin={t.admin} />
                   <span className="cod-name">
-                    {t.nick}
+                    <RibbonSlot nick={t.nick} mine={mine} size={16} />
+                    <span className="cod-name-text">{t.nick}</span>
                     {t.admin ? <em>BEZ</em> : null}
                   </span>
                   <RpNum n={t.score} />
