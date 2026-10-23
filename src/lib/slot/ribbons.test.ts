@@ -54,7 +54,7 @@ describe("ribbon catalog", () => {
     assert.equal(new Set(RIBBONS.map((r) => r.name)).size, RIBBONS.length);
     for (const r of RIBBONS) {
       assert.equal(isRibbonId(r.id), true);
-      assert.ok(r.name.length > 0 && r.name.length <= 24);
+      assert.ok(r.name.length > 0 && r.name.length <= 22, r.id);
       assert.ok(r.line.length > 8 && r.line.length < 120);
     }
   });
