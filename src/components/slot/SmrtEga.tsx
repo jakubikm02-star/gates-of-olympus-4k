@@ -23,7 +23,7 @@ import {
 } from "@/lib/slot/smrtega";
 import { egoClaim, egoCurrent, egoJoin, egoReport, egoSecret, sha256Hex, type EgoProgress } from "@/lib/slot/smrtega-api";
 import { pushRibbon } from "@/lib/slot/ribbon-store";
-import { RibbonSlot } from "./RibbonBadge";
+import { RibbonTag } from "./RibbonBadge";
 import { serverNow, syncServerClock } from "@/lib/slot/server-day";
 import "./smrtega.css";
 
@@ -484,8 +484,10 @@ export function SmrtEgaCard({
                   <b className="cod-place">{t.place}</b>
                   <RankPip lead={t.place === 1} admin={t.admin} />
                   <span className="cod-name">
-                    <RibbonSlot nick={t.nick} mine={mine} size={16} />
-                    <span className="cod-name-text">{t.nick}</span>
+                    <span className="rib-who">
+                      <span className="cod-name-text">{t.nick}</span>
+                      <RibbonTag nick={t.nick} mine={mine} size={14} />
+                    </span>
                     {t.admin ? <em>BEZ</em> : null}
                   </span>
                   <RpNum n={t.score} />

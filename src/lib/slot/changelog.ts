@@ -7,7 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
-  { day: "2026-10-24", text: "Denné tituly majú nové, drsnejšie názvy v štýle čierneho stand-upu." },
+  { day: "2026-10-24", text: "Denné tituly majú nové, drsnejšie názvy v štýle čierneho stand-upu. V Tabuli, SMRTI EGA a vo VERSUS je celé meno hráča a pod ním celý názov titulu, nič sa neskracuje. V Štatistikách „Dnešné tituly“ ukážu všetky dnešné tituly s popisom, úrovňou a časom, najnovší navrchu." },
   { day: "2026-10-23", text: "Denné ribbony: titul za to, čo dnes naozaj spravíš. Najnovší svieti v štatistikách, ostatní vidia posledný pri mene. O polnoci sa mažú." },
   { day: "2026-10-21", text: "Fold a landscape na S24 Ultra: valce sa opäť vykreslia celé." },
   { day: "2026-10-20", text: "KOLESO: tajnička už vždy odkryje všetky písmená a na konci kola ukáže celé riešenie." },

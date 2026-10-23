@@ -120,6 +120,41 @@ export function RibbonSlot({
   return <RibbonBadge id={id} size={size} />;
 }
 
+/** Ribbon emblem plus its full title, as a line under a name. Nothing when the player has none today. */
+export function RibbonTag({
+  playerId,
+  nick,
+  mine = false,
+  size = 14,
+}: {
+  playerId?: string;
+  nick?: string;
+  mine?: boolean;
+  size?: number;
+}) {
+  const local = useSyncExternalStore(subscribeRibbons, latestRibbonId, () => "");
+  useSyncExternalStore(subscribePeers, peerStamp, () => 0);
+  const id = mine ? local : peerRibbon({ id: playerId, nick });
+  const def = id ? ribbonById(id) : null;
+  if (!def) return null;
+  return (
+    <span className={`rib-tag is-${def.tier}`}>
+      <RibbonBadge id={def.id} size={size} />
+      <span className="rib-tag-name">{def.name}</span>
+    </span>
+  );
+}
+
+const BRA_TIME = new Intl.DateTimeFormat("sk-SK", { timeZone: "Europe/Bratislava", hour: "2-digit", minute: "2-digit" });
+
+function earnedTime(at: number): string {
+  try {
+    return at > 0 ? BRA_TIME.format(new Date(at)) : "";
+  } catch {
+    return "";
+  }
+}
+
 export function RibbonToday() {
   const log = useSyncExternalStore(subscribeRibbons, ribbonSnapshot, ribbonServerSnapshot);
   const latest = latestRibbon(log);
@@ -143,6 +178,38 @@ export function RibbonToday() {
       ) : (
         <p className="rib-empty">Dnes ešte nič. Niečo sprav a ostane ti to do polnoci.</p>
       )}
+      {log.earned.length ? (
+        <details className="rib-all">
+          <summary>
+            <span>Dnešné tituly ({log.earned.length})</span>
+            <i aria-hidden="true">▾</i>
+          </summary>
+          <ol className="rib-all-list">
+            {log.earned
+              .slice()
+              .reverse()
+              .map((e, i) => {
+                const r = ribbonById(e.id);
+                if (!r) return null;
+                const time = earnedTime(e.at);
+                return (
+                  <li key={e.id} className={`rib-all-item is-${r.tier}${i === 0 ? " is-newest" : ""}`}>
+                    <RibbonBadge id={e.id} size={28} />
+                    <div className="rib-all-copy">
+                      <div className="rib-all-meta">
+                        {i === 0 ? <em>NAJNOVŠÍ</em> : null}
+                        <span>{TIER_LABEL[r.tier]}</span>
+                        {time ? <time dateTime={new Date(e.at).toISOString()}>{time}</time> : null}
+                      </div>
+                      <strong>{r.name}</strong>
+                      <p>{r.line}</p>
+                    </div>
+                  </li>
+                );
+              })}
+          </ol>
+        </details>
+      ) : null}
       {rest.length ? (
         <ul className="rib-rest">
           {rest.map((e) => {

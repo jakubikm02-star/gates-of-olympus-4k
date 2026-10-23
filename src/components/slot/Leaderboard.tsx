@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchBoard, publicId, boardNickLabel, isAnonNick, type BoardRow } from "@/lib/slot/board-api";
-import { RibbonSlot, RibbonWatch } from "./RibbonBadge";
+import { RibbonTag, RibbonWatch } from "./RibbonBadge";
 import { SmrtEgaCard, useSmrtEga } from "./SmrtEga";
 import { canSrc, PAY_SYMBOLS, SCATTER, TICKETS, type PayId } from "@/lib/slot/symbols";
 import { cascadeWord, recipeSentence, type WinRecipe } from "@/lib/slot/win-recipe";
@@ -371,8 +371,10 @@ function Grade({ row, rank, mine }: { row: BoardRow; rank: number; mine: boolean
         <span className="fb-rank" aria-label={`${rank}. miesto`}>
           {rank}
         </span>
-        <RibbonSlot playerId={row.id} nick={row.nick} mine={mine} size={18} />
-        <span className={`fb-nick${isAnonNick(row.nick) ? " is-anon" : ""}`}>{boardNickLabel(row.nick)}</span>
+        <span className="rib-who">
+          <span className={`fb-nick${isAnonNick(row.nick) ? " is-anon" : ""}`}>{boardNickLabel(row.nick)}</span>
+          <RibbonTag playerId={row.id} nick={row.nick} mine={mine} size={16} />
+        </span>
         {mine ? <em className="fb-me">TY</em> : null}
       </div>
       <div className="fb-price">

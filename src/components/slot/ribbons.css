@@ -144,11 +144,135 @@
   cursor: pointer;
 }
 
-.cod-name { display: flex; align-items: center; gap: 4px; }
-.cod-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.cod-name .rib,
-.fb-grade .rib,
-.duel-seat-name .rib { flex: none; }
+/* Name cells with a ribbon: the full nick, then the emblem and the full ribbon title under it.
+   Nothing is cut with an ellipsis; long text wraps instead. */
+.rib-who {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+}
+.rib-who > .fb-nick,
+.rib-who > .cod-name-text,
+.rib-who > .duel-seat-label {
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+}
+.fb-grade .rib-who > .fb-nick { font-size: clamp(0.82rem, 3.9vw, 1.12rem); }
+.rib-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+}
+.rib-tag .rib { flex: none; }
+.rib-tag-name {
+  min-width: 0;
+  font-family: var(--font-display, inherit);
+  font-size: 0.62rem;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  color: #f0c27a;
+}
+.rib-tag.is-tvrde .rib-tag-name,
+.rib-tag.is-mrtve .rib-tag-name { color: #ff9a7a; }
+/* Doubled selectors: smrtega.css and duel-ui.css can load after this file. */
+.cod-rows .cod-line .cod-name { display: flex; align-items: center; gap: 4px; overflow: visible; white-space: normal; }
+.cod-board .cod-rows .cod-line { height: auto; min-height: var(--cod-row); padding-top: 3px; padding-bottom: 3px; }
+.fb-grade .rib-who,
+.duel-seat-name .rib-who,
+.cod-name .rib-who { flex: 1 1 0; }
+
+/* Štatistiky: every ribbon earned today, newest first. */
+.rib-all {
+  margin-top: 8px;
+  border: 1px solid #2a323c;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.02);
+}
+.rib-all > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 10px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #d5dde6;
+}
+.rib-all > summary::-webkit-details-marker { display: none; }
+.rib-all > summary i { font-style: normal; transition: transform 0.2s ease; }
+.rib-all[open] > summary i { transform: rotate(180deg); }
+.rib-all-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0 8px 8px;
+  list-style: none;
+}
+.rib-all-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgb(8 12 16 / 0.6);
+  box-shadow: inset 0 0 0 1px #232b34;
+}
+.rib-all-item.is-newest {
+  background: linear-gradient(90deg, rgb(224 138 42 / 0.16), rgb(8 12 16 / 0.6) 70%);
+  box-shadow: inset 0 0 0 1px rgb(224 138 42 / 0.45);
+}
+.rib-all-copy { min-width: 0; flex: 1 1 auto; }
+.rib-all-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8aa0b3;
+}
+.rib-all-meta em { font-style: normal; font-weight: 700; color: #e08a2a; }
+.rib-all-meta time { font-family: var(--font-mono, inherit); letter-spacing: 0.04em; }
+.rib-all-copy strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  color: #fff6e8;
+}
+.rib-all-copy p {
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  color: #d5dde6;
+}
 
 @keyframes rib-pop {
   from { transform: scale(0.6); }
@@ -161,4 +285,18 @@
 @media (prefers-reduced-motion: reduce) {
   .rib.is-latest svg,
   .rib-toast { animation: none; }
+}
+
+/* Narrow phones and the Fold cover: the LED price moves under the name, so the full nick and
+   the full ribbon title get the whole row instead of a sliver next to the LED. */
+@media (max-width: 440px) {
+  .fb-list .fb-row {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "grade"
+      "price"
+      "recipe"
+      "meta";
+  }
+  .fb-list .fb-row .fb-price { justify-self: end; }
 }
