@@ -1,4 +1,32 @@
+import { useEffect } from "react";
 import { COLORS, type SpectrumHud, type SpectrumMark } from "@/lib/slot/spectrum";
+import { SPEK_FX, SPEK_RING, SPEK_WEATHER, spekWarmList } from "@/lib/slot/spektrum-art";
+
+/**
+ * Warm today's cans and the two rare FX once the layer is on, when the browser is idle.
+ * Nothing is fetched for players below NEKONEČNO or with ?spektrum=0.
+ */
+function useWarmSpektrumArt(on: boolean, ids: readonly number[]): void {
+  const key = ids.join(",");
+  useEffect(() => {
+    if (!on || typeof window === "undefined") return;
+    const list = spekWarmList(key ? key.split(",").map(Number) : []);
+    const run = () => {
+      for (const src of list) {
+        const img = new Image();
+        img.decoding = "async";
+        img.src = src;
+      }
+    };
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(run, { timeout: 4000 });
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const t = window.setTimeout(run, 1500);
+    return () => window.clearTimeout(t);
+  }, [on, key]);
+}
 
 /** Day legend and the 7-slot ring. Absolute, so it never changes the reel size. */
 export function SpektrumDock({
@@ -12,6 +40,8 @@ export function SpektrumDock({
   tip: string | null;
   flash: "white" | "black" | null;
 }) {
+  useWarmSpektrumArt(hud.on, hud.roles.map((r) => r.id));
+  const weatherSrc = SPEK_WEATHER[hud.weather] ?? SPEK_WEATHER[1];
   return (
     <>
       {hud.on ? (
@@ -25,42 +55,38 @@ export function SpektrumDock({
             ))}
           </div>
           <div className="spec-meta">
-            <svg className="spec-ring" viewBox="0 0 72 72" aria-hidden="true">
+            <span className="spec-ring" aria-hidden="true">
+              <img src={SPEK_RING.base} alt="" decoding="async" loading="lazy" draggable={false} />
               {COLORS.map((c, i) => {
-                const a0 = -Math.PI / 2 + (i * 2 * Math.PI) / 7 + 0.06;
-                const a1 = a0 + (2 * Math.PI) / 7 - 0.12;
-                const r = 28;
-                const x0 = 36 + r * Math.cos(a0);
-                const y0 = 36 + r * Math.sin(a0);
-                const x1 = 36 + r * Math.cos(a1);
-                const y1 = 36 + r * Math.sin(a1);
                 const left = hud.lit[i] ?? 0;
-                const on = left > 0;
-                return (
-                  <path
+                return left > 0 ? (
+                  <img
                     key={c.id}
-                    d={`M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`}
-                    fill="none"
-                    stroke={on ? c.hex : "rgba(255,255,255,0.2)"}
-                    strokeWidth={on ? 5.5 : 3}
-                    strokeLinecap="round"
-                    opacity={on ? 0.4 + 0.6 * (left / 12) : 1}
+                    src={SPEK_RING.segs[i]}
+                    alt=""
+                    decoding="async"
+                    draggable={false}
+                    style={{ opacity: 0.4 + 0.6 * (left / 12) }}
                   />
-                );
+                ) : null;
               })}
-              {hud.fttb > 0 ? (
-                <text x="36" y="40" textAnchor="middle" className="spec-fttb">
-                  {hud.fttb}
-                </text>
-              ) : null}
-            </svg>
-            <span className="spec-weather">{hud.weatherLabel}</span>
+              <img src={SPEK_RING.center} alt="" decoding="async" loading="lazy" draggable={false} />
+              {hud.fttb > 0 ? <b className="spec-fttb">{hud.fttb}</b> : null}
+            </span>
+            <span className="spec-weather">
+              <img src={weatherSrc} alt="" width={14} height={14} decoding="async" loading="lazy" draggable={false} />
+              {hud.weatherLabel}
+            </span>
           </div>
           {mark?.label ? <div className="spec-now">{mark.label}</div> : null}
           {tip ? <p className="spec-tip">{tip}</p> : null}
         </div>
       ) : null}
-      {flash ? <div className={`spec-flash is-${flash}`} aria-hidden="true" /> : null}
+      {flash ? (
+        <div className={`spec-flash is-${flash}`} aria-hidden="true">
+          <img src={flash === "white" ? SPEK_FX.white : SPEK_FX.black} alt="" decoding="async" draggable={false} />
+        </div>
+      ) : null}
     </>
   );
 }

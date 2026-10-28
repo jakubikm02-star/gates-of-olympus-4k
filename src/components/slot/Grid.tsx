@@ -8,6 +8,7 @@ import { COLS, ROWS, symbolSrc, ticketArt, canTier, CAN_ART, FS_SYMBOL, PAY_SYMB
 import { isFsCell, type FsSymId, type HackWindow, type StickyCell } from "@/lib/slot/zasah";
 import { subscribeTicketNames, ticketLabel } from "@/lib/slot/ticket-names";
 import type { SpectrumMark } from "@/lib/slot/spectrum";
+import { spekCanSrc } from "@/lib/slot/spektrum-art";
 import { CanFx, CanValue } from "./Can";
 
 export interface ClusterPay {
@@ -102,6 +103,8 @@ const CellView = memo(function CellView({
   const fsSym = useContext(FsSymContext);
   const spec = useContext(SpecMarkContext);
   const specOn = Boolean(spec && cell.kind === "mult" && !cell.gone && (spec.uid == null || spec.uid === cell.uid));
+  // Colour can art replaces the CSS tint. Same <img> box, so the cell size cannot change.
+  const specArt = specOn && spec ? spekCanSrc(spec.color) : null;
   const fsCell = isFsCell(cell, fsSym);
   const ticketId = cell.ticket ?? "stat";
   const ticketCustom = cell.kind === "park" && ticketLabel(ticketId) !== TICKETS[ticketId].name;
@@ -127,6 +130,7 @@ const CellView = memo(function CellView({
         specOn && spec?.color === 7 ? "is-spec is-white" : "",
         specOn && spec?.color === 8 ? "is-spec is-black" : "",
         specOn && spec && spec.color < 7 ? "is-spec" : "",
+        specArt ? "has-spec-art" : "",
         ticketLock && cell.kind !== "park" ? "is-dim" : "",
         ticketLock && cell.kind === "park" ? "is-lock" : "",
         hot ? "is-struck" : "",
@@ -145,10 +149,20 @@ const CellView = memo(function CellView({
     >
       {!cell.gone && (
         <img
-          src={fsCell ? FS_SYMBOL.src : cell.kind === "park" ? ticketArt(ticketId, ticketCustom) : symbolSrc(cell)}
+          src={specArt ?? (fsCell ? FS_SYMBOL.src : cell.kind === "park" ? ticketArt(ticketId, ticketCustom) : symbolSrc(cell))}
           alt=""
           draggable={false}
           className="cell-img"
+          onError={
+            specArt
+              ? (e) => {
+                  // Art missing: back to the plain can with the old CSS tint.
+                  const img = e.currentTarget;
+                  img.closest(".cell")?.classList.remove("has-spec-art");
+                  img.src = symbolSrc(cell);
+                }
+              : undefined
+          }
         />
       )}
       {!cell.gone && cell.kind === "scatter" && !fsCell && <span className="scatter-label">SCATTER</span>}
