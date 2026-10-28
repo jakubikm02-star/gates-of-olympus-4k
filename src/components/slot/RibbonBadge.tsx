@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { Fragment, Suspense, lazy, useEffect, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
 import { nickFit } from "@/lib/slot/nick-fit";
 import { peerRibbon, peerStamp, subscribePeers } from "@/lib/slot/ribbon-peers";
 import { watchPeerRibbons } from "@/lib/slot/ribbon-api";
@@ -19,7 +19,17 @@ import {
   subscribeRibbons,
   toastSnapshot,
 } from "@/lib/slot/ribbon-store";
+import { gallerySnapshot, galleryServerSnapshot, openRibbonGallery, subscribeGallery } from "@/lib/slot/ribbon-tally";
 import "./ribbons.css";
+
+/** Click handler that opens the Ribbony gallery on one ribbon, without also clicking the row under it. */
+function openOn(id: string) {
+  return (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openRibbonGallery(id);
+  };
+}
 
 function Glyph({ icon }: { icon: RibbonIcon }) {
   const p = { fill: "none", stroke: "#1a1208", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -112,7 +122,20 @@ function RibbonSvg({ id, size }: { id: string; size: number }) {
  * that renders on startup. The image is lazy, has fixed width/height (no layout shift), and falls
  * back to the stripe SVG if the file fails to load.
  */
-export function RibbonBadge({ id, size = 22, latest = false, big = false }: { id: string; size?: number; latest?: boolean; big?: boolean }) {
+export function RibbonBadge({
+  id,
+  size = 22,
+  latest = false,
+  big = false,
+  locked = false,
+}: {
+  id: string;
+  size?: number;
+  latest?: boolean;
+  big?: boolean;
+  /** Never earned: black silhouette, no name or line in the tooltip. */
+  locked?: boolean;
+}) {
   const def = ribbonById(id);
   const src = ribbonArtUrl(id, big);
   const [failedSrc, setFailedSrc] = useState("");
@@ -122,9 +145,9 @@ export function RibbonBadge({ id, size = 22, latest = false, big = false }: { id
   const w = Math.round((h * 16) / 9);
   return (
     <span
-      className={`rib is-${def.tier}${latest ? " is-latest" : ""}${failed ? "" : " is-art"}`}
-      title={`${def.name} — ${def.line}`}
-      aria-label={`${def.name}. ${def.line}`}
+      className={`rib is-${def.tier}${latest ? " is-latest" : ""}${failed ? "" : " is-art"}${locked ? " is-locked" : ""}`}
+      title={locked ? "???" : `${def.name} — ${def.line}`}
+      aria-label={locked ? "Nezískaný ribbon" : `${def.name}. ${def.line}`}
     >
       {failed ? (
         <RibbonSvg id={def.id} size={Math.round(h / 1.15)} />
@@ -196,10 +219,10 @@ export function RibbonTag({
   const def = id ? ribbonById(id) : null;
   if (!def) return null;
   return (
-    <span className={`rib-tag is-${def.tier}`}>
+    <button type="button" className={`rib-tag rib-open is-${def.tier}`} onClick={openOn(def.id)} aria-label={`${def.name}: detail ribbonu`}>
       <RibbonBadge id={def.id} size={size} />
       <span className="rib-tag-name">{def.name}</span>
-    </span>
+    </button>
   );
 }
 
@@ -223,16 +246,19 @@ export function RibbonToday() {
       <header>
         <b>DNEŠNÉ RIBBONY</b>
         <span>{log.earned.length}</span>
+        <button type="button" className="rib-all-btn" onClick={openOn("")}>
+          Všetky ribbony
+        </button>
       </header>
       {def && latest ? (
-        <article className="rib-latest">
+        <button type="button" className="rib-latest rib-open" onClick={openOn(latest.id)}>
           <RibbonBadge id={latest.id} size={40} latest big />
           <div>
             <em>NAJNOVŠÍ · {TIER_LABEL[def.tier]}</em>
             <strong>{def.name}</strong>
             <p>{def.line}</p>
           </div>
-        </article>
+        </button>
       ) : (
         <p className="rib-empty">Dnes ešte nič. Niečo sprav a ostane ti to do polnoci.</p>
       )}
@@ -251,7 +277,7 @@ export function RibbonToday() {
                 if (!r) return null;
                 const time = earnedTime(e.at);
                 return (
-                  <li key={e.id} className={`rib-all-item is-${r.tier}${i === 0 ? " is-newest" : ""}`}>
+                  <li key={e.id} className={`rib-all-item rib-open is-${r.tier}${i === 0 ? " is-newest" : ""}`} onClick={openOn(e.id)}>
                     <RibbonBadge id={e.id} size={54} big />
                     <div className="rib-all-copy">
                       <div className="rib-all-meta">
@@ -274,7 +300,7 @@ export function RibbonToday() {
             const r = ribbonById(e.id);
             if (!r) return null;
             return (
-              <li key={e.id} className="rib-chip" title={r.line}>
+              <li key={e.id} className="rib-chip rib-open" title={r.line} onClick={openOn(e.id)}>
                 <RibbonBadge id={e.id} size={18} />
                 <b>{r.name}</b>
                 <i>{TIER_LABEL[r.tier]}</i>
@@ -303,11 +329,21 @@ export function RibbonToast({ turbo }: { turbo: boolean }) {
   if (!def) return null;
   return (
     <div className={`rib-toast${turbo ? " is-turbo" : ""}`} role="status">
-      <RibbonBadge id={def.id} size={34} latest />
-      <span className="rib-toast-copy">
-        <strong>{def.name}</strong>
-        <p>{def.line}</p>
-      </span>
+      <button
+        type="button"
+        className="rib-toast-open"
+        aria-label={`${def.name}: detail ribbonu`}
+        onClick={(e) => {
+          openOn(def.id)(e);
+          dismissRibbonToast(true);
+        }}
+      >
+        <RibbonBadge id={def.id} size={34} latest />
+        <span className="rib-toast-copy">
+          <strong>{def.name}</strong>
+          <p>{def.line}</p>
+        </span>
+      </button>
       <button type="button" className="rib-skip" onClick={() => dismissRibbonToast(true)}>
         PRESKOČIŤ
       </button>
@@ -325,4 +361,17 @@ export function RibbonBind({ id, nick }: { id: string; nick: string }) {
 export function RibbonWatch() {
   useEffect(() => watchPeerRibbons(), []);
   return null;
+}
+
+const RibbonGallery = lazy(() => import("./RibbonGallery"));
+
+/** Mounted once. The gallery chunk and its CSS load only on the first open. */
+export function RibbonGalleryHost() {
+  const g = useSyncExternalStore(subscribeGallery, gallerySnapshot, galleryServerSnapshot);
+  if (!g.open) return null;
+  return (
+    <Suspense fallback={null}>
+      <RibbonGallery id={g.id} />
+    </Suspense>
+  );
 }

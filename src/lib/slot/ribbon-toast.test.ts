@@ -93,15 +93,24 @@ describe("ribbon toast stacking", () => {
     const above = rules
       .filter((r) => r !== toast && /position:\s*fixed/.test(r.body) && Number.isFinite(z(r.body)))
       // Debug HUD is a dev tool; the add-to-home sheet is portalled to <body>, outside the stage.
-      .filter((r) => !/debug-hud|a2hs/.test(r.sel))
+      // The Ribbony gallery opens from the toast itself, so it must sit above it.
+      .filter((r) => !/debug-hud|a2hs|rg-back/.test(r.sel))
       .filter((r) => z(r.body) >= tz)
       .map((r) => `${r.sel} (${z(r.body)})`);
     assert.deepEqual(above, [], `overlays at or above the toast's ${tz}`);
   });
 
-  it("lets taps through except on PRESKOČIŤ", () => {
+  it("lets taps through except on PRESKOČIŤ and the art/title (opens the ribbon detail)", () => {
     assert.match(toast!.body, /pointer-events:\s*none/);
     const skip = rules.find((r) => r.sel === ".rib-skip");
     assert.match(skip!.body, /pointer-events:\s*auto/);
+    const open = rules.find((r) => r.sel === ".rib-toast-open");
+    assert.match(open!.body, /pointer-events:\s*auto/);
+  });
+
+  it("the Ribbony gallery stacks above the toast", () => {
+    const gallery = rules.find((r) => r.sel === ".rg-back" && /z-index/.test(r.body));
+    assert.ok(gallery, ".rg-back rule with a z-index");
+    assert.ok(z(gallery.body) > z(toast!.body));
   });
 });

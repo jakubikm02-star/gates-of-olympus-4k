@@ -1,4 +1,4 @@
-import { cleanRecipe, recipeFromHow, type WinRecipe } from "./win-recipe";
+import { cleanRecipe, recipeFromHow, type WinRecipe } from "./win-recipe.ts";
 
 const SUPA_URL = "https://xgpnmxkquxzbhgktjipa.supabase.co";
 const SUPA_ANON =
@@ -37,7 +37,7 @@ export interface BoardRow {
 }
 
 /** Board text of a win; built in win-label.ts next to the display map so every label has an entry. */
-export { winHow } from "./win-label";
+export { winHow } from "./win-label.ts";
 
 export function readNick(): string {
   try {

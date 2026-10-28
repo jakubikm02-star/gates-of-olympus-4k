@@ -315,3 +315,63 @@
   .rib.is-latest svg,
   .rib-toast { animation: none; }
 }
+
+/* Ribbony gallery entry points (2026-10-28): any ribbon opens its detail. The toast stays
+   tap-through except on its art/title (opens the detail) and PRESKOČIŤ. */
+button.rib-open,
+button.rib-tag {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+button.rib-latest { width: 100%; padding: 8px; }
+.rib-open { cursor: pointer; }
+.rib-open:focus-visible,
+button.rib-tag:focus-visible { outline: 2px solid #f0c27a; outline-offset: 2px; border-radius: 4px; }
+.rib-all-item.rib-open:active,
+.rib-chip.rib-open:active,
+button.rib-latest:active { filter: brightness(1.15); }
+.rib-toast-open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.rib-today header .rib-all-btn {
+  margin-left: auto;
+  padding: 4px 8px;
+  border: 1px solid #5c4a2a;
+  border-radius: 6px;
+  background: #1c1a14;
+  color: #f0c27a;
+  font: inherit;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.rib-today header span + .rib-all-btn { margin-left: 8px; }
+.rib-today header b { margin-right: auto; }
+/* Never earned: the same art as a black silhouette with a faint rim so it reads on dark tiles. */
+.rib.is-locked img,
+.rib.is-locked svg {
+  filter: brightness(0) drop-shadow(0 0 1px rgb(255 255 255 / 0.4));
+  opacity: 0.92;
+}

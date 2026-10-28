@@ -18,6 +18,7 @@ import {
   type RibbonLog,
 } from "./ribbons.ts";
 import { braDay, serverNow } from "./server-day.ts";
+import { syncTally } from "./ribbon-tally.ts";
 
 const subs = new Set<() => void>();
 let log: RibbonLog = emptyRibbonLog("", 0);
@@ -63,7 +64,10 @@ function ensure(): RibbonLog {
   if (!loaded) {
     loaded = true;
     const stored = readStored();
+    // Fold before roll(): a log from an earlier day still counts toward the lifetime tally.
+    if (stored) syncTally(stored);
     log = stored ? roll(stored, serverNow()) : emptyRibbonLog(braDay(serverNow()), serverNow());
+    syncTally(log);
     setPackedRibbon(latestRibbon(log)?.id ?? "");
   }
   return log;
@@ -85,9 +89,14 @@ function pick(a: RibbonLog | null, b: RibbonLog | null, now: number): RibbonLog 
 
 export function hydrateRibbons(fromSave: unknown): void {
   const now = serverNow();
-  log = pick(sanitizeRibbonLog(fromSave), readStored(), now);
+  const saved = sanitizeRibbonLog(fromSave);
+  const stored = readStored();
+  if (saved) syncTally(saved);
+  if (stored) syncTally(stored);
+  log = pick(saved, stored, now);
   loaded = true;
   writeStored(log);
+  syncTally(log);
   setPackedRibbon(latestRibbon(log)?.id ?? "");
   emit();
   publishLatest();
@@ -179,6 +188,7 @@ export function pushRibbon(ev: RibbonEvent, now = serverNow()): string[] {
   if (res.log === prev) return [];
   log = res.log;
   writeStored(log);
+  syncTally(log);
   setPackedRibbon(latestRibbon(log)?.id ?? "");
   if (res.fresh.length) {
     announce(res.fresh);

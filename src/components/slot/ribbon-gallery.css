@@ -1,0 +1,258 @@
+/* Ribbony: all ribbons in one grid, BF4 Awards → Ribbons. Above every overlay and the ribbon
+   toast (500): it opens from the toast, from Štatistiky and from names on the boards. */
+.rg-back {
+  position: fixed;
+  inset: 0;
+  z-index: 510;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom))
+    max(6px, env(safe-area-inset-left));
+  background: rgb(3 5 8 / 0.9);
+}
+.rg-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(980px, 100%);
+  height: min(900px, 100%);
+  overflow: hidden;
+  border: 1px solid #2a323c;
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgb(240 194 122 / 0.07), transparent 120px),
+    #0b0f14;
+  color: #e7eef4;
+  box-shadow: 0 18px 50px rgb(0 0 0 / 0.6);
+}
+.rg-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 8px 14px;
+  border-bottom: 1px solid #1d252e;
+}
+.rg-head h2 {
+  margin: 0;
+  font-family: var(--font-display, inherit);
+  font-size: 1.05rem;
+  letter-spacing: 0.16em;
+  color: #f0c27a;
+}
+.rg-count {
+  margin-right: auto;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.74rem;
+  color: #8aa0b3;
+  white-space: nowrap;
+}
+.rg-count b { color: #fff6e8; }
+.rg-x { flex: none; }
+.rg-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  align-content: start;
+  gap: 6px;
+  padding: 8px;
+}
+.rg-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 4px 6px;
+  border: 1px solid #222b35;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #18202a, #10151b);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.rg-tile:focus-visible { outline: 2px solid #f0c27a; outline-offset: 1px; }
+.rg-tile:active { filter: brightness(1.2); }
+.rg-tile.is-ostre { border-color: #3d2c18; }
+.rg-tile.is-tvrde { border-color: #46202a; }
+.rg-tile.is-mrtve { border-color: #5a4a1e; box-shadow: inset 0 0 0 1px rgb(230 195 92 / 0.18); }
+.rg-tile.is-locked {
+  border-color: #1a2028;
+  background: linear-gradient(180deg, #252c35, #1a2028);
+}
+.rg-art { display: flex; justify-content: center; line-height: 0; min-height: 48px; }
+.rg-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  max-width: 100%;
+  font-family: var(--font-display, inherit);
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.05em;
+  text-align: center;
+  text-transform: uppercase;
+  overflow-wrap: break-word;
+  color: #f0c27a;
+}
+.rg-tile.is-tvrde .rg-name,
+.rg-tile.is-mrtve .rg-name { color: #ff9a7a; }
+.rg-tile.is-locked .rg-name { color: #5d6b78; letter-spacing: 0.2em; }
+.rg-n {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: #f0c27a;
+  color: #1a1208;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.rg-note {
+  margin: 0;
+  padding: 6px 12px max(8px, env(safe-area-inset-bottom));
+  border-top: 1px solid #1d252e;
+  font-size: 0.64rem;
+  color: #6f8293;
+}
+
+/* Detail: covers the grid inside the card; "← Všetky ribbony" goes back to it. */
+.rg-detail {
+  position: absolute;
+  inset: 0;
+  top: 49px;
+  z-index: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 14px 16px;
+  background: #0b0f14;
+}
+.rg-backbtn {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border: 1px solid #2a323c;
+  border-radius: 6px;
+  background: #141b22;
+  color: #d5dde6;
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.rg-detail-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.rg-big {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 10px 0;
+  border-radius: 10px;
+  background: radial-gradient(closest-side, rgb(240 194 122 / 0.14), transparent);
+}
+.rg-detail.is-locked .rg-big { background: radial-gradient(closest-side, rgb(140 160 180 / 0.16), transparent); }
+/* The big art scales with the panel here (the badge's fixed size is for lists). */
+.rg-big .rib { display: flex; justify-content: center; width: 100%; }
+.rg-big .rib.is-art img {
+  width: min(100%, 448px, calc(34dvh * 16 / 9));
+  height: auto;
+  aspect-ratio: 16 / 9;
+}
+.rg-big .rib svg { width: 120px; height: auto; }
+.rg-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 520px;
+  text-align: center;
+}
+.rg-tier {
+  font-size: 0.62rem;
+  font-style: normal;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8aa0b3;
+}
+.rg-title {
+  font-family: var(--font-display, inherit);
+  font-size: 1.15rem;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #f0c27a;
+  overflow-wrap: break-word;
+}
+.rg-detail.is-tvrde .rg-title,
+.rg-detail.is-mrtve .rg-title { color: #ff9a7a; }
+.rg-detail.is-locked .rg-title { color: #6f8293; letter-spacing: 0.3em; }
+.rg-line {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: #d5dde6;
+}
+.rg-line.is-hidden { color: #6f8293; font-style: italic; }
+.rg-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 6px 0 0;
+}
+.rg-stats div {
+  min-width: 96px;
+  padding: 6px 10px;
+  border: 1px solid #222b35;
+  border-radius: 8px;
+  background: #121920;
+}
+.rg-stats dt {
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8aa0b3;
+}
+.rg-stats dd {
+  margin: 2px 0 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #fff6e8;
+}
+
+@media (min-width: 600px) {
+  .rg-grid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; padding: 10px; }
+  .rg-name { font-size: 0.62rem; }
+}
+/* Landscape phones and the unfolded Fold on its side: art left, copy right, nothing scrolls away. */
+@media (orientation: landscape) and (max-height: 600px) {
+  .rg-head { padding: 6px 8px 6px 12px; }
+  .rg-detail { top: 41px; }
+  .rg-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  .rg-note { display: none; }
+}
+@media (orientation: landscape) and (min-width: 560px) {
+  .rg-detail-body { flex-direction: row; align-items: center; justify-content: center; gap: 18px; }
+  .rg-big { width: 46%; flex: none; }
+  .rg-big .rib.is-art img { width: min(100%, 448px, calc(62dvh * 16 / 9)); }
+  .rg-copy { align-items: flex-start; text-align: left; flex: 1 1 0; min-width: 0; }
+  .rg-stats { justify-content: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rg-tile:active { filter: none; }
+}
