@@ -1,0 +1,317 @@
+/* Daily ribbons. A stripe badge stands in until the art exists. */
+
+.rib {
+  display: inline-flex;
+  flex: none;
+  line-height: 0;
+  filter: drop-shadow(0 1px 0 rgb(0 0 0 / 0.45));
+}
+.rib svg { display: block; }
+/* 16:9 ribbon art. Fixed width/height come from the img attributes; nothing may scale it. */
+.rib.is-art img {
+  display: block;
+  flex: none;
+  max-width: none;
+  object-fit: contain;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+.rib.is-latest svg { animation: rib-pop 0.45s ease; }
+
+.rib-today {
+  margin: 0 12px 10px;
+  padding: 8px 10px 10px;
+  border: 1px solid #2a323c;
+  border-radius: 10px;
+  background: rgb(8 12 16 / 0.72);
+}
+.rib-today header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.rib-today header b {
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  color: #d5dde6;
+}
+.rib-today header span {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: #8aa0b3;
+}
+.rib-empty {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #8aa0b3;
+}
+.rib-latest {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgb(224 138 42 / 0.16), transparent 70%);
+  box-shadow: inset 0 0 0 1px rgb(224 138 42 / 0.45);
+}
+.rib-latest em {
+  display: block;
+  font-style: normal;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  color: #e08a2a;
+}
+.rib-latest strong {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  color: #fff6e8;
+}
+.rib-latest p {
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #d5dde6;
+}
+.rib-rest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.rib-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 3px 8px 3px 3px;
+  border-radius: 999px;
+  background: #12181e;
+  box-shadow: inset 0 0 0 1px #2a323c;
+}
+.rib-chip b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: #e7eef4;
+}
+.rib-chip i {
+  font-style: normal;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8aa0b3;
+}
+
+/* Ribbons are earned while a win banner, a bonus scene, KOLESO, Ž-BOX, the gold result or a sheet
+   is open. At z-index 30 the toast sat under all of them and timed out unseen. It now stacks above
+   every game overlay (only the debug HUD is higher). Taps pass through to the overlay below;
+   only PRESKOČIŤ takes them. ribbon-toast.test.ts guards the order. */
+.rib-toast {
+  position: fixed;
+  z-index: 500;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(420px, calc(100vw - 16px));
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgb(8 10 14 / 0.92);
+  color: #fff6e8;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45), inset 0 0 0 1px rgb(255 255 255 / 0.08);
+  animation: rib-in 0.2s ease;
+  pointer-events: none;
+}
+.rib-toast.is-turbo { animation-duration: 0.12s; }
+.rib-toast strong { display: block; font-size: 0.82rem; letter-spacing: 0.04em; }
+.rib-toast p {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.3;
+  color: #d5dde6;
+  display: -webkit-box;
+  /* Safety cap only: every line in ribbons.ts fits in 4 lines at 344px next to the 16:9 art. */
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.rib-toast-copy { min-width: 0; flex: 1; }
+.rib-skip {
+  flex: none;
+  pointer-events: auto;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: #1c242c;
+  color: #e7eef4;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+/* Name cells with a ribbon: the full nick, then the emblem and the full ribbon title under it.
+   Nothing is cut with an ellipsis and nothing breaks letter by letter:
+   - the cell is a size container, so the nick font shrinks (down to --nick-min) until its longest
+     unbreakable chunk (--nick-len, set by nickFit() in the component) fits the cell width;
+   - text wraps only at spaces or after "_" "." "-" (<wbr>); overflow-wrap: break-word is a last
+     resort for a chunk still too long at the minimum size. It keeps the min-content width at a whole
+     word; "anywhere" made it one letter and let the grid squeeze the name to a sliver (2026-10-28). */
+.rib-who {
+  container-type: inline-size;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+}
+.rib-who > .fb-nick,
+.rib-who > .cod-name-text,
+.rib-who > .duel-seat-label {
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
+  line-height: 1.15;
+  font-size: clamp(var(--nick-min, 0.7rem), calc(100cqi / (var(--nick-len, 6) * var(--nick-ch, 0.74))), var(--nick-max, 1em));
+}
+.fb-grade .rib-who > .fb-nick { --nick-max: 1.12rem; --nick-min: 0.78rem; --nick-ch: 0.76; }
+@media (max-width: 420px) { .fb-grade .rib-who > .fb-nick { --nick-max: 1rem; } }
+.cod-name .rib-who > .cod-name-text { --nick-max: 1em; --nick-min: 0.62rem; --nick-ch: 0.64; }
+.duel-seat-name .rib-who > .duel-seat-label { --nick-max: 1em; --nick-min: 0.62rem; --nick-ch: 0.78; }
+.rib-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+}
+.rib-tag .rib { flex: none; }
+/* The title is one horizontal line that wraps at spaces; it never gets narrower than a short word. */
+.rib-tag-name { flex: 1 1 auto; }
+.rib-tag-name {
+  min-width: 0;
+  font-family: var(--font-display, inherit);
+  font-size: 0.62rem;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: normal;
+  overflow-wrap: break-word;
+  color: #f0c27a;
+}
+.rib-tag.is-tvrde .rib-tag-name,
+.rib-tag.is-mrtve .rib-tag-name { color: #ff9a7a; }
+/* Doubled selectors: smrtega.css and duel-ui.css can load after this file. */
+.cod-rows .cod-line .cod-name { display: flex; align-items: center; gap: 4px; overflow: visible; white-space: normal; }
+.cod-board .cod-rows .cod-line { height: auto; min-height: var(--cod-row); padding-top: 3px; padding-bottom: 3px; }
+.fb-grade .rib-who,
+.duel-seat-name .rib-who,
+.cod-name .rib-who { flex: 1 1 0; }
+
+/* Štatistiky: every ribbon earned today, newest first. */
+.rib-all {
+  margin-top: 8px;
+  border: 1px solid #2a323c;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.02);
+}
+.rib-all > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 10px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #d5dde6;
+}
+.rib-all > summary::-webkit-details-marker { display: none; }
+.rib-all > summary i { font-style: normal; transition: transform 0.2s ease; }
+.rib-all[open] > summary i { transform: rotate(180deg); }
+.rib-all-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0 8px 8px;
+  list-style: none;
+}
+.rib-all-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgb(8 12 16 / 0.6);
+  box-shadow: inset 0 0 0 1px #232b34;
+}
+.rib-all-item.is-newest {
+  background: linear-gradient(90deg, rgb(224 138 42 / 0.16), rgb(8 12 16 / 0.6) 70%);
+  box-shadow: inset 0 0 0 1px rgb(224 138 42 / 0.45);
+}
+.rib-all-copy { min-width: 0; flex: 1 1 auto; }
+.rib-all-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8aa0b3;
+}
+.rib-all-meta em { font-style: normal; font-weight: 700; color: #e08a2a; }
+.rib-all-meta time { font-family: var(--font-mono, inherit); letter-spacing: 0.04em; }
+.rib-all-copy strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  overflow-wrap: break-word;
+  color: #fff6e8;
+}
+.rib-all-copy p {
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+  color: #d5dde6;
+}
+
+@keyframes rib-pop {
+  from { transform: scale(0.6); }
+  to { transform: scale(1); }
+}
+@keyframes rib-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rib.is-latest svg,
+  .rib-toast { animation: none; }
+}

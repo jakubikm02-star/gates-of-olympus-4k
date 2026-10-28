@@ -9048,6 +9048,9 @@ html:-webkit-full-screen {
 }
 
 .fb-list {
+  /* Rows lay out by the width of the list, not the viewport: a 470px phone and a 360px phone
+     with a wide sheet can have the same list width. */
+  container: fblist / inline-size;
   list-style: none;
   margin: 0;
   padding: 8px 10px 6px;
@@ -9055,14 +9058,16 @@ html:-webkit-full-screen {
   gap: 8px;
 }
 
+/* Narrow list (default): the name gets the whole row, the LED sits under it on the right. */
 .fb-row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
-    "grade price"
-    "recipe recipe"
-    "meta meta";
+    "grade"
+    "price"
+    "recipe"
+    "meta";
   gap: 8px 10px;
   padding: 10px 10px 9px 12px;
   border-radius: 8px;
@@ -9161,6 +9166,10 @@ html:-webkit-full-screen {
   align-items: flex-end;
   gap: 6px;
   justify-self: end;
+  /* Never stretched to the row: the box is exactly the LED plus its padding. */
+  align-self: start;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 6px 8px 5px 10px;
   border-radius: 5px;
   background: radial-gradient(120% 140% at 50% 0%, #120607, #050506 70%);
@@ -9183,14 +9192,18 @@ html:-webkit-full-screen {
   overflow: visible;
 }
 
+/* --seg-h drives both height and width (SegLed sets width = --seg-h × its digit ratio), so the
+   LED never falls back to an SVG's default 300px intrinsic width. */
 .seg-lg {
-  height: 34px;
-  width: auto;
+  --seg-h: 34px;
+  height: var(--seg-h);
+  max-width: 100%;
 }
 
 .seg-sm {
-  height: 16px;
-  width: auto;
+  --seg-h: 16px;
+  height: var(--seg-h);
+  max-width: 100%;
 }
 
 /* One filter per display (not per segment): 40 rows x 7 digits stay cheap on phones. */
@@ -9438,9 +9451,23 @@ html:-webkit-full-screen {
   font-variant-numeric: tabular-nums;
 }
 
-@media (min-width: 760px) {
+/* Name and LED side by side only when the name column still gets at least 12rem. */
+@container fblist (min-width: 520px) {
   .fb-row {
-    grid-template-columns: minmax(150px, 200px) minmax(0, 1fr) auto;
+    grid-template-columns: minmax(12rem, 1fr) auto;
+    grid-template-areas:
+      "grade price"
+      "recipe recipe"
+      "meta meta";
+  }
+  .fb-price {
+    align-self: center;
+  }
+}
+
+@container fblist (min-width: 700px) {
+  .fb-row {
+    grid-template-columns: minmax(200px, 260px) minmax(0, 1fr) auto;
     grid-template-areas:
       "grade recipe price"
       "grade meta price";
@@ -9454,7 +9481,7 @@ html:-webkit-full-screen {
     align-self: center;
   }
   .seg-lg {
-    height: 40px;
+    --seg-h: 40px;
   }
 }
 
@@ -9474,7 +9501,7 @@ html:-webkit-full-screen {
     height: 34px;
   }
   .seg-lg {
-    height: 25px;
+    --seg-h: 25px;
   }
   .fb-unit {
     display: none;
