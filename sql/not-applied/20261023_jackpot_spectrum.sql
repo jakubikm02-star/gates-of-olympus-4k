@@ -1,0 +1,38 @@
+-- NOT APPLIED. Do not run this file. Do not copy it into migrations/.
+--
+-- park_jackpot_spin is a remote RPC. Its body is not in this repository, and
+-- PostgREST rejects unknown arguments, so the live client cannot pass new
+-- parameters. PARKVOLT SPEKTRUM therefore keeps the 1-FTTB touch on the client:
+--   orange PRÍPLATOK parks 10 % of the spin win on the save (pending) and
+--   returns it to this player on a real 1-FTTB claim or on the local echo;
+--   black ČIERNA DIERA rolls a second local 1-FTTB chance for 10 spins and,
+--   when the server planted no ticket, pays the 1-FTTB seed (500) plus pending
+--   without calling postParkClaim and without draining the shared pool.
+--
+-- If the pool should see the orange cut and the second roll for every player,
+-- merge the two optional arguments below into the production function by hand.
+-- Other jackpots stay unchanged.
+--
+--   p_ulica_extra  numeric  default 0
+--     Orange surcharge in credits. Add it only to the ulica (1-FTTB) pool,
+--     still subject to that tier's cap. Ignore it for okres, kraj and stat.
+--   p_ulica_boost  boolean  default false
+--     While ČIERNA DIERA is active, roll the ulica ticket a second time on
+--     this spin (same odds). Do not roll the other tiers twice.
+--
+-- Suggested signature, NOT a working replacement (the current body is unknown):
+--
+-- create or replace function park_jackpot_spin(
+--   p_stake numeric,
+--   p_eligible boolean,
+--   p_skip boolean,
+--   p_player text,
+--   p_ulica_extra numeric default 0,
+--   p_ulica_boost boolean default false
+-- ) returns jsonb
+-- language plpgsql
+-- as $$
+-- begin
+--   raise exception 'NOT APPLIED — merge into the live park_jackpot_spin by hand';
+-- end;
+-- $$;

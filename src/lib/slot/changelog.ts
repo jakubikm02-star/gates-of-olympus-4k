@@ -7,11 +7,13 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-10-28", text: "PARKVOLT SPEKTRUM má vlastnú grafiku: farebné plechovky, krúžok s farbami, ikonky počasia a efekty ŽIVEJ VODY a ČIERNEJ DIERY. ČIERNA DIERA už nie je skoro nemožná: druhé NEUTRALIZOVANÉ v ten deň ju vždy otvorí, prvé so šancou 40 %, stále najviac raz za deň (asi 1–2× za týždeň). Dobré tváre farieb sú o niečo častejšie, aby sa návratnosť nezmenila." },
   { day: "2026-10-28", text: "Tabuľa, SMRŤ EGA a VERSUS: dlhé meno sa už nerozpadne po písmenkách a titul sa nepíše zvislo. Meno sa zalomí len medzi slovami alebo za _, inak sa písmo trochu zmenší. Čierny displej s výhrou má pevnú veľkosť a na užších mobiloch je pod menom." },
   { day: "2026-10-24", text: "Tituly majú novú grafiku v štýle BF4 stužiek: v Tabuli, SMRTI EGA, VERSUS, okienku nového titulu aj v Štatistikách. Obrázky sa sťahujú, až keď sú na obrazovke." },
   { day: "2026-10-24", text: "Okienko nového titulu je späť: ukáže sa nad výhrou, bonusom aj otvoreným oknom, s odznakom, názvom a popisom, a samo zmizne. Ťuknutie mimo PRESKOČIŤ ide do hry pod ním." },
   { day: "2026-10-24", text: "Denné tituly majú nové, drsnejšie názvy v štýle čierneho stand-upu. V Tabuli, SMRTI EGA a vo VERSUS je celé meno hráča a pod ním celý názov titulu, nič sa neskracuje. V Štatistikách „Dnešné tituly“ ukážu všetky dnešné tituly s popisom, úrovňou a časom, najnovší navrchu." },
   { day: "2026-10-23", text: "Denné ribbony: titul za to, čo dnes naozaj spravíš. Najnovší svieti v štatistikách, ostatní vidia posledný pri mene. O polnoci sa mažú." },
+  { day: "2026-10-23", text: "PARKVOLT SPEKTRUM od NEKONEČNA. Každý deň tri nálady, krúžok, pár, NEUTRALIZOVANÉ, triáda, ŽIVÁ VODA a ČIERNA DIERA. Vypnuté v ZÁSAHU, 4KA TV, kúpe bonusu a VERSUS." },
   { day: "2026-10-21", text: "Fold a landscape na S24 Ultra: valce sa opäť vykreslia celé." },
   { day: "2026-10-20", text: "KOLESO: tajnička už vždy odkryje všetky písmená a na konci kola ukáže celé riešenie." },
   { day: "2026-10-19", text: "SMRŤ EGA: keď kľúč 4KA TV zmizne z profilu moja.4ka.tv, výherca dostane náhradný kľúč na tom istom mieste v karte EVENT. Platí ďalších 28 dní a treba ho znova odkryť." },

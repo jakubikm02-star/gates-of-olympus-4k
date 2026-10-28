@@ -302,6 +302,7 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
                   Hodí ju rampa, nepadá z valca. Plechovky sa sčítajú, nenásobia (50 + 100 = 150×, nie {"5\u00a0000×"}). Zapnú sa až na konci tumble
                   reťaze a len vtedy, keď bola výhra; bez výhry ostanú na mieste a nič nespravia. V základnej hre platí súčet plechoviek × celá
                   reťaz. Hodnoty 2–5× tvoria asi {pct(cs.low)} plechoviek, priemer je asi {n(+cs.mean.toFixed(1))}×.
+                  Od ranku NEKONEČNO môže plechovka dostať náladu dňa (PARKVOLT SPEKTRUM): tri farby, počasie a krúžok. Farba mení tú istú plechovku, nepridáva nový symbol. V ZÁSAHU, 4KA TV, kúpe bonusu a VERSUS je vypnutá.
                 </p>
               </div>
             </div>
