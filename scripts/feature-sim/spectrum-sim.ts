@@ -18,7 +18,8 @@ import { kontrolaRun } from "../../src/lib/slot/bonus-ev.ts";
 import { playZbox, zboxVipOf } from "../../src/lib/slot/zbox.ts";
 import { kolesoVipOf, playKoleso } from "../../src/lib/slot/koleso.ts";
 import { RANK_PERKS, RANKS, bannerFromX, fsSpinsOf, rpFromDead, rpFromSpin } from "../../src/lib/slot/ranks.ts";
-import { applySpectrum, emptySpectrum, hash32 } from "../../src/lib/slot/spectrum.ts";
+import { SPECTRUM_TUNE, ULICA_ECHO, applySpectrum, emptySpectrum, hash32 } from "../../src/lib/slot/spectrum.ts";
+import { TICKET_ODDS } from "../../src/lib/slot/jackpot.ts";
 
 const rankId = process.argv[2] ?? "nekonecno";
 const ante = process.argv[3] === "1";
@@ -32,6 +33,23 @@ const rng = createRng(seed * 7919 + 17);
 const stakeX = ante ? perk.anteMul : 1;
 const fsBase = fsSpinsOf(rankId);
 const playerId = "sim-park";
+// SPEK_HOLE_P overrides the ČIERNA DIERA chance for tuning runs. The default is the shipped tune.
+// SPEK_P="a,b,c,d,e,f,g" overrides the seven good-face chances.
+const tune = {
+  ...SPECTRUM_TUNE,
+  ...(process.env.SPEK_HOLE_P ? { holeP: Number(process.env.SPEK_HOLE_P) } : {}),
+  ...(process.env.SPEK_P ? { p: process.env.SPEK_P.split(",").map(Number) } : {}),
+};
+// 1-FTTB, outside the acceptance RTP. Valued analytically (no draws), so the CRN streams stay paired.
+// echo: the local 2nd ulica roll during ČIERNA DIERA's 10 spins pays ULICA_ECHO credits (+ pending).
+// orange: PRÍPLATOK parks 10 % of the win; it comes back with the next real 1-FTTB or an echo.
+const P_ULICA = TICKET_ODDS.ulica;
+let echoHits = 0;
+let echoCredits = 0;
+let pendingX = 0;
+let parkedX = 0;
+let returnedX = 0;
+let blackDays = 0;
 
 let heat = 0;
 let specHeat = 0;
@@ -143,7 +161,10 @@ function rpOf(x: number, applied: number, tumbles: number, streak: number, hitMa
 for (let i = 0; i < n; i++) {
   const day = dayOf(i);
   if (day !== dayKey) {
-    if (dayKey) maxBlackDay = Math.max(maxBlackDay, blackToday);
+    if (dayKey) {
+      maxBlackDay = Math.max(maxBlackDay, blackToday);
+      if (blackToday > 0) blackDays += 1;
+    }
     dayKey = day;
     blackToday = 0;
   }
@@ -173,6 +194,18 @@ for (let i = 0; i < n; i++) {
     capB += 1;
     capS += 1;
   }
+  if (active) {
+    // Real server 1-FTTB (any paid spin) returns the parked orange credits.
+    let back = P_ULICA;
+    if (!chasing && spec.fttb > 0) {
+      echoHits += P_ULICA;
+      echoCredits += P_ULICA * ULICA_ECHO;
+      back += P_ULICA;
+    }
+    const ret = pendingX * Math.min(1, back);
+    returnedX += ret;
+    pendingX -= ret;
+  }
   if (active && !chasing) {
     const side = createRng(hash32(`${playerId}|${i}|${seed}|sp`));
     const fx = applySpectrum(
@@ -187,7 +220,13 @@ for (let i = 0; i < n; i++) {
       },
       side,
       { day, playerId },
+      undefined,
+      tune,
     );
+    if (fx.ulicaX > 0) {
+      pendingX += fx.ulicaX;
+      parkedX += fx.ulicaX;
+    }
     spinS = fx.paidX;
     if (fx.paidX >= MAX_WIN_X - 1e-6 && !sp.hitMax) capS += 1;
     if (fx.event === "white") white += 1;
@@ -292,6 +331,7 @@ for (let i = 0; i < n; i++) {
   push(spinB, spinS);
 }
 maxBlackDay = Math.max(maxBlackDay, blackToday);
+if (blackToday > 0) blackDays += 1;
 if (chase) chaseNet += chaseRun;
 
 const chaseEv = chaseN > 0 ? chaseNet / chaseN : 0;
@@ -340,6 +380,17 @@ const out = {
   capS,
   whitePerWeek: +((white / days) * 7).toFixed(3),
   blackPerDay: +(black / days).toFixed(4),
+  holeP: tune.holeP ?? null,
+  p: tune.p,
+  blackPerWeek: +((black / days) * 7).toFixed(3),
+  blackDayShare: +(blackDays / days).toFixed(4),
+  // 1-FTTB (outside RTP). Credits at bet 1; the echo is a flat 500, so its pp scale with 1/bet.
+  echoPerWeek: +((echoHits / days) * 7).toFixed(4),
+  echoCreditsPerWeek: +((echoCredits / days) * 7).toFixed(3),
+  echoPpBet1: +((echoCredits / stake) * 100).toFixed(4),
+  orangeParkedPp: +((parkedX / stake) * 100).toFixed(4),
+  orangeReturnedPp: +((returnedX / stake) * 100).toFixed(4),
+  orangeStillParkedX: +pendingX.toFixed(3),
   maxBlackDay,
   colored,
   cancel,

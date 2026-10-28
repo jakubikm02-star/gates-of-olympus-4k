@@ -70,13 +70,19 @@ export interface SpectrumTune {
    * The 12-spin ring lamps are unchanged.
    */
   triadSpan?: number;
+  /**
+   * ČIERNA DIERA: the day's `holeN`-th NEUTRALIZOVANÉ always collapses into it; an earlier one
+   * does with chance `holeP`. Still at most once per day. Omit to use HOLE_N / HOLE_P.
+   */
+  holeN?: number;
+  holeP?: number;
   /** Scales credit deltas (1 = the sizes in the spec). */
   amp: number;
 }
 
 /**
  * Tuned on the CRN session sim (NEKONEČNO, with and without ante, 20 M).
- * p_c sits under 0.5 so the extra ŽIVÁ VODA stays inside the RTP band.
+ * p_c pays for the extras: ŽIVÁ VODA adds credits, ČIERNA DIERA swallows the spin's multiplier.
  * amp scales every credit delta (1 would be the sizes in the spec).
  * Every legal lamp overlap is a combination, still at most one per 20 spins.
  * ŽIVÁ VODA also opens when the day's three colours have each landed inside
@@ -86,8 +92,17 @@ export interface SpectrumTune {
  */
 export const TRIAD_WINDOW = 28;
 
+/**
+ * ČIERNA DIERA (2026-10-28). The old rule (3× NEUTRALIZOVANÉ inside 50 spins) fired about once
+ * in 30 years of play. NEUTRALIZOVANÉ lands ~0.45× per active day, so: the day's 2nd one is always
+ * a black hole, the 1st one is with chance HOLE_P. At ~1 000 spins/day that is about 1–2× a week.
+ */
+export const HOLE_N = 2;
+export const HOLE_P = 0.4;
+
 export const SPECTRUM_TUNE: SpectrumTune = {
-  p: [0.33, 0.56, 0.47, 0.31, 0.39, 0.5, 0.5],
+  // 2026-10-28: +0.08 on the credit colours (orange capped at 0.60) pays for ČIERNA DIERA at ~1.3×/week.
+  p: [0.41, 0.6, 0.55, 0.39, 0.47, 0.5, 0.5],
   comboP: 1,
   calmW: 0.5,
   normalW: 0.4,
@@ -165,6 +180,8 @@ export interface SpectrumState {
   black: number;
   /** Ages of recent NEUTRALIZOVANÉ, in spins. */
   neutrals: number[];
+  /** NEUTRALIZOVANÉ so far today (ČIERNA DIERA rule). Older saves omit it: 0. */
+  neutralsDay: number;
   /** Spins left of the doubled 1-FTTB chance. */
   fttb: number;
   sinceStorm: number;
@@ -194,6 +211,7 @@ export function emptySpectrum(): SpectrumState {
     white: 0,
     black: 0,
     neutrals: [],
+    neutralsDay: 0,
     fttb: 0,
     sinceStorm: 30,
     triad: [],
@@ -245,6 +263,7 @@ export function sanitizeSpectrum(raw: unknown): SpectrumState {
   e.white = clampInt(r.white, 0, 1, 0);
   e.black = clampInt(r.black, 0, 1, 0);
   e.neutrals = idList(r.neutrals, 8, 50);
+  e.neutralsDay = clampInt(r.neutralsDay, 0, 99, 0);
   e.fttb = clampInt(r.fttb, 0, 10, 0);
   e.sinceStorm = clampInt(r.sinceStorm, 0, 10_000, 30);
   e.triad = idList(r.triad, 3, 6);
@@ -555,6 +574,7 @@ function ensureDay(state: SpectrumState, playerId: string, day: string, tune: Sp
     state.prevStorms = [...state.prevStorms, state.weather === 2 ? 1 : 0].slice(-3);
     state.white = 0;
     state.black = 0;
+    state.neutralsDay = 0;
     state.triad = [];
     state.ringAge = [999, 999, 999, 999, 999, 999, 999];
   }
@@ -639,7 +659,11 @@ export function applySpectrum(
     state.lit[opp] = 0;
     state.lit[color] = 0;
     state.neutrals = [...state.neutrals, 0].slice(-8);
-    const hole = state.black === 0 && state.neutrals.length >= 3;
+    state.neutralsDay = (state.neutralsDay ?? 0) + 1;
+    const holeN = tune.holeN ?? HOLE_N;
+    const holeP = tune.holeP ?? HOLE_P;
+    // Side stream only; the roll is skipped once today's hole is used or the count already decides.
+    const hole = state.black === 0 && (state.neutralsDay >= holeN || rng() < holeP);
     if (hole) state.black = 1;
     const bag: Bag = {
       seq: input.sequenceX,

@@ -8,7 +8,9 @@ import {
   hash32,
   rollDay,
   rollWeather,
+  SPECTRUM_TUNE,
   sanitizeSpectrum,
+  syncSpectrumDay,
   type SpectrumInput,
   type SpectrumState,
 } from "./spectrum.ts";
@@ -158,7 +160,8 @@ describe("spektrum opposites", () => {
   it("puts both slots out and pays nothing extra", () => {
     const s = fresh();
     s.lit[5] = 8;
-    const fx = applySpectrum(s, spin(), scripted([0]), { day: s.day, playerId: "p" }, { forceColor: 0 });
+    // Orb pick, then the ČIERNA DIERA roll (0.99 misses HOLE_P).
+    const fx = applySpectrum(s, spin(), scripted([0, 0.99]), { day: s.day, playerId: "p" }, { forceColor: 0 });
     assert.equal(fx.event, "cancel");
     assert.equal(fx.label, "NEUTRALIZOVANÉ");
     assert.equal(fx.paidX, 50);
@@ -248,19 +251,50 @@ describe("spektrum once a day", () => {
 
   it("fires ČIERNA DIERA at most once", () => {
     const s = fresh();
-    s.neutrals = [1, 2];
+    s.neutralsDay = 1;
     s.lit[5] = 6;
     const first = applySpectrum(s, spin(), scripted([0]), { day: s.day, playerId: "p" }, { forceColor: 0 });
     assert.equal(first.event, "black");
     assert.equal(first.paidX, 10);
     assert.equal(s.fttb, 10);
     assert.equal(first.pity, 10);
-    s.neutrals = [1, 2];
     s.lit[5] = 6;
     const second = applySpectrum(s, spin(), scripted([0]), { day: s.day, playerId: "p" }, { forceColor: 0 });
     assert.equal(second.event, "cancel");
     assert.equal(second.paidX, 50);
     assert.equal(s.black, 1);
+    assert.equal(s.neutralsDay, 3);
+  });
+
+  it("ČIERNA DIERA: 2nd NEUTRALIZOVANÉ of the day always, the 1st only by chance", () => {
+    const tune = { ...SPECTRUM_TUNE, holeN: 2, holeP: 0.4 };
+    // Side stream: orb pick, then the hole roll. 1st of the day, roll 0.9 >= 0.4: a plain cancel.
+    const a = fresh();
+    a.lit[5] = 6;
+    const miss = applySpectrum(a, spin(), scripted([0, 0.9]), { day: a.day, playerId: "p" }, { forceColor: 0 }, tune);
+    assert.equal(miss.event, "cancel");
+    assert.equal(a.neutralsDay, 1);
+    // 2nd of the day: black hole without a roll.
+    a.lit[5] = 6;
+    const hit = applySpectrum(a, spin(), scripted([0.99, 0.99]), { day: a.day, playerId: "p" }, { forceColor: 0 }, tune);
+    assert.equal(hit.event, "black");
+    // 1st of the day, roll 0.1 < 0.4: black hole.
+    const b = fresh();
+    b.lit[5] = 6;
+    const lucky = applySpectrum(b, spin(), scripted([0, 0.1]), { day: b.day, playerId: "p" }, { forceColor: 0 }, tune);
+    assert.equal(lucky.event, "black");
+  });
+
+  it("ČIERNA DIERA day counter resets at midnight and old saves load at 0", () => {
+    const s = fresh();
+    s.neutralsDay = 5;
+    s.black = 1;
+    syncSpectrumDay(s, "p", "2099-01-02");
+    assert.equal(s.neutralsDay, 0);
+    assert.equal(s.black, 0);
+    const old = sanitizeSpectrum({ day: "2026-10-23", neutrals: [1, 2] });
+    assert.equal(old.neutralsDay, 0);
+    assert.equal(sanitizeSpectrum({ neutralsDay: 1e9 }).neutralsDay, 99);
   });
 });
 
