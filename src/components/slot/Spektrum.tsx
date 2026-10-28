@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { COLORS, type SpectrumHud, type SpectrumMark } from "@/lib/slot/spectrum";
 import { SPEK_FX, SPEK_RING, SPEK_WEATHER, spekWarmList } from "@/lib/slot/spektrum-art";
+import { predecode } from "@/lib/slot/predecode";
 
 /**
  * Warm today's cans and the two rare FX once the layer is on, when the browser is idle.
+ * Deliberately not in the boot preload list: the art is for NEKONEČNO only.
  * Nothing is fetched for players below NEKONEČNO or with ?spektrum=0.
  */
 function useWarmSpektrumArt(on: boolean, ids: readonly number[]): void {
@@ -11,13 +13,8 @@ function useWarmSpektrumArt(on: boolean, ids: readonly number[]): void {
   useEffect(() => {
     if (!on || typeof window === "undefined") return;
     const list = spekWarmList(key ? key.split(",").map(Number) : []);
-    const run = () => {
-      for (const src of list) {
-        const img = new Image();
-        img.decoding = "async";
-        img.src = src;
-      }
-    };
+    // predecode keeps the bitmaps decoded, so the first colour can or FX does not hitch a spin.
+    const run = () => void predecode(list);
     const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
     if (w.requestIdleCallback) {
       const id = w.requestIdleCallback(run, { timeout: 4000 });
