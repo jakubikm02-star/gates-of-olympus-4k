@@ -8,6 +8,7 @@ export interface ChangeNote {
 
 export const CHANGELOG: readonly ChangeNote[] = [
   { day: "2026-10-28", text: "PARKVOLT SPEKTRUM má vlastnú grafiku: farebné plechovky, krúžok s farbami, ikonky počasia a efekty ŽIVEJ VODY a ČIERNEJ DIERY. ČIERNA DIERA už nie je skoro nemožná: druhé NEUTRALIZOVANÉ v ten deň ju vždy otvorí, prvé so šancou 40 %, stále najviac raz za deň (asi 1–2× za týždeň). Dobré tváre farieb sú o niečo častejšie, aby sa návratnosť nezmenila." },
+  { day: "2026-10-28", text: "HLÁSENIE (nabíjanie ZÁSAHU) je nové tlačivo: malé daňové priznanie typ H so zelenými políčkami, čiarovým kódom a žltým okrajom. Ako sa bar plní, modré pero vypisuje PRIZNÁVAM! po políčkach a riadky 01 až 05 sa menia. Plné hlásenie dostane červenú pečiatku PODANÉ a ZÁSAH ide na ďalšom spine. Počítanie ani pravidlá sa nemenia." },
   { day: "2026-10-28", text: "Tabuľa, SMRŤ EGA a VERSUS: dlhé meno sa už nerozpadne po písmenkách a titul sa nepíše zvislo. Meno sa zalomí len medzi slovami alebo za _, inak sa písmo trochu zmenší. Čierny displej s výhrou má pevnú veľkosť a na užších mobiloch je pod menom." },
   { day: "2026-10-24", text: "Tituly majú novú grafiku v štýle BF4 stužiek: v Tabuli, SMRTI EGA, VERSUS, okienku nového titulu aj v Štatistikách. Obrázky sa sťahujú, až keď sú na obrazovke." },
   { day: "2026-10-24", text: "Okienko nového titulu je späť: ukáže sa nad výhrou, bonusom aj otvoreným oknom, s odznakom, názvom a popisom, a samo zmizne. Ťuknutie mimo PRESKOČIŤ ide do hry pod ním." },

@@ -17,6 +17,7 @@ import { BonusModeStrip } from "./BonusModeStrip";
 import { ZboxBonus } from "./ZboxBonus";
 import { ZlatyBarBadge, ZlatyHud, ZlatyResult, ZlatyReveal, ZlatySheet, ZlatyTeaser } from "./Zlaty";
 import { ZasahBattery } from "./ZasahBattery";
+import { ZasahForm } from "./ZasahForm";
 import { KolesoBonus } from "./KolesoBonus";
 import { useSlotGame } from "@/hooks/use-slot-game";
 import { RibbonBind, RibbonToast } from "./RibbonBadge";
@@ -60,6 +61,7 @@ import { depositTotal, writeAppReloadMarker } from "@/lib/slot/duel-deposit";
 import "./duel-ui.css";
 import "./zbox.css";
 import "./zasah-battery.css";
+import "./zasah-form.css";
 import "./koleso.css";
 import "./rp-ui.css";
 import { SuchoChip } from "./SuchoChip";
@@ -465,17 +467,7 @@ export function SlotGame() {
                   {g.chase ? (
                     <ZasahBattery spin={g.chase.spin} total={g.chase.total} />
                   ) : (
-                  <div className="fs-heat" aria-label={`Hlásenie ${g.heat}`}>
-                    <span>HLÁSENIE</span>
-                    <i
-                      style={{
-                        ["--heat" as string]: `${Math.min(100, (g.heat / HEAT_MAX) * 100)}%`,
-                      }}
-                    />
-                    <b>
-                      {g.heat}/{HEAT_MAX}
-                    </b>
-                  </div>
+                  <ZasahForm heat={g.heat} max={HEAT_MAX} nick={g.nick} turbo={g.turbo} className="fs-heat-form" />
                   )}
                 </div>
               ) : (
@@ -501,19 +493,7 @@ export function SlotGame() {
                   {g.chase ? (
                     <ZasahBattery spin={g.chase.spin} total={g.chase.total} />
                   ) : (
-                  <div className={`heat-bar ${g.heat >= HEAT_MAX ? "is-hot" : ""}`}>
-                    <span className="heat-kicker">HLÁSENIE</span>
-                    <div className="heat-segs" aria-hidden="true">
-                      <i
-                        style={{
-                          ["--heat" as string]: `${Math.min(100, (g.heat / HEAT_MAX) * 100)}%`,
-                        }}
-                      />
-                    </div>
-                    <b>
-                      {g.heat}/{HEAT_MAX}
-                    </b>
-                  </div>
+                  <ZasahForm heat={g.heat} max={HEAT_MAX} nick={g.nick} turbo={g.turbo} />
                   )}
                 </div>
               )}

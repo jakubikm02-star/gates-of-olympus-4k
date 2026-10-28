@@ -1,0 +1,357 @@
+/* HLÁSENIE (ZÁSAH charge meter) as a mini tax return, FO typ B (DPFOBv21) look. Visual only.
+   It fills the slot the old heat bar had (100% of the fixed .board-meter height) and never sizes
+   anything around it: size containment + overflow hidden, every inner size comes from the container. */
+.zform {
+  --zf-paper: #d6ecd0;
+  --zf-band: #b3d9a8;
+  --zf-line: #79ad70;
+  --zf-ink: #1c3cb0;
+  --zf-text: #15321c;
+  --zf-red: #d3122b;
+  --zf-ink-t: 0.32s;
+  --zf-stamp-t: 0.46s;
+  position: relative;
+  container-type: size;
+  container-name: zform;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 100%;
+  padding: 1px 9px 1px 4px;
+  border: 1px solid var(--zf-line);
+  border-radius: 6px;
+  background:
+    radial-gradient(120% 140% at 30% 0%, rgb(255 255 255 / 0.35), transparent 60%),
+    var(--zf-paper);
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.5), inset 0 0 0 1px rgb(255 255 255 / 0.35);
+  color: var(--zf-text);
+  font-family: "Arial Narrow", Arial, sans-serif;
+  overflow: hidden;
+  isolation: isolate;
+  contain: layout paint;
+}
+
+/* black corner registration marks */
+.zform::before {
+  content: "";
+  position: absolute;
+  inset: 2px 7px 2px 2px;
+  pointer-events: none;
+  background:
+    linear-gradient(#111, #111) 0 0 / 5px 1.5px,
+    linear-gradient(#111, #111) 0 0 / 1.5px 5px,
+    linear-gradient(#111, #111) 100% 0 / 5px 1.5px,
+    linear-gradient(#111, #111) 100% 0 / 1.5px 5px,
+    linear-gradient(#111, #111) 0 100% / 5px 1.5px,
+    linear-gradient(#111, #111) 0 100% / 1.5px 5px,
+    linear-gradient(#111, #111) 100% 100% / 5px 1.5px,
+    linear-gradient(#111, #111) 100% 100% / 1.5px 5px;
+  background-repeat: no-repeat;
+  opacity: 0.85;
+  z-index: 2;
+}
+
+/* yellow edge strip */
+.zform::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #f7ea4a, #e9d523);
+  box-shadow: -1px 0 0 rgb(0 0 0 / 0.12);
+}
+
+/* boxed "FO typ: B" style logo */
+.zform-logo {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+  height: min(100%, 22px);
+  padding: 0 2px;
+  border: 1.5px solid #111;
+  background: #fff;
+  color: #111;
+  line-height: 1;
+}
+.zform-logo b {
+  font-family: var(--font-display, "Arial Narrow", sans-serif);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.zform-logo i {
+  font-style: normal;
+  font-size: 6.5px;
+  font-weight: 800;
+}
+
+.zform-main {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+}
+
+.zform-head {
+  display: none;
+  overflow: hidden;
+  padding: 0 3px;
+  background: var(--zf-band);
+  border-top: 1px solid var(--zf-line);
+  font-size: 6.5px;
+  font-weight: 800;
+  line-height: 9px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* row label "01 Priezvisko: …" on its own micro line above the comb */
+.zform-lbl {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  height: 7px;
+  font-size: 6.5px;
+  font-weight: 700;
+  line-height: 7px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.zform-lbl em {
+  flex-shrink: 0;
+  font-style: normal;
+  font-weight: 900;
+  padding: 0 1px;
+  background: var(--zf-text);
+  color: var(--zf-paper);
+  font-size: 5.5px;
+  line-height: 7px;
+}
+.zform-lbl span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.zform.is-full .zform-lbl span {
+  color: var(--zf-red);
+}
+
+/* the comb: white boxes, pale green separators */
+.zform-comb {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  flex-shrink: 0;
+  height: clamp(9px, calc(100cqh - 8px), 15px);
+  border: 1px solid var(--zf-line);
+  background: #fff;
+  position: relative;
+}
+.zform-cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+.zform-cell + .zform-cell {
+  border-left: 1px solid #a9cf9f;
+}
+/* comb ticks at the bottom of each box, like the paper form */
+.zform-cell::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--zf-paper);
+}
+.zform-cell b {
+  position: relative;
+  font-family: "Courier New", ui-monospace, monospace;
+  font-size: clamp(7.5px, calc(100cqh - 11px), 12px);
+  font-weight: 900;
+  line-height: 1;
+  color: var(--zf-ink);
+  transform: rotate(var(--zf-r, -4deg)) translateY(var(--zf-y, 0));
+  animation: zf-ink var(--zf-ink-t) cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+.zform-cell:nth-child(3n + 1) b { --zf-r: 5deg; --zf-y: -0.5px; }
+.zform-cell:nth-child(3n + 2) b { --zf-r: -2deg; --zf-y: 0.5px; }
+.zform-cell:nth-child(4n) b { --zf-r: 8deg; }
+
+/* the box being written: pen line grows with the partial tenth, caret blinks */
+.zform-cell.is-pen::after {
+  content: "";
+  position: absolute;
+  left: 15%;
+  bottom: 2px;
+  height: 1.5px;
+  width: calc(var(--part, 0) * 70%);
+  background: var(--zf-ink);
+  border-radius: 1px;
+  transition: width 0.35s ease-out;
+}
+.zform-cell.is-pen {
+  background: rgb(28 60 176 / 0.06);
+  box-shadow: inset 0 0 0 1px rgb(28 60 176 / 0.45);
+  animation: zf-caret 1s steps(1, end) infinite;
+}
+
+/* barcode + human-readable value under it */
+.zform-code {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  line-height: 1;
+}
+.zform-code svg {
+  display: block;
+  width: 20px;
+  height: clamp(6px, calc(100cqh - 15px), 12px);
+  fill: #111;
+}
+.zform-code b {
+  font-family: "Courier New", ui-monospace, monospace;
+  font-size: 7.5px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #111;
+}
+
+/* full: red office stamp over the comb */
+.zform-stamp {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  top: 50%;
+  padding: 0 5px;
+  border: 2px solid var(--zf-red);
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.35);
+  color: var(--zf-red);
+  font-family: var(--font-display, "Arial Narrow", sans-serif);
+  font-size: clamp(9px, calc(100cqh - 11px), 16px);
+  font-weight: 700;
+  line-height: 1.25;
+  padding-top: 1px;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+  background: rgb(244 250 241 / 0.82);
+  transform: translate(-50%, -50%) rotate(-4deg);
+  animation: zf-stamp var(--zf-stamp-t) cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+.zform.is-full {
+  border-color: var(--zf-red);
+  box-shadow: 0 0 0 1px rgb(211 18 43 / 0.35), 0 0 10px rgb(211 18 43 / 0.45);
+}
+.zform.is-full .zform-cell b {
+  opacity: 0.4;
+}
+
+/* roomy containers (desktop 2.4rem, unfolded Fold): section header band on top */
+@container zform (min-height: 33px) {
+  .zform-head {
+    display: block;
+  }
+  .zform-comb {
+    height: clamp(11px, calc(100cqh - 20px), 18px);
+  }
+  .zform-cell b {
+    font-size: clamp(9px, calc(100cqh - 21px), 13px);
+  }
+  .zform-lbl {
+    height: 8px;
+    font-size: 7px;
+    line-height: 8px;
+  }
+  .zform-logo {
+    height: min(100%, 26px);
+    padding: 0 3px;
+  }
+  .zform-logo b { font-size: 8px; }
+  .zform-logo i { font-size: 7.5px; }
+}
+@container zform (min-width: 250px) {
+  .zform-lbl {
+    font-size: 7.5px;
+  }
+}
+@container zform (max-width: 150px) {
+  .zform-logo b {
+    font-size: 6px;
+  }
+  .zform-logo i {
+    font-size: 6px;
+  }
+  .zform-code svg {
+    width: 15px;
+  }
+  .zform-code b {
+    font-size: 6.5px;
+  }
+}
+
+@keyframes zf-ink {
+  0% { opacity: 0; transform: rotate(var(--zf-r, -4deg)) scale(1.8); filter: blur(1px); }
+  100% { opacity: 1; transform: rotate(var(--zf-r, -4deg)) translateY(var(--zf-y, 0)) scale(1); filter: none; }
+}
+@keyframes zf-caret {
+  0%, 55% { box-shadow: inset 0 0 0 1px rgb(28 60 176 / 0.55); }
+  56%, 100% { box-shadow: inset 0 0 0 1px rgb(28 60 176 / 0.12); }
+}
+@keyframes zf-stamp {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(-16deg) scale(2.4); }
+  70% { opacity: 1; }
+  100% { opacity: 1; transform: translate(-50%, -50%) rotate(-4deg) scale(1); }
+}
+
+/* FS hero slot (replaces the old fs-heat pill) */
+.fs-hero > .zform {
+  flex: 1.1;
+}
+
+/* landscape strip: the bar is 28px, keep the same proportions as the old heat bar */
+.stage.is-land .zform {
+  border-radius: 6px;
+}
+
+/* turbo: snappier ink and stamp, no blinking caret */
+.zform.is-turbo {
+  --zf-ink-t: 0.1s;
+  --zf-stamp-t: 0.16s;
+}
+.zform.is-turbo .zform-cell.is-pen {
+  animation: none;
+}
+
+.stage.perf-lite .zform-cell.is-pen {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zform-cell b,
+  .zform-cell.is-pen,
+  .zform-stamp {
+    animation: none;
+  }
+  .zform-cell.is-pen::after {
+    transition: none;
+  }
+}
