@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { watchPeerRibbons } from "@/lib/slot/ribbon-api";
 import { duelRibbonId } from "@/lib/slot/ribbon-peers";
-import { RibbonTag } from "./RibbonBadge";
+import { FitNick, RibbonTag } from "./RibbonBadge";
 import { formatMoney } from "@/lib/slot/format";
 import { duelCreate, duelForfeitIf, duelJoinSeat, duelLeave, duelPoll, duelStart, duelTick, roomFull, type DuelSnap, type SeatVote } from "@/lib/slot/duel-api";
 import {
@@ -151,7 +151,7 @@ export function DuelSeatRow({
       <span className="duel-seat-name">
         <i className="duel-chip" aria-hidden="true" />
         <span className="rib-who">
-          <span className="duel-seat-label">{name || "…"}</span>
+          <FitNick className="duel-seat-label" nick={name || "…"} />
           <RibbonTag playerId={name ? duelRibbonId(name) : undefined} nick={name} mine={Boolean(you)} size={14} />
         </span>
         {you ? <small className="duel-you">TY</small> : null}

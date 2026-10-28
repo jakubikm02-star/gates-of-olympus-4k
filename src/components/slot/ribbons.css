@@ -160,8 +160,14 @@
 }
 
 /* Name cells with a ribbon: the full nick, then the emblem and the full ribbon title under it.
-   Nothing is cut with an ellipsis; long text wraps instead. */
+   Nothing is cut with an ellipsis and nothing breaks letter by letter:
+   - the cell is a size container, so the nick font shrinks (down to --nick-min) until its longest
+     unbreakable chunk (--nick-len, set by nickFit() in the component) fits the cell width;
+   - text wraps only at spaces or after "_" "." "-" (<wbr>); overflow-wrap: break-word is a last
+     resort for a chunk still too long at the minimum size. It keeps the min-content width at a whole
+     word; "anywhere" made it one letter and let the grid squeeze the name to a sliver (2026-10-28). */
 .rib-who {
+  container-type: inline-size;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -179,10 +185,16 @@
   overflow: visible;
   text-overflow: clip;
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
   line-height: 1.15;
+  font-size: clamp(var(--nick-min, 0.7rem), calc(100cqi / (var(--nick-len, 6) * var(--nick-ch, 0.74))), var(--nick-max, 1em));
 }
-.fb-grade .rib-who > .fb-nick { font-size: clamp(0.82rem, 3.9vw, 1.12rem); }
+.fb-grade .rib-who > .fb-nick { --nick-max: 1.12rem; --nick-min: 0.78rem; --nick-ch: 0.76; }
+@media (max-width: 420px) { .fb-grade .rib-who > .fb-nick { --nick-max: 1rem; } }
+.cod-name .rib-who > .cod-name-text { --nick-max: 1em; --nick-min: 0.62rem; --nick-ch: 0.64; }
+.duel-seat-name .rib-who > .duel-seat-label { --nick-max: 1em; --nick-min: 0.62rem; --nick-ch: 0.78; }
 .rib-tag {
   display: inline-flex;
   align-items: center;
@@ -191,6 +203,8 @@
   min-width: 0;
 }
 .rib-tag .rib { flex: none; }
+/* The title is one horizontal line that wraps at spaces; it never gets narrower than a short word. */
+.rib-tag-name { flex: 1 1 auto; }
 .rib-tag-name {
   min-width: 0;
   font-family: var(--font-display, inherit);
@@ -201,7 +215,7 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   color: #f0c27a;
 }
 .rib-tag.is-tvrde .rib-tag-name,
@@ -278,14 +292,14 @@
   font-size: 0.9rem;
   letter-spacing: 0.04em;
   line-height: 1.2;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   color: #fff6e8;
 }
 .rib-all-copy p {
   margin: 2px 0 0;
   font-size: 0.75rem;
   line-height: 1.35;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   color: #d5dde6;
 }
 
@@ -300,18 +314,4 @@
 @media (prefers-reduced-motion: reduce) {
   .rib.is-latest svg,
   .rib-toast { animation: none; }
-}
-
-/* Narrow phones and the Fold cover: the LED price moves under the name, so the full nick and
-   the full ribbon title get the whole row instead of a sliver next to the LED. */
-@media (max-width: 440px) {
-  .fb-list .fb-row {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "grade"
-      "price"
-      "recipe"
-      "meta";
-  }
-  .fb-list .fb-row .fb-price { justify-self: end; }
 }

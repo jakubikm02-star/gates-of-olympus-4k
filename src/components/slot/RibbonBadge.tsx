@@ -1,4 +1,5 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { nickFit } from "@/lib/slot/nick-fit";
 import { peerRibbon, peerStamp, subscribePeers } from "@/lib/slot/ribbon-peers";
 import { watchPeerRibbons } from "@/lib/slot/ribbon-api";
 import {
@@ -163,6 +164,21 @@ export function RibbonSlot({
 }
 
 /** Ribbon emblem plus its full title, as a line under a name. Nothing when the player has none today. */
+/** A nick in a name cell: soft breaks after "_" "." "-" and `--nick-len` for the fitted font (ribbons.css). */
+export function FitNick({ nick, className }: { nick: string; className: string }) {
+  const fit = nickFit(nick);
+  return (
+    <span className={className} style={{ "--nick-len": fit.len } as CSSProperties}>
+      {fit.parts.map((part, i) => (
+        <Fragment key={i}>
+          {i ? <wbr /> : null}
+          {part}
+        </Fragment>
+      ))}
+    </span>
+  );
+}
+
 export function RibbonTag({
   playerId,
   nick,

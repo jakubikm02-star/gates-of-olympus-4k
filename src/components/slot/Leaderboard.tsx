@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchBoard, publicId, boardNickLabel, isAnonNick, type BoardRow } from "@/lib/slot/board-api";
-import { RibbonTag, RibbonWatch } from "./RibbonBadge";
+import { FitNick, RibbonTag, RibbonWatch } from "./RibbonBadge";
 import { SmrtEgaCard, useSmrtEga } from "./SmrtEga";
 import { canSrc, PAY_SYMBOLS, SCATTER, TICKETS, type PayId } from "@/lib/slot/symbols";
 import { cascadeWord, recipeSentence, type WinRecipe } from "@/lib/slot/win-recipe";
@@ -86,7 +86,7 @@ export function SegLed({ text, label, size = "lg" }: { text: string; label?: str
     <svg
       className={`seg seg-${size}`}
       viewBox={`-1 -1 ${total + 2} 26`}
-      style={{ aspectRatio: `${total + 2} / 26` }}
+      style={{ aspectRatio: `${total + 2} / 26`, width: `calc(var(--seg-h, 34px) * ${((total + 2) / 26).toFixed(4)})` }}
       role="img"
       aria-label={label ?? text}
     >
@@ -372,7 +372,7 @@ function Grade({ row, rank, mine }: { row: BoardRow; rank: number; mine: boolean
           {rank}
         </span>
         <span className="rib-who">
-          <span className={`fb-nick${isAnonNick(row.nick) ? " is-anon" : ""}`}>{boardNickLabel(row.nick)}</span>
+          <FitNick className={`fb-nick${isAnonNick(row.nick) ? " is-anon" : ""}`} nick={boardNickLabel(row.nick)} />
           <RibbonTag playerId={row.id} nick={row.nick} mine={mine} size={18} />
         </span>
         {mine ? <em className="fb-me">TY</em> : null}
