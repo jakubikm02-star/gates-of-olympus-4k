@@ -27,6 +27,7 @@ import { useContainerVars } from "@/hooks/use-container-vars";
 import "./short-vp.css";
 import { SlotGrid } from "./Grid";
 import { SpektrumDock } from "./Spektrum";
+import { SpektrumCarton } from "./SpektrumCarton";
 import { CanValue } from "./Can";
 import { Paytable } from "./Paytable";
 import { PickBonus } from "./PickBonus";
@@ -320,7 +321,7 @@ export function SlotGame() {
       )}
 
       <div className="table">
-        <SpektrumDock hud={g.specHud} mark={g.specMark} tip={g.specTip} flash={g.specFlash} />
+        <SpektrumDock hud={g.specHud} flash={g.specFlash} />
         <div className="table-head">
           <div className="head-rank">
             <RankBadge stand={g.rank} perkTitle={g.perk.title} plain onOpen={() => g.setRankOpen(true)} />
@@ -336,6 +337,7 @@ export function SlotGame() {
                 g.setPaytableOpen(true);
               }}
             />
+            <SpektrumCarton hud={g.specHud} mark={g.specMark} tip={g.specTip} where="head" />
           </div>
           <div className="head-center">
             <div className="logo-plate compact">
@@ -802,6 +804,7 @@ export function SlotGame() {
               EXEKÚCIA
             </button>
           )}
+          <SpektrumCarton hud={g.specHud} mark={g.specMark} tip={g.specTip} where="side" />
         </div>
       </div>
 
