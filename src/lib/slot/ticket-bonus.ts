@@ -29,22 +29,22 @@ const FEATURE_NOTE: Record<FeatureNeed, { badge: string; pill: string; hint: str
       "ZÁSAH sa spustí, keď sa výhrami naplní HLÁSENIE. Spiny ZÁSAHU minú točenia tiketu, 4KA TV nie. Ak ZÁSAH beží pri poslednom točení, tiket počká na jeho koniec.",
   },
   bar: {
-    badge: "BONUS BAR · KONTROLA, Ž-BOX ALEBO KOLESO",
+    badge: "CASHBACK BONUS · KONTROLA, Ž-BOX ALEBO KOLESO",
     pill: "BONUS",
     hint:
-      "Bonus bar plnia mŕtve spiny (+2) a 3 scattery (+30). Plný bar losuje KONTROLU, Ž-BOX alebo KOLESO NEŠŤASTIA (každé 1/3), počíta sa všetko. Bonus spustený posledným točením sa ešte odohrá.",
+      "Bar Cashback bonusu plnia mŕtve spiny (+2) a 3 scattery (+30). Plný bar losuje KONTROLU, Ž-BOX alebo KOLESO NEŠŤASTIA (každé 1/3), počíta sa všetko. Bonus spustený posledným točením sa ešte odohrá.",
   },
   kontrola: {
     badge: "LEN V KONTROLE",
     pill: "KONTROLA",
     hint:
-      "Ráta sa len KONTROLA. Plný bonus bar losuje režim (každý 1/3), Ž-BOX ani KOLESO sa pri tomto tikete nepočítajú (limit je na to nastavený). Bonus spustený posledným točením sa ešte odohrá.",
+      "Ráta sa len KONTROLA. Plný bar Cashback bonusu losuje režim (každý 1/3), Ž-BOX ani KOLESO sa pri tomto tikete nepočítajú (limit je na to nastavený). Bonus spustený posledným točením sa ešte odohrá.",
   },
   zbox: {
     badge: "LEN V Ž-BOXE",
     pill: "Ž-BOX",
     hint:
-      "Ráta sa len Ž-BOX. Plný bonus bar losuje režim (každý 1/3), KONTROLA ani KOLESO sa pri tomto tikete nepočítajú (limit je na to nastavený). Bonus spustený posledným točením sa ešte odohrá.",
+      "Ráta sa len Ž-BOX. Plný bar Cashback bonusu losuje režim (každý 1/3), KONTROLA ani KOLESO sa pri tomto tikete nepočítajú (limit je na to nastavený). Bonus spustený posledným točením sa ešte odohrá.",
   },
 };
 

@@ -15,6 +15,7 @@ import { advanceChase, ZASAH, ZASAH_FS_MUL, rollFsSymbol, rollTarget, rollWindow
 import { PITY_GOAL, pityGain } from "../../src/lib/slot/pick-bonus.ts";
 import { drawBonusMode } from "../../src/lib/slot/bonus-mode.ts";
 import { kontrolaRun } from "../../src/lib/slot/bonus-ev.ts";
+import { takeCashback } from "../../src/lib/slot/cashback.ts";
 import { playZbox, zboxVipOf } from "../../src/lib/slot/zbox.ts";
 import { kolesoVipOf, playKoleso } from "../../src/lib/slot/koleso.ts";
 import { RANK_PERKS, RANKS, bannerFromX, fsSpinsOf, rpFromDead, rpFromSpin } from "../../src/lib/slot/ranks.ts";
@@ -73,6 +74,10 @@ let blackToday = 0;
 let maxBlackDay = 0;
 let dayKey = "";
 const spec = emptySpectrum();
+// CASHBACK BONUS (VERNOSŤ): stored multiplier used by the next paying bar bonus (S side only).
+let cbUsed = 0;
+let cbExtra = 0;
+let cbGood = 0;
 let streakB = 0;
 let streakS = 0;
 let holdB = false;
@@ -246,8 +251,8 @@ for (let i = 0; i < n; i++) {
     streakS = noteStreak(streakS, spinS > 0, hs);
     holdB = hb.v;
     holdS = hs.v;
-    if (fx.streak === 1) streakS += 1;
-    else if (fx.streak === -1) streakS = 0;
+    if (fx.cashbackDelta > 0) cbGood += 1;
+    if (fx.streak === -1) streakS = 0;
     rpB += rpOf(spinB, sp.applied, sp.tumbles, streakB, sp.hitMax);
     rpS += rpOf(spinS, fx.appliedSum || sp.applied, sp.tumbles, streakS, sp.hitMax) + fx.rp;
   }
@@ -317,6 +322,16 @@ for (let i = 0; i < n; i++) {
     spinS += x;
     paidB += x;
     paidS += x;
+    if (active) {
+      const cb = takeCashback(spec.cashback, { rankId, enabled: true, duel: false, natural: true }, x);
+      if (cb.extra > 0) {
+        cbUsed += 1;
+        cbExtra += cb.extra;
+        spinS += cb.extra;
+        paidS += cb.extra;
+      }
+      spec.cashback = cb.stored;
+    }
     if (!chase && x > 0) {
       const h = heatFromWin(x);
       heat = Math.min(HEAT_MAX, heat + h);
@@ -359,6 +374,10 @@ const ciPp = (1.96 * se / stakePer) * 100;
 const days = n / 1000;
 
 const out = {
+  cbGood,
+  cbUsed,
+  cbExtraX: +cbExtra.toFixed(2),
+  cbPp: +((cbExtra / Math.max(1, stake)) * 100).toFixed(4),
   rank: rankId,
   ante,
   n,

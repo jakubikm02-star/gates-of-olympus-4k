@@ -1000,7 +1000,7 @@ export function KolesoBonus({ play: play0, replay, settle, picks0, onPicks, bet,
       {sheet === "off" ? (
         <div className="kn-sheet-back" onClick={closeSheet} role="presentation">
           <div className="kn-sheet is-confirm" role="alertdialog" aria-label="Už nezobrazovať vysvetlenie" onClick={(e) => e.stopPropagation()}>
-            <p>Určite? Ak niečo nepochopíš, informácie o mechanike nájdeš v Pravidlá (i) → Bonus bar → KOLESO NEŠŤASTIA.</p>
+            <p>Určite? Ak niečo nepochopíš, informácie o mechanike nájdeš v Pravidlá (i) → Cashback bonus → KOLESO NEŠŤASTIA.</p>
             <div className="kn-sheet-btns">
               <button type="button" className="kn-sheet-go" onClick={confirmOff}>
                 Áno, nezobrazovať

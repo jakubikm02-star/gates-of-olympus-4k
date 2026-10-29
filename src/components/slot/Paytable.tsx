@@ -79,7 +79,7 @@ const SECTIONS: { id: string; chip: string; title: string; icon: ReactNode }[] =
   { id: "symboly", chip: "Symboly", title: "Symboly", icon: <img src={canSrc(2)} alt="" /> },
   { id: "fs", chip: "4KA TV", title: "4KA TV · voľné točenia", icon: <img src={SCATTER.src} alt="" /> },
   { id: "zasah", chip: "ZÁSAH", title: "ZÁSAH", icon: <Siren size={15} /> },
-  { id: "bar", chip: "Bonus bar: KONTROLA, Ž-BOX, KOLESO", title: "Bonus bar: KONTROLA, Ž-BOX a KOLESO NEŠŤASTIA", icon: <Gauge size={15} /> },
+  { id: "bar", chip: "Cashback bonus: KONTROLA, Ž-BOX, KOLESO", title: "Cashback bonus: KONTROLA, Ž-BOX a KOLESO NEŠŤASTIA", icon: <Gauge size={15} /> },
   { id: "jackpoty", chip: "Jackpoty", title: "Jackpoty", icon: <img src={TICKETS.stat.src} alt="" /> },
   { id: "tikety", chip: "Tikety", title: "Tikety", icon: <Ticket size={15} /> },
   { id: "ranky", chip: "Ranky", title: "Ranky", icon: <Trophy size={15} /> },
@@ -246,13 +246,13 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
               maximum, klienti, štatistiky a tikety ostanú.
             </li>
             <li>
-              <b>Ukladanie:</b> kredit, bonus bar aj rank sa ukladajú v tomto prehliadači.
+              <b>Ukladanie:</b> kredit, bar Cashback bonusu aj rank sa ukladajú v tomto prehliadači.
             </li>
           </ul>
           <details className="math-box">
             <summary>MATEMATIKA</summary>
             <p>
-              Simulácia {MATH_NOTE.spins.toLocaleString("sk-SK")} platených spinov na engine hry, len základná hra a 4KA TV (bez bonus baru,
+              Simulácia {MATH_NOTE.spins.toLocaleString("sk-SK")} platených spinov na engine hry, len základná hra a 4KA TV (bez Cashback bonusu,
               ZÁSAHU, jackpotov a výhod ranku): RTP okolo {pct(MATH_NOTE.rtp, 1)}, výhra na {pct(MATH_NOTE.hit, 1)} spinov, 4KA TV 1 z{" "}
               {MATH_NOTE.bonusEvery} (s ante 1 z {MATH_NOTE.anteBonusEvery}). Kúpa za {BUY_COST_X}× (15 točení) vráti v priemere {pct(MATH_NOTE.buyEv)} ceny; 16 a 17 točení sú drahšie v rovnakom pomere. MAX WIN{" "}
               {MAX_WIN_X}×: {MATH_NOTE.maxEvery ? `približne 1 z ${MATH_NOTE.maxEvery}` : "v tejto vzorke ani raz"}. Demo s vysokou volatilitou, nie
@@ -409,7 +409,7 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
 
         <Sec
           id="bar"
-          lead={`Bonus bar má vlastný stav pre každú stávku (0 – ${PITY_GOAL}). Mŕtvy spin +${deadAdd}, ${FS_TRIGGER_SCATTERS - 1} scattery +${threeAdd} (${FS_TRIGGER_SCATTERS} spustia 4KA TV, bar nič). Výhry bar neplnia.`}
+          lead={`Bar Cashback bonusu má vlastný stav pre každú stávku (0 – ${PITY_GOAL}). Mŕtvy spin +${deadAdd}, ${FS_TRIGGER_SCATTERS - 1} scattery +${threeAdd} (${FS_TRIGGER_SCATTERS} spustia 4KA TV, bar nič). Výhry bar neplnia.`}
         >
           <ul className="man-list">
             <li>
@@ -418,6 +418,11 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
             </li>
             <li>Vo 4KA TV a vo VERSUS sa bar neplní. Bonus sa odohrá mimo 4KA TV a VERSUS a platí na stávku, na ktorej sa bar naplnil.</li>
             <li>Všetky {modeShare.length} režimy majú pre každý rank rovnakú priemernú výhru.</li>
+            <li>
+              <b>Cashback:</b> v ranku NEKONEČNO plechovka VERNOSŤ (PARKVOLT SPEKTRUM) ukladá násobič. Dobrá strana +0,5×, najviac ×3; zlá strana −0,5×, a keď nie je
+              čo ubrať, vynuluje sériu výhier. Násobič použije prvý Cashback bonus, ktorý niečo vyplatí (výhra po strope a zlatom, pred daňou a SUCHOM), potom
+              spadne na 0. Polnoc ho nezmaže. Vo VERSUS sa nepoužije; mimo NEKONEČNA počká.
+            </li>
           </ul>
           <h4 className="man-sub">
             <img src="/symbols/park.svg" alt="" /> KONTROLA · parkovné
@@ -478,7 +483,7 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
             </li>
             <li>Tikety so 4KA TV (TACHYKARDIA, PLECHOVKY) sa plnia len vo 4KA TV, POHOTOVOSŤ len v kúpenej 4KA TV.</li>
             <li>
-              Tikety na ZÁSAH, bonus bar, KONTROLU a Ž-BOX rátajú platené spiny základnej hry (spiny ZÁSAHU áno, 4KA TV nie). ZÁSAH alebo bonus,
+              Tikety na ZÁSAH, Cashback bonus, KONTROLU a Ž-BOX rátajú platené spiny základnej hry (spiny ZÁSAHU áno, 4KA TV nie). ZÁSAH alebo bonus,
               ktorý začal včas, sa dohrá aj po poslednom točení.
             </li>
             <li>Kým beží tiket, stávka je zamknutá. Vo VERSUS sa tikety neberú.</li>
@@ -519,7 +524,7 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
               ["Liga", `× ${n(leagueMult(0))} (KREDIT) až × ${n(leagueMult(10))} (NEKONEČNO), +0,1 za každý stupeň`],
               [
                 "Typ",
-                `2 ciele × ${n(TYPE_MULT.twoGoal)} · základ + 4KA TV × ${n(TYPE_MULT.dual)} · feature (ZÁSAH, bonus bar) × ${n(TYPE_MULT.feature)} · OTRS × ${n(TYPE_MULT.mystery)} · denný tiket +${Math.round((TYPE_MULT.daily - 1) * 100)} %`,
+                `2 ciele × ${n(TYPE_MULT.twoGoal)} · základ + 4KA TV × ${n(TYPE_MULT.dual)} · feature (ZÁSAH, Cashback bonus) × ${n(TYPE_MULT.feature)} · OTRS × ${n(TYPE_MULT.mystery)} · denný tiket +${Math.round((TYPE_MULT.daily - 1) * 100)} %`,
               ],
               ["Stávka", `× ${n(+stakeFactor(0.2).toFixed(2))} pri 0,20 € až × 1 pri 1 000 € (malé stávky dajú menej)`],
               ["Strop", `${TICKET_RP_CAP.toLocaleString("sk-SK")} RP za jeden tiket`],
@@ -575,7 +580,7 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
             rows={[
               ["Kedy beží", `ukazovateľ pod rankom je červený: SUCHO · ${suchoRtpLabel()}. Začne aj skončí s oznamom.`],
               ["Kedy skončí", "keď zoberieš tiket (SUCHO stojí, kým tiket beží), alebo tiket splníš (počítadlo sa vynuluje)"],
-              ["Tiket drží SUCHO", "počas celého svojho času, kým ho hráš, aj keď čaká na náhodný symbol (OLP, sivý lístok, bonus z baru…). Každý tiket má obmedzený počet spinov, takže sa nedá držať donekonečna."],
+              ["Tiket drží SUCHO", "počas celého svojho času, kým ho hráš, aj keď čaká na náhodný symbol (OLP, sivý lístok, Cashback bonus…). Každý tiket má obmedzený počet spinov, takže sa nedá držať donekonečna."],
               ["Tiket na kúpu 4KA TV", "POHOTOVOSŤ a OTRS, kde ostala už len kúpa: SUCHO nedrží, kým 4KA TV nekúpiš (bez kúpy sa taký tiket nepohne). Samotná kúpa je hranie tiketu."],
               ["Tiket na 4KA TV", "PLECHOVKY, TACHYKARDIA: SUCHO drží, kým čakáš na 4KA TV zo spinov; kolá 4KA TV mu míňajú čas."],
               ["Nesplnený tiket", "skončí po svojich spinoch; SUCHO sa ráta ďalej tam, kde stálo"],
@@ -588,13 +593,13 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
             </li>
             <li>
               <b>Čo sa kráti:</b> všetko, čo vyplatí spin v SUCHU: výhra spinu (clustre, Cluster tumble, plechovky), spiny ZÁSAHU, vrátenie za mŕtvy spin, 4KA TV, ktorú spin
-              spustil (celá, zamknuté pri spustení), a bonus z baru, ktorý spin naplnil (bonus dohrá normálne, SUCHO si vezme svoj diel na konci, aj zo ZLATÉHO).
+              spustil (celá, zamknuté pri spustení), a Cashback bonus, ktorý spin naplnil (bonus dohrá normálne, SUCHO si vezme svoj diel na konci, aj zo ZLATÉHO).
             </li>
             <li>
               <b>Kúpa 4KA TV v SUCHU:</b> cena ostáva, kúpená 4KA TV vypláca × (stĺpec Kúpa), teda tiež okolo {suchoRtpLabel()}. Kúpou sa SUCHO neobíde.
             </li>
             <li>
-              <b>Nekráti sa:</b> jackpoty (lístky), výplaty tiketov, RANK DROP a VERSUS. RP, tikety, HLÁSENIE a bonus bar rátajú výhru pred SUCHOM.
+              <b>Nekráti sa:</b> jackpoty (lístky), výplaty tiketov, RANK DROP a VERSUS. RP, tikety, HLÁSENIE a bar Cashback bonusu rátajú výhru pred SUCHOM.
             </li>
             <li>Pri výhre uvidíš sumu pred SUCHOM, červený čip <b>SUCHO · {suchoRtpLabel()}</b> so zrážkou a pripísanú sumu.</li>
           </ul>
@@ -636,7 +641,7 @@ export function Paytable({ open, onClose, focus = null, bet, desk, mine }: Props
             ]}
           />
           <p className="man-p man-off">
-            <b>Vo VERSUS je vypnuté:</b> kúpa 4KA TV, ZÁSAH (HLÁSENIE sa neplní), bonus bar KONTROLA · Ž-BOX · KOLESO (neplní sa, čakajúci bonus počká na koniec
+            <b>Vo VERSUS je vypnuté:</b> kúpa 4KA TV, ZÁSAH (HLÁSENIE sa neplní), Cashback bonus KONTROLA · Ž-BOX · KOLESO (bar sa neplní, čakajúci bonus počká na koniec
             hry), daňové obdobie ±23 %, extra plechovka NEKONEČNA a tikety.
           </p>
         </Sec>

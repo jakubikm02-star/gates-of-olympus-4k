@@ -28,7 +28,10 @@ export function bonusModeDef(id: BonusModeId): BonusModeDef {
   return BONUS_MODES.find((m) => m.id === id) ?? BONUS_MODES[0];
 }
 
-/** Line under the mode strip once it lands. */
+/** The three bar bonuses are grouped in the game as „Cashback bonus“ (VERNOSŤ stores a multiplier for them). */
+export const BONUS_GROUP_LABEL = "CASHBACK BONUS";
+
+/** Line under the mode strip once it lands (the strip header says CASHBACK BONUS). */
 export const BONUS_MODE_RESULT: Record<BonusModeId, string> = {
   kontrola: "KONTROLA · PARKOVNÉ",
   zbox: "Ž-BOX · PAKEŤÁK DORUČUJE",

@@ -162,8 +162,8 @@ const FEATURE_TEMPLATES: Template[] = [
   { id: "zasah", titles: ["ZÁSAH", "RAZIA", "NÁLET"], kind: "zasah", scope: "base", need: [1, 2], until: [150, 300], line: "spustiť ZÁSAH", feat: "zasah" },
   { id: "hack", titles: ["HACKER", "ZAMERANÉ", "PRIELOM"], kind: "zasahBest", scope: "base", need: [2, 4], until: [150, 300], line: "HACK v jednom ZÁSAHU", feat: "zasah" },
   { id: "lup", titles: ["LÚP ZO ZÁSAHU", "ČIERNA KASA", "ZÁSAH PLATÍ"], kind: "zasahBest", scope: "base", need: [5, 14], until: [150, 300], line: "× stávky v jednom ZÁSAHU", feat: "zasah" },
-  { id: "kvota", titles: ["KVÓTA", "PAPIERE", "UDANIE"], kind: "bar", scope: "base", need: [70, 100], until: [40, 60], line: "bodov do bonus baru", feat: "bar" },
-  { id: "urad", titles: ["BONUS Z BARU", "NÁHODNÁ KONTROLA", "LOTÉRIA ÚRADU"], kind: "bonus", scope: "base", need: [1, 2], until: [60, 160], line: "bonus z bonus baru", feat: "bar" },
+  { id: "kvota", titles: ["KVÓTA", "PAPIERE", "UDANIE"], kind: "bar", scope: "base", need: [70, 100], until: [40, 60], line: "bodov do baru Cashback bonusu", feat: "bar" },
+  { id: "urad", titles: ["CASHBACK BONUS", "NÁHODNÁ KONTROLA", "LOTÉRIA ÚRADU"], kind: "bonus", scope: "base", need: [1, 2], until: [60, 160], line: "Cashback bonus z baru", feat: "bar" },
   { id: "uradvyhra", titles: ["ÚRADNÁ VÝPLATA", "DOTÁCIA", "VRATKA"], kind: "bonusBest", scope: "base", need: [3, 6], until: [60, 200], line: "× stávky v jednom bonuse z baru", feat: "bar" },
   { id: "listky", titles: ["BEZ ODŤAHU", "PARKOVACIE LÍSTKY", "ZÓNA A"], kind: "bonusBest", scope: "base", need: [1, 3], until: [130, 395], line: "lístkov v jednej KONTROLE", feat: "kontrola" },
   { id: "pokuta", titles: ["POKUTA", "BLOKOVÉ KONANIE", "MESTSKÁ KASA"], kind: "bonusBest", scope: "base", need: [1, 4], until: [180, 400], line: "× stávky v jednej KONTROLE", feat: "kontrola" },
@@ -203,11 +203,11 @@ export function featureGoal(template: string, need: number): string {
     case "lup":
       return `Vyhraj ${need}× stávku v jednom ZÁSAHU`;
     case "kvota":
-      return `${need} ${skCount(need, "bod", "body", "bodov")} do bonus baru`;
+      return `${need} ${skCount(need, "bod", "body", "bodov")} do baru Cashback bonusu`;
     case "urad":
-      return `${need}× bonus z baru (KONTROLA, Ž-BOX alebo KOLESO)`;
+      return `${need}× Cashback bonus z baru (KONTROLA, Ž-BOX alebo KOLESO)`;
     case "uradvyhra":
-      return `Vyhraj ${need}× stávku v jednom bonuse z baru (KONTROLA, Ž-BOX alebo KOLESO)`;
+      return `Vyhraj ${need}× stávku v jednom Cashback bonuse (KONTROLA, Ž-BOX alebo KOLESO)`;
     case "listky":
       return `${need} ${skCount(need, "lístok", "lístky", "lístkov")} v jednej KONTROLE`;
     case "pokuta":
@@ -795,7 +795,7 @@ function makeJob(
   return card;
 }
 
-const FEATURE_TAG: Record<FeatureId, string> = { zasah: "ZÁSAH", kontrola: "KONTROLA", zbox: "Ž-BOX", bar: "BONUS BAR" };
+const FEATURE_TAG: Record<FeatureId, string> = { zasah: "ZÁSAH", kontrola: "KONTROLA", zbox: "Ž-BOX", bar: "CASHBACK BONUS" };
 
 /** Drawn difficulty and untilted payout of a dealt goal, so OTRS can tilt the whole ticket once. */
 const legMeta = new WeakMap<JobCard, { hards: number[]; plainPay: number }>();

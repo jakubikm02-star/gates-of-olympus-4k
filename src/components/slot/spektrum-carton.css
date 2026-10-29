@@ -227,3 +227,23 @@
 .spk-pop p { margin: 7px 0 0; font-size: 10.5px; color: #8aa0b3; }
 @keyframes spk-pop-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .spk-pop { animation: none; } }
+
+/* VERNOSŤ: stored Cashback multiplier, a gold sticker on the can. */
+.spk-cb {
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  z-index: 3;
+  transform: translateX(-2px) rotate(-8deg);
+  padding: 1px 2px;
+  border-radius: 3px;
+  font-family: var(--font-display, inherit);
+  font-size: 7.5px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  color: #1a0d03;
+  background: linear-gradient(180deg, #ffe27a, #e9a91b);
+  box-shadow: 0 0 0 1px #3a2205, 0 0 6px rgb(255 205 70 / 0.7);
+  pointer-events: none;
+}

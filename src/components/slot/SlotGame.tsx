@@ -14,6 +14,7 @@ import { isTierHot, TIER_BY_ID } from "@/lib/slot/jackpot";
 import { jobClock, jobMeter, jobProgress, jobShownGoal, sayCluster, type JobCard } from "@/lib/slot/spend";
 import { rankPeekIds } from "@/lib/slot/pick-bonus";
 import { BonusModeStrip } from "./BonusModeStrip";
+import { cashbackLabel } from "@/lib/slot/cashback";
 import { ZboxBonus } from "./ZboxBonus";
 import { ZlatyBarBadge, ZlatyHud, ZlatyResult, ZlatyReveal, ZlatySheet, ZlatyTeaser } from "./Zlaty";
 import { ZasahBattery } from "./ZasahBattery";
@@ -474,9 +475,18 @@ export function SlotGame() {
                 </div>
               ) : (
                 <div className="meter-split">
-                  <div className={`pity-bar ${g.pityDelta ? "is-feed" : ""} ${g.pity >= g.pityGoal ? "is-hot" : ""} ${g.pity <= 0 ? "is-quiet" : ""} ${g.goldWaiting && !g.duel ? "is-gold" : ""}`}>
+                  <div className={`pity-bar ${g.pityDelta ? "is-feed" : ""} ${g.pity >= g.pityGoal ? "is-hot" : ""} ${g.pity <= 0 ? "is-quiet" : ""} ${g.goldWaiting && !g.duel ? "is-gold" : ""} ${g.specHud.cashback > 0 && !g.duel ? "has-cb" : ""}`}>
                     {g.goldOn && !g.duel ? <ZlatyBarBadge waiting={g.goldWaiting} onOpen={() => g.setGoldSheet(true)} /> : null}
-                    <span className="pity-kicker" title="Plný bar spustí náhodne KONTROLU, Ž-BOX alebo KOLESO NEŠŤASTIA">KONTROLA · Ž-BOX · KOLESO</span>
+                    <span className="pity-kicker" title="CASHBACK BONUS: plný bar spustí náhodne KONTROLU, Ž-BOX alebo KOLESO NEŠŤASTIA">CASHBACK BONUS</span>
+                    {g.specHud.cashback > 0 && !g.duel ? (
+                      <span
+                        className={`pity-cb${g.specHud.on ? "" : " is-idle"}`}
+                        title={g.specHud.on ? "VERNOSŤ: najbližší Cashback bonus vyplatí s týmto násobičom" : "Cashback čaká: platí len v ranku NEKONEČNO"}
+                      >
+                        <span className="pity-cb-w">CASHBACK </span>
+                        {cashbackLabel(g.specHud.cashback)}
+                      </span>
+                    ) : null}
                     <span className="pity-mini" aria-hidden="true">BONUS</span>
                     <div
                       className="pity-track"
@@ -484,7 +494,7 @@ export function SlotGame() {
                       aria-valuemin={0}
                       aria-valuemax={g.pityGoal}
                       aria-valuenow={Math.min(g.pityGoal, g.pity)}
-                      aria-label="Bonus bar: KONTROLA, Ž-BOX alebo KOLESO"
+                      aria-label="Cashback bonus: KONTROLA, Ž-BOX alebo KOLESO"
                     >
                       <i style={{ ["--pity" as string]: `${Math.min(100, (g.pity / g.pityGoal) * 100)}%` }} />
                     </div>
@@ -827,7 +837,7 @@ export function SlotGame() {
       )}
 
       {g.modeStrip ? (
-        <BonusModeStrip key={g.modeStrip.key} mode={g.modeStrip.mode} gold={!!g.modeStrip.gold} turbo={g.turbo} reduced={reducedMotion} onDone={g.finishModeStrip} />
+        <BonusModeStrip key={g.modeStrip.key} mode={g.modeStrip.mode} gold={!!g.modeStrip.gold} cashback={g.modeStrip.cashback} turbo={g.turbo} reduced={reducedMotion} onDone={g.finishModeStrip} />
       ) : null}
 
       {g.goldReveal ? (

@@ -43,7 +43,7 @@ describe("feature tickets: generator", () => {
           assert.equal(j.limit % 5, 0);
           assert.ok(j.limit <= 400);
           assert.ok(j.payout > j.stake, "pays more than the stake");
-          const tag = { zasah: "ZÁSAH", kontrola: "KONTROLA", zbox: "Ž-BOX", bar: "BONUS BAR" }[featureOf(id)!];
+          const tag = { zasah: "ZÁSAH", kontrola: "KONTROLA", zbox: "Ž-BOX", bar: "CASHBACK BONUS" }[featureOf(id)!];
           assert.ok(j.detail.endsWith(`· ${tag}`), j.detail);
           assert.match(j.goal ?? "", /ZÁSAH|KONTROL|Ž-BOX|baru/);
         }

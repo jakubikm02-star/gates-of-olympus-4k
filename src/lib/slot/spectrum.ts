@@ -17,6 +17,7 @@
 import { createRng } from "./engine.ts";
 import { MAX_WIN_X, ORB_TABLE } from "./symbols.ts";
 import { TICKET_ODDS } from "./jackpot.ts";
+import { addCashback, cutCashback, sanitizeCashback } from "./cashback.ts";
 
 /** Kill switch. Default on. Off with ?spektrum=0 or localStorage park-flag-spektrum=0. */
 export const SPECTRUM_FLAG_DEFAULT = true;
@@ -150,7 +151,7 @@ export const COLOR_TIP: Readonly<Record<number, string>> = {
   3: "SIGNÁL podrží plechovku cez tumble. Bez tumble prepadne.",
   4: "ČAKAČKA posunie bar kontroly, alebo zníži túto plechovku.",
   5: "SOLIDARITA pridá alebo uberie 4 RP.",
-  6: "VERNOSŤ predĺži sériu výhier, alebo ju vynuluje.",
+  6: "VERNOSŤ pridá +0,5× do Cashback bonusu (max ×3), alebo 0,5× uberie.",
   7: "ŽIVÁ VODA zdvojnásobí plechovky na obrazovke a pridá tumble.",
   8: "ČIERNA DIERA zhltne násobič, dobije bar a na 10 spinov zdvojnásobí šancu na 1-FTTB.",
 };
@@ -190,6 +191,8 @@ export interface SpectrumState {
   n: number;
   /** Credits parked for 1-FTTB (orange surcharge). Not in the shared pool. */
   pending: number;
+  /** VERNOSŤ: multiplier bonus stored for the next Cashback bonus (lib/slot/cashback), 0 … 2. Not reset by day. */
+  cashback: number;
 }
 
 export function emptySpectrum(): SpectrumState {
@@ -217,6 +220,7 @@ export function emptySpectrum(): SpectrumState {
     triad: [],
     n: 0,
     pending: 0,
+    cashback: 0,
   };
 }
 
@@ -270,6 +274,7 @@ export function sanitizeSpectrum(raw: unknown): SpectrumState {
   e.n = clampInt(r.n, 0, 2_000_000_000, 0);
   const pending = typeof r.pending === "number" ? r.pending : Number(r.pending);
   e.pending = Number.isFinite(pending) ? Math.min(1_000_000, Math.max(0, Math.round(pending * 100) / 100)) : 0;
+  e.cashback = sanitizeCashback(r.cashback);
   return e;
 }
 
@@ -383,6 +388,10 @@ export interface SpectrumFx {
   rp: number;
   ticket: number;
   streak: -1 | 0 | 1;
+  /** VERNOSŤ: change of the stored Cashback multiplier this spin (+0,5 / −0,5 / 0). */
+  cashbackDelta: number;
+  /** Stored Cashback multiplier after this spin. */
+  cashback: number;
   /** Fraction of the pre-cut win parked for 1-FTTB, in bet-multiples. */
   ulicaX: number;
   event: "none" | "tint" | "pair" | "cancel" | "white" | "black" | "triad";
@@ -397,6 +406,8 @@ export interface SpectrumHud {
   lit: number[];
   fttb: number;
   pending: number;
+  /** Stored Cashback multiplier (VERNOSŤ), 0 … 2. */
+  cashback: number;
 }
 
 function blankFx(paidX: number, state: SpectrumState): SpectrumFx {
@@ -413,6 +424,8 @@ function blankFx(paidX: number, state: SpectrumState): SpectrumFx {
     rp: 0,
     ticket: 0,
     streak: 0,
+    cashbackDelta: 0,
+    cashback: state.cashback,
     ulicaX: 0,
     event: "none",
     fttb: state.fttb,
@@ -465,6 +478,10 @@ interface Bag {
   rp: number;
   ticket: number;
   streak: -1 | 0 | 1;
+  /** VERNOSŤ intent: +1 store, −1 cut (settled against the state in settleCashback). */
+  cash: -1 | 0 | 1;
+  /** What settleCashback actually changed. */
+  cashDelta: number;
   wiped: boolean;
   black: boolean;
   white: boolean;
@@ -491,7 +508,7 @@ function applyGood(id: number, w: number, bag: Bag, rng: () => number): void {
   } else if (id === 5) {
     bag.rp += Math.round(4 * w);
   } else if (id === 6) {
-    if (chance(rng, w)) bag.streak = 1;
+    if (chance(rng, w)) bag.cash = 1;
   }
 }
 
@@ -516,7 +533,21 @@ function applyBad(id: number, w: number, bag: Bag, rng: () => number): void {
   } else if (id === 5) {
     bag.rp -= Math.round(4 * w);
   } else if (id === 6) {
-    if (chance(rng, w)) bag.streak = -1;
+    if (chance(rng, w)) bag.cash = -1;
+  }
+}
+
+/** VERNOSŤ against the save: +0,5 (cap 2), −0,5 (floor 0), or the old streak reset when nothing is stored. */
+function settleCashback(state: SpectrumState, bag: Bag): void {
+  if (bag.cash > 0) {
+    const r = addCashback(state.cashback);
+    state.cashback = r.next;
+    bag.cashDelta = r.delta;
+  } else if (bag.cash < 0) {
+    const r = cutCashback(state.cashback);
+    state.cashback = r.next;
+    bag.cashDelta = r.delta;
+    if (r.streakReset) bag.streak = -1;
   }
 }
 
@@ -676,6 +707,8 @@ export function applySpectrum(
       rp: 0,
       ticket: 0,
       streak: 0,
+      cash: 0,
+      cashDelta: 0,
       wiped: false,
       black: hole,
       white: false,
@@ -722,6 +755,8 @@ export function applySpectrum(
     rp: 0,
     ticket: 0,
     streak: 0,
+    cash: 0,
+    cashDelta: 0,
     wiped: false,
     black: false,
     white: false,
@@ -744,6 +779,7 @@ export function applySpectrum(
     const half = w0 * 0.5;
     applyGood(color, half, bag, rng);
     applyGood(adjacent[0], half, bag, rng);
+    settleCashback(state, bag);
     state.sinceCombo = -1;
     event = "pair";
     label = labelOf(COLORS[color].name, "PÁR");
@@ -768,6 +804,7 @@ export function applySpectrum(
       state.badN += 1;
       applyBad(color, w0, bag, rng);
     }
+    settleCashback(state, bag);
     if (litTriad) {
       state.triad = litIds.slice(0, 3);
       state.sinceCombo = -1;
@@ -790,6 +827,8 @@ export function applySpectrum(
   fx.rp = bag.rp;
   fx.ticket = bag.ticket;
   fx.streak = bag.streak;
+  fx.cashbackDelta = bag.cashDelta;
+  fx.cashback = state.cashback;
   fx.ulicaX = fin.ulicaX;
   fx.event = event;
   fx.fttb = state.fttb;
@@ -804,7 +843,8 @@ function goodLabel(id: number, bag: Bag, w: number): string {
   if (id === 3) return "DRŽÍ SA";
   if (id === 4) return labelOf("BAR", `+${bag.pity}`);
   if (id === 5) return `+${Math.abs(bag.rp)} RP`;
-  return "SÉRIA +1";
+  if (bag.cash > 0) return bag.cashDelta > 0 ? "CASHBACK +0,5×" : "CASHBACK MAX ×3";
+  return labelOf(name, "CASHBACK");
 }
 
 function badLabel(id: number, bag: Bag, w: number): string {
@@ -815,6 +855,7 @@ function badLabel(id: number, bag: Bag, w: number): string {
   if (id === 3) return bag.tumbles === 0 ? "BEZ TUMBLE" : name;
   if (id === 4) return labelOf(name, `×${trim(Math.max(0, 1 - 0.5 * w))}`);
   if (id === 5) return `−${Math.abs(bag.rp)} RP`;
+  if (bag.cashDelta < 0) return "CASHBACK −0,5×";
   return "SÉRIA 0";
 }
 
@@ -861,6 +902,7 @@ export function spectrumHud(state: SpectrumState, on: boolean): SpectrumHud {
     lit: state.lit.slice(),
     fttb: state.fttb,
     pending: state.pending,
+    cashback: state.cashback,
   };
 }
 

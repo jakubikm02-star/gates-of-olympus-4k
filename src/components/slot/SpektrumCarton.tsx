@@ -3,6 +3,10 @@ import { createPortal } from "react-dom";
 import { COLORS, type SpectrumHud, type SpectrumMark } from "@/lib/slot/spectrum";
 import { SPEK_RING, SPEK_WEATHER, spekCanSrc } from "@/lib/slot/spektrum-art";
 import { COLOR_SHORT, spektrumSummary } from "@/lib/slot/spektrum-summary";
+import { cashbackLabel } from "@/lib/slot/cashback";
+
+/** VERNOSŤ: its can wears the stored Cashback multiplier. */
+const VERNOST_ID = 6;
 import "./spektrum-carton.css";
 
 /** The spiked colour ring: base, lit segments (opacity = spins left), centre gem, 1-FTTB spins. */
@@ -112,6 +116,11 @@ export function SpektrumCarton({
               return (
                 <span key={r.role} className={`spk-slot${left > 0 ? " is-lit" : ""}`} style={{ ["--spk-hex" as string]: r.hex }}>
                   <span className="spk-can">{src ? <img src={src} alt="" width={14} height={28} decoding="async" loading="lazy" draggable={false} /> : null}</span>
+                  {r.id === VERNOST_ID && hud.cashback > 0 ? (
+                    <span className="spk-cb" title="Cashback bonus: násobič na najbližší bonus">
+                      {cashbackLabel(hud.cashback)}
+                    </span>
+                  ) : null}
                   <span className="spk-label">{COLOR_SHORT[r.id] ?? r.name}</span>
                   <span className="spk-left">{left > 0 ? `${left} sp` : "–"}</span>
                 </span>

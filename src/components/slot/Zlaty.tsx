@@ -156,7 +156,7 @@ export function ZlatyBarBadge({ waiting, onOpen }: { waiting: boolean; onOpen: (
         onOpen();
       }}
       aria-label={waiting ? "Zlatý bonus dnes čaká, pravidlá" : `Ďalší zlatý bonus o ${label}`}
-      title={waiting ? "Prvý bonus z baru dnes je ZLATÝ: strop 100× a zlatá karta" : `Ďalší ZLATÝ BONUS o ${label}`}
+      title={waiting ? "Prvý Cashback bonus dnes je ZLATÝ: strop 100× a zlatá karta" : `Ďalší ZLATÝ BONUS o ${label}`}
     >
       <i aria-hidden="true">★</i>
       {waiting ? <span className="zl-bb-t">ZLATÝ</span> : <span className="zl-bb-t zl-cd">{label}</span>}
@@ -183,7 +183,7 @@ export function ZlatyTeaser({ onRules, onClose }: { onRules: () => void; onClose
         <em>DNES ČAKÁ</em>
         <b>ZLATÝ BONUS</b>
         <span>
-          Prvý bonus z baru: strop {ZLATY_CAP_X}× a zlatá karta · ešte {label}
+          Prvý Cashback bonus: strop {ZLATY_CAP_X}× a zlatá karta · ešte {label}
         </span>
       </div>
       <div className="zl-teaser-btns">
@@ -519,7 +519,7 @@ export function ZlatySheet({
           <div className="zl-sheet-body zl-rules">
             <ol>
               <li>
-                <b>Raz za deň.</b> Prvý bonus z baru (KONTROLA, Ž-BOX alebo KOLESO) po polnoci je ZLATÝ. Deň sa ráta podľa času servera v Bratislave
+                <b>Raz za deň.</b> Prvý Cashback bonus (KONTROLA, Ž-BOX alebo KOLESO) po polnoci je ZLATÝ. Deň sa ráta podľa času servera v Bratislave
                 (aj pri zmene letného času), nie podľa hodín v telefóne.
               </li>
               <li>

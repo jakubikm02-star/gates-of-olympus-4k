@@ -514,3 +514,43 @@
   .zl-reveal *, .zl-reveal *::before, .zl-reveal *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   .zl-reveal .zl-beam, .zl-reveal .zl-cracks, .zl-reveal .zl-sparks { display: none; }
 }
+
+/* CASHBACK BONUS: VERNOSŤ multiplier waiting for the next bar bonus. A sticker on the bar's top edge, so it takes
+   no width from the track (narrow phones and the Fold cover screen keep the whole meter). */
+.pity-cb {
+  position: absolute;
+  top: -7px;
+  right: 8px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  height: 13px;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-family: var(--font-display);
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  white-space: nowrap;
+  color: #1a0d03;
+  background: linear-gradient(180deg, #ffe27a, #e9a91b);
+  box-shadow: 0 0 0 1px #3a2205, 0 0 8px rgb(255 205 70 / 0.6);
+  pointer-events: none;
+}
+/* Portrait: the bar's top edge is clipped by the row above, so the badge sits inline and takes the place of „BONUS“. */
+.stage:not(.is-land) .pity-cb {
+  position: relative;
+  top: auto;
+  right: auto;
+  flex-shrink: 0;
+  height: 16px;
+  font-size: 0.56rem;
+}
+.stage:not(.is-land) .pity-bar.has-cb .pity-mini { display: none; }
+.pity-cb-w { white-space: pre; }
+/* Narrow phones and the Fold cover screen: only the multiplier („×1,5“); the title says the rest. */
+@media (max-width: 380px) {
+  .stage:not(.is-land) .pity-cb-w { display: none; }
+}
+.pity-cb.is-idle { filter: grayscale(0.8) brightness(0.75); box-shadow: 0 0 0 1px #3a2205; }

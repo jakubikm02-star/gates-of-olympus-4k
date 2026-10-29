@@ -4,6 +4,7 @@
  */
 import { COLORS, ROLE_MOOD, ROLE_OPPONENT, ROLE_SUPPORT, type SpectrumHud } from "./spectrum.ts";
 import { formatMoney } from "./format.ts";
+import { cashbackLabel } from "./cashback.ts";
 
 /** What each colour does to the slot, without its name. Same facts as COLOR_TIP in spectrum.ts. */
 export const COLOR_DOES: Readonly<Record<number, string>> = {
@@ -13,7 +14,7 @@ export const COLOR_DOES: Readonly<Record<number, string>> = {
   3: "podrží plechovku cez tumble, bez tumble prepadne",
   4: "posunie BONUS bar, alebo zníži plechovku",
   5: "pridá alebo uberie 4 RP",
-  6: "predĺži sériu výhier, alebo ju vynuluje",
+  6: "pridá +0,5× do Cashback bonusu (max ×3), alebo 0,5× uberie",
 };
 
 /** Label printed on the carton under each can. Full names are in the popover. */
@@ -81,6 +82,9 @@ export function spektrumSummary(hud: SpectrumHud): SpektrumSummary {
   const wi = Math.min(2, Math.max(0, hud.weather | 0));
   lines.push({ key: "w", lead: `Počasie ${hud.weatherLabel || "Bežný"}:`, text: `${WEATHER_DOES[wi]}.` });
   if (hud.fttb > 0) lines.push({ key: "f", lead: "1-FTTB", text: `dvojnásobná šanca ešte ${spinsSk(hud.fttb)}.` });
+  if (hud.cashback > 0) {
+    lines.push({ key: "cb", lead: `Cashback ${cashbackLabel(hud.cashback)}`, text: "čaká na najbližší Cashback bonus (KONTROLA, Ž-BOX alebo KOLESO)." });
+  }
   if (hud.pending > 0) lines.push({ key: "p", lead: "Odložené", text: `${formatMoney(hud.pending)} z PRÍPLATKU čaká na 1-FTTB.` });
   return {
     title: "DNES V AUTOMATE",

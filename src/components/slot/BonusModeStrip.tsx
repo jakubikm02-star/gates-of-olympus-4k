@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BONUS_MODES, BONUS_MODE_RESULT, bonusModeDef, stripMs, stripTarget, type BonusModeId } from "@/lib/slot/bonus-mode";
+import { BONUS_GROUP_LABEL, BONUS_MODES, BONUS_MODE_RESULT, bonusModeDef, stripMs, stripTarget, type BonusModeId } from "@/lib/slot/bonus-mode";
 import * as sfx from "@/lib/slot/audio";
 
 const LAPS = 4;
@@ -7,11 +7,26 @@ const LAPS = 4;
 const TILE = 168;
 
 /**
- * Bar full: the screen dims, a strip of the mode tiles (KONTROLA · Ž-BOX · KOLESO) spins like a lottery and
+ * CASHBACK BONUS (the group of the three bar bonuses). Bar full: the screen dims, a strip of the mode tiles (KONTROLA · Ž-BOX · KOLESO) spins like a lottery and
  * decelerates into the mode drawn when the bar filled (it never decides anything). Tap = skip. Compositor
  * only: one CSS transform transition on the strip.
  */
-export function BonusModeStrip({ mode, gold = false, turbo, reduced, onDone }: { mode: BonusModeId; gold?: boolean; turbo: boolean; reduced: boolean; onDone: () => void }) {
+export function BonusModeStrip({
+  mode,
+  gold = false,
+  cashback,
+  turbo,
+  reduced,
+  onDone,
+}: {
+  mode: BonusModeId;
+  gold?: boolean;
+  /** CASHBACK BONUS multiplier this bonus pays with („×1,5“), from VERNOSŤ. */
+  cashback?: string;
+  turbo: boolean;
+  reduced: boolean;
+  onDone: () => void;
+}) {
   const target = stripTarget(mode, reduced ? 0 : LAPS);
   const ms = stripMs(turbo, reduced);
   const [go, setGo] = useState(false);
@@ -54,7 +69,8 @@ export function BonusModeStrip({ mode, gold = false, turbo, reduced, onDone }: {
 
   const def = bonusModeDef(mode);
   return (
-    <div className={`ms-back ${landed ? "is-landed" : ""} ${reduced ? "is-reduced" : ""} ${gold ? "is-gold" : ""}`} role="dialog" aria-label={`Bonus: ${def.label}`} onClick={finish}>
+    <div className={`ms-back ${landed ? "is-landed" : ""} ${reduced ? "is-reduced" : ""} ${gold ? "is-gold" : ""}`} role="dialog" aria-label={`${BONUS_GROUP_LABEL}: ${def.label}`} onClick={finish}>
+      <p className="ms-group">{BONUS_GROUP_LABEL}</p>
       <p className="ms-kicker">{gold ? "★ ZLATÝ BONUS DŇA · LOSUJE SA ★" : "BAR PLNÝ · LOSUJE SA BONUS"}</p>
       <div className="ms-window">
         <div
@@ -76,6 +92,11 @@ export function BonusModeStrip({ mode, gold = false, turbo, reduced, onDone }: {
       <p className="ms-result" aria-live="assertive">
         {landed ? BONUS_MODE_RESULT[mode] : "\u00a0"}
       </p>
+      {cashback ? (
+        <p className="ms-cb">
+          CASHBACK {cashback} <span>· výhra bonusu sa vynásobí</span>
+        </p>
+      ) : null}
       <p className="ms-hint">Ťukni pre preskočenie</p>
     </div>
   );

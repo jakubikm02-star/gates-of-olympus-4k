@@ -78,6 +78,7 @@ import {
   type SpectrumHud,
   type SpectrumMark,
 } from "@/lib/slot/spectrum";
+import { applyCashback, cashbackLabel, cashbackMulFor } from "@/lib/slot/cashback";
 import type { ZlatyResultInfo } from "@/components/slot/Zlaty";
 import { setZboxHelpOff, zboxHelpOff } from "@/lib/slot/zbox-help";
 import { pauseTicket, resumePlan, ticketCounts, tickUnlessPaused, ticketReserve, type TicketPause } from "@/lib/slot/ticket-pause";
@@ -321,7 +322,7 @@ export function useSlotGame() {
   const [pickClear, setPickClear] = useState(false);
   const [pityByBet, setPityByBet] = useState<PityMap>({});
   /** Mode strip of the filled bar (shows the mode drawn at the fill). */
-  const [modeStrip, setModeStrip] = useState<{ mode: BonusModeId; key: number; gold?: boolean } | null>(null);
+  const [modeStrip, setModeStrip] = useState<{ mode: BonusModeId; key: number; gold?: boolean; cashback?: string } | null>(null);
   /** Running Ž-BOX: the whole run is decided up front (playZbox), the overlay animates it. */
   const [zbox, setZbox] = useState<{ play: ZPlay; bet: number; gross: number; net: number; tax: ChaseModKind | null; key: number } | null>(null);
   /** Running KOLESO NEŠŤASTIA: decided up front (playKoleso), the overlay animates it. */
@@ -559,6 +560,8 @@ export function useSlotGame() {
   const heatRef = useRef(0);
   const [heat, setHeat] = useState(0);
   const spectrumOnRef = useRef(true);
+  /** CASHBACK BONUS: multiplier the running bar bonus pays with (1 = none). Set by runBonus, read by the modes. */
+  const barCashbackRef = useRef(1);
   const [spectrumOn] = useState(() => spectrumEnabled());
   spectrumOnRef.current = spectrumOn;
   const spectrumRef = useRef(emptySpectrum());
@@ -2355,6 +2358,22 @@ export function useSlotGame() {
     done?.();
   }, []);
 
+  /**
+   * CASHBACK BONUS: the stored VERNOSŤ multiplier is used once, by the first bar bonus that pays (lib/slot/cashback).
+   * A bonus that pays 0 leaves it stored. Tickets keep the bonus x without it (settleJob gets the raw x).
+   */
+  const spendCashback = useCallback(
+    (cb: { used: boolean; extra: number; mul: number }) => {
+      if (!cb.used) return;
+      barCashbackRef.current = 1;
+      spectrumRef.current.cashback = 0;
+      setSpecHud(spectrumHud(spectrumRef.current, spectrumOnRef.current && standing(rankRef.current.rp).id === "nekonecno"));
+      setJobToast(`CASHBACK ${cashbackLabel(cb.mul - 1)} · +${formatMoney(cb.extra)}`);
+      persistNow();
+    },
+    [persistNow],
+  );
+
   const runPick = useCallback(async (goldIn?: GoldRun | null) => {
     const gold = goldIn && !roundEscrowRef.current ? goldIn : null;
     const pickRank = standing(rankRef.current.rp).id;
@@ -2397,9 +2416,12 @@ export function useSlotGame() {
           pickTotalXRef.current,
         )
       : pickTotalXRef.current;
-    const cash0 = gold ? goldCash(goldX, regX, betNow, gold.stake) : +(pickTotalXRef.current * betNow).toFixed(2);
+    const cashRaw = gold ? goldCash(goldX, regX, betNow, gold.stake) : +(pickTotalXRef.current * betNow).toFixed(2);
+    const cb = applyCashback(cashRaw, barCashbackRef.current);
+    const cash0 = cb.gross;
     const escrow = roundEscrowRef.current;
     const { net: cash, delta: pickDelta } = applyMod(cash0, pickMod, escrow ? "duel" : "pick");
+    spendCashback(cb);
     if (cash > 0) {
       if (Math.abs(pickDelta) >= 0.01) {
         // Gross first, then the modifier chip, then the meter glides to what is credited.
@@ -2478,14 +2500,14 @@ export function useSlotGame() {
         mode: "kontrola",
         x: goldX,
         cash,
-        regular: +(regX * betNow * k).toFixed(2),
+        regular: +(regX * betNow * k * cb.mul).toFixed(2),
         bet: betNow,
         stake: gold.stake,
         day: gold.day,
         hit: goldPickedRef.current,
       });
     }
-  }, [waitForPick, pushRank, noteResult, noteHeat, noteStat, settleJob, bumpToday, showGoldResult]);
+  }, [waitForPick, pushRank, noteResult, noteHeat, noteStat, settleJob, bumpToday, showGoldResult, spendCashback]);
 
   /** Mode strip done (auto after ~2 s, or tapped). */
   const finishModeStrip = useCallback(() => {
@@ -2520,7 +2542,8 @@ export function useSlotGame() {
       const regX = gold ? playZbox(createRng(seed), { vip }).totalX : play.totalX;
       const pickMod = pickModRef.current;
       pickModRef.current = null;
-      const cash0 = gold ? goldCash(play.totalX, regX, betNow, gold.stake) : +(play.totalX * betNow).toFixed(2);
+      const cb = applyCashback(gold ? goldCash(play.totalX, regX, betNow, gold.stake) : +(play.totalX * betNow).toFixed(2), barCashbackRef.current);
+      const cash0 = cb.gross;
       if (gold) setGoldRun({ mode: "zbox", bet: betNow, stake: gold.stake });
       const { net: cash } = applyMod(cash0, pickMod, "pick");
       const taxKind = Math.abs(cash - cash0) >= 0.01 ? (pickMod?.kind ?? null) : null;
@@ -2535,6 +2558,7 @@ export function useSlotGame() {
         zboxWait.current = resolve;
       });
       bonusPendingRef.current = null;
+      spendCashback(cb);
       if (cash > 0) {
         setBalance((b) => +(b + cash).toFixed(2));
         // Board / desk: Ž-BOX is real credit like KONTROLA; counted once here (the spin that filled the bar counted only its own win).
@@ -2595,10 +2619,10 @@ export function useSlotGame() {
       });
       if (gold) {
         const k = cash0 > 0 ? cash / cash0 : 1;
-        await showGoldResult({ mode: "zbox", x: play.totalX, cash, regular: +(regX * betNow * k).toFixed(2), bet: betNow, stake: gold.stake, day: gold.day });
+        await showGoldResult({ mode: "zbox", x: play.totalX, cash, regular: +(regX * betNow * k * cb.mul).toFixed(2), bet: betNow, stake: gold.stake, day: gold.day });
       }
     },
-    [pushRank, noteResult, noteHeat, noteStat, persistNow, settleJob, bumpToday, showGoldResult],
+    [pushRank, noteResult, noteHeat, noteStat, persistNow, settleJob, bumpToday, showGoldResult, spendCashback],
   );
 
   /** KOLESO payout seen, tap to return (with the player's letter choices). */
@@ -2631,10 +2655,11 @@ export function useSlotGame() {
         const play = replay(picks);
         // Same seed, same choices, same wheel path without gold: what this bonus pays normally.
         const regX = gold ? playKoleso(createRng(seed), { vip, picks }).totalX : play.totalX;
-        const cash0 = gold ? goldCash(play.totalX, regX, betNow, gold.stake) : +(play.totalX * betNow).toFixed(2);
+        const cb = applyCashback(gold ? goldCash(play.totalX, regX, betNow, gold.stake) : +(play.totalX * betNow).toFixed(2), barCashbackRef.current);
+        const cash0 = cb.gross;
         const { net: cash } = applyMod(cash0, pickMod, "pick");
         const taxKind = Math.abs(cash - cash0) >= 0.01 ? (pickMod?.kind ?? null) : null;
-        return { play, regX, cash0, cash, taxKind };
+        return { play, regX, cash0, cash, taxKind, cb };
       };
       const picks0 = pend.kpicks ?? [];
       if (gold) setGoldRun({ mode: "koleso", bet: betNow, stake: gold.stake });
@@ -2664,8 +2689,9 @@ export function useSlotGame() {
       const picks = await new Promise<(string | null)[]>((resolve) => {
         kolesoWait.current = resolve;
       });
-      const { play, regX, cash0, cash } = settle(picks);
+      const { play, regX, cash0, cash, cb } = settle(picks);
       bonusPendingRef.current = null;
+      spendCashback(cb);
       if (cash > 0) {
         setBalance((b) => +(b + cash).toFixed(2));
         // Board / desk: KOLESO is real credit like KONTROLA / Ž-BOX; counted once here.
@@ -2726,10 +2752,10 @@ export function useSlotGame() {
       });
       if (gold) {
         const k = cash0 > 0 ? cash / cash0 : 1;
-        await showGoldResult({ mode: "koleso", x: play.totalX, cash, regular: +(regX * betNow * k).toFixed(2), bet: betNow, stake: gold.stake, day: gold.day });
+        await showGoldResult({ mode: "koleso", x: play.totalX, cash, regular: +(regX * betNow * k * cb.mul).toFixed(2), bet: betNow, stake: gold.stake, day: gold.day });
       }
     },
-    [pushRank, noteResult, noteHeat, noteStat, persistNow, settleJob, bumpToday, showGoldResult],
+    [pushRank, noteResult, noteHeat, noteStat, persistNow, settleJob, bumpToday, showGoldResult, spendCashback],
   );
 
   /**
@@ -2778,7 +2804,16 @@ export function useSlotGame() {
     // nothing to choose, so they keep the queue and autospin continues after them as before.
     if (pend.mode === "koleso" && (autoRef.current || autoHoldRef.current || autoLeftRef.current > 0)) killAuto("AUTO STOP · KOLESO");
     sfx.stopSpin();
-    setModeStrip({ mode: pend.mode, key: Date.now(), gold: !!pend.gold && !roundEscrowRef.current });
+    // CASHBACK BONUS: only a natural bar bonus (this path) outside a duel, while Spektrum runs (NEKONEČNO).
+    barCashbackRef.current = cashbackMulFor({
+      stored: spectrumRef.current.cashback,
+      rankId: standing(rankRef.current.rp).id,
+      enabled: spectrumOnRef.current,
+      duel: roundEscrowRef.current || Boolean(duelRef.current),
+      natural: true,
+    });
+    const cbShow = barCashbackRef.current > 1 ? cashbackLabel(barCashbackRef.current - 1) : undefined;
+    setModeStrip({ mode: pend.mode, key: Date.now(), gold: !!pend.gold && !roundEscrowRef.current, ...(cbShow ? { cashback: cbShow } : {}) });
     await new Promise<void>((resolve) => {
       stripWait.current = resolve;
     });
@@ -2813,6 +2848,7 @@ export function useSlotGame() {
       await runPick(pend.gold ?? null);
     }
     barSuchoRef.current = 1;
+    barCashbackRef.current = 1;
     if (suchoMul < 1) await cutSuchoRef.current(+(roundCashRef.current - paidBefore).toFixed(2), suchoMul);
   }, [runPick, runZbox, runKoleso, noteStat, persistNow, killAuto]);
 
