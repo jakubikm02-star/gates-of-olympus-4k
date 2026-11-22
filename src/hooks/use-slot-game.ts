@@ -93,6 +93,8 @@ import { applyRankDelta, applyWeeklyDecay, bannerFromX, buyXOf, dropOneDivision,
 import * as sfx from "@/lib/slot/audio";
 import { formatMoney } from "@/lib/slot/format";
 import { emptyPlayerSave, readLocalSave, writeLocalSave, type PlayerSave } from "@/lib/slot/player-save";
+import { foldNocna, type NocnaRecord } from "@/lib/revier/entry";
+import type { Stats } from "@/lib/revier/types";
 import { carryStamp } from "@/lib/slot/mirror-bridge";
 import { flushMirrorPush, pullMirrorSave, scheduleMirrorPush } from "@/lib/slot/mirror-cloud";
 import {
@@ -588,6 +590,10 @@ export function useSlotGame() {
   const [taxKey, setTaxKey] = useState(0);
   const staleRef = useRef(false);
   const startedRef = useRef(false);
+  /** While Nočná smena is on top, the automat must not resume a bonus or take the keyboard. */
+  const nocnaLockRef = useRef(false);
+  const nocnaRef = useRef<NocnaRecord | null>(null);
+  const [nocna, setNocna] = useState<NocnaRecord | null>(null);
   const [stale, setStale] = useState(false);
   const [nick, setNick] = useState("");
   const [deviceId, setDeviceId] = useState("");
@@ -665,6 +671,8 @@ export function useSlotGame() {
 
   const applySave = useCallback((s: PlayerSave) => {
     hydrateRibbons(s.ribbons);
+    nocnaRef.current = s.nocna ?? null;
+    setNocna(nocnaRef.current);
     setBalance(s.balance);
     setBetIndex(s.betIndex);
     setMuted(s.muted);
@@ -961,6 +969,7 @@ export function useSlotGame() {
       spectrum: spectrumRef.current,
       duelDeposit: depositRef.current,
       ribbons: ribbonLog(),
+      nocna: nocnaRef.current,
       updatedAt: Date.now(),
     };
     saveSnapRef.current = next;
@@ -1253,6 +1262,7 @@ export function useSlotGame() {
       spectrum: spectrumRef.current,
       duelDeposit: depositRef.current,
       ribbons: ribbonLog(),
+      nocna: nocnaRef.current,
     };
     const stamped = carryStamp(saveSnapRef.current, payload);
     saveSnapRef.current = stamped;
@@ -4545,14 +4555,14 @@ export function useSlotGame() {
   );
 
   useEffect(() => {
-    if (!started || !hydrated || resumeOnce.current) return;
+    if (!started || !hydrated || resumeOnce.current || nocnaLockRef.current) return;
     if (!inFsRef.current || fsSessionRef.current.left <= 0) return;
     resumeOnce.current = true;
     void playRound({ resumeFs: true });
   }, [started, hydrated, playRound]);
 
   useEffect(() => {
-    if (!started || !hydrated || bonusResumeOnce.current) return;
+    if (!started || !hydrated || bonusResumeOnce.current || nocnaLockRef.current) return;
     if (!bonusPendingRef.current || inFsRef.current || fsSessionRef.current.left > 0 || duelRef.current) return;
     bonusResumeOnce.current = true;
     const t = window.setTimeout(() => void playRound({ resumeBonus: true }), 600);
@@ -4748,7 +4758,7 @@ export function useSlotGame() {
   }, [playRound]);
 
   useEffect(() => {
-    if (!autoOn || busy || inFs || !started) return;
+    if (!autoOn || busy || inFs || !started || nocnaLockRef.current) return;
     if (bannerOpen.current || jpShowRef.current || autoHoldRef.current) return;
     if (autoLeft <= 0) {
       setAutoOn(false);
@@ -4772,7 +4782,7 @@ export function useSlotGame() {
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== "Space" && e.code !== "Enter" && e.code !== "Escape") return;
       e.preventDefault();
-      if (!started) return;
+      if (!started || nocnaLockRef.current) return;
       if (statsOpenRef.current) {
         if (e.code === "Escape") setStatsOpen(false);
         return;
@@ -5099,6 +5109,32 @@ export function useSlotGame() {
     }
   }, [hydrated, suchoOn, ticketShieldUi, job, suchoRankId]);
 
+  const spendCredit = useCallback((amount: number) => {
+    if (!readySave.current) return false;
+    const cost = Math.round(Math.max(0, amount) * 100) / 100;
+    if (!(cost > 0) || balanceRef.current + 1e-9 < cost) return false;
+    balanceRef.current = +Math.max(0, balanceRef.current - cost).toFixed(2);
+    setBalance(balanceRef.current);
+    persistNow();
+    return true;
+  }, [persistNow]);
+
+  const noteNocna = useCallback((stats: Stats) => {
+    nocnaRef.current = foldNocna(nocnaRef.current, stats);
+    setNocna(nocnaRef.current);
+    persistNow();
+  }, [persistNow]);
+
+  const lockNocna = useCallback((on: boolean) => {
+    nocnaLockRef.current = on;
+  }, []);
+
+  const returnToBoot = useCallback(() => {
+    nocnaLockRef.current = false;
+    setStarted(false);
+    setPhase("boot");
+  }, []);
+
   return {
     started,
     bootReady,
@@ -5108,7 +5144,13 @@ export function useSlotGame() {
     bootSkip,
     booting,
     start,
+    saveReady: hydrated,
     balance,
+    spendCredit,
+    nocna,
+    noteNocna,
+    lockNocna,
+    returnToBoot,
     bet,
     stake,
     betIndex,

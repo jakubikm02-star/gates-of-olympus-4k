@@ -35,6 +35,8 @@ import { PickBonus } from "./PickBonus";
 import { CountUp } from "./CountUp";
 import { RankBadge } from "./RankBadge";
 import { BootScreen } from "./BootScreen";
+import { NocnaSmena } from "./nocna/NocnaSmena";
+import { entryBlock, entryPrice } from "@/lib/revier/entry";
 import { AddToHome } from "./AddToHome";
 import { registerInstallSw } from "@/lib/slot/a2hs-client";
 import { EgoDock, useSmrtEga } from "./SmrtEga";
@@ -223,6 +225,9 @@ export function SlotGame() {
   const [boardOpen, setBoardOpen] = useState(false);
   const [boardCard, setBoardCard] = useState<"tabula" | "event">("tabula");
   const [autoMenu, setAutoMenu] = useState(false);
+  const [gate, setGate] = useState<"menu" | "klasicky" | "nocna">("menu");
+  const gateRef = useRef(gate);
+  const [paid, setPaid] = useState(0);
   useEffect(() => {
     if (!autoMenu) return;
     const onKey = (e: KeyboardEvent) => {
@@ -280,7 +285,7 @@ export function SlotGame() {
 
   return (
     <div
-      className={`stage shell-${shell} rk-${g.rank.id} ${layout.land ? "is-land" : ""} ${layout.fold ? `fold-${layout.fold}` : ""} ${autoMenu ? "is-auto-open" : ""} ${g.rankFlash?.event === "up" ? "is-rank-up" : ""} ${g.started ? "is-on" : "is-boot"} ${g.inFs ? "in-fs" : ""} ${g.chase ? "in-chase" : ""} ${g.chase?.tension === "danger" ? "chase-danger" : ""} ${g.chase?.tension === "close" ? "chase-close" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""} ${g.exekucia ? "is-exekucia" : ""}${perfLite ? " perf-lite" : ""}`}
+      className={`stage shell-${shell} rk-${g.rank.id} ${layout.land ? "is-land" : ""} ${layout.fold ? `fold-${layout.fold}` : ""} ${autoMenu ? "is-auto-open" : ""} ${g.rankFlash?.event === "up" ? "is-rank-up" : ""} ${g.started ? "is-on" : "is-boot"} ${gate === "nocna" && g.started ? "is-nocna" : ""} ${g.inFs ? "in-fs" : ""} ${g.chase ? "in-chase" : ""} ${g.chase?.tension === "danger" ? "chase-danger" : ""} ${g.chase?.tension === "close" ? "chase-close" : ""} ${g.throwBolt ? "is-bolt" : ""} ${g.shake ? "is-shake" : ""} ${g.anticipate ? "is-anti" : ""} ${resolving ? "is-resolving" : ""} ${g.ticketLock || g.jpHit ? "is-ticket" : ""} ${g.duel && g.duel.phase === "play" && !g.busy && !g.canSpin ? "is-duel-wait" : ""} ${g.winTier ? `win-tier-${g.winTier}` : ""} ${g.exekucia ? "is-exekucia" : ""}${perfLite ? " perf-lite" : ""}`}
     >
       {g.stale ? (
         <div className="release-lock" role="alertdialog" aria-label="Nová verzia">
@@ -306,6 +311,19 @@ export function SlotGame() {
       {g.chase ? <PoliceSmog danger={g.chase.tension === "danger"} full={g.chase.strikes >= 2} reduced={reducedMotion} lite={perfLite} still={fxStill} /> : null}
       {g.strike ? <HandBolt key={`${g.strike.r}-${g.strike.c}`} strike={g.strike} /> : null}
 
+      {g.started && gate === "nocna" ? (
+        <NocnaSmena
+          entry={paid}
+          record={g.nocna}
+          onRecord={(run) => g.noteNocna(run.stats)}
+          onExit={() => {
+            gateRef.current = "menu";
+            setGate("menu");
+            g.returnToBoot();
+          }}
+        />
+      ) : null}
+
       {!g.started && (
         <BootScreen
           ready={g.bootReady}
@@ -315,7 +333,24 @@ export function SlotGame() {
           onSkip={g.bootSkip}
           booting={g.booting}
           rank={g.rank}
-          onStart={() => void g.start()}
+          onStart={() => {
+            if (gateRef.current !== "menu") return;
+            gateRef.current = "klasicky";
+            setGate("klasicky");
+            void g.start();
+          }}
+          onNocna={() => {
+            if (gateRef.current !== "menu") return;
+            const price = entryPrice(g.balance);
+            if (!g.saveReady || entryBlock(g.balance) || !g.spendCredit(price)) return;
+            gateRef.current = "nocna";
+            g.lockNocna(true);
+            setPaid(price);
+            setGate("nocna");
+            void g.start();
+          }}
+          nocnaPrice={entryPrice(g.balance)}
+          nocnaBlock={!g.saveReady ? "NAČÍTAVAM ÚČET" : entryBlock(g.balance)}
           onRank={() => g.setRankOpen(true)}
           onTransfer={() => setPortOpen(true)}
         />
