@@ -1,0 +1,672 @@
+{
+  "skeleton": {
+    "hash": "kurier",
+    "spine": "4.1.0",
+    "x": -208.0,
+    "y": 0,
+    "width": 416,
+    "height": 512,
+    "images": "./",
+    "fps": 60
+  },
+  "bones": [
+    {
+      "name": "root"
+    },
+    {
+      "name": "scooter",
+      "parent": "root",
+      "x": -18.0,
+      "y": 211,
+      "rotation": 0.0,
+      "length": 85.95
+    },
+    {
+      "name": "wheelF",
+      "parent": "scooter",
+      "x": -112,
+      "y": -150,
+      "rotation": 0.0,
+      "length": 60.75
+    },
+    {
+      "name": "wheelR",
+      "parent": "scooter",
+      "x": 123,
+      "y": -127,
+      "rotation": 0.0,
+      "length": 61.2
+    },
+    {
+      "name": "torso",
+      "parent": "root",
+      "x": 7.0,
+      "y": 249,
+      "rotation": 0.0,
+      "length": 74.7
+    },
+    {
+      "name": "flame",
+      "parent": "torso",
+      "x": 79,
+      "y": 75,
+      "rotation": 0.0,
+      "length": 69.3
+    },
+    {
+      "name": "pack",
+      "parent": "torso",
+      "x": 47,
+      "y": 65,
+      "rotation": 0.0,
+      "length": 74.7
+    },
+    {
+      "name": "armL",
+      "parent": "torso",
+      "x": -67,
+      "y": 58,
+      "rotation": 0.0,
+      "length": 88.62
+    },
+    {
+      "name": "armL2",
+      "parent": "armL",
+      "x": -38,
+      "y": -22,
+      "rotation": 0.0,
+      "length": 43.2
+    },
+    {
+      "name": "armR",
+      "parent": "torso",
+      "x": 21,
+      "y": 61,
+      "rotation": 0.0,
+      "length": 64.51
+    },
+    {
+      "name": "armR2",
+      "parent": "armR",
+      "x": 22,
+      "y": -22,
+      "rotation": 0.0,
+      "length": 45.45
+    },
+    {
+      "name": "head",
+      "parent": "torso",
+      "x": 0,
+      "y": 98,
+      "rotation": 0.0,
+      "length": 74.7
+    },
+    {
+      "name": "armL-ik",
+      "parent": "root",
+      "x": -98.0,
+      "y": 285,
+      "rotation": 0,
+      "length": 8
+    },
+    {
+      "name": "armR-ik",
+      "parent": "root",
+      "x": 50.0,
+      "y": 288,
+      "rotation": 0,
+      "length": 8
+    }
+  ],
+  "slots": [
+    {
+      "name": "wheelF",
+      "bone": "wheelF",
+      "attachment": "wheelF"
+    },
+    {
+      "name": "wheelR",
+      "bone": "wheelR",
+      "attachment": "wheelR"
+    },
+    {
+      "name": "scooter",
+      "bone": "scooter",
+      "attachment": "scooter"
+    },
+    {
+      "name": "torso",
+      "bone": "torso",
+      "attachment": "torso"
+    },
+    {
+      "name": "flame",
+      "bone": "flame",
+      "attachment": "flame"
+    },
+    {
+      "name": "pack",
+      "bone": "pack",
+      "attachment": "pack"
+    },
+    {
+      "name": "armL",
+      "bone": "armL",
+      "attachment": "armL"
+    },
+    {
+      "name": "armL2",
+      "bone": "armL2",
+      "attachment": "armL2"
+    },
+    {
+      "name": "armR",
+      "bone": "armR",
+      "attachment": "armR"
+    },
+    {
+      "name": "armR2",
+      "bone": "armR2",
+      "attachment": "armR2"
+    },
+    {
+      "name": "head",
+      "bone": "head",
+      "attachment": "head"
+    }
+  ],
+  "skins": [
+    {
+      "name": "default",
+      "attachments": {
+        "wheelF": {
+          "wheelF": {
+            "x": 0.0,
+            "y": -1.5,
+            "rotation": 0,
+            "width": 156,
+            "height": 135
+          }
+        },
+        "wheelR": {
+          "wheelR": {
+            "x": 2.0,
+            "y": -5.0,
+            "rotation": 0,
+            "width": 156,
+            "height": 136
+          }
+        },
+        "scooter": {
+          "scooter": {
+            "x": 0.0,
+            "y": -39.5,
+            "rotation": 0,
+            "width": 336,
+            "height": 191,
+            "type": "mesh"
+          }
+        },
+        "torso": {
+          "torso": {
+            "x": 0.0,
+            "y": 50.0,
+            "rotation": 0,
+            "width": 196,
+            "height": 166,
+            "type": "mesh"
+          }
+        },
+        "flame": {
+          "flame": {
+            "x": 45.0,
+            "y": 60.0,
+            "rotation": 0,
+            "width": 154,
+            "height": 196
+          }
+        },
+        "pack": {
+          "pack": {
+            "x": 53.0,
+            "y": -10.0,
+            "rotation": 0,
+            "width": 166,
+            "height": 176
+          }
+        },
+        "armL": {
+          "armL": {
+            "x": -28.0,
+            "y": -23.0,
+            "rotation": 0,
+            "width": 116,
+            "height": 106
+          }
+        },
+        "armL2": {
+          "armL2": {
+            "x": -17.0,
+            "y": -26.0,
+            "rotation": 0,
+            "width": 106,
+            "height": 96
+          }
+        },
+        "armR": {
+          "armR": {
+            "x": 34.0,
+            "y": -21.0,
+            "rotation": 0,
+            "width": 116,
+            "height": 106
+          }
+        },
+        "armR2": {
+          "armR2": {
+            "x": 29.5,
+            "y": -26.5,
+            "rotation": 0,
+            "width": 111,
+            "height": 101
+          }
+        },
+        "head": {
+          "head": {
+            "x": 0.0,
+            "y": 65.0,
+            "rotation": 0,
+            "width": 166,
+            "height": 176
+          }
+        }
+      }
+    }
+  ],
+  "ik": [
+    {
+      "name": "armL-ik",
+      "order": 0,
+      "bones": [
+        "armL",
+        "armL2"
+      ],
+      "target": "armL-ik",
+      "bendPositive": true,
+      "mix": 1
+    },
+    {
+      "name": "armR-ik",
+      "order": 1,
+      "bones": [
+        "armR",
+        "armR2"
+      ],
+      "target": "armR-ik",
+      "bendPositive": false,
+      "mix": 1
+    }
+  ],
+  "physics": [
+    {
+      "name": "flame",
+      "bone": "flame",
+      "strength": 14,
+      "damping": 0.62,
+      "mix": 1
+    }
+  ],
+  "events": {
+    "hit": {},
+    "fx": {},
+    "shake": {}
+  },
+  "animations": {
+    "idle": {
+      "bones": {
+        "torso": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": -2.5,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 0.7,
+              "angle": 2.5,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 1.4,
+              "angle": -2.5
+            }
+          ],
+          "scale": [
+            {
+              "time": 0,
+              "x": 1,
+              "y": 1,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 0.7,
+              "x": 1.03,
+              "y": 0.97,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 1.4,
+              "x": 1,
+              "y": 1
+            }
+          ]
+        },
+        "head": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": 3.0,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 0.7,
+              "angle": -3.0,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 1.4,
+              "angle": 3.0
+            }
+          ]
+        },
+        "wheelF": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": 0.0
+            },
+            {
+              "time": 1.4,
+              "angle": -360.0
+            }
+          ]
+        },
+        "wheelR": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": 0.0
+            },
+            {
+              "time": 1.4,
+              "angle": -360.0
+            }
+          ]
+        }
+      }
+    },
+    "attack": {
+      "bones": {
+        "torso": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": 0.0,
+              "curve": [
+                0.4,
+                0,
+                0.8,
+                0.4
+              ]
+            },
+            {
+              "time": 0.16,
+              "angle": -14.0
+            },
+            {
+              "time": 0.32,
+              "angle": 18.0,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 0.55,
+              "angle": 0.0
+            }
+          ]
+        },
+        "head": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": 0.0
+            },
+            {
+              "time": 0.16,
+              "angle": 8.0
+            },
+            {
+              "time": 0.32,
+              "angle": -6.0
+            },
+            {
+              "time": 0.55,
+              "angle": 0.0
+            }
+          ]
+        }
+      },
+      "events": [
+        {
+          "time": 0.32,
+          "name": "hit"
+        },
+        {
+          "time": 0.32,
+          "name": "shake"
+        }
+      ]
+    },
+    "hit": {
+      "bones": {
+        "torso": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": 0.0
+            },
+            {
+              "time": 0.08,
+              "angle": 12.0,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 0.28,
+              "angle": 0.0
+            }
+          ],
+          "translate": [
+            {
+              "time": 0,
+              "x": 0,
+              "y": 0
+            },
+            {
+              "time": 0.08,
+              "x": 18,
+              "y": 0
+            },
+            {
+              "time": 0.28,
+              "x": 0,
+              "y": 0
+            }
+          ]
+        }
+      },
+      "events": [
+        {
+          "time": 0.08,
+          "name": "fx"
+        }
+      ]
+    },
+    "stun": {
+      "bones": {
+        "head": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": -8.0
+            },
+            {
+              "time": 0.15,
+              "angle": 8.0
+            },
+            {
+              "time": 0.3,
+              "angle": -8.0
+            }
+          ]
+        }
+      }
+    },
+    "death": {
+      "bones": {
+        "torso": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": 0.0,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 0.45,
+              "angle": 70.0
+            }
+          ],
+          "translate": [
+            {
+              "time": 0,
+              "x": 0,
+              "y": 0
+            },
+            {
+              "time": 0.45,
+              "x": 20,
+              "y": -30
+            }
+          ]
+        },
+        "head": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": 0.0
+            },
+            {
+              "time": 0.45,
+              "angle": 25.0
+            }
+          ]
+        }
+      },
+      "events": [
+        {
+          "time": 0.2,
+          "name": "fx"
+        }
+      ]
+    },
+    "intro": {
+      "bones": {
+        "torso": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": -8.0,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 0.55,
+              "angle": 0.0
+            }
+          ],
+          "scale": [
+            {
+              "time": 0,
+              "x": 0.86,
+              "y": 0.86,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 0.55,
+              "x": 1,
+              "y": 1
+            }
+          ]
+        }
+      },
+      "events": [
+        {
+          "time": 0.4,
+          "name": "shake"
+        }
+      ]
+    }
+  }
+}

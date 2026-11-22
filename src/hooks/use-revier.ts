@@ -59,6 +59,23 @@ function intentMark(intent: { kind: string; amount: number; turns?: number } | u
   return String(intent.amount);
 }
 
+function turnLabel(stage: Stage) {
+  if (stage === "enemy") return "ŤAH NEPRIATEĽA";
+  if (stage === "spin") return "TOČÍ SA";
+  if (stage === "shop") return "OBCHOD";
+  if (stage === "dead") return "KONIEC";
+  if (stage === "draft") return "VÝBER";
+  return "TVOJ ŤAH";
+}
+
+function buttonLabel(stage: Stage, picks: number) {
+  if (stage === "draft") return picks === 3 ? "NASTÚPIŤ" : `${picks}/3`;
+  if (stage === "ready") return "ZATOČ";
+  if (stage === "spin") return "STOP";
+  if (stage === "dead") return "SPÄŤ";
+  return "ĎALEJ";
+}
+
 function targetOf(sym: SymId): FeelTarget {
   if (sym === "stit" || sym === "parkvolt" || sym === "natural") return "you";
   if (sym === "konektor") return "coin";
@@ -88,6 +105,7 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
   const planRef = useRef<Plan | null>(null);
   const spinRef = useRef<LiveSpin | null>(null);
   const fight = useRef<FightHandle | null>(null);
+  const pressRef = useRef<() => void>(() => {});
   const noted = useRef(false);
   const hints = useRef({ spin: false, stop: false, atk: false });
   const onRecord = useRef(opts.onRecord);
@@ -339,12 +357,21 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
       shake,
       shop: stageRef.current === "shop",
       deck: stageRef.current === "shop" ? live.deck : [],
+      phase: stageRef.current,
+      button: buttonLabel(stageRef.current, live.picks.length),
+      pulse: stageRef.current === "ready" || stageRef.current === "preview" || stageRef.current === "shop" || stageRef.current === "banner" || (stageRef.current === "draft" && live.picks.length === 3) || stageRef.current === "spin",
+      coins: live.coins,
+      floor,
+      turn: turnLabel(stageRef.current),
+      hint: hint ?? "",
+      active,
     };
   };
 
   const bindFight = (stageApi: FightHandle | null) => {
     fight.current = stageApi;
     stageApi?.setHooks({
+      onPress: () => pressRef.current(),
       onDeck: (i) => {
         if (stageRef.current !== "shop") return;
         const next = removeSymbol(runRef.current, i);
@@ -374,7 +401,7 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
   const who = stage === "enemy" ? "foe" : "you";
   const primary =
     stage === "draft"
-      ? { label: `NASTÚPIŤ ${run.picks.length}/3`, disabled: run.picks.length !== 3, pulse: run.picks.length === 3, run: confirm }
+      ? { label: buttonLabel("draft", run.picks.length), disabled: run.picks.length !== 3, pulse: run.picks.length === 3, run: confirm }
       : stage === "banner"
         ? { label: "ĎALEJ", disabled: false, pulse: true, run: advance }
         : stage === "ready"
@@ -387,7 +414,9 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
                 ? { label: "ĎALEJ", disabled: false, pulse: false, run: () => fight.current?.setPace(3) }
                 : stage === "shop"
                   ? { label: "ĎALEJ", disabled: false, pulse: true, run: leave }
-                  : { label: "SPÄŤ DO GARÁŽE", disabled: false, pulse: true, run: () => onExit.current() };
+                  : { label: "SPÄŤ", disabled: false, pulse: true, run: () => onExit.current() };
+
+  pressRef.current = primary.run;
 
   return {
     run,

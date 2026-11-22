@@ -1,42 +1,39 @@
 /**
- * WebGL fight scene (PixiJS 8). One ticker, pooled sprites, DPR capped.
- * HUD buttons stay in React. Mounts into a plain element so a Capacitor
- * WebView can host the same stage later — no APK here.
+ * Cabinet fight scene. Pixi draws the machine, the rig and the cues.
+ * DOM keeps only the settings popover and the tap bubble.
  */
-import { Application, Assets, Container, Graphics, Sprite, Text, Texture, type Ticker } from "pixi.js";
+import { Application, Assets, BlurFilter, Container, Graphics, Sprite, Text, Texture, type Ticker } from "pixi.js";
 import { FEEL } from "@/lib/revier/feel";
 import type { FeelTarget } from "@/lib/revier/feel";
 import { PLAY_SYMS, SYM, bgSrc } from "@/lib/revier/symbols";
 import type { Cue, FightSnap, WinSnap } from "@/nocna/fight-types";
+import { Rig } from "@/nocna/rig/runtime";
+import { Director, type Clip } from "./director";
+import { ease } from "./eases";
+import { readPalette, type Palette } from "./palette";
+import { ParticlePool } from "./particles";
 
 export type { Cue, FightSnap, WinSnap };
 
-const ENEMY_URLS = [
-  "/nocna/enemies/enemy-neplatic.webp",
-  "/nocna/enemies/enemy-inkasak.webp",
-  "/nocna/enemies/enemy-zlodej-paragonov.webp",
+const RIGS: Record<string, string> = {
+  "/nocna/enemies/enemy-neplatic.webp": "/nocna/rigs/neplatic/neplatic",
+  "/nocna/enemies/enemy-inkasak.webp": "/nocna/rigs/inkasak/inkasak",
+  "/nocna/bosses/boss-1-pekelny-kurier.webp": "/nocna/rigs/kurier/kurier",
+};
+
+const ENEMY_URLS = Object.keys(RIGS).concat([
   "/nocna/enemies/enemy-pokutomat.webp",
   "/nocna/enemies/enemy-uradnicka.webp",
   "/nocna/enemies/enemy-ozran.webp",
+  "/nocna/enemies/enemy-zlodej-paragonov.webp",
   "/nocna/enemies/elite-krovinorez.webp",
   "/nocna/enemies/elite-motorka-smrti.webp",
   "/nocna/enemies/elite-vyberca-myta.webp",
-  "/nocna/bosses/boss-1-pekelny-kurier.webp",
   "/nocna/bosses/boss-2-demon-ziariviek.webp",
   "/nocna/bosses/boss-3-anjel-exekucie.webp",
   "/nocna/bosses/boss-4-general-podatelne.webp",
   "/nocna/bosses/boss-5-prednosta.webp",
-];
-
-const UI_URLS = [
-  "/nocna/ui/ui-hp-heart.webp",
-  "/nocna/ui/ui-shield.webp",
-  "/nocna/ui/ui-coin.webp",
-  "/nocna/fx/fx-hit.webp",
-  "/nocna/fx/fx-crit.webp",
-  "/nocna/fx/fx-heal.webp",
-  "/nocna/fx/fx-block.webp",
-];
+]);
 
 export const fpsProbe = { avg: 0, max: 0, samples: [] as number[] };
 
@@ -45,12 +42,10 @@ function urls(): string[] {
   const bgs = [1, 2, 3, 4, 5, 6].flatMap((floor) =>
     (["port", "land", "fold-port", "fold-land"] as const).map((k) => bgSrc(floor, k)),
   );
-  return [...syms, ...bgs, ...ENEMY_URLS, ...UI_URLS];
+  return [...syms, ...bgs, ...ENEMY_URLS, "/nocna/ui/ui-hp-heart.webp", "/nocna/ui/ui-coin.webp", "/nocna/ui/ui-shield.webp"];
 }
 
 let preloaded: Promise<void> | null = null;
-
-/** Starts the Pixi chunk + decodes textures. Safe to call as soon as the mode opens. */
 export function preloadNocna(): Promise<void> {
   preloaded ??= Assets.load(urls()).then(() => undefined);
   return preloaded;
@@ -59,134 +54,127 @@ export function preloadNocna(): Promise<void> {
 interface WinNode {
   root: Container;
   hole: Graphics;
-  glow: Graphics;
-  flick: Graphics;
+  frame: Graphics;
+  glass: Graphics;
   icon: Sprite;
   chip: Text;
   token: number;
-  dropT: number;
-  dropping: boolean;
   size: number;
 }
 
-interface Puff {
-  s: Sprite;
-  life: number;
-  max: number;
-  vx: number;
-  vy: number;
-  x: number;
-  y: number;
-}
-
-interface CueRun {
-  cue: Cue;
-  t: number;
-  phase: "travel" | "hold" | "self" | "rewind" | "tell";
-  impacted: boolean;
-  onImpact: () => void;
-  resolve: () => void;
+class Quality {
+  tier: "high" | "low" = "high";
+  private force: boolean | null = null;
+  private bad = 0;
+  private good = 0;
+  note(ms: number) {
+    if (this.force != null) {
+      this.tier = this.force ? "high" : "low";
+      return;
+    }
+    if (ms > FEEL.budgetMs) {
+      this.bad++;
+      this.good = 0;
+      if (this.bad >= FEEL.budgetFrames) this.tier = "low";
+    } else {
+      this.good++;
+      this.bad = Math.max(0, this.bad - 1);
+      if (this.good >= FEEL.recoverFrames) this.tier = "high";
+    }
+  }
+  setEffects(on: boolean) {
+    this.force = on;
+    this.tier = on ? "high" : "low";
+  }
 }
 
 export class FightStage {
   private app: Application;
   private world = new Container();
   private bg = new Sprite();
-  private foe = new Sprite();
-  private foeBaseY = 0;
-  private foeBaseX = 0;
-  private knock = 0;
-  private glitch = 0;
-  private shake = 0;
-  private shakeT = 0;
+  private bgDim = new Graphics();
+  private rigLayer = new Container();
+  private cabinet = new Graphics();
+  private light = new Graphics();
+  private rig: Rig | null = null;
+  private rigArt = "";
+  private rigToken = 0;
+  private rigClip = "";
+  private introDone = new Set<string>();
+  private director = new Director();
+  private particles: ParticlePool;
+  private quality = new Quality();
+  private blur = new BlurFilter({ strength: 0 });
   private wins: WinNode[] = [];
   private flyer = new Sprite();
   private num: Text;
-  private hpFill: Sprite;
-  private hpTrail: Sprite;
-  private shFill: Sprite;
-  private ehpFill: Sprite;
-  private ehpTrail: Sprite;
-  private eshFill: Sprite;
-  private heart: Sprite;
-  private coinIcon: Sprite;
-  private stunMark: Text;
-  private dotMark: Text;
-  private poisMark: Text;
-  private puffs: Puff[] = [];
+  private intentText: Text;
+  private ehpNum: Text;
+  private hpNum: Text;
+  private coinNum: Text;
+  private turnText: Text;
+  private btn: Container;
+  private btnFace: Graphics;
+  private btnLabel: Text;
+  private bars = new Graphics();
+  private deck: Sprite[] = [];
+  private pal: Palette = readPalette(null);
   private snap: FightSnap | null = null;
-  private cue: CueRun | null = null;
-  private foeLine: CueRun | null = null;
+  private onReel: (i: number) => void = () => {};
+  private onDeck: (i: number) => void = () => {};
+  private onPress: () => void = () => {};
+  private pace = 1;
+  private reduced = false;
+  private shake = 1;
+  private shakeT = 0;
+  private cueReel = -1;
+  private foeWait: (() => void) | null = null;
+  private pending: (() => void) | null = null;
   private hpShown = 100;
-  private hpTrailN = 100;
-  private shShown = 0;
+  private hpTrail = 100;
   private ehpShown = 1;
-  private ehpTrailN = 1;
+  private shShown = 0;
   private eshShown = 0;
   private youX = 0;
   private youY = 0;
   private coinX = 0;
   private coinY = 0;
-  private reduced = false;
-  private pace = 1;
+  private foeX = 0;
+  private foeY = 0;
+  private phase = "";
   private destroyed = false;
   private observer: ResizeObserver | null = null;
-  private intentText: Text;
-  private intentPlate: Graphics;
-  private ehpNum: Text;
-  private hpNum: Text;
-  private onReel: (i: number) => void = () => {};
-  private onDeck: (i: number) => void = () => {};
-  private deck: Sprite[] = [];
-  private lit = false;
+  private btnScale = 1;
 
-  private constructor(app: Application) {
+  private constructor(app: Application, host: HTMLElement) {
     this.app = app;
-    const white = Texture.WHITE;
-    this.hpFill = new Sprite(white);
-    this.hpTrail = new Sprite(white);
-    this.shFill = new Sprite(white);
-    this.ehpFill = new Sprite(white);
-    this.ehpTrail = new Sprite(white);
-    this.eshFill = new Sprite(white);
-    this.heart = new Sprite();
-    this.coinIcon = new Sprite();
-    this.num = new Text({ text: "", style: { fill: 0xfff6d0, fontSize: 40, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
-    this.stunMark = new Text({ text: "", style: { fill: 0xd7c4ff, fontSize: 28, fontWeight: "700" } });
-    this.dotMark = new Text({ text: "", style: { fill: 0xc6f57a, fontSize: 22, fontWeight: "700" } });
-    this.poisMark = new Text({ text: "", style: { fill: 0xff8d7a, fontSize: 22, fontWeight: "700" } });
-    this.num.anchor.set(0.5);
-    this.num.visible = false;
-    this.intentPlate = new Graphics();
-    this.intentText = new Text({ text: "", style: { fill: 0xffe56a, fontSize: 28, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
-    this.ehpNum = new Text({ text: "", style: { fill: 0xffd0c8, fontSize: 18, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
-    this.hpNum = new Text({ text: "", style: { fill: 0xffd0c8, fontSize: 18, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
-    this.ehpNum.anchor.set(1, 0.5);
-    this.hpNum.anchor.set(0, 0.5);
+    this.pal = readPalette(host.closest(".ns") ?? host);
     this.flyer.anchor.set(0.5);
     this.flyer.visible = false;
-    this.foe.anchor.set(0.5, 1);
+    this.num = new Text({ text: "", style: { fill: this.pal.glow, fontSize: 40, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
+    this.num.anchor.set(0.5);
+    this.num.visible = false;
+    this.intentText = new Text({ text: "", style: { fill: this.pal.glow, fontSize: 28, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
+    this.ehpNum = new Text({ text: "", style: { fill: this.pal.text, fontSize: 18, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
+    this.hpNum = new Text({ text: "", style: { fill: this.pal.text, fontSize: 18, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
+    this.coinNum = new Text({ text: "", style: { fill: this.pal.glow, fontSize: 20, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
+    this.turnText = new Text({ text: "", style: { fill: this.pal.accent, fontSize: 18, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
+    this.turnText.anchor.set(0.5, 0);
+    this.btn = new Container();
+    this.btnFace = new Graphics();
+    this.btnLabel = new Text({ text: "", style: { fill: this.pal.ink, fontSize: 28, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
+    this.btnLabel.anchor.set(0.5);
+    this.btn.addChild(this.btnFace, this.btnLabel);
+    this.btn.eventMode = "static";
+    this.btn.cursor = "pointer";
+    this.btn.on("pointertap", () => {
+      this.pump();
+      this.onPress();
+    });
     this.bg.anchor.set(0.5);
-    const dot = new Graphics().circle(0, 0, 6).fill({ color: 0xffffff });
-    const puffTex = app.renderer.generateTexture(dot);
-    for (let i = 0; i < FEEL.particles; i++) {
-      const s = new Sprite(puffTex);
-      s.anchor.set(0.5);
-      s.visible = false;
-      this.puffs.push({ s, life: 0, max: 1, vx: 0, vy: 0, x: 0, y: 0 });
-      this.world.addChild(s);
-    }
+    this.particles = new ParticlePool(this.world, FEEL.particles);
+    this.world.addChild(this.bg, this.bgDim, this.rigLayer, this.light, this.cabinet, this.bars, this.flyer, this.num, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.btn);
     app.stage.addChild(this.world);
-    this.world.addChild(this.bg, this.foe, this.flyer, this.num, this.stunMark, this.dotMark, this.poisMark);
-    this.bar(this.ehpTrail, 0x5a201c);
-    this.bar(this.ehpFill, 0xe23b3b);
-    this.bar(this.eshFill, 0x3ec6e0);
-    this.bar(this.hpTrail, 0x5a201c);
-    this.bar(this.hpFill, 0xff4d4d);
-    this.bar(this.shFill, 0x3ec6e0);
-    this.heart.anchor.set(0.5);
-    this.coinIcon.anchor.set(0.5);
-    this.world.addChild(this.heart, this.coinIcon, this.intentPlate, this.intentText, this.ehpNum, this.hpNum);
     app.ticker.add(this.tick);
   }
 
@@ -208,8 +196,8 @@ export class FightStage {
     app.canvas.style.height = "100%";
     app.canvas.style.touchAction = "none";
     host.appendChild(app.canvas);
-    const stage = new FightStage(app);
-    const fitStage = () => {
+    const stage = new FightStage(app, host);
+    const fit = () => {
       if (stage.destroyed || !app.renderer) return;
       try {
         app.renderer.resize(Math.max(2, host.clientWidth), Math.max(2, host.clientHeight));
@@ -218,89 +206,234 @@ export class FightStage {
         /* renderer already gone */
       }
     };
-    stage.observer = new ResizeObserver(fitStage);
+    stage.observer = new ResizeObserver(fit);
     stage.observer.observe(host);
-    fitStage();
+    fit();
     host.dataset.pixi = "1";
     return stage;
   }
 
-  setHooks(hooks: { onReel: (i: number) => void; onDeck?: (i: number) => void }) {
+  setHooks(hooks: { onReel: (i: number) => void; onDeck?: (i: number) => void; onPress?: () => void }) {
     this.onReel = hooks.onReel;
     this.onDeck = hooks.onDeck ?? (() => {});
+    this.onPress = hooks.onPress ?? (() => {});
   }
 
   setSnap(snap: FightSnap) {
+    const prev = this.phase;
     this.snap = snap;
     this.reduced = snap.reduced;
-    this.hpShown = this.hpShown || snap.hp;
+    this.shake = snap.shake;
+    this.phase = snap.phase;
+    this.syncRig(snap);
     this.layout();
+    if (prev && prev !== snap.phase && !this.reduced) this.shutter();
   }
 
-  playCue(cue: Cue, onImpact: () => void): Promise<void> {
-    return new Promise((resolve) => {
-      this.cue = { cue, t: 0, phase: cue.rewind ? "rewind" : cue.selfChip ? "self" : "travel", impacted: false, onImpact, resolve };
-      this.num.visible = false;
-    });
+  setEffects(on: boolean) {
+    this.quality.setEffects(on);
   }
 
-  playFoe(text: string, kind: "hit" | "block" | "miss" | "heal", at: "you" | "foe" = "you"): Promise<void> {
-    return new Promise((resolve) => {
-      this.foeLine = {
-        cue: { reel: -1, sym: "blocek", crit: false, rewind: false, chip: text, target: at === "foe" ? "foe" : "you" },
-        t: 0,
-        phase: "tell",
-        impacted: true,
-        onImpact: () => {},
-        resolve,
-      };
-      this.num.text = text;
-      this.num.visible = false;
-      this.num.style.fill = kind === "block" ? 0x7ee7ff : kind === "heal" ? 0xb6f27c : at === "foe" ? 0xffe56a : 0xff8d7a;
-      this.placeNum(at === "foe" ? this.foeBaseX : this.youX, (at === "foe" ? this.foeBaseY : this.youY) - 28);
-      if (kind === "hit" && at === "you") this.kick(FEEL.shakeHitMs);
-      if (at === "foe") this.kick(FEEL.shakeCritMs);
+  pump() {
+    this.btnScale = 0.92;
+    void this.director.play({
+      duration: FEEL.buttonSquashMs,
+      ease: ease.outCubic,
+      update: (u) => {
+        this.btnScale = 0.92 + 0.08 * u;
+      },
     });
   }
 
   setPace(pace: number) {
-    this.pace = Math.max(1, pace);
+    this.pace = pace;
   }
 
   skip() {
-    const run = this.cue ?? this.foeLine;
-    if (!run) return;
-    if (!run.impacted) {
-      run.impacted = true;
-      run.onImpact();
-    }
-    this.num.visible = false;
+    this.director.clear();
+    this.foeWait?.();
+    this.foeWait = null;
+    this.pending?.();
+    this.pending = null;
     this.flyer.visible = false;
-    this.cue = null;
-    this.foeLine = null;
-    run.resolve();
+    this.num.visible = false;
+    this.cueReel = -1;
+  }
+
+  playCue(cue: Cue, onImpact: () => void): Promise<void> {
+    const hold = cue.sym === "exekucia" || cue.sym === "natural" ? FEEL.bigHoldMs : FEEL.resultHoldMs;
+    const k = this.reduced ? 0.35 : 1;
+    this.cueReel = cue.reel;
+    let impacted = false;
+    const hit = () => {
+      if (impacted) return;
+      impacted = true;
+      onImpact();
+      this.popNumber(cue.chip, cue.crit);
+      if (cue.target === "foe" && cue.sym !== "restart") void this.rig?.play(this.snap && this.snap.ehp <= 0 ? "death" : "hit", { loop: false, mix: FEEL.rigMix });
+      if (!this.reduced && this.quality.tier === "high" && cue.crit) this.flashBlur();
+      this.kick(cue.crit ? FEEL.shakeCritMs : FEEL.shakeHitMs);
+      const at = this.targetPoint(cue.target);
+      this.particles.burst({
+        x: at.x,
+        y: at.y,
+        n: cue.crit ? 16 : 8,
+        color: cue.crit ? this.pal.glow : this.pal.danger,
+        speed: cue.crit ? 0.45 : 0.28,
+        life: 420,
+        g: FEEL.gravity,
+        ring: cue.crit,
+        trails: this.quality.tier === "high",
+      });
+    };
+    const clip: Clip = {
+      seq: [
+        {
+          duration: FEEL.chargeMs * k,
+          ease: ease.outCubic,
+          update: (u) => {
+            const win = this.wins[cue.reel];
+            if (win) win.root.scale.set(1 + u * 0.06);
+          },
+        },
+        {
+          duration: FEEL.travelMs * k,
+          ease: ease.outCubic,
+          update: (u) => {
+            const win = this.wins[cue.reel];
+            const from = win ? { x: win.root.x + win.size / 2, y: win.root.y + win.size / 2 } : { x: 40, y: 40 };
+            const to = this.targetPoint(cue.target);
+            const arc = Math.sin(u * Math.PI) * (cue.crit ? 28 : 14);
+            this.flyer.visible = true;
+            const art = SYM[cue.sym as keyof typeof SYM]?.art;
+            if (art) this.flyer.texture = Texture.from(art);
+            this.flyer.position.set(from.x + (to.x - from.x) * u, from.y + (to.y - from.y) * u - arc);
+            this.flyer.scale.set(cue.crit ? 0.62 : 0.4);
+            if (this.quality.tier === "high" && u > 0.15 && Math.random() < 0.7) {
+              this.particles.burst({ x: this.flyer.x, y: this.flyer.y, n: 1, color: this.pal.accent, speed: 0.08, life: 180, g: 0, trails: true });
+            }
+          },
+          onComplete: () => {
+            this.flyer.visible = false;
+            hit();
+          },
+        },
+        { wait: hold * k },
+      ],
+    };
+    return new Promise((resolve) => {
+      this.pending = resolve;
+      void this.director.play(clip).then(() => {
+        this.cueReel = -1;
+        for (const win of this.wins) win.root.scale.set(1);
+        this.num.visible = false;
+        if (this.pending === resolve) this.pending = null;
+        resolve();
+      });
+    });
+  }
+
+  playFoe(text: string, _kind: "hit" | "block" | "miss" | "heal", at: "you" | "foe" = "you"): Promise<void> {
+    const k = this.reduced ? 0.4 : 1;
+    const crit = text === "KRIT" || text === "MEGA";
+    if (crit) void this.rig?.play("attack", { loop: false, mix: FEEL.rigMix });
+    else if (at === "you") void this.rig?.play("attack", { loop: false, mix: FEEL.rigMix });
+    const show = () => {
+      this.num.text = text;
+      this.num.visible = true;
+      this.num.scale.set(0.4);
+      this.num.position.set(at === "foe" ? this.foeX : this.youX, (at === "foe" ? this.foeY : this.youY) - 36);
+      void this.director.play({
+        duration: FEEL.numberPopMs,
+        ease: ease.outBack,
+        update: (u) => this.num.scale.set(0.4 + u * 0.8),
+      });
+      if (text === "shake" || crit) this.kick(FEEL.shakeCritMs);
+    };
+    return new Promise((resolve) => {
+      this.pending = resolve;
+      this.foeWait = () => {
+        show();
+      };
+      const tell = crit ? FEEL.critLinkMs : FEEL.foeTellMs;
+      void this.director
+        .play({
+          seq: [
+            {
+              duration: tell * k,
+              ease: ease.outCubic,
+              update: (u) => {
+                if (this.rig) this.rig.alpha = 0.75 + 0.25 * Math.abs(Math.sin(u * 12));
+              },
+              onComplete: () => {
+                this.foeWait?.();
+                this.foeWait = null;
+                if (this.rig) this.rig.alpha = 1;
+              },
+            },
+            { wait: (crit ? 700 : FEEL.foeHoldMs) * k },
+          ],
+        })
+        .then(() => {
+          this.num.visible = false;
+          if (!crit) void this.rig?.play(this.snap?.stunned ? "stun" : "idle", { loop: true, mix: FEEL.rigMix });
+          if (this.pending === resolve) this.pending = null;
+          resolve();
+        });
+    });
   }
 
   destroy() {
     this.destroyed = true;
+    this.skip();
     this.observer?.disconnect();
-    this.observer = null;
-    try {
-      this.app.destroy(true, { children: true });
-    } catch {
-      /* already destroyed */
+    this.rig?.destroy();
+    this.app.destroy(true);
+  }
+
+  private onRigEvent = (name: string) => {
+    if (name === "hit") this.foeWait?.();
+    if (name === "shake") this.kick(FEEL.shakeHitMs);
+    if (name === "fx") this.particles.burst({ x: this.foeX, y: this.foeY - 40, n: 10, color: this.pal.danger, speed: 0.3, life: 360, g: FEEL.gravity, trails: this.quality.tier === "high" });
+  };
+
+  private syncRig(snap: FightSnap) {
+    const art = snap.enemyArt || this.rigArt;
+    if (!art) return;
+    if (art === this.rigArt && this.rig) {
+      this.rig.setQuality({ springs: !this.reduced && this.quality.tier === "high", mesh: this.quality.tier === "high" });
+      if (snap.stunned && this.rigClip !== "stun") {
+        this.rigClip = "stun";
+        void this.rig.play("stun", { loop: true, mix: FEEL.rigMix });
+      }
+      return;
     }
-  }
-
-  private bar(s: Sprite, color: number) {
-    s.texture = Texture.WHITE;
-    s.tint = color;
-    s.anchor.set(0, 0.5);
-    this.world.addChild(s);
-  }
-
-  private tex(url: string): Texture {
-    return Texture.from(url);
+    const token = ++this.rigToken;
+    this.rigArt = art;
+    const packed = RIGS[art];
+    const load = packed ? Rig.loadPacked(packed, this.onRigEvent) : Rig.loadBillboard(art, this.onRigEvent);
+    void load.then((rig) => {
+      if (this.destroyed || token !== this.rigToken) {
+        rig.destroy();
+        return;
+      }
+      this.rig?.destroy();
+      this.rig = rig;
+      this.rigLayer.addChild(rig);
+      rig.setQuality({ springs: !this.reduced && this.quality.tier === "high", mesh: this.quality.tier === "high" });
+      const boss = art.includes("kurier");
+      if (boss && !this.introDone.has(art)) {
+        this.introDone.add(art);
+        this.rigClip = "intro";
+        void rig.play("intro", { loop: false, mix: 0 }).then(() => {
+          if (this.rig === rig) void rig.play("idle", { loop: true, mix: FEEL.rigMix });
+        });
+      } else {
+        this.rigClip = "idle";
+        void rig.play("idle", { loop: true, mix: 0 });
+      }
+      this.layout();
+    });
   }
 
   private layout() {
@@ -309,11 +442,11 @@ export class FightStage {
     const w = this.app.screen.width;
     const h = this.app.screen.height;
     const land = w > h * 1.05;
-    this.bg.texture = this.tex(snap.bg);
+    const pal = (this.pal = readPalette(this.app.canvas.parentElement));
+    this.bg.texture = Texture.from(snap.bg);
     this.bg.position.set(w / 2, h / 2);
     const cover = Math.max(w / Math.max(1, this.bg.texture.width), h / Math.max(1, this.bg.texture.height));
     this.bg.scale.set(cover);
-
     const L = FEEL.layout;
     let foeX = w * 0.5;
     let foeY = h * (L.enemyTop + L.enemyH);
@@ -322,141 +455,120 @@ export class FightStage {
     let reelX = w * L.gap;
     let reelW = w * (1 - L.gap * 2);
     if (land) {
-      foeX = w * L.landEnemyW * 0.5;
+      foeX = w * L.landEnemyW * 0.55;
       foeY = h * 0.78;
-      foeH = h * 0.62;
+      foeH = h * 0.7;
       reelX = w * (L.landEnemyW + 0.02);
-      reelW = w * (1 - L.landEnemyW - 0.06);
-      reelY = h * 0.34;
+      reelW = w * (1 - L.landEnemyW - 0.08);
+      reelY = h * 0.28;
     }
-    if (snap.enemyArt && !snap.shop) {
-      this.foe.texture = this.tex(snap.enemyArt);
-      this.foe.visible = true;
-      const s = foeH / Math.max(1, this.foe.texture.height);
-      this.foe.scale.set(s);
-      this.foeBaseX = foeX;
-      this.foeBaseY = foeY;
-      this.foe.position.set(foeX, foeY);
-    } else this.foe.visible = false;
-
-    const n = Math.max(1, snap.windows.length);
-    const gap = 8;
+    this.foeX = foeX;
+    this.foeY = foeY;
+    if (this.rig?.doc) {
+      const sk = this.rig.doc.skeleton.height || 512;
+      const sc = (foeH * 0.9) / sk;
+      this.rig.scale.set(sc);
+      this.rig.position.set(foeX, foeY);
+      this.rig.visible = true;
+    }
+    this.paintCabinet(w, h, pal, land);
+    const n = Math.max(1, snap.windows.length || 3);
+    const gap = 10;
     const cell = Math.min((reelW - gap * (n - 1)) / n, h * L.reelH);
     const rowW = cell * n + gap * (n - 1);
     const x0 = reelX + (reelW - rowW) / 2;
     while (this.wins.length < n) this.wins.push(this.makeWin());
     this.wins.forEach((win, i) => {
-      const on = i < n;
-      win.root.visible = on;
-      if (!on) return;
-      const x = x0 + i * (cell + gap);
-      win.size = cell;
-      win.root.position.set(x, reelY);
-      win.hole.clear().roundRect(0, 0, cell, cell, 12).fill({ color: 0x07080c, alpha: 0.92 });
-      const mask = win.hole;
-      win.icon.mask = mask;
-      win.flick.clear().rect(0, 0, cell, cell).fill({ color: 0x9dff6a, alpha: 0.35 });
-      win.icon.anchor.set(0.5);
-      const prev = win.token;
+      win.root.visible = i < n;
+      if (i >= n) return;
       const spec = snap.windows[i];
-      this.paint(win, Boolean(spec?.crit) && !this.cue);
+      win.size = cell;
+      win.root.position.set(x0 + i * (cell + gap), reelY);
+      this.paintWindow(win, cell, pal, Boolean(spec?.crit));
+      const prev = win.token;
       win.token = spec?.token ?? 0;
-      if (spec && spec.mode === "sit" && spec.sym && spec.token !== prev) {
-        win.dropping = true;
-        win.dropT = 0;
-        const art = SYM[spec.sym as keyof typeof SYM]?.art;
-        if (art) win.icon.texture = this.tex(art);
-        win.icon.visible = true;
-      }
-      if (win.dropping) {
-        win.flick.visible = false;
-        win.chip.text = "";
-        return;
-      }
-      if (!spec || spec.mode === "empty" || !spec.sym) {
-        win.icon.visible = false;
-        win.dropping = false;
-        win.chip.text = "";
-      } else if (spec.mode === "sit") {
-        const art = SYM[spec.sym as keyof typeof SYM]?.art;
-        if (art) win.icon.texture = this.tex(art);
-        win.icon.visible = true;
-        win.icon.position.set(cell / 2, cell / 2);
-        win.icon.width = cell * 0.86;
-        win.icon.height = cell * 0.86;
-      }
-      win.flick.visible = spec?.mode === "flicker";
+      if (spec && spec.mode === "sit" && spec.sym && spec.token !== prev) this.dropIn(win, spec, cell);
+      else if (!win.icon.visible || spec?.mode !== "sit") this.sit(win, spec, cell);
       win.chip.text = spec?.mode === "sit" ? spec.chip : "";
-      win.chip.position.set(cell / 2, cell - 6);
-      win.chip.anchor.set(0.5, 1);
-      win.glow.alpha = spec?.crit ? 1 : 0.75;
-      win.root.eventMode = "static";
-      win.root.cursor = "pointer";
+      win.chip.position.set(cell / 2, cell - 4);
       win.root.removeAllListeners();
-      const reel = i;
-      win.root.on("pointertap", () => this.onReel(reel));
+      win.root.eventMode = "static";
+      win.root.on("pointertap", () => this.onReel(i));
     });
-
-    const barW = Math.min(220, w * 0.42);
-    const barY = land ? h * 0.9 : reelY - 28;
-    const barX = land ? w * 0.04 : 16;
-    this.placeBar(this.hpTrail, barX, barY, barW);
-    this.placeBar(this.hpFill, barX, barY, barW);
-    this.placeBar(this.shFill, barX, barY + 10, barW);
-    this.heart.texture = this.tex("/nocna/ui/ui-hp-heart.webp");
-    this.heart.position.set(barX - 4, barY);
-    this.heart.width = 22;
-    this.heart.height = 22;
-    this.youX = barX + 30;
+    this.placeDeck(snap, foeX, foeY, foeH);
+    const barW = Math.min(220, w * 0.46);
+    const barX = land ? 16 : 18;
+    const barY = land ? h * 0.86 : reelY - 28;
+    this.youX = barX + 28;
     this.youY = barY;
-    const eBarX = land ? foeX - 70 : w * 0.18;
-    const eBarY = land ? foeY + 8 : foeY + 6;
-    this.placeBar(this.ehpTrail, eBarX, eBarY, barW * 0.8);
-    this.placeBar(this.ehpFill, eBarX, eBarY, barW * 0.8);
-    this.placeBar(this.eshFill, eBarX, eBarY + 8, barW * 0.8);
-    const intent = snap.shop ? "" : snap.intent;
-    this.intentText.text = intent;
-    const ix = eBarX + barW * 0.8 + 12;
-    const iy = eBarY - 6;
-    this.intentText.position.set(ix, iy);
-    this.intentPlate.clear();
-    if (intent) {
-      const tw = Math.max(36, this.intentText.width + 16);
-      this.intentPlate.roundRect(ix - 8, iy - 4, tw, 34, 8).fill({ color: 0x07080c, alpha: 0.88 });
-    }
-    this.ehpNum.position.set(eBarX - 6, eBarY + 4);
-    this.hpNum.position.set(barX + barW + 8, barY + 4);
-    this.world.addChild(this.intentPlate, this.intentText, this.ehpNum, this.hpNum);
-    this.placeDeck(snap, foeX, foeY, foeH, w);
-    this.coinIcon.texture = this.tex("/nocna/ui/ui-coin.webp");
-    this.coinIcon.position.set(w - 28, 22);
-    this.coinIcon.width = 22;
-    this.coinIcon.height = 22;
-    this.coinX = w - 28;
-    this.coinY = 22;
-    this.stunMark.position.set(foeX - 20, foeY - foeH * 0.15);
-    this.dotMark.position.set(foeX + 16, foeY - foeH * 0.15);
-    this.poisMark.position.set(barX + 40, barY - 22);
+    this.paintBars(barX, barY, barW, foeX, foeY, pal, snap);
+    this.coinX = w - 36;
+    this.coinY = 28;
+    this.coinNum.text = String(snap.coins);
+    this.coinNum.position.set(w - 52, 16);
+    this.turnText.text = snap.hint || snap.turn;
+    this.turnText.position.set(w / 2, 8);
+    this.intentText.text = snap.shop ? "" : snap.intent;
+    this.btnLabel.text = snap.button;
+    const bw = Math.min(w * 0.84, 420);
+    const bh = Math.min(64, h * 0.09);
+    const bx = (w - bw) / 2;
+    const by = h - bh - 12;
+    this.btn.position.set(bx + bw / 2, by + bh / 2);
+    this.btnFace.clear();
+    this.btnFace.roundRect(-bw / 2, -bh / 2, bw, bh, bh / 2).fill({ color: pal.btn }).stroke({ color: pal.glow, width: 3, alpha: snap.pulse ? 0.9 : 0.35 });
+    this.btnLabel.style.fill = pal.ink;
   }
 
-  private paint(win: WinNode, hot: boolean) {
-    const cell = win.size || 80;
-    win.glow.clear().roundRect(-3, -3, cell + 6, cell + 6, 14).stroke({ color: hot ? 0xffd24a : 0x8a8478, width: hot ? 5 : 2, alpha: hot ? 1 : 0.7 });
+  private paintCabinet(w: number, h: number, pal: Palette, _land: boolean) {
+    this.cabinet.clear();
+    this.cabinet.roundRect(8, 8, w - 16, h - 16, 22).stroke({ color: pal.metal, width: 6, alpha: 0.85 });
+    this.cabinet.roundRect(14, 14, w - 28, h - 28, 18).stroke({ color: 0x2a2418, width: 3, alpha: 0.8 });
+    this.light.clear();
+    const hurt = this.snap ? 1 - Math.max(0, this.snap.hp) / Math.max(1, this.snap.maxHp) : 0;
+    this.light.rect(0, 0, w, h).fill({ color: pal.danger, alpha: 0.05 + hurt * 0.18 });
+    this.bgDim.clear();
+    this.bgDim.rect(0, 0, w, h).fill({ color: pal.bg, alpha: 0.18 });
   }
 
-  private placeDeck(snap: FightSnap, foeX: number, foeY: number, foeH: number, w: number) {
+  private paintWindow(win: WinNode, cell: number, pal: Palette, crit: boolean) {
+    win.hole.clear().roundRect(0, 0, cell, cell, 12).fill({ color: 0x07080c, alpha: 0.88 });
+    win.frame.clear();
+    win.frame.roundRect(-4, -4, cell + 8, cell + 8, 14).stroke({ color: crit ? pal.glow : pal.metal, width: crit ? 5 : 3, alpha: 0.95 });
+    win.frame.roundRect(-1, -1, cell + 2, cell * 0.45, 10).stroke({ color: 0xfff6d8, width: 2, alpha: 0.18 });
+    win.glass.clear().roundRect(4, 4, cell - 8, cell * 0.28, 8).fill({ color: 0xffffff, alpha: 0.08 });
+    win.icon.mask = win.hole;
+  }
+
+  private paintBars(x: number, y: number, barW: number, foeX: number, foeY: number, pal: Palette, snap: FightSnap) {
+    this.bars.clear();
+    const eh = snap.shop ? 0 : Math.max(0, this.ehpShown) / Math.max(1, snap.emax);
+    this.bars.roundRect(foeX - barW * 0.4, foeY + 8, barW * 0.8, 8, 4).fill({ color: 0x2a1212 });
+    this.bars.roundRect(foeX - barW * 0.4, foeY + 8, barW * 0.8 * eh, 8, 4).fill({ color: pal.hp });
+    const hp = Math.max(0, this.hpShown) / Math.max(1, snap.maxHp);
+    this.bars.roundRect(x, y, barW, 10, 4).fill({ color: 0x2a1212 });
+    this.bars.roundRect(x, y, barW * (this.hpTrail / Math.max(1, snap.maxHp)), 10, 4).fill({ color: 0x5a201c });
+    this.bars.roundRect(x, y, barW * hp, 10, 4).fill({ color: pal.hp });
+    this.bars.roundRect(x, y + 14, barW * Math.min(1, this.shShown / 48), 6, 3).fill({ color: pal.shield });
+    this.ehpNum.text = snap.shop ? "" : String(Math.max(0, Math.round(this.ehpShown)));
+    this.hpNum.text = String(Math.max(0, Math.round(this.hpShown)));
+    this.ehpNum.position.set(foeX - barW * 0.4 - 8, foeY + 2);
+    this.ehpNum.anchor.set(1, 0);
+    this.hpNum.position.set(x + barW + 8, y - 2);
+    this.intentText.position.set(foeX + barW * 0.4 + 8, foeY - 2);
+  }
+
+  private placeDeck(snap: FightSnap, foeX: number, foeY: number, foeH: number) {
     const deck = snap.shop ? snap.deck : [];
     while (this.deck.length < deck.length) {
       const s = new Sprite();
       s.anchor.set(0.5);
       s.eventMode = "static";
-      s.cursor = "pointer";
       const idx = this.deck.length;
       s.on("pointertap", () => this.onDeck(idx));
       this.world.addChild(s);
       this.deck.push(s);
     }
-    const cols = Math.min(5, Math.max(1, deck.length));
     this.deck.forEach((s, i) => {
       const id = deck[i];
       if (!id) {
@@ -464,268 +576,160 @@ export class FightStage {
         return;
       }
       const art = SYM[id as keyof typeof SYM]?.art;
-      if (art) s.texture = this.tex(art);
+      if (art) s.texture = Texture.from(art);
       s.visible = true;
-      const size = Math.min(64, (w * 0.62) / cols);
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const inRow = Math.min(cols, deck.length - row * cols);
-      s.position.set(foeX - ((inRow - 1) * (size + 8)) / 2 + col * (size + 8), foeY - foeH * 0.62 + row * (size + 10));
+      const size = 56;
+      s.position.set(foeX - ((Math.min(5, deck.length) - 1) * 64) / 2 + (i % 5) * 64, foeY - foeH * 0.55 + Math.floor(i / 5) * 64);
       s.width = size;
       s.height = size;
     });
   }
 
-  private placeBar(s: Sprite, x: number, y: number, w: number) {
-    (s as Sprite & { __w?: number }).__w = w;
-    s.position.set(x, y);
-    s.scale.y = 6;
-    s.scale.x = w;
-  }
-
   private makeWin(): WinNode {
     const root = new Container();
+    const frame = new Graphics();
     const hole = new Graphics();
-    const glow = new Graphics();
-    const flick = new Graphics();
+    const glass = new Graphics();
     const icon = new Sprite();
+    icon.anchor.set(0.5);
     const chip = new Text({ text: "", style: { fill: 0xffe9a0, fontSize: 16, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
-    root.addChild(glow, hole, flick, icon, chip);
+    chip.anchor.set(0.5, 1);
+    root.addChild(frame, hole, glass, icon, chip);
     this.world.addChild(root);
-    return { root, hole, glow, flick, icon, chip, token: -1, dropT: 0, dropping: false, size: 80 };
+    return { root, hole, frame, glass, icon, chip, token: -1, size: 80 };
   }
 
-  private tick = (ticker: Ticker) => {
-    const raw = ticker.deltaMS;
-    const dt = Math.min(34, raw) * this.pace;
-    fpsProbe.samples.push(raw);
-    if (fpsProbe.samples.length > 240) fpsProbe.samples.shift();
-    const avg = fpsProbe.samples.reduce((a, b) => a + b, 0) / Math.max(1, fpsProbe.samples.length);
-    fpsProbe.avg = 1000 / Math.max(1, avg);
-    fpsProbe.max = Math.max(fpsProbe.max * 0.98, dt);
-    (globalThis as { __nsFps?: typeof fpsProbe }).__nsFps = fpsProbe;
-    const now = performance.now();
-    if (!this.reduced && this.foe.visible) {
-      this.foe.y = this.foeBaseY + Math.sin(now / 620) * 5 + this.knock;
-      this.foe.rotation = Math.sin(now / 900) * 0.03;
-    }
-    if (this.knock > 0) this.knock = Math.max(0, this.knock - dt * 0.08);
-    if (this.glitch > 0) {
-      this.glitch -= dt;
-      this.foe.alpha = Math.sin(now / 30) > 0 ? 1 : 0.35;
-    } else this.foe.alpha = 1;
-    if (this.shakeT > 0) {
-      this.shakeT -= dt;
-      const mag = this.shake * (this.shakeT / FEEL.shakeCritMs);
-      this.world.position.set(Math.sin(now / 16) * mag, Math.cos(now / 18) * mag * 0.6);
-    } else this.world.position.set(0, 0);
-    const snap = this.snap;
-    if (snap) {
-      this.hpShown += (snap.hp - this.hpShown) * Math.min(1, dt / 160);
-      this.hpTrailN += (this.hpShown - this.hpTrailN) * Math.min(1, dt / 380);
-      this.shShown += (snap.shield - this.shShown) * Math.min(1, dt / 140);
-      this.ehpShown += (Math.max(0, snap.ehp) - this.ehpShown) * Math.min(1, dt / 160);
-      this.ehpTrailN += (this.ehpShown - this.ehpTrailN) * Math.min(1, dt / 380);
-      this.eshShown += (snap.eshield - this.eshShown) * Math.min(1, dt / 140);
-      const max = Math.max(1, snap.maxHp);
-      const emax = Math.max(1, snap.emax);
-      this.applyScale(this.hpFill, this.hpShown / max);
-      this.applyScale(this.hpTrail, this.hpTrailN / max);
-      this.applyScale(this.shFill, Math.min(1, this.shShown / 48));
-      this.applyScale(this.ehpFill, Math.max(0, this.ehpShown) / emax);
-      this.applyScale(this.ehpTrail, Math.max(0, this.ehpTrailN) / emax);
-      this.applyScale(this.eshFill, Math.min(1, this.eshShown / 90));
-      this.ehpNum.text = snap.shop ? "" : String(Math.max(0, Math.round(this.ehpShown)));
-      this.hpNum.text = String(Math.max(0, Math.round(this.hpShown)));
-      this.stunMark.text = snap.stunned ? "✦" : "";
-      this.dotMark.text = snap.dot > 0 ? `◉${snap.dot}` : "";
-      this.poisMark.text = snap.poison > 0 ? `☠${snap.poison}` : "";
-      for (const win of this.wins) {
-        if (win.flick.visible) win.flick.alpha = 0.25 + 0.55 * Math.abs(Math.sin(now / 45));
-        if (win.dropping) {
-          win.dropT += dt;
-          const u = Math.min(1, win.dropT / FEEL.dropMs);
-          const cell = win.size || 80;
-          const ease = u < 0.72 ? u / 0.72 : 1;
-          const y = -cell + ease * cell;
-          const squash = u > 0.72 && u < 0.88 ? 0.82 : u < 1 ? 1.06 : 1;
-          win.icon.position.set((win.hole.width || cell) / 2, y);
-          win.icon.scale.set((cell * 0.86) / Math.max(1, win.icon.texture.width), ((cell * 0.86) / Math.max(1, win.icon.texture.height)) * squash);
-          if (u >= 1) {
-            win.dropping = false;
-            win.icon.position.set((win.hole.width || cell) / 2, (win.hole.height || cell) / 2);
-            this.burst(win.root.x + cell / 2, win.root.y + cell, 0xffe08a, 6);
-          }
-        }
-      }
-    }
-    this.stepCue(dt);
-    this.stepFoe(dt);
-    for (const p of this.puffs) {
-      if (p.life <= 0) continue;
-      p.life -= dt;
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.s.position.set(p.x, p.y);
-      p.s.alpha = Math.max(0, p.life / p.max);
-      p.s.visible = p.life > 0;
-    }
-  };
-
-  private applyScale(s: Sprite, frac: number) {
-    const w = (s as Sprite & { __w?: number }).__w ?? 1;
-    s.scale.x = Math.max(0.001, w * Math.max(0, frac));
-    s.scale.y = 6;
-  }
-
-  private stepCue(dt: number) {
-    const run = this.cue;
-    if (!run) {
-      if (this.lit) {
-        this.lit = false;
-        this.wins.forEach((win, i) => {
-          win.root.alpha = 1;
-          this.paint(win, Boolean(this.snap?.windows[i]?.crit));
-        });
-      }
+  private sit(win: WinNode, spec: WinSnap | undefined, cell: number) {
+    if (!spec || spec.mode === "empty" || !spec.sym) {
+      win.icon.visible = false;
       return;
     }
-    this.lit = true;
-    this.wins.forEach((win, i) => {
-      const on = i === run.cue.reel;
-      win.root.alpha = on ? 1 : 0.45;
-      this.paint(win, on);
+    if (spec.mode === "flicker") {
+      win.icon.visible = false;
+      return;
+    }
+    const art = SYM[spec.sym as keyof typeof SYM]?.art;
+    if (art) win.icon.texture = Texture.from(art);
+    win.icon.visible = true;
+    win.icon.position.set(cell / 2, cell / 2);
+    win.icon.width = cell * 0.82;
+    win.icon.height = cell * 0.82;
+  }
+
+  private dropIn(win: WinNode, spec: WinSnap, cell: number) {
+    const art = spec.sym ? SYM[spec.sym as keyof typeof SYM]?.art : "";
+    if (art) win.icon.texture = Texture.from(art);
+    win.icon.visible = true;
+    win.icon.width = cell * 0.82;
+    win.icon.height = cell * 0.82;
+    const base = win.icon.scale.x || 1;
+    void this.director.play({
+      duration: this.reduced ? 80 : FEEL.dropMs,
+      ease: ease.outBack,
+      update: (u) => {
+        win.icon.position.set(cell / 2, -cell * 0.2 + u * (cell * 0.7));
+        const squash = u > 0.78 ? 0.84 + (u - 0.78) * 0.7 : 1.08 - u * 0.08;
+        win.icon.scale.set(base * (2 - squash), base * squash);
+      },
+      onComplete: () => {
+        win.icon.position.set(cell / 2, cell / 2);
+        win.icon.scale.set(base);
+        this.particles.burst({ x: win.root.x + cell / 2, y: win.root.y + cell, n: 6, color: this.pal.glow, speed: 0.2, life: 260, g: FEEL.gravity });
+      },
     });
-    const dur = run.phase === "rewind" ? FEEL.rewindMs : run.phase === "hold" ? FEEL.resultHoldMs : FEEL.travelMs;
-    run.t += dt;
-    const win = this.wins[run.cue.reel];
-    if (run.phase === "rewind" && win) {
-      win.icon.rotation = run.t / 40;
-      win.flick.visible = true;
-      win.flick.alpha = 0.4;
-      if (run.t >= dur) {
-        win.icon.rotation = 0;
-        win.flick.visible = false;
-        this.finishCue(run);
-      }
-      return;
-    }
-    if (run.phase === "self" || run.phase === "travel") {
-      const u = Math.min(1, run.t / dur);
-      const from = win ? { x: win.root.x + (win.hole.width || 40) / 2, y: win.root.y + (win.hole.height || 40) / 2 } : { x: 40, y: 40 };
-      const to = run.phase === "self" ? { x: this.youX, y: this.youY } : this.targetPoint(run.cue.target);
-      const arc = run.cue.sym === "krimp" ? Math.sin(u * Math.PI) * 18 : 0;
-      this.flyer.visible = true;
-      const art = SYM[run.cue.sym as keyof typeof SYM]?.art;
-      if (art) this.flyer.texture = this.tex(art);
-      this.flyer.position.set(from.x + (to.x - from.x) * u, from.y + (to.y - from.y) * u - arc);
-      const sc = (run.cue.crit ? 0.55 : 0.38) * (run.cue.sym === "exekucia" ? 1.4 - u * 0.5 : 1);
-      this.flyer.scale.set(sc);
-      this.flyer.rotation = run.cue.sym === "boticka" ? u * 4 : run.cue.sym === "blocek" ? -0.2 + u * 0.6 : 0;
-      if (u >= 1 && !run.impacted) this.impact(run);
-      if (u >= 1) {
-        this.flyer.visible = false;
-        run.phase = "hold";
-        run.t = 0;
-      }
-      return;
-    }
-    if (run.t >= dur) this.finishCue(run);
   }
 
-  private stepFoe(dt: number) {
-    const run = this.foeLine;
-    if (!run) return;
-    run.t += dt;
-    if (run.phase === "tell") {
-      this.foe.alpha = 0.45 + 0.55 * Math.abs(Math.sin(performance.now() / 40));
-      if (run.t >= FEEL.foeTellMs) {
-        run.phase = "hold";
-        run.t = 0;
-        this.num.visible = true;
-        this.foe.alpha = 1;
-        const at = run.cue.target === "foe" ? { x: this.foeBaseX, y: this.foeBaseY - 36 } : { x: this.youX, y: this.youY - 20 };
-        this.placeNum(at.x, at.y);
-        this.burst(at.x, at.y, 0xff5d4a, 8);
-      }
-      return;
-    }
-    this.num.alpha = 1;
-    if (run.t >= FEEL.foeHoldMs) {
-      this.num.visible = false;
-      this.foeLine = null;
-      run.resolve();
-    }
+  private popNumber(text: string, crit: boolean) {
+    if (!text) return;
+    this.num.text = text;
+    this.num.visible = true;
+    this.num.style.fill = crit ? this.pal.glow : this.pal.text;
   }
 
-  private impact(run: CueRun) {
-    run.impacted = true;
-    run.onImpact();
-    const to = run.phase === "self" ? { x: this.youX, y: this.youY } : this.targetPoint(run.cue.target);
-    this.num.text = run.phase === "self" ? run.cue.selfChip ?? "" : run.cue.chip;
-    this.num.visible = Boolean(this.num.text);
-    this.num.style.fill = run.cue.crit ? 0xffe56a : run.cue.target === "you" ? 0xb6f27c : 0xff5d4a;
-    this.placeNum(to.x, to.y - 24);
-    if (run.cue.crit) this.kick(FEEL.shakeCritMs);
-    else if (run.cue.target === "foe") this.kick(FEEL.shakeHitMs);
-    if (run.cue.target === "foe") {
-      this.knock = 10;
-      this.burst(to.x, to.y, run.cue.crit ? 0xffe56a : 0xff5d4a, run.cue.crit ? 14 : 8);
-    }
-    if (run.cue.sym === "data") this.glitch = 280;
-    if (run.cue.sym === "exekucia") this.burst(to.x, to.y, 0x7ee7ff, 10);
-    if (run.cue.target === "coin") this.burst(this.coinX, this.coinY, 0xffd76a, 10);
-    if (run.cue.target === "you") this.burst(this.youX, this.youY, 0xb6f27c, 8);
+  private shutter() {
+    void this.director.play({
+      duration: FEEL.shutterMs,
+      ease: ease.outCubic,
+      update: (u) => {
+        this.light.alpha = u < 0.5 ? u * 2 : (1 - u) * 2;
+      },
+    });
   }
 
-  private finishCue(run: CueRun) {
-    if (run.phase === "self" && run.cue.chip) {
-      run.phase = "travel";
-      run.t = 0;
-      run.impacted = false;
-      return;
-    }
-    if (!run.impacted && !run.cue.rewind) this.impact(run);
-    this.num.visible = false;
-    this.flyer.visible = false;
-    this.cue = null;
-    run.resolve();
+  private flashBlur() {
+    this.rig && (this.rig.filters = [this.blur]);
+    void this.director.play({
+      duration: 160,
+      ease: ease.outCubic,
+      update: (u) => {
+        this.blur.strength = (1 - u) * 6;
+      },
+      onComplete: () => {
+        this.blur.strength = 0;
+        if (this.rig) this.rig.filters = [];
+      },
+    });
+  }
+
+  private kick(ms: number) {
+    this.shakeT = ms * this.shake;
   }
 
   private targetPoint(target: FeelTarget) {
     if (target === "you") return { x: this.youX, y: this.youY };
     if (target === "coin") return { x: this.coinX, y: this.coinY };
-    return { x: this.foeBaseX, y: this.foeBaseY - 40 };
+    return { x: this.foeX, y: this.foeY - 80 };
   }
 
-  private placeNum(x: number, y: number) {
-    this.num.position.set(x, y);
-  }
-
-  private kick(ms: number) {
-    const amt = this.snap?.shake ?? 1;
-    if (this.reduced || amt <= 0) return;
-    this.shake = (ms > 180 ? 8 : 4) * amt;
-    this.shakeT = ms;
-  }
-
-  private burst(x: number, y: number, color: number, n: number) {
-    let left = n;
-    for (const p of this.puffs) {
-      if (left <= 0) break;
-      if (p.life > 0) continue;
-      p.life = p.max = 420 + Math.random() * 200;
-      p.x = x;
-      p.y = y;
-      const a = Math.random() * Math.PI * 2;
-      const sp = 0.08 + Math.random() * 0.18;
-      p.vx = Math.cos(a) * sp;
-      p.vy = Math.sin(a) * sp;
-      p.s.visible = true;
-      p.s.tint = color;
-      p.s.scale.set(0.6 + Math.random() * 0.8);
-      left--;
+  private tick = (ticker: Ticker) => {
+    const raw = ticker.deltaMS;
+    this.quality.note(raw);
+    fpsProbe.samples.push(raw);
+    if (fpsProbe.samples.length > 240) fpsProbe.samples.shift();
+    const avg = fpsProbe.samples.reduce((a, b) => a + b, 0) / Math.max(1, fpsProbe.samples.length);
+    fpsProbe.avg = 1000 / Math.max(1, avg);
+    fpsProbe.max = Math.max(...fpsProbe.samples);
+    (globalThis as { __nsFps?: typeof fpsProbe }).__nsFps = fpsProbe;
+    const dt = Math.min(34, raw) * this.pace * (this.reduced ? 1.8 : 1);
+    const snap = this.snap;
+    if (snap) {
+      this.hpShown += (snap.hp - this.hpShown) * Math.min(1, dt / 160);
+      this.hpTrail += (this.hpShown - this.hpTrail) * Math.min(1, dt / 380);
+      this.ehpShown += (Math.max(0, snap.ehp) - this.ehpShown) * Math.min(1, dt / 160);
+      this.shShown += (snap.shield - this.shShown) * Math.min(1, dt / 140);
+      this.eshShown += (snap.eshield - this.eshShown) * Math.min(1, dt / 140);
+      if (snap.ehp <= 0 && this.rig && this.rigClip !== "death" && !snap.shop) {
+        this.rigClip = "death";
+        void this.rig.play("death", { loop: false, mix: FEEL.rigMix });
+      }
     }
-  }
+    this.director.tick(dt);
+    this.particles.tick(dt, this.quality.tier === "high" && !this.reduced);
+    this.rig?.setQuality({ springs: !this.reduced && this.quality.tier === "high", mesh: this.quality.tier === "high" });
+    this.rig?.update(dt);
+    const now = performance.now();
+    if (!this.reduced) {
+      this.bg.x = this.app.screen.width / 2 + Math.sin(now / 1800) * 8;
+      this.bg.y = this.app.screen.height / 2 + Math.cos(now / 2200) * 4;
+    }
+    if (this.shakeT > 0) {
+      this.shakeT -= dt;
+      const mag = (this.shakeT / FEEL.shakeCritMs) * 8 * this.shake;
+      this.world.position.set(Math.sin(now / 16) * mag, Math.cos(now / 18) * mag * 0.6);
+    } else this.world.position.set(0, 0);
+    this.btn.scale.set(this.btnScale);
+    if (this.snap?.pulse && !this.reduced) this.btn.scale.set(this.btnScale * (1 + Math.sin(now / 280) * 0.03));
+    for (const win of this.wins) {
+      const i = this.wins.indexOf(win);
+      const hot = this.cueReel === i;
+      win.root.alpha = this.cueReel >= 0 && !hot ? 0.45 : 1;
+      if (hot) {
+        win.frame.tint = this.pal.glow;
+      }
+      const spec = this.snap?.windows[i];
+      if (spec?.mode === "flicker") win.glass.alpha = 0.25 + Math.abs(Math.sin(now / 40)) * 0.75;
+      else win.glass.alpha = 0.35 + Math.sin(now / FEEL.spinStaggerMs / 24) * 0.08;
+    }
+    if (snap) this.paintBars(this.youX - 28, this.youY, Math.min(220, this.app.screen.width * 0.46), this.foeX, this.foeY, this.pal, snap);
+  };
 }
-

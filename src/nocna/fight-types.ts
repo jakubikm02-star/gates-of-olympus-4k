@@ -27,6 +27,14 @@ export interface FightSnap {
   shake: number;
   shop: boolean;
   deck: string[];
+  phase: string;
+  button: string;
+  pulse: boolean;
+  coins: number;
+  floor: number;
+  turn: string;
+  hint: string;
+  active: number | null;
 }
 
 export interface Cue {
@@ -41,10 +49,12 @@ export interface Cue {
 
 export interface FightHandle {
   setSnap(snap: FightSnap): void;
-  setHooks(hooks: { onReel: (i: number) => void; onDeck?: (i: number) => void }): void;
+  setHooks(hooks: { onReel: (i: number) => void; onDeck?: (i: number) => void; onPress?: () => void }): void;
   playCue(cue: Cue, onImpact: () => void): Promise<void>;
   playFoe(text: string, kind: "hit" | "block" | "miss" | "heal", at?: "you" | "foe"): Promise<void>;
   setPace(pace: number): void;
+  setEffects(on: boolean): void;
+  pump(): void;
   skip(): void;
   destroy(): void;
 }

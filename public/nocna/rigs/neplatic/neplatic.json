@@ -1,0 +1,639 @@
+{
+  "skeleton": {
+    "hash": "neplatic",
+    "spine": "4.1.0",
+    "x": -126.0,
+    "y": 0,
+    "width": 252,
+    "height": 512,
+    "images": "./",
+    "fps": 60
+  },
+  "bones": [
+    {
+      "name": "root"
+    },
+    {
+      "name": "legL",
+      "parent": "root",
+      "x": -39.0,
+      "y": 256,
+      "rotation": 0.0,
+      "length": 258.95
+    },
+    {
+      "name": "legL2",
+      "parent": "legL",
+      "x": -21,
+      "y": -110,
+      "rotation": 0.0,
+      "length": 50.4
+    },
+    {
+      "name": "legR",
+      "parent": "root",
+      "x": 38.0,
+      "y": 256,
+      "rotation": 0.0,
+      "length": 258.8
+    },
+    {
+      "name": "legR2",
+      "parent": "legR",
+      "x": 18,
+      "y": -116,
+      "rotation": 0.0,
+      "length": 52.2
+    },
+    {
+      "name": "torso",
+      "parent": "root",
+      "x": 1.0,
+      "y": 266,
+      "rotation": 0.0,
+      "length": 83.7
+    },
+    {
+      "name": "strap",
+      "parent": "torso",
+      "x": -4,
+      "y": 28,
+      "rotation": 0.0,
+      "length": 36.0
+    },
+    {
+      "name": "armL",
+      "parent": "torso",
+      "x": -51,
+      "y": 122,
+      "rotation": 0.0,
+      "length": 132.23
+    },
+    {
+      "name": "armL2",
+      "parent": "armL",
+      "x": -28,
+      "y": -58,
+      "rotation": 0.0,
+      "length": 43.2
+    },
+    {
+      "name": "armR",
+      "parent": "torso",
+      "x": 43,
+      "y": 118,
+      "rotation": 0.0,
+      "length": 125.59
+    },
+    {
+      "name": "armR2",
+      "parent": "armR",
+      "x": 20,
+      "y": -59,
+      "rotation": 0.0,
+      "length": 45.0
+    },
+    {
+      "name": "head",
+      "parent": "torso",
+      "x": -1,
+      "y": 134,
+      "rotation": 0.0,
+      "length": 57.6
+    },
+    {
+      "name": "armL-ik",
+      "parent": "root",
+      "x": -78.0,
+      "y": 330,
+      "rotation": 0,
+      "length": 8
+    },
+    {
+      "name": "armR-ik",
+      "parent": "root",
+      "x": 64.0,
+      "y": 325,
+      "rotation": 0,
+      "length": 8
+    },
+    {
+      "name": "legL-ik",
+      "parent": "root",
+      "x": -60.0,
+      "y": 146,
+      "rotation": 0,
+      "length": 8
+    },
+    {
+      "name": "legR-ik",
+      "parent": "root",
+      "x": 56.0,
+      "y": 140,
+      "rotation": 0,
+      "length": 8
+    }
+  ],
+  "slots": [
+    {
+      "name": "legL2",
+      "bone": "legL2",
+      "attachment": "legL2"
+    },
+    {
+      "name": "legR2",
+      "bone": "legR2",
+      "attachment": "legR2"
+    },
+    {
+      "name": "legL",
+      "bone": "legL",
+      "attachment": "legL"
+    },
+    {
+      "name": "legR",
+      "bone": "legR",
+      "attachment": "legR"
+    },
+    {
+      "name": "torso",
+      "bone": "torso",
+      "attachment": "torso"
+    },
+    {
+      "name": "strap",
+      "bone": "strap",
+      "attachment": "strap"
+    },
+    {
+      "name": "armL",
+      "bone": "armL",
+      "attachment": "armL"
+    },
+    {
+      "name": "armL2",
+      "bone": "armL2",
+      "attachment": "armL2"
+    },
+    {
+      "name": "armR",
+      "bone": "armR",
+      "attachment": "armR"
+    },
+    {
+      "name": "armR2",
+      "bone": "armR2",
+      "attachment": "armR2"
+    },
+    {
+      "name": "head",
+      "bone": "head",
+      "attachment": "head"
+    }
+  ],
+  "skins": [
+    {
+      "name": "default",
+      "attachments": {
+        "legL2": {
+          "legL2": {
+            "x": 0.0,
+            "y": -64.0,
+            "rotation": 0,
+            "width": 112,
+            "height": 180
+          }
+        },
+        "legR2": {
+          "legR2": {
+            "x": 8.0,
+            "y": -62.0,
+            "rotation": 0,
+            "width": 116,
+            "height": 172
+          }
+        },
+        "legL": {
+          "legL": {
+            "x": -5.0,
+            "y": -55.0,
+            "rotation": 0,
+            "width": 116,
+            "height": 166
+          }
+        },
+        "legR": {
+          "legR": {
+            "x": 12.0,
+            "y": -57.0,
+            "rotation": 0,
+            "width": 124,
+            "height": 166
+          }
+        },
+        "torso": {
+          "torso": {
+            "x": 0.0,
+            "y": 67.5,
+            "rotation": 0,
+            "width": 186,
+            "height": 201,
+            "type": "mesh"
+          }
+        },
+        "strap": {
+          "strap": {
+            "x": 0.0,
+            "y": -16.0,
+            "rotation": 0,
+            "width": 146,
+            "height": 68
+          }
+        },
+        "armL": {
+          "armL": {
+            "x": -23.0,
+            "y": -27.0,
+            "rotation": 0,
+            "width": 106,
+            "height": 126
+          }
+        },
+        "armL2": {
+          "armL2": {
+            "x": 0.0,
+            "y": -36.5,
+            "rotation": 0,
+            "width": 96,
+            "height": 121
+          }
+        },
+        "armR": {
+          "armR": {
+            "x": 27.0,
+            "y": -25.0,
+            "rotation": 0,
+            "width": 110,
+            "height": 126
+          }
+        },
+        "armR2": {
+          "armR2": {
+            "x": 12.0,
+            "y": -36.0,
+            "rotation": 0,
+            "width": 100,
+            "height": 116
+          }
+        },
+        "head": {
+          "head": {
+            "x": 0.0,
+            "y": 40.0,
+            "rotation": 0,
+            "width": 132,
+            "height": 128
+          }
+        }
+      }
+    }
+  ],
+  "ik": [
+    {
+      "name": "armL-ik",
+      "order": 0,
+      "bones": [
+        "armL",
+        "armL2"
+      ],
+      "target": "armL-ik",
+      "bendPositive": true,
+      "mix": 1
+    },
+    {
+      "name": "armR-ik",
+      "order": 1,
+      "bones": [
+        "armR",
+        "armR2"
+      ],
+      "target": "armR-ik",
+      "bendPositive": false,
+      "mix": 1
+    },
+    {
+      "name": "legL-ik",
+      "order": 2,
+      "bones": [
+        "legL",
+        "legL2"
+      ],
+      "target": "legL-ik",
+      "bendPositive": true,
+      "mix": 1
+    },
+    {
+      "name": "legR-ik",
+      "order": 3,
+      "bones": [
+        "legR",
+        "legR2"
+      ],
+      "target": "legR-ik",
+      "bendPositive": false,
+      "mix": 1
+    }
+  ],
+  "physics": [
+    {
+      "name": "strap",
+      "bone": "strap",
+      "strength": 14,
+      "damping": 0.62,
+      "mix": 1
+    }
+  ],
+  "events": {
+    "hit": {},
+    "fx": {},
+    "shake": {}
+  },
+  "animations": {
+    "idle": {
+      "bones": {
+        "torso": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": -2.5,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 0.7,
+              "angle": 2.5,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 1.4,
+              "angle": -2.5
+            }
+          ],
+          "scale": [
+            {
+              "time": 0,
+              "x": 1,
+              "y": 1,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 0.7,
+              "x": 1.03,
+              "y": 0.97,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 1.4,
+              "x": 1,
+              "y": 1
+            }
+          ]
+        },
+        "head": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": 3.0,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 0.7,
+              "angle": -3.0,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 1.4,
+              "angle": 3.0
+            }
+          ]
+        }
+      }
+    },
+    "attack": {
+      "bones": {
+        "torso": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": 0.0,
+              "curve": [
+                0.4,
+                0,
+                0.8,
+                0.4
+              ]
+            },
+            {
+              "time": 0.16,
+              "angle": -14.0
+            },
+            {
+              "time": 0.32,
+              "angle": 18.0,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 0.55,
+              "angle": 0.0
+            }
+          ]
+        },
+        "head": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": 0.0
+            },
+            {
+              "time": 0.16,
+              "angle": 8.0
+            },
+            {
+              "time": 0.32,
+              "angle": -6.0
+            },
+            {
+              "time": 0.55,
+              "angle": 0.0
+            }
+          ]
+        }
+      },
+      "events": [
+        {
+          "time": 0.32,
+          "name": "hit"
+        },
+        {
+          "time": 0.32,
+          "name": "shake"
+        }
+      ]
+    },
+    "hit": {
+      "bones": {
+        "torso": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": 0.0
+            },
+            {
+              "time": 0.08,
+              "angle": 12.0,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 0.28,
+              "angle": 0.0
+            }
+          ],
+          "translate": [
+            {
+              "time": 0,
+              "x": 0,
+              "y": 0
+            },
+            {
+              "time": 0.08,
+              "x": 18,
+              "y": 0
+            },
+            {
+              "time": 0.28,
+              "x": 0,
+              "y": 0
+            }
+          ]
+        }
+      },
+      "events": [
+        {
+          "time": 0.08,
+          "name": "fx"
+        }
+      ]
+    },
+    "stun": {
+      "bones": {
+        "head": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": -8.0
+            },
+            {
+              "time": 0.15,
+              "angle": 8.0
+            },
+            {
+              "time": 0.3,
+              "angle": -8.0
+            }
+          ]
+        }
+      }
+    },
+    "death": {
+      "bones": {
+        "torso": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": 0.0,
+              "curve": [
+                0.4,
+                0,
+                0.2,
+                1
+              ]
+            },
+            {
+              "time": 0.45,
+              "angle": 70.0
+            }
+          ],
+          "translate": [
+            {
+              "time": 0,
+              "x": 0,
+              "y": 0
+            },
+            {
+              "time": 0.45,
+              "x": 20,
+              "y": -30
+            }
+          ]
+        },
+        "head": {
+          "rotate": [
+            {
+              "time": 0,
+              "angle": 0.0
+            },
+            {
+              "time": 0.45,
+              "angle": 25.0
+            }
+          ]
+        }
+      },
+      "events": [
+        {
+          "time": 0.2,
+          "name": "fx"
+        }
+      ]
+    }
+  }
+}

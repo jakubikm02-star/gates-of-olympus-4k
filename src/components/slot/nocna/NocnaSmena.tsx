@@ -18,6 +18,8 @@ const FIGHT: Stage[] = ["ready", "spin", "preview", "act", "enemy", "shop"];
 export function NocnaSmena(props: Props) {
   const v = useRevier(props);
   const host = useRef<HTMLDivElement>(null);
+  const fightRef = useRef<FightHandle | null>(null);
+  const [gear, setGear] = useState(false);
   const [box, setBox] = useState({ w: 412, h: 915 });
   const kind = aspectKind(box.w, box.h);
   const info = floorInfo(v.run.floor);
@@ -26,10 +28,32 @@ export function NocnaSmena(props: Props) {
 
   useEffect(() => {
     void preloadNocna();
+    const meta = document.querySelector('meta[name="color-scheme"]') ?? document.head.appendChild(document.createElement("meta"));
+    meta.setAttribute("name", "color-scheme");
+    const prev = meta.getAttribute("content");
+    meta.setAttribute("content", "only dark");
+    const root = document.documentElement;
+    const prevScheme = root.style.colorScheme;
+    root.style.colorScheme = "only dark";
+    return () => {
+      if (prev) meta.setAttribute("content", prev);
+      else meta.remove();
+      root.style.colorScheme = prevScheme;
+    };
   }, []);
 
   const act = useRef(v.primary.run);
   act.current = v.primary.run;
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const g = globalThis as { __ns?: { stage: string; fx: (on: boolean) => void } };
+    g.__ns = {
+      get stage() {
+        return document.querySelector(".ns")?.getAttribute("data-stage") ?? "";
+      },
+      fx: (on: boolean) => fightRef.current?.setEffects(on),
+    };
+  });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.key !== " " && e.key !== "Enter") || e.repeat) return;
@@ -63,10 +87,12 @@ export function NocnaSmena(props: Props) {
     void import("@/nocna/pixi/fight-stage").then(async ({ FightStage }) => {
       if (dead || !host.current) return;
       stage = await FightStage.mount(host.current);
+      fightRef.current = stage;
       v.bindFight(stage);
     });
     return () => {
       dead = true;
+      fightRef.current = null;
       v.bindFight(null);
       stage?.destroy();
     };
@@ -75,11 +101,13 @@ export function NocnaSmena(props: Props) {
   return (
     <div
       className={`ns is-${kind}${v.who === "foe" ? " is-foe" : " is-you"}`}
+      data-stage={v.stage}
       onPointerDown={() => {
         if (v.bubble) v.closeBubble();
         if (v.stage === "act" || v.stage === "enemy") v.hurry();
       }}
     >
+      {showFight ? null : (
       <header className="ns-hud">
         <div>
           <small>{showFight ? (v.run.floor >= 6 ? "R" : v.run.floor) : `POSCHODIE ${v.run.floor >= 6 ? "R" : v.run.floor}`}</small>
@@ -100,6 +128,7 @@ export function NocnaSmena(props: Props) {
           {v.stage === "draft" ? "Späť" : "Vzdať"}
         </button>
       </header>
+      )}
 
       {showFight ? <div className="ns-gl" ref={host} /> : null}
 
@@ -151,44 +180,58 @@ export function NocnaSmena(props: Props) {
         </section>
       ) : null}
 
-      {v.hint && v.stage !== "draft" && v.stage !== "shop" ? (
+      {v.hint && !showFight && v.stage !== "draft" ? (
         <button type="button" className="ns-hint" onClick={v.dismissHint}>
           {v.hint}
         </button>
       ) : null}
 
-      <div className="ns-foot">
-      {v.stage === "shop" && v.run.shop ? (
-        <div className="ns-icons">
-          <button type="button" disabled={v.run.coins < REMOVE_PRICE || v.run.deck.length <= 3} onClick={() => v.remove(v.run.deck.length - 1)} aria-label="Vyradiť">
-            ✕<small>{REMOVE_PRICE}</small>
+      <button type="button" className="ns-gear" aria-label="Nastavenie" onClick={() => setGear((g) => !g)}>
+        ⚙
+      </button>
+      {gear ? (
+        <div className="ns-pop" onPointerDown={(e) => e.stopPropagation()}>
+          <button type="button" className={v.rychlo ? "is-on" : ""} onClick={() => v.setRychlo(!v.rychlo)} aria-pressed={v.rychlo}>
+            Rýchlo
           </button>
-          <button type="button" disabled={v.run.coins < REROLL_PRICE} onClick={v.reroll} aria-label="Premiešať">
-            ↻<small>{REROLL_PRICE}</small>
+          <button type="button" onClick={() => v.setShake(v.shake === 0 ? 0.5 : v.shake === 0.5 ? 1 : 0)}>
+            Tras {Math.round(v.shake * 100)}
           </button>
-          <button type="button" disabled={v.run.coins < HEAL_PRICE || v.run.shop.heals >= HEAL_STOCK || v.run.hp >= v.run.maxHp} onClick={v.heal} aria-label="Život">
-            ❤<small>{HEAL_PRICE}</small>
+          <button type="button" className={v.calm ? "is-on" : ""} onClick={() => v.setCalm(!v.calm)} aria-pressed={v.calm}>
+            Kľud
           </button>
-          <button type="button" disabled={v.run.reels >= 4 || v.run.floor < 3 || v.run.coins < REEL_PRICE} onClick={v.fourth} aria-label="Štvrtý valec">
-            +4<small>{v.run.floor < 3 ? "3" : REEL_PRICE}</small>
+          {v.stage === "shop" && v.run.shop ? (
+            <>
+              <button type="button" disabled={v.run.coins < REMOVE_PRICE || v.run.deck.length <= 3} onClick={() => v.remove(v.run.deck.length - 1)}>
+                Vyradiť {REMOVE_PRICE}
+              </button>
+              <button type="button" disabled={v.run.coins < REROLL_PRICE} onClick={v.reroll}>
+                Premiešať {REROLL_PRICE}
+              </button>
+              <button type="button" disabled={v.run.coins < HEAL_PRICE || v.run.shop.heals >= HEAL_STOCK || v.run.hp >= v.run.maxHp} onClick={v.heal}>
+                Život {HEAL_PRICE}
+              </button>
+              <button type="button" disabled={v.run.reels >= 4 || v.run.floor < 3 || v.run.coins < REEL_PRICE} onClick={v.fourth}>
+                Valec {v.run.floor < 3 ? "3" : REEL_PRICE}
+              </button>
+            </>
+          ) : null}
+          <button type="button" onClick={v.giveUp}>
+            {v.stage === "draft" ? "Späť" : "Vzdať"}
           </button>
         </div>
       ) : null}
-      <div className="ns-toggles">
-        <button type="button" className={v.rychlo ? "is-on" : ""} onClick={() => v.setRychlo(!v.rychlo)} aria-pressed={v.rychlo}>
-          Rýchlo
-        </button>
-        <button type="button" onClick={() => v.setShake(v.shake === 0 ? 0.5 : v.shake === 0.5 ? 1 : 0)} aria-label="Trasenie">
-          Tras {Math.round(v.shake * 100)}
-        </button>
-        <button type="button" className={v.calm ? "is-on" : ""} onClick={() => v.setCalm(!v.calm)} aria-pressed={v.calm}>
-          Kľud
-        </button>
-      </div>
-      <button type="button" className={`ns-go${v.primary.pulse ? " is-pulse" : ""}`} disabled={v.primary.disabled} onClick={v.primary.run}>
+      <button
+        type="button"
+        className="ns-go"
+        disabled={v.primary.disabled}
+        onClick={() => {
+          fightRef.current?.pump();
+          v.primary.run();
+        }}
+      >
         {v.primary.label}
       </button>
-      </div>
 
       {v.bubble ? (
         <div className="ns-bubble" role="dialog" onPointerDown={(e) => e.stopPropagation()}>

@@ -1,32 +1,40 @@
 /**
- * Nočná smena feel + layout. One place to retune timings after the UX brief.
- * Fractions are of the fight canvas, not the whole phone.
- * The canvas mounts in a DOM node, so a later Capacitor WebView can host it as-is.
+ * Nočná smena feel + layout. One place to retune the cabinet, the rig and the cues.
+ * Fractions are of the fight canvas. The canvas mounts in a DOM node.
  */
 export const FEEL = {
   dprCap: 2,
-  particles: 24,
-  /** Symbol falls into an empty window. */
-  dropMs: 200,
-  /** Symbol flies from its window to the target. */
-  travelMs: 180,
-  /** Plain symbol spotlight, travel + hold ≈ 450–600 ms. */
-  resultHoldMs: 380,
+  particles: 48,
+  particlesLow: 14,
+  budgetMs: 18,
+  budgetFrames: 12,
+  recoverFrames: 90,
+  dropMs: 280,
+  travelMs: 220,
+  chargeMs: 90,
+  impactMs: 140,
+  /** Plain symbol, charge + travel + hold ≈ 450–600 ms. */
+  resultHoldMs: 320,
   bigHoldMs: 900,
   rewindMs: 160,
-  /** Enemy tell + number. Together about 2 s. Tap speeds this up. */
   foeTellMs: 400,
-  foeHoldMs: 1600,
+  foeHoldMs: 1200,
   shakeHitMs: 140,
   shakeCritMs: 220,
   spinStaggerMs: 100,
+  shutterMs: 260,
+  critLinkMs: 420,
+  numberPopMs: 260,
+  buttonSquashMs: 120,
+  rigMix: 0.12,
+  gravity: 0.0016,
   layout: {
     enemyTop: 0.02,
-    enemyH: 0.46,
-    reelBottom: 0.03,
-    reelH: 0.32,
+    enemyH: 0.42,
+    reelBottom: 0.12,
+    reelH: 0.28,
     gap: 0.018,
-    landEnemyW: 0.36,
+    landEnemyW: 0.38,
   },
 } as const;
 
