@@ -19,10 +19,9 @@ import {
   STRIP,
   SYM,
   critMul,
-  skillMul,
   symDef,
 } from "./symbols.ts";
-import type { Beat, Enemy, Fx, Grade, LiveSpin, Plan, PlanReel, Run, Shop, SymId } from "./types.ts";
+import type { Beat, Enemy, Fx, LiveSpin, Plan, PlanReel, Run, Shop, SymId } from "./types.ts";
 
 function freshStats() {
   return { turns: 0, fights: 0, kills: 0, crits: 0, dealt: 0, taken: 0, coins: 0, bestFloor: 1 };
@@ -225,7 +224,6 @@ export function sealSpin(run: Run, spin: LiveSpin): { run: Run; plan: Plan } {
   const reels: PlanReel[] = lands.map((sym, reel) => ({
     reel,
     sym,
-    skill: symDef(sym)?.skill ?? null,
     crit: Boolean(critSym && sym === critSym),
   }));
   return { run: { ...run, rng }, plan: { lands, rerolls, critSym, critMul: mul, reels } };
@@ -261,7 +259,7 @@ function die(run: Run, cause: string): Run {
   return { ...run, hp: Math.min(0, run.hp), phase: "dead", cause, enemy: run.enemy ? { ...run.enemy, hp: Math.max(0, run.enemy.hp) } : null };
 }
 
-export function resolveReel(run: Run, plan: Plan, reel: number, grade: Grade): { run: Run; fx: Fx[] } {
+export function resolveReel(run: Run, plan: Plan, reel: number): { run: Run; fx: Fx[] } {
   const step = plan.reels[reel];
   if (!step || run.phase !== "fight" || !run.enemy || run.hp <= 0) return { run, fx: [] };
   const sym = step.sym;
@@ -271,7 +269,6 @@ export function resolveReel(run: Run, plan: Plan, reel: number, grade: Grade): {
     fx.push({ t: "blank" });
     return { run, fx };
   }
-  const sm = def.skill ? skillMul(grade === "none" ? "good" : grade) : 1;
   const cm = step.crit ? plan.critMul : 1;
   let enemy = run.enemy;
   let next: Run = run;
@@ -294,11 +291,11 @@ export function resolveReel(run: Run, plan: Plan, reel: number, grade: Grade): {
       energy = 0;
     }
     next = { ...next, energy };
-    strike(def.dmg * sm * cm + bonus, def.pierce, bonus);
+    strike(def.dmg * cm + bonus, def.pierce, bonus);
   }
 
   if (def.dot > 0) {
-    const tick = Math.max(1, Math.round(def.dot * sm * cm));
+    const tick = Math.max(1, Math.round(def.dot * cm));
     const prev = enemy.dot;
     const dmg = Math.min(DOT_CAP, (prev?.dmg ?? 0) + tick);
     enemy = { ...enemy, dot: { dmg, left: Math.max(prev?.left ?? 0, def.dotTurns) } };
@@ -359,7 +356,7 @@ export function resolveReel(run: Run, plan: Plan, reel: number, grade: Grade): {
 }
 
 /** Apply a full landed row. Used by tests and the sim. */
-export function resolveLands(run: Run, lands: SymId[], grades: Grade[] = []): { run: Run; plan: Plan; fx: Fx[][] } {
+export function resolveLands(run: Run, lands: SymId[]): { run: Run; plan: Plan; fx: Fx[][] } {
   const spin: LiveSpin = {
     strips: lands.map((sym) => [sym]),
     index: lands.map(() => 0),
@@ -373,7 +370,7 @@ export function resolveLands(run: Run, lands: SymId[], grades: Grade[] = []): { 
       fx.push([]);
       continue;
     }
-    const step = resolveReel(cur, sealed.plan, i, grades[i] ?? "good");
+    const step = resolveReel(cur, sealed.plan, i);
     cur = step.run;
     fx.push(step.fx);
   }

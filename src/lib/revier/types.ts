@@ -11,8 +11,6 @@ export type SymId =
   | "natural"
   | "medzera";
 
-export type Grade = "perfect" | "good" | "miss" | "none";
-
 export type Phase = "draft" | "banner" | "fight" | "shop" | "dead";
 
 export type IntentKind = "hit" | "heavy" | "shield" | "poison" | "steal" | "stun" | "heal" | "pierce" | "double";
@@ -115,7 +113,6 @@ export interface Reroll {
 export interface PlanReel {
   reel: number;
   sym: SymId;
-  skill: "bar" | "dial" | null;
   crit: boolean;
 }
 

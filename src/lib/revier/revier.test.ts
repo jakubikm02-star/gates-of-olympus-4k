@@ -86,7 +86,7 @@ describe("Nočná smena combat", () => {
     assert.equal(hit.run.shield, 0);
 
     let wall = face(armed(), { name: "Múr", hp: 100, shield: 40 });
-    const cut = resolveLands(wall, ["exekucia", "medzera", "medzera"], ["good", "none", "none"]);
+    const cut = resolveLands(wall, ["exekucia", "medzera", "medzera"]);
     wall = cut.run;
     assert.equal(wall.enemy?.hp, 78);
     assert.equal(wall.enemy?.shield, 40);
@@ -94,7 +94,7 @@ describe("Nočná smena combat", () => {
 
   it("95 natural always takes 8 HP from you", () => {
     const run = face(armed(), { name: "Vrece", hp: 200 });
-    const played = resolveLands({ ...run, hp: 40 }, ["natural", "medzera", "medzera"], ["perfect", "none", "none"]);
+    const played = resolveLands({ ...run, hp: 40 }, ["natural", "medzera", "medzera"]);
     const self = played.fx.flat().find((fx) => fx.t === "self");
     assert.equal(self && self.t === "self" ? self.amount : 0, 8);
     assert.equal(played.run.hp, 32);

@@ -1,4 +1,4 @@
-import type { Grade, SymId } from "./types.ts";
+import type { SymId } from "./types.ts";
 
 export const PLAY_SYMS = [
   "blocek",
@@ -46,7 +46,6 @@ export interface SymDef {
   dotTurns: number;
   pierce: boolean;
   stun: boolean;
-  skill: "bar" | "dial" | null;
 }
 
 export const SYM: Record<Exclude<SymId, "medzera">, SymDef> = {
@@ -66,12 +65,11 @@ export const SYM: Record<Exclude<SymId, "medzera">, SymDef> = {
     dotTurns: 0,
     pierce: false,
     stun: false,
-    skill: null,
   },
   krimp: {
     id: "krimp",
     name: "Krimpovačka",
-    blurb: "Silný úder. Pomalé časovanie.",
+    blurb: "Silný úder. Berie viac ako bloček.",
     art: "/nocna/symbols/sym-krimpovacka.webp",
     price: 12,
     weight: 7,
@@ -84,7 +82,6 @@ export const SYM: Record<Exclude<SymId, "medzera">, SymDef> = {
     dotTurns: 0,
     pierce: false,
     stun: false,
-    skill: "bar",
   },
   stit: {
     id: "stit",
@@ -102,7 +99,6 @@ export const SYM: Record<Exclude<SymId, "medzera">, SymDef> = {
     dotTurns: 0,
     pierce: false,
     stun: false,
-    skill: null,
   },
   parkvolt: {
     id: "parkvolt",
@@ -120,7 +116,6 @@ export const SYM: Record<Exclude<SymId, "medzera">, SymDef> = {
     dotTurns: 0,
     pierce: false,
     stun: false,
-    skill: null,
   },
   konektor: {
     id: "konektor",
@@ -138,7 +133,6 @@ export const SYM: Record<Exclude<SymId, "medzera">, SymDef> = {
     dotTurns: 0,
     pierce: false,
     stun: false,
-    skill: null,
   },
   boticka: {
     id: "boticka",
@@ -156,7 +150,6 @@ export const SYM: Record<Exclude<SymId, "medzera">, SymDef> = {
     dotTurns: 3,
     pierce: false,
     stun: false,
-    skill: null,
   },
   data: {
     id: "data",
@@ -174,7 +167,6 @@ export const SYM: Record<Exclude<SymId, "medzera">, SymDef> = {
     dotTurns: 0,
     pierce: false,
     stun: true,
-    skill: null,
   },
   exekucia: {
     id: "exekucia",
@@ -192,7 +184,6 @@ export const SYM: Record<Exclude<SymId, "medzera">, SymDef> = {
     dotTurns: 0,
     pierce: true,
     stun: false,
-    skill: "dial",
   },
   restart: {
     id: "restart",
@@ -210,7 +201,6 @@ export const SYM: Record<Exclude<SymId, "medzera">, SymDef> = {
     dotTurns: 0,
     pierce: false,
     stun: false,
-    skill: null,
   },
   natural: {
     id: "natural",
@@ -228,7 +218,6 @@ export const SYM: Record<Exclude<SymId, "medzera">, SymDef> = {
     dotTurns: 0,
     pierce: false,
     stun: false,
-    skill: "bar",
   },
 };
 
@@ -237,10 +226,21 @@ export function symDef(id: SymId): SymDef | null {
   return SYM[id];
 }
 
-export function skillMul(grade: Grade): number {
-  if (grade === "perfect") return 1.25;
-  if (grade === "miss") return 0.5;
-  return 1;
+/** One short line on the card. Detail is the tap-bubble, one or two sentences. */
+export function symMark(id: SymId, mul = 1): { chip: string; detail: string } | null {
+  const def = symDef(id);
+  if (!def) return null;
+  const n = (v: number) => Math.max(0, Math.round(v * mul));
+  let chip = "·";
+  if (def.dmg > 0 && def.self > 0) chip = `⚔${n(def.dmg)} ❤−${def.self}`;
+  else if (def.dmg > 0) chip = `⚔${n(def.dmg)}`;
+  else if (def.shield > 0) chip = `🛡${n(def.shield)}`;
+  else if (def.heal > 0) chip = `❤+${n(def.heal)}`;
+  else if (def.coins > 0) chip = `🪙${n(def.coins)}`;
+  else if (def.stun) chip = "✦";
+  else if (id === "restart") chip = "↻";
+  if (def.dot > 0) chip = `${chip} ◉${n(def.dot)}`;
+  return { chip, detail: def.blurb };
 }
 
 export function critMul(count: number): number {

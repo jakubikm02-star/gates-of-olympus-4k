@@ -1,0 +1,50 @@
+import type { FeelTarget } from "@/lib/revier/feel";
+
+export interface WinSnap {
+  sym: string | null;
+  mode: "empty" | "flicker" | "sit";
+  crit: boolean;
+  token: number;
+  chip: string;
+}
+
+export interface FightSnap {
+  bg: string;
+  enemyArt: string | null;
+  ehp: number;
+  emax: number;
+  eshield: number;
+  stunned: boolean;
+  dot: number;
+  hp: number;
+  maxHp: number;
+  shield: number;
+  poison: number;
+  windows: WinSnap[];
+  reduced: boolean;
+  /** Icon + number only, drawn beside the enemy bar. */
+  intent: string;
+  shake: number;
+  shop: boolean;
+  deck: string[];
+}
+
+export interface Cue {
+  reel: number;
+  sym: string;
+  crit: boolean;
+  rewind: boolean;
+  chip: string;
+  selfChip?: string;
+  target: FeelTarget;
+}
+
+export interface FightHandle {
+  setSnap(snap: FightSnap): void;
+  setHooks(hooks: { onReel: (i: number) => void; onDeck?: (i: number) => void }): void;
+  playCue(cue: Cue, onImpact: () => void): Promise<void>;
+  playFoe(text: string, kind: "hit" | "block" | "miss" | "heal", at?: "you" | "foe"): Promise<void>;
+  setPace(pace: number): void;
+  skip(): void;
+  destroy(): void;
+}

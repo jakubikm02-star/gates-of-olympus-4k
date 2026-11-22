@@ -20,7 +20,7 @@ import {
 } from "./engine.ts";
 import { roll } from "./rng.ts";
 import { HEAL_PRICE, REEL_PRICE, REMOVE_PRICE, REROLL_PRICE, SYM } from "./symbols.ts";
-import type { Grade, Intent, Run, SymId } from "./types.ts";
+import type { Intent, Run, SymId } from "./types.ts";
 
 export interface BotProfile {
   id: string;
@@ -28,12 +28,10 @@ export interface BotProfile {
   look: number;
   /** Chance to take the best symbol in that window. */
   focus: number;
-  perfect: number;
-  good: number;
 }
 
-/** A careful player: reads the intent, fishes a little, hits the slow checks. */
-export const DECENT: BotProfile = { id: "decent", look: 2, focus: 0.62, perfect: 0.5, good: 0.32 };
+/** A careful player: reads the intent and fishes a little. No timing minigame. */
+export const DECENT: BotProfile = { id: "decent", look: 2, focus: 0.62 };
 
 export interface RunSummary {
   floor: number;
@@ -97,14 +95,6 @@ function want(run: Run, sym: SymId): number {
     default:
       return -80;
   }
-}
-
-function gradeOf(run: Run, profile: BotProfile): { run: Run; grade: Grade } {
-  const a = roll(run.rng);
-  let grade: Grade = "miss";
-  if (a.n < profile.perfect) grade = "perfect";
-  else if (a.n < profile.perfect + profile.good) grade = "good";
-  return { run: { ...run, rng: a.state }, grade };
 }
 
 function chooseStop(run: Run, strip: readonly SymId[], profile: BotProfile): { run: Run; index: number } {
@@ -233,13 +223,7 @@ export function playRun(seed: number, profile: BotProfile = DECENT, entry = 250)
     run = sealed.run;
     for (const step of sealed.plan.reels) {
       if (run.phase === "dead") break;
-      let grade: Grade = "good";
-      if (step.skill) {
-        const rolled = gradeOf(run, profile);
-        run = rolled.run;
-        grade = rolled.grade;
-      }
-      run = resolveReel(run, sealed.plan, step.reel, grade).run;
+      run = resolveReel(run, sealed.plan, step.reel).run;
     }
     run = finishPlayer(run);
     if (run.phase === "fight") run = enemyPhase(run).run;

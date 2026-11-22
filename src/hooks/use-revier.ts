@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as sfx from "@/lib/slot/audio";
+import { FEEL, type FeelTarget } from "@/lib/revier/feel";
 import {
   beginSpin,
   buyFourthReel,
@@ -21,104 +22,87 @@ import {
   sealSpin,
   togglePick,
 } from "@/lib/revier/engine";
-import type { Beat, Fx, Grade, LiveSpin, Plan, Run, SymId } from "@/lib/revier/types";
+import { symMark } from "@/lib/revier/symbols";
+import type { Beat, Plan, Run, SymId } from "@/lib/revier/types";
+import type { Cue, FightHandle, FightSnap, WinSnap } from "@/nocna/fight-types";
 
-const BANNER_MS = 1150;
-const LEAD_MS = 720;
-const AUTO_STOP_MS = 1580;
-const RESOLVE_MS = 780;
-const REROLL_MS = 460;
-const CRIT_MS = 620;
-const ENEMY_MS = 1080;
-const KILL_MS = 720;
+export type Stage = "draft" | "banner" | "ready" | "spin" | "preview" | "act" | "enemy" | "shop" | "dead";
 
-export interface FloatText {
-  id: number;
-  text: string;
-  tone: "dmg" | "crit" | "shield" | "heal" | "coin" | "stun" | "self";
-  where: "foe" | "you";
+export interface WinView extends WinSnap {
+  sym: SymId | null;
 }
 
-export interface CoinToken {
-  id: number;
-  x: number;
-  y: number;
-  dx: number;
-  dy: number;
-}
-
-export interface SkillAsk {
-  reel: number;
-  mode: "bar" | "dial";
-  sym: SymId;
-}
+type LiveSpin = NonNullable<ReturnType<typeof beginSpin>>;
 
 function snd(play: () => void) {
   try {
     play();
   } catch {
-    /* the garage mix is optional */
+    /* audio is optional */
   }
 }
 
+function beatChip(beat: Beat): string {
+  if (beat.t === "whiff") return "MINUTIE";
+  if (beat.t === "stun") return "✦";
+  if (beat.t === "heal") return `+${beat.amount}`;
+  if (beat.t === "steal") return beat.amount > 0 ? `−${beat.amount}` : "0";
+  if (beat.t === "block") return `🛡${beat.blocked || beat.amount}`;
+  return `−${beat.amount}`;
+}
+
+function intentMark(intent: { kind: string; amount: number; turns?: number } | undefined): string {
+  if (!intent) return "";
+  if (intent.kind === "shield" || intent.kind === "heal") return `+${intent.amount}`;
+  if (intent.kind === "steal") return String(intent.turns ?? 2);
+  if (intent.kind === "double") return `${intent.amount}×2`;
+  return String(intent.amount);
+}
+
+function targetOf(sym: SymId): FeelTarget {
+  if (sym === "stit" || sym === "parkvolt" || sym === "natural") return "you";
+  if (sym === "konektor") return "coin";
+  return "foe";
+}
+
 /**
- * Presentation clock for one night shift. Rules live in lib/revier; this only
- * plays them left to right and keeps the timers off the layout.
+ * Turn machine. Nothing advances unless the player taps.
+ * Pixi plays one symbol beat at a time; this hook only commits rules.
  */
 export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; onExit: () => void }) {
   const [run, setRun] = useState<Run>(() => createRun((Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0, opts.entry));
   const runRef = useRef(run);
-  const spinRef = useRef<LiveSpin | null>(null);
+  const stageRef = useRef<Stage>("draft");
+  const [stage, setStage] = useState<Stage>("draft");
+  const [windows, setWindows] = useState<WinView[]>([]);
+  const [active, setActive] = useState<number | null>(null);
+  const [hint, setHint] = useState<string | null>(null);
+  const [bubble, setBubble] = useState<{ title: string; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const reduced = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const [rychlo, setRychlo] = useState(false);
+  const [shake, setShake] = useState(1);
+  const [calm, setCalm] = useState(reduced);
+  const rychloRef = useRef(false);
+  rychloRef.current = rychlo;
   const planRef = useRef<Plan | null>(null);
-  const getters = useRef<Array<(() => number) | null>>([]);
-  const autoStop = useRef(0);
-  const timers = useRef<number[]>([]);
-  const epoch = useRef(0);
+  const spinRef = useRef<LiveSpin | null>(null);
+  const fight = useRef<FightHandle | null>(null);
   const noted = useRef(false);
-  const grading = useRef(false);
-  const skillAt = useRef(0);
-  const seq = useRef(1);
+  const hints = useRef({ spin: false, stop: false, atk: false });
   const onRecord = useRef(opts.onRecord);
   const onExit = useRef(opts.onExit);
   onRecord.current = opts.onRecord;
   onExit.current = opts.onExit;
 
-  const [strips, setStrips] = useState<SymId[][]>([]);
-  const [spinning, setSpinning] = useState<boolean[]>([]);
-  const [landed, setLanded] = useState<(SymId | null)[]>([]);
-  const [active, setActive] = useState<number | null>(null);
-  const [pop, setPop] = useState<SymId | null>(null);
-  const [crit, setCrit] = useState(false);
-  const [dim, setDim] = useState(false);
-  const [shake, setShake] = useState<"hit" | "crit" | null>(null);
-  const [flash, setFlash] = useState<"hit" | "block" | "heal" | "crit" | null>(null);
-  const [floats, setFloats] = useState<FloatText[]>([]);
-  const [tokens, setTokens] = useState<CoinToken[]>([]);
-  const [skill, setSkill] = useState<SkillAsk | null>(null);
-  const [thud, setThud] = useState(0);
-
-  const commit = useCallback((next: Run) => {
+  const commit = (next: Run) => {
     runRef.current = next;
     setRun(next);
-  }, []);
-
-  const later = useCallback((ms: number, fn: () => void) => {
-    const stamp = epoch.current;
-    const id = window.setTimeout(() => {
-      if (epoch.current !== stamp) return;
-      fn();
-    }, ms);
-    timers.current.push(id);
-  }, []);
-
-  const clearClock = useCallback(() => {
-    epoch.current += 1;
-    window.clearTimeout(autoStop.current);
-    timers.current.forEach((id) => window.clearTimeout(id));
-    timers.current = [];
-  }, []);
-
-  useEffect(() => () => clearClock(), [clearClock]);
+  };
+  const go = (next: Stage) => {
+    stageRef.current = next;
+    setStage(next);
+  };
 
   useEffect(() => {
     if (run.phase !== "dead" || noted.current) return;
@@ -126,345 +110,332 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
     onRecord.current(run);
   }, [run]);
 
-  const pushFloat = useCallback((text: string, tone: FloatText["tone"], where: FloatText["where"]) => {
-    const id = seq.current++;
-    setFloats((list) => [...list, { id, text, tone, where }]);
-    later(820, () => setFloats((list) => list.filter((row) => row.id !== id)));
-  }, [later]);
+  const emptyWins = (n: number): WinView[] =>
+    Array.from({ length: n }, () => ({ sym: null, mode: "empty" as const, crit: false, token: 0, chip: "" }));
 
-  const burst = useCallback((kind: "hit" | "crit" | "block" | "heal") => {
-    setFlash(kind);
-    setShake(kind === "crit" ? "crit" : kind === "heal" ? null : "hit");
-    later(kind === "crit" ? 560 : 340, () => {
-      setFlash(null);
-      setShake(null);
-    });
-  }, [later]);
+  const showHint = (key: "spin" | "stop" | "atk", text: string) => {
+    if (hints.current[key] || runRef.current.stats.fights > 1) return;
+    hints.current[key] = true;
+    setHint(text);
+  };
 
-  const showFx = useCallback((fx: Fx[], reel: number) => {
-    for (const ev of fx) {
-      if (ev.t === "hit" && ev.amount > 0) {
-        pushFloat(ev.crit ? `${ev.amount}` : `−${ev.amount}`, ev.crit ? "crit" : "dmg", "foe");
-        if (ev.bonus > 0) pushFloat(`VÝBOJ +${ev.bonus}`, "crit", "foe");
-        snd(() => (ev.crit ? sfx.playWin("spark") : sfx.playStrike()));
-        burst(ev.crit ? "crit" : "hit");
-      } else if (ev.t === "shield" && ev.amount > 0) {
-        pushFloat(`+${ev.amount}`, "shield", "you");
-        snd(() => sfx.playClick());
-      } else if (ev.t === "heal" && ev.amount > 0) {
-        pushFloat(`+${ev.amount}`, "heal", "you");
-        burst("heal");
-        snd(() => sfx.playWin("spark"));
-      } else if (ev.t === "coin" && ev.amount > 0) {
-        pushFloat(`+${ev.amount}`, "coin", "you");
-        snd(() => sfx.playCoin());
-        const from = document.querySelector<HTMLElement>(`[data-reel="${reel}"]`);
-        const to = document.querySelector<HTMLElement>("[data-coins]");
-        const root = document.querySelector<HTMLElement>(".ns");
-        if (from && to && root) {
-          const fr = from.getBoundingClientRect();
-          const tr = to.getBoundingClientRect();
-          const id = seq.current++;
-          setTokens((list) => [
-            ...list,
-            { id, x: fr.left + fr.width / 2, y: fr.top + fr.height / 2, dx: tr.left + tr.width / 2 - (fr.left + fr.width / 2), dy: tr.top + tr.height / 2 - (fr.top + fr.height / 2) },
-          ]);
-          later(760, () => setTokens((list) => list.filter((row) => row.id !== id)));
-        }
-      } else if (ev.t === "stun") {
-        pushFloat("OMÁMENÝ", "stun", "foe");
-        if (ev.slap > 0) pushFloat(`−${ev.slap}`, "dmg", "foe");
-        snd(() => sfx.playZap());
-      } else if (ev.t === "dot") {
-        pushFloat(`JED ${ev.amount}`, "dmg", "foe");
-      } else if (ev.t === "self") {
-        pushFloat(`−${ev.amount}`, "self", "you");
-        burst("hit");
-        snd(() => sfx.playStrike());
-      }
-    }
-  }, [burst, later, pushFloat]);
+  const openShop = (next: Run) => {
+    commit(next);
+    const offers = next.shop?.offers ?? [];
+    setWindows(
+      offers.map((o) => ({
+        sym: o.sym,
+        mode: "sit" as const,
+        crit: false,
+        token: 1,
+        chip: String(o.price),
+      })),
+    );
+    go("shop");
+  };
 
-  const showDead = useCallback(() => {
-    setSkill(null);
-    setDim(false);
-    setPop(null);
+  const enterReady = (next: Run) => {
+    commit(next);
+    setWindows(emptyWins(next.reels));
     setActive(null);
-    grading.current = false;
-  }, []);
+    planRef.current = null;
+    go("ready");
+    showHint("spin", "Ťukni ZATOČ.");
+  };
 
-  const startSpin = useCallback(() => {
+  const spin = () => {
+    if (stageRef.current !== "ready" || busy) return;
+    setBubble(null);
     const up = playerUpkeep(runRef.current);
     commit(up.run);
-    if (up.beat) {
-      pushFloat(`−${up.beat.amount}`, "self", "you");
-      burst("hit");
-    }
     if (up.run.phase === "dead") {
-      showDead();
+      go("dead");
       return;
     }
     const opened = beginSpin(up.run);
     if (!opened) return;
     commit(opened.run);
-    spinRef.current = opened.spin;
-    const blanks = opened.spin.blanks;
-    setStrips(opened.spin.strips);
-    setSpinning(blanks.map((blank) => !blank));
-    setLanded(blanks.map((blank) => (blank ? "medzera" : null)));
-    setPop(null);
+    spinRef.current = opened;
+    const wins: WinView[] = opened.spin.blanks.map((blank) => ({
+      sym: blank ? "medzera" : null,
+      mode: blank ? "empty" : "flicker",
+      crit: false,
+      token: 0,
+      chip: "",
+    }));
+    setWindows(wins);
     const reel = nextOpenReel(opened.spin);
     setActive(reel);
-    arm(reel);
-  }, [burst, commit, pushFloat, showDead]);
+    go("spin");
+    showHint("stop", "Potom STOP.");
+    snd(() => sfx.playClick());
+  };
 
-  const afterReels = useCallback(() => {
-    setPop(null);
-    setActive(null);
-    const done = finishPlayer(runRef.current);
-    commit(done);
-    if (done.phase === "dead") {
-      showDead();
-      return;
-    }
-    if (done.phase === "shop") {
-      burst("crit");
-      snd(() => sfx.playCoin());
-      later(KILL_MS, () => setDim(false));
-      return;
-    }
-    later(260, () => foeTurn());
-  }, [burst, commit, later, showDead]);
-
-  const playReel = useCallback((index: number) => {
-    const plan = planRef.current;
-    if (!plan) return;
-    if (runRef.current.phase === "dead") {
-      showDead();
-      return;
-    }
-    if (index >= plan.reels.length) {
-      afterReels();
-      return;
-    }
-    const step = plan.reels[index]!;
-    setActive(step.reel);
-    setPop(step.sym === "medzera" ? null : step.sym);
-    if (step.skill) {
-      grading.current = true;
-      skillAt.current = index;
-      setSkill({ reel: index, mode: step.skill, sym: step.sym });
-      return;
-    }
-    const resolved = resolveReel(runRef.current, plan, index, "good");
-    commit(resolved.run);
-    showFx(resolved.fx, step.reel);
-    later(RESOLVE_MS, () => playReel(index + 1));
-  }, [afterReels, commit, later, showDead, showFx]);
-
-  const openResolve = useCallback(() => {
-    const spin = spinRef.current;
-    if (!spin) return;
-    const sealed = sealSpin(runRef.current, spin);
-    commit(sealed.run);
-    planRef.current = sealed.plan;
-    const playReroll = (at: number) => {
-      const plan = planRef.current;
-      if (!plan) return;
-      if (at >= plan.rerolls.length) {
-        if (plan.critSym) {
-          setCrit(true);
-          setShake("crit");
-          burst("crit");
-          snd(() => sfx.playWin("full"));
-          later(CRIT_MS, () => {
-            setCrit(false);
-            setShake(null);
-            playReel(0);
-          });
-        } else {
-          playReel(0);
-        }
-        return;
-      }
-      const swap = plan.rerolls[at]!;
-      setActive(swap.reel);
-      setLanded((prev) => {
+  const stop = (reel?: number) => {
+    let spinLive = spinRef.current;
+    if (stageRef.current !== "spin" || !spinLive) return;
+    const open = nextOpenReel(spinLive.spin);
+    if (open < 0) return;
+    if (!rychloRef.current && reel != null && reel !== open) return;
+    let locked = spinLive.spin;
+    const land = (sym: SymId, at: number) => {
+      setWindows((prev) => {
         const next = prev.slice();
-        next[swap.reel] = swap.to;
+        const cur = next[at] ?? { sym: null, mode: "empty" as const, crit: false, token: 0, chip: "" };
+        next[at] = { ...cur, sym, mode: sym === "medzera" ? "empty" : "sit", token: cur.token + 1, chip: "" };
         return next;
       });
-      setThud((n) => n + 1);
-      snd(() => sfx.playClick());
-      later(REROLL_MS, () => playReroll(at + 1));
+      snd(() => sfx.playLand(at));
     };
-    playReroll(0);
-  }, [burst, commit, later, playReel]);
-
-  const halt = useCallback((reel: number) => {
-    const spin = spinRef.current;
-    if (!spin || nextOpenReel(spin) !== reel) return;
-    window.clearTimeout(autoStop.current);
-    const at = getters.current[reel]?.() ?? 0;
-    const locked = lockReel(spin, reel, at);
-    spinRef.current = locked;
-    const sym = locked.strips[reel]?.[locked.index[reel] ?? 0] ?? "medzera";
-    setLanded((prev) => {
-      const next = prev.slice();
-      next[reel] = sym;
-      return next;
-    });
-    setSpinning((prev) => {
-      const next = prev.slice();
-      next[reel] = false;
-      return next;
-    });
-    setThud((n) => n + 1);
-    snd(() => {
-      sfx.playLand(reel);
-      sfx.playZboxSlam();
-    });
+    do {
+      const at = nextOpenReel(locked);
+      if (at < 0) break;
+      const idx = Math.floor(Math.random() * (locked.strips[at]?.length || 1));
+      locked = lockReel(locked, at, idx);
+      land((locked.strips[at]?.[locked.index[at] ?? 0] ?? "medzera") as SymId, at);
+      if (!rychloRef.current) break;
+    } while (nextOpenReel(locked) >= 0);
+    spinRef.current = { ...spinLive, spin: locked };
     const nxt = nextOpenReel(locked);
     if (nxt >= 0) {
       setActive(nxt);
-      arm(nxt);
-    } else {
-      setActive(null);
-      later(160, () => openResolve());
-    }
-  }, [later, openResolve]);
-
-  const arm = useCallback((reel: number) => {
-    window.clearTimeout(autoStop.current);
-    if (reel < 0) return;
-    autoStop.current = window.setTimeout(() => halt(reel), AUTO_STOP_MS);
-  }, [halt]);
-
-  const foeTurn = useCallback(() => {
-    setDim(true);
-    setPop(null);
-    const acted = enemyPhase(runRef.current);
-    commit(acted.run);
-    for (const beat of acted.beats) paintBeat(beat);
-    later(ENEMY_MS, () => {
-      setDim(false);
-      if (acted.run.phase === "dead") showDead();
-      else if (acted.run.phase === "shop") burst("crit");
-      else later(LEAD_MS, () => startSpin());
-    });
-  }, [burst, commit, later, showDead, startSpin]);
-
-  const paintBeat = (beat: Beat) => {
-    if (beat.t === "whiff") {
-      pushFloat("OMÁMENÝ", "stun", "foe");
       return;
     }
-    if (beat.t === "block") {
-      pushFloat(`ŠTÍT ${beat.blocked}`, "shield", "you");
-      burst("block");
-      snd(() => sfx.playClick());
-      return;
-    }
-    if (beat.t === "hit") {
-      if (beat.blocked > 0) pushFloat(`−${beat.blocked}`, "shield", "you");
-      if (beat.amount > 0) pushFloat(`−${beat.amount}`, "self", "you");
-      burst(beat.amount > 0 ? "hit" : "block");
-      snd(() => sfx.playStrike());
-      return;
-    }
-    if (beat.t === "poison" || beat.t === "dot") {
-      pushFloat(`JED ${beat.amount}`, beat.t === "dot" ? "dmg" : "self", beat.t === "dot" ? "foe" : "you");
-      return;
-    }
-    if (beat.t === "steal") {
-      pushFloat(beat.amount > 0 ? `−${beat.amount}` : "NIČ", "coin", "you");
-      return;
-    }
-    if (beat.t === "stun") pushFloat("PEČIATKA", "stun", "you");
-    if (beat.t === "heal") pushFloat(beat.text, "heal", "foe");
+    const sealed = sealSpin(runRef.current, locked);
+    commit(sealed.run);
+    planRef.current = sealed.plan;
+    setWindows(
+      sealed.plan.reels.map((step) => ({
+        sym: step.sym,
+        mode: step.sym === "medzera" ? "empty" : "sit",
+        crit: step.crit,
+        token: 1,
+        chip: symMark(step.sym, step.crit ? sealed.plan.critMul : 1)?.chip ?? "",
+      })),
+    );
+    setActive(null);
+    go("preview");
+    showHint("atk", "Potom ĎALEJ.");
+    if (sealed.plan.critSym) snd(() => sfx.playWin("spark"));
   };
 
-  const goFight = useCallback(() => {
-    const opened = dismissBanner(runRef.current);
-    commit(opened);
-    later(LEAD_MS, () => startSpin());
-  }, [commit, later, startSpin]);
+  const attack = async () => {
+    const plan = planRef.current;
+    if (stageRef.current !== "preview" || !plan || busy) return;
+    setBusy(true);
+    setHint(null);
+    go("act");
+    fight.current?.setPace(rychloRef.current ? 1.5 : 1);
+    if (plan.critSym && fight.current) {
+      await fight.current.playFoe(plan.critMul >= 3 ? "MEGA" : "KRIT", "hit", "foe");
+    }
+    for (const step of plan.reels) {
+      if (runRef.current.phase === "dead") break;
+      const mark = symMark(step.sym, step.crit ? plan.critMul : 1);
+      const rewind = plan.rerolls.some((r) => r.reel === step.reel);
+      if (rewind && fight.current) {
+        await fight.current.playCue({ reel: step.reel, sym: "restart", crit: false, rewind: true, chip: "↻", target: "foe" }, () => {});
+      }
+      if (step.sym === "medzera" || step.sym === "restart") continue;
+      const resolved = resolveReel(runRef.current, plan, step.reel);
+      const cue: Cue = {
+        reel: step.reel,
+        sym: step.sym,
+        crit: step.crit,
+        rewind: false,
+        chip: mark?.chip ?? "",
+        selfChip: step.sym === "natural" ? "❤−8" : undefined,
+        target: targetOf(step.sym),
+      };
+      if (fight.current) {
+        await fight.current.playCue(cue, () => {
+          commit(resolved.run);
+          snd(() => (step.crit ? sfx.playWin("full") : sfx.playStrike()));
+        });
+      } else {
+        commit(resolved.run);
+      }
+      if (runRef.current.hp <= 0) {
+        go("dead");
+        setBusy(false);
+        return;
+      }
+    }
+    const done = finishPlayer(runRef.current);
+    commit(done);
+    setWindows(emptyWins(done.reels));
+    if (done.phase === "dead") {
+      go("dead");
+      setBusy(false);
+      return;
+    }
+    if (done.phase === "shop") {
+      snd(() => sfx.playCoin());
+      openShop(done);
+      setBusy(false);
+      return;
+    }
+    go("enemy");
+    const acted = enemyPhase(done);
+    for (const beat of acted.beats) {
+      const kind = beat.t === "block" ? "block" : beat.t === "whiff" ? "miss" : beat.t === "heal" ? "heal" : "hit";
+      if (fight.current) await fight.current.playFoe(beatChip(beat), kind);
+    }
+    commit(acted.run);
+    setWindows(emptyWins(acted.run.reels));
+    if (acted.run.phase === "dead") go("dead");
+    else if (acted.run.phase === "shop") openShop(acted.run);
+    else go("ready");
+    if (acted.run.phase === "fight") showHint("spin", "Ťukni ZATOČ.");
+    setBusy(false);
+  };
 
-  const confirm = useCallback(() => {
+  const skip = () => {
+    if (stageRef.current === "act" || stageRef.current === "enemy") fight.current?.skip();
+  };
+
+  const confirm = () => {
     const next = confirmDraft(runRef.current);
     if (next.phase !== "banner") return;
     commit(next);
-    later(BANNER_MS, () => goFight());
-  }, [commit, goFight, later]);
+    go("banner");
+  };
 
-  const grade = useCallback((mark: Grade) => {
-    if (!grading.current) return;
-    grading.current = false;
-    const plan = planRef.current;
-    const index = skillAt.current;
-    setSkill(null);
-    if (!plan) return;
-    const step = plan.reels[index];
-    if (!step) return;
-    const resolved = resolveReel(runRef.current, plan, index, mark);
-    commit(resolved.run);
-    showFx(resolved.fx, step.reel);
-    const word = mark === "perfect" ? "PRESNE" : mark === "miss" ? "VEDĽA" : "DOBRÉ";
-    pushFloat(word, mark === "miss" ? "self" : "crit", "you");
-    later(RESOLVE_MS, () => playReel(index + 1));
-  }, [commit, later, playReel, pushFloat, showFx]);
+  const advance = () => {
+    if (stageRef.current !== "banner") return;
+    const opened = dismissBanner(runRef.current);
+    enterReady(opened);
+  };
 
-  const leave = useCallback(() => {
+  const leave = () => {
+    if (stageRef.current !== "shop") return;
     const next = leaveShop(runRef.current);
     commit(next);
-    setSpinning([]);
-    setLanded([]);
-    setStrips([]);
-    if (next.phase === "banner") later(BANNER_MS, () => goFight());
-    else later(LEAD_MS, () => startSpin());
-  }, [commit, goFight, later, startSpin]);
+    setWindows(emptyWins(next.reels));
+    if (next.phase === "banner") go("banner");
+    else enterReady(next);
+  };
 
-  const giveUp = useCallback(() => {
-    if (runRef.current.phase === "draft" || runRef.current.phase === "dead") {
-      onExit.current();
-      return;
-    }
-    clearClock();
-    commit(resign(runRef.current));
-    showDead();
-  }, [clearClock, commit, showDead]);
+  const snap = (): FightSnap => {
+    const live = runRef.current;
+    const enemy = live.enemy;
+    const floor = Math.min(6, Math.max(1, live.floor));
+    const kind = typeof window === "undefined" ? "port" : window.innerWidth / Math.max(1, window.innerHeight) >= 1.45 ? "land" : window.innerWidth / Math.max(1, window.innerHeight) >= 1.05 ? "fold-land" : window.innerWidth / Math.max(1, window.innerHeight) >= 0.8 ? "fold-port" : "port";
+    return {
+      bg: `/nocna/backgrounds/${["bg-1-parkovisko", "bg-2-podzemna-garaz", "bg-3-odtahovy-dvor", "bg-4-mestsky-urad", "bg-5-kabinet-prednostu", "bg-6-ranna-spicka"][floor - 1]}-${kind}.webp`,
+      enemyArt: enemy?.art ?? null,
+      ehp: enemy?.hp ?? 0,
+      emax: enemy?.maxHp ?? 1,
+      eshield: enemy?.shield ?? 0,
+      stunned: Boolean(enemy?.stunned),
+      dot: enemy?.dot?.dmg ?? 0,
+      hp: Math.max(0, live.hp),
+      maxHp: live.maxHp,
+      shield: live.shield,
+      poison: live.poison?.dmg ?? 0,
+      windows,
+      reduced: calm || reduced,
+      intent: intentMark(enemy?.intent),
+      shake,
+      shop: stageRef.current === "shop",
+      deck: stageRef.current === "shop" ? live.deck : [],
+    };
+  };
 
-  const bindReel = useCallback((reel: number, read: () => number) => {
-    getters.current[reel] = read;
-  }, []);
+  const bindFight = (stageApi: FightHandle | null) => {
+    fight.current = stageApi;
+    stageApi?.setHooks({
+      onDeck: (i) => {
+        if (stageRef.current !== "shop") return;
+        const next = removeSymbol(runRef.current, i);
+        if (next !== runRef.current) openShop(next);
+      },
+      onReel: (i) => {
+        if (stageRef.current === "shop") {
+          const bought = buyOffer(runRef.current, i);
+          if (bought !== runRef.current) openShop(bought);
+          return;
+        }
+        if (stageRef.current === "spin") stop(i);
+        else if (stageRef.current === "preview") {
+          const row = planRef.current?.reels[i];
+          const mark = row ? symMark(row.sym, row.crit ? (planRef.current?.critMul ?? 1) : 1) : null;
+          if (mark && row) setBubble({ title: row.sym, text: mark.detail });
+        }
+      },
+    });
+    if (stageApi) stageApi.setSnap(snap());
+  };
+
+  useEffect(() => {
+    fight.current?.setSnap(snap());
+  });
+
+  const who = stage === "enemy" ? "foe" : "you";
+  const primary =
+    stage === "draft"
+      ? { label: `NASTÚPIŤ ${run.picks.length}/3`, disabled: run.picks.length !== 3, pulse: run.picks.length === 3, run: confirm }
+      : stage === "banner"
+        ? { label: "ĎALEJ", disabled: false, pulse: true, run: advance }
+        : stage === "ready"
+          ? { label: "ZATOČ", disabled: false, pulse: true, run: spin }
+          : stage === "spin"
+            ? { label: "STOP", disabled: active == null, pulse: active != null, run: () => stop(active ?? undefined) }
+            : stage === "preview"
+              ? { label: "ĎALEJ", disabled: false, pulse: true, run: () => void attack() }
+              : stage === "act" || stage === "enemy"
+                ? { label: "ĎALEJ", disabled: false, pulse: false, run: () => fight.current?.setPace(3) }
+                : stage === "shop"
+                  ? { label: "ĎALEJ", disabled: false, pulse: true, run: leave }
+                  : { label: "SPÄŤ DO GARÁŽE", disabled: false, pulse: true, run: () => onExit.current() };
 
   return {
     run,
-    strips,
-    spinning,
-    landed,
+    stage,
+    who,
+    windows,
     active,
-    pop,
-    crit,
-    dim,
+    hint,
+    bubble,
+    busy,
+    snap,
+    bindFight,
+    primary,
+    dismissHint: () => setHint(null),
+    closeBubble: () => setBubble(null),
+    openBubble: (title: string, text: string) => setBubble({ title, text }),
+    toggle: (sym: SymId) => {
+      if (stageRef.current !== "draft") return;
+      commit(togglePick(runRef.current, sym));
+    },
+    stop,
+    buy: (index: number) => {
+      const next = buyOffer(runRef.current, index);
+      if (next !== runRef.current) openShop(next);
+    },
+    heal: () => openShop(buyHeal(runRef.current)),
+    reroll: () => openShop(rerollShop(runRef.current)),
+    remove: (index: number) => openShop(removeSymbol(runRef.current, index)),
+    fourth: () => openShop(buyFourthReel(runRef.current)),
+    rychlo,
+    setRychlo,
     shake,
-    flash,
-    floats,
-    tokens,
-    skill,
-    thud,
-    bindReel,
-    toggle: (sym: SymId) => commit(togglePick(runRef.current, sym)),
-    confirm,
-    stop: halt,
-    grade,
-    buy: (index: number) => commit(buyOffer(runRef.current, index)),
-    heal: () => commit(buyHeal(runRef.current)),
-    reroll: () => commit(rerollShop(runRef.current)),
-    remove: (index: number) => commit(removeSymbol(runRef.current, index)),
-    fourth: () => commit(buyFourthReel(runRef.current)),
-    leave,
-    giveUp,
-    exit: () => onExit.current(),
+    setShake,
+    calm,
+    setCalm,
+    hurry: () => fight.current?.setPace(3),
+    giveUp: () => {
+      if (stageRef.current === "draft") {
+        onExit.current();
+        return;
+      }
+      if (stageRef.current === "dead") {
+        onExit.current();
+        return;
+      }
+      commit(resign(runRef.current));
+      go("dead");
+    },
+    holdMs: FEEL.resultHoldMs,
   };
 }
