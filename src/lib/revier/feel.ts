@@ -3,8 +3,8 @@
  * Fractions are of the fight canvas. The canvas mounts in a DOM node.
  */
 export const FEEL = {
-  dprCap: 2,
-  particles: 48,
+  dprCap: 0.8,
+  particles: 16,
   particlesLow: 14,
   budgetMs: 18,
   budgetFrames: 12,

@@ -44,6 +44,7 @@ export class ParticlePool {
       p.spin = (Math.random() - 0.5) * 0.02;
       p.trail = Boolean(o.trails) && left % 2 === 0;
       p.s.visible = true;
+      p.s.renderable = true;
       p.s.tint = o.color;
       p.s.alpha = 1;
       const size = o.ring ? 10 + Math.random() * 8 : 3 + Math.random() * 4;
@@ -65,6 +66,7 @@ export class ParticlePool {
       p.s.alpha = u;
       if (p.trail && trails) p.s.scale.x *= 0.98;
       p.s.visible = p.life > 0;
+      p.s.renderable = p.life > 0;
     }
   }
 }

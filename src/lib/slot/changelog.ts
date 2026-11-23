@@ -7,6 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-11-22", text: "NOČNÁ SMENA: kovový rám, sklo v oknách a meracie platničky. Obraz sa už nekreslí odznova každý snímok. Postavy zatiaľ dýchajú celé, kým neprídu oddelené diely bez hranatých výrezov." },
   { day: "2026-11-22", text: "NOČNÁ SMENA je skriňa, nie stránka. Život, mince, okná aj tlačidlo ZATOČ sú na stroji. Neplatič, Inkasák a Pekelný kuriér sa hýbu po kostiach, ostatní zatiaľ dýchajú celým obrázkom. Nastavenie (Rýchlo, trasenie, kľud) je pod ozubeným kolieskom. Klasický automat sa nemení." },
   { day: "2026-11-22", text: "NOČNÁ SMENA sa hrá len tvojimi ťuknutiami. Prázdne okná, ZATOČ, STOP na každý valec (alebo Rýchlo na všetky naraz), potom ĎALEJ. Každý symbol sa vyrieši sám, kritický zásah má vlastnú chvíľu a ťah nepriateľa je oddelený. Zámer nepriateľa je číslo pri jeho páse. Meter „traf zelený stred“ je preč. V nastavení je sila trasenia a kľud. Klasický automat sa nemení." },
   { day: "2026-11-22", text: "NOČNÁ SMENA: v menu je druhá dlaždica. Vstup stojí 1 % kreditu v automate, najmenej 250 a najviac 50 000, a z behu sa do automatu nič nevracia. Päť poschodí, potom Ranná špička. Na začiatku si vyberieš tri symboly, valce zastavuješ sám, kritický zásah trasie obrazovkou a medzi súbojmi je kšeft. Klasický automat, návratnosť ani lístky sa nemenia." },

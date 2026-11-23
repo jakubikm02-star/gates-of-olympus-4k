@@ -8,6 +8,7 @@ const PRESETS = [
   { id: "neplatic", label: "Neplatič" },
   { id: "inkasak", label: "Inkasák" },
   { id: "kurier", label: "Pekelný kuriér" },
+  { id: "pokutomat", label: "Pokutomat", image: "/nocna/enemies/enemy-pokutomat.webp" },
 ] as const;
 
 /**
@@ -65,6 +66,13 @@ export function RigEditor() {
 
   async function loadPreset(id: string) {
     setPreset(id);
+    const preset = PRESETS.find((row) => row.id === id);
+    if (preset && "image" in preset) {
+      const rig = await Rig.loadBillboard(preset.image);
+      swap(rig);
+      setDoc(rig.doc);
+      return;
+    }
     const rig = await Rig.loadPacked(`/nocna/rigs/${id}/${id}`);
     swap(rig);
     const res = await fetch(`/nocna/rigs/${id}/${id}.json`);
