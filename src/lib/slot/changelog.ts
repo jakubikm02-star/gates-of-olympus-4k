@@ -7,6 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-11-23", text: "NOČNÁ SMENA: Neplatič, Inkasák a Pekelný kuriér sa pri útoku rozmáchnu, pri zásahu odletia a pri páde sa zložia. Kuriér má znova tvár. Ostatní zatiaľ dýchajú celým obrázkom. Klasický automat sa nemení." },
   { day: "2026-11-23", text: "NOČNÁ SMENA: Neplatič, Inkasák a Pekelný kuriér majú ostré diely bez hranatých výrezov. Kuriér točí kolesá na nápravách a hlava sa otáča len málo, aby nebolo vidno výplň pod krkom. Ostatní zatiaľ dýchajú celým obrázkom. Klasický automat sa nemení." },
   { day: "2026-11-22", text: "NOČNÁ SMENA: kovový rám, sklo v oknách a meracie platničky. Obraz sa už nekreslí odznova každý snímok. Postavy zatiaľ dýchajú celé, kým neprídu oddelené diely bez hranatých výrezov." },
   { day: "2026-11-22", text: "NOČNÁ SMENA je skriňa, nie stránka. Život, mince, okná aj tlačidlo ZATOČ sú na stroji. Neplatič, Inkasák a Pekelný kuriér sa hýbu po kostiach, ostatní zatiaľ dýchajú celým obrázkom. Nastavenie (Rýchlo, trasenie, kľud) je pod ozubeným kolieskom. Klasický automat sa nemení." },

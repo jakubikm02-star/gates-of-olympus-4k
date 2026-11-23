@@ -19,6 +19,7 @@ export function RigEditor() {
   const host = useRef<HTMLDivElement>(null);
   const rigRef = useRef<Rig | null>(null);
   const appRef = useRef<Application | null>(null);
+  const holdRef = useRef(false);
   const [doc, setDoc] = useState<SpineDoc | null>(null);
   const [bone, setBone] = useState("torso");
   const [clip, setClip] = useState("idle");
@@ -26,6 +27,19 @@ export function RigEditor() {
   const [onion, setOnion] = useState(false);
   const [time, setTime] = useState(0);
   const [preset, setPreset] = useState("neplatic");
+
+  useEffect(() => {
+    const api = {
+      seek: (name: string, time: number) => rigRef.current?.seek(name, time),
+      hold: (on: boolean) => {
+        holdRef.current = on;
+      },
+    };
+    (window as unknown as { __rig?: typeof api }).__rig = api;
+    return () => {
+      delete (window as unknown as { __rig?: typeof api }).__rig;
+    };
+  }, []);
 
   useEffect(() => {
     const wait = window.setInterval(() => {
@@ -53,7 +67,7 @@ export function RigEditor() {
       obs.observe(node);
       app.ticker.add(() => {
         const rig = rigRef.current;
-        if (!rig) return;
+        if (!rig || holdRef.current) return;
         rig.update(app.ticker.deltaMS);
       });
     });
@@ -87,9 +101,10 @@ export function RigEditor() {
     app.stage.addChild(rig);
     const h = app.screen.height || 480;
     const sk = rig.doc?.skeleton.height || 512;
-    const sc = (h * 0.78) / sk;
+    const sheet = new URLSearchParams(window.location.search).has("sheet");
+    const sc = (h * (sheet ? 0.5 : 0.78)) / sk;
     rig.scale.set(sc);
-    rig.position.set((app.screen.width || 640) / 2, h * 0.9);
+    rig.position.set((app.screen.width || 640) * (sheet ? 0.46 : 0.5), h * (sheet ? 0.62 : 0.9));
     void rig.play(clip, { loop: true, mix: 0 });
   }
 

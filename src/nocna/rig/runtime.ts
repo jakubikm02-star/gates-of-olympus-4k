@@ -1,4 +1,4 @@
-import { Assets, Container, MeshPlane, MeshSimple, Rectangle, Sprite, Texture } from "pixi.js";
+import { Assets, Container, Graphics, MeshPlane, MeshSimple, Rectangle, Sprite, Texture } from "pixi.js";
 import { rotVec, sample, solveTwoBone } from "./math";
 import { parseAtlas, type RegionAttach, type SpineDoc } from "./types";
 
@@ -46,6 +46,9 @@ export class Rig extends Container {
   private springs: SpringState[] = [];
   private regions = new Map<string, Texture>();
   private meshes: { bone: string; mesh: MeshPlane | MeshSimple; base: Float32Array }[] = [];
+  private sprites: Sprite[] = [];
+  private stunMark: Container | null = null;
+  private flash: Graphics | null = null;
   private clip = "idle";
   private nextClip: string | null = null;
   private time = 0;
@@ -184,6 +187,9 @@ export class Rig extends Container {
     this.bones.clear();
     this.order = [];
     this.meshes = [];
+    this.sprites = [];
+    this.stunMark = null;
+    this.flash = null;
     this.regions.clear();
     this.regions.set("__page", page);
     for (const r of regions) {
@@ -221,14 +227,30 @@ export class Rig extends Container {
       const n = this.bones.get(name)!;
       const parent = n.parent ? this.bones.get(n.parent)?.view : this;
       parent?.addChild(n.view);
+      n.view.sortableChildren = true;
     }
-    for (const slot of doc.slots) {
+    const slotAt = new Map<string, number>();
+    doc.slots.forEach((slot, index) => slotAt.set(slot.bone, index));
+    const earliest = (name: string): number => {
+      let at = slotAt.get(name) ?? 1_000_000;
+      for (const [child, node] of this.bones) {
+        if (node.parent === name) at = Math.min(at, earliest(child));
+      }
+      return at;
+    };
+    for (const [name, node] of this.bones) node.view.zIndex = earliest(name);
+    doc.slots.forEach((slot, index) => {
       const bone = this.bones.get(slot.bone);
       const att = slot.attachment ? skin[slot.name]?.[slot.attachment] : undefined;
       const tex = slot.attachment ? this.regions.get(slot.attachment) : undefined;
-      if (!bone || !att || !tex) continue;
-      bone.view.addChild(this.makeSlot(slot.bone, att, tex));
-    }
+      if (!bone || !att || !tex) return;
+      const wrap = this.makeSlot(slot.bone, att, tex);
+      // Slot order, not tree order. A torso sprite added after its children
+      // would otherwise cover the head.
+      wrap.zIndex = index;
+      bone.view.addChild(wrap);
+    });
+    this.attachMarks(skin);
     this.springs = (doc.physics ?? []).map((p) => ({
       bone: p.bone,
       stiffness: p.strength ?? 12,
@@ -271,7 +293,39 @@ export class Rig extends Container {
     sprite.anchor.set(0.5);
     sprite.width = att.width;
     sprite.height = att.height;
+    this.sprites.push(sprite);
     return sprite;
+  }
+
+  /** Dizzy stars over the head, and a hit flash on the root. Both follow the bones. */
+  private attachMarks(skin: SpineDoc["skins"][number]["attachments"]) {
+    const head = this.bones.get("head");
+    const headAtt = skin.head?.head;
+    if (head && headAtt) {
+      const mark = new Container();
+      const g = new Graphics();
+      const gold = 0xf0c419;
+      for (const [x, y, r] of [[-22, -4, 9], [0, -18, 11], [22, -2, 8]] as const) {
+        g.circle(x, y, r).fill({ color: gold });
+        g.circle(x - 1, y - 1, r * 0.35).fill({ color: 0xfff6c8 });
+      }
+      mark.addChild(g);
+      mark.position.set(headAtt.x ?? 0, -(headAtt.y ?? 0) - headAtt.height / 2 - 14);
+      mark.zIndex = 10_000;
+      mark.visible = false;
+      head.view.addChild(mark);
+      this.stunMark = mark;
+    }
+    const root = this.bones.get("root");
+    if (root) {
+      const flash = new Graphics();
+      flash.circle(0, -300, 78).fill({ color: 0xfff4d2, alpha: 0.85 });
+      flash.blendMode = "add";
+      flash.visible = false;
+      flash.zIndex = 10_000;
+      root.view.addChild(flash);
+      this.flash = flash;
+    }
   }
 
   private pose(dtMs: number) {
@@ -291,7 +345,32 @@ export class Rig extends Container {
     if (this.quality.springs) this.applySprings(dtMs / 1000);
     this.applyLocals();
     if (this.quality.mesh) this.deform(this.time);
+    this.applyRead();
     this.fireEvents();
+  }
+
+  /** Knockback flash, death fade, and the stun stars. Cheap: no filters. */
+  private applyRead() {
+    const hitFlash = this.clip === "hit" && this.time >= 0.04 && this.time <= 0.16;
+    const tint = hitFlash ? 0xffe2c4 : 0xffffff;
+    for (const sprite of this.sprites) sprite.tint = tint;
+    if (this.flash) this.flash.visible = hitFlash;
+    if (this.stunMark) {
+      const on = this.clip === "stun";
+      this.stunMark.visible = on;
+      if (on) {
+        this.stunMark.rotation = this.time * 5;
+        const s = 0.82 + Math.abs(Math.sin(this.time * 16)) * 0.28;
+        this.stunMark.scale.set(s);
+      }
+    }
+    if (this.clip === "death") {
+      const dur = Math.max(0.2, this.duration("death"));
+      const u = Math.min(1, this.time / dur);
+      this.alpha = 1 - u * 0.78;
+    } else {
+      this.alpha = 1;
+    }
   }
 
   private sampleBone(clip: string, name: string, time: number) {
