@@ -20,7 +20,11 @@ export type { Cue, FightSnap, WinSnap };
  * flat painting, so rotated parts show hard edges and gaps. The fight uses the
  * single-bone idle until real separated part art exists.
  */
-const RIGS: Record<string, string> = {};
+const RIGS: Record<string, string> = {
+  "/nocna/enemies/enemy-neplatic.webp": "/nocna/rigs/neplatic/neplatic",
+  "/nocna/enemies/enemy-inkasak.webp": "/nocna/rigs/inkasak/inkasak",
+  "/nocna/bosses/boss-1-pekelny-kurier.webp": "/nocna/rigs/kurier/kurier",
+};
 
 const ENEMY_URLS = Object.keys(RIGS).concat([
   "/nocna/enemies/enemy-pokutomat.webp",
@@ -457,7 +461,7 @@ export class FightStage {
       this.rig?.destroy();
       this.rig = rig;
       this.rigLayer.addChild(rig);
-      rig.setQuality({ springs: !this.reduced && this.quality.tier === "high", mesh: this.quality.tier === "high" });
+      rig.setQuality({ springs: !this.reduced && this.quality.tier === "high", mesh: false });
       const boss = art.includes("kurier");
       if (boss && !this.introDone.has(art)) {
         this.introDone.add(art);

@@ -1,615 +1,640 @@
 {
-  "characters": [
+ "version": "proposed-1",
+ "units": "1x source pixels (512 px tall art). @2x files are exactly double.",
+ "drawOrder": "parts[] order = back to front",
+ "characters": [
+  {
+   "id": "neplatic",
+   "name": "Neplatič",
+   "source": "public/nocna/enemies/enemy-neplatic.webp",
+   "sourceSize": [
+    252,
+    512
+   ],
+   "parts": [
     {
-      "id": "neplatic",
-      "name": "Neplatič",
-      "source": "public/nocna/enemies/enemy-neplatic.webp",
-      "parts": [
-        {
-          "name": "legL2",
-          "parent": "legL",
-          "box": [
-            18,
-            340,
-            96,
-            165
-          ],
-          "pivot": [
-            48,
-            18
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "legR2",
-          "parent": "legR",
-          "box": [
-            140,
-            348,
-            100,
-            158
-          ],
-          "pivot": [
-            42,
-            16
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "legL",
-          "parent": "root",
-          "box": [
-            32,
-            228,
-            100,
-            150
-          ],
-          "pivot": [
-            55,
-            20
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "legR",
-          "parent": "root",
-          "box": [
-            122,
-            230,
-            108,
-            150
-          ],
-          "pivot": [
-            42,
-            18
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "torso",
-          "parent": "root",
-          "box": [
-            42,
-            78,
-            170,
-            185
-          ],
-          "pivot": [
-            85,
-            160
-          ],
-          "mesh": true,
-          "spring": false
-        },
-        {
-          "name": "strap",
-          "parent": "torso",
-          "box": [
-            58,
-            200,
-            130,
-            52
-          ],
-          "pivot": [
-            65,
-            10
-          ],
-          "mesh": false,
-          "spring": true
-        },
-        {
-          "name": "armL",
-          "parent": "torso",
-          "box": [
-            4,
-            88,
-            90,
-            110
-          ],
-          "pivot": [
-            72,
-            28
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "armL2",
-          "parent": "armL",
-          "box": [
-            2,
-            158,
-            80,
-            105
-          ],
-          "pivot": [
-            46,
-            16
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "armR",
-          "parent": "torso",
-          "box": [
-            150,
-            90,
-            98,
-            110
-          ],
-          "pivot": [
-            20,
-            30
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "armR2",
-          "parent": "armR",
-          "box": [
-            160,
-            165,
-            88,
-            100
-          ],
-          "pivot": [
-            30,
-            14
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "head",
-          "parent": "torso",
-          "box": [
-            68,
-            4,
-            116,
-            112
-          ],
-          "pivot": [
-            58,
-            100
-          ],
-          "mesh": false,
-          "spring": false
-        }
-      ]
+     "name": "legL2",
+     "parent": "legL",
+     "image": "legL2.png",
+     "box": [
+      8,
+      317,
+      86,
+      150
+     ],
+     "pivot": [
+      57.0,
+      30.5
+     ],
+     "mesh": false,
+     "spring": false
     },
     {
-      "id": "inkasak",
-      "name": "Inkasák",
-      "source": "public/nocna/enemies/enemy-inkasak.webp",
-      "parts": [
-        {
-          "name": "legL2",
-          "parent": "legL",
-          "box": [
-            28,
-            355,
-            100,
-            150
-          ],
-          "pivot": [
-            52,
-            14
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "legR2",
-          "parent": "legR",
-          "box": [
-            165,
-            360,
-            105,
-            145
-          ],
-          "pivot": [
-            42,
-            14
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "legL",
-          "parent": "root",
-          "box": [
-            36,
-            245,
-            110,
-            140
-          ],
-          "pivot": [
-            58,
-            16
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "legR",
-          "parent": "root",
-          "box": [
-            155,
-            245,
-            115,
-            145
-          ],
-          "pivot": [
-            48,
-            16
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "torso",
-          "parent": "root",
-          "box": [
-            36,
-            72,
-            250,
-            210
-          ],
-          "pivot": [
-            125,
-            185
-          ],
-          "mesh": true,
-          "spring": false
-        },
-        {
-          "name": "chain",
-          "parent": "torso",
-          "box": [
-            125,
-            88,
-            100,
-            78
-          ],
-          "pivot": [
-            18,
-            48
-          ],
-          "mesh": false,
-          "spring": true
-        },
-        {
-          "name": "armL",
-          "parent": "torso",
-          "box": [
-            2,
-            100,
-            110,
-            120
-          ],
-          "pivot": [
-            90,
-            28
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "armL2",
-          "parent": "armL",
-          "box": [
-            2,
-            185,
-            120,
-            130
-          ],
-          "pivot": [
-            72,
-            18
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "armR",
-          "parent": "torso",
-          "box": [
-            210,
-            100,
-            115,
-            110
-          ],
-          "pivot": [
-            18,
-            32
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "armR2",
-          "parent": "armR",
-          "box": [
-            220,
-            145,
-            105,
-            120
-          ],
-          "pivot": [
-            22,
-            16
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "head",
-          "parent": "torso",
-          "box": [
-            105,
-            2,
-            130,
-            118
-          ],
-          "pivot": [
-            65,
-            105
-          ],
-          "mesh": false,
-          "spring": false
-        }
-      ]
+     "name": "legR2",
+     "parent": "legR",
+     "image": "legR2.png",
+     "box": [
+      153,
+      329,
+      87,
+      175
+     ],
+     "pivot": [
+      27.0,
+      30.0
+     ],
+     "mesh": false,
+     "spring": false
     },
     {
-      "id": "kurier",
-      "name": "Pekelný kuriér",
-      "source": "public/nocna/bosses/boss-1-pekelny-kurier.webp",
-      "parts": [
-        {
-          "name": "wheelF",
-          "parent": "scooter",
-          "box": [
-            8,
-            385,
-            140,
-            120
-          ],
-          "pivot": [
-            70,
-            58
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "wheelR",
-          "parent": "scooter",
-          "box": [
-            245,
-            365,
-            140,
-            120
-          ],
-          "pivot": [
-            68,
-            55
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "scooter",
-          "parent": "root",
-          "box": [
-            30,
-            245,
-            320,
-            175
-          ],
-          "pivot": [
-            160,
-            48
-          ],
-          "mesh": true,
-          "spring": false
-        },
-        {
-          "name": "torso",
-          "parent": "root",
-          "box": [
-            125,
-            130,
-            180,
-            150
-          ],
-          "pivot": [
-            90,
-            125
-          ],
-          "mesh": true,
-          "spring": false
-        },
-        {
-          "name": "flame",
-          "parent": "torso",
-          "box": [
-            270,
-            30,
-            140,
-            180
-          ],
-          "pivot": [
-            24,
-            150
-          ],
-          "mesh": false,
-          "spring": true
-        },
-        {
-          "name": "pack",
-          "parent": "torso",
-          "box": [
-            240,
-            120,
-            150,
-            160
-          ],
-          "pivot": [
-            22,
-            70
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "armL",
-          "parent": "torso",
-          "box": [
-            70,
-            175,
-            100,
-            90
-          ],
-          "pivot": [
-            78,
-            22
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "armL2",
-          "parent": "armL",
-          "box": [
-            48,
-            205,
-            90,
-            80
-          ],
-          "pivot": [
-            62,
-            14
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "armR",
-          "parent": "torso",
-          "box": [
-            220,
-            170,
-            100,
-            90
-          ],
-          "pivot": [
-            16,
-            24
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "armR2",
-          "parent": "armR",
-          "box": [
-            240,
-            200,
-            95,
-            85
-          ],
-          "pivot": [
-            18,
-            16
-          ],
-          "mesh": false,
-          "spring": false
-        },
-        {
-          "name": "head",
-          "parent": "torso",
-          "box": [
-            140,
-            12,
-            150,
-            160
-          ],
-          "pivot": [
-            75,
-            145
-          ],
-          "mesh": false,
-          "spring": false
-        }
-      ]
+     "name": "legL",
+     "parent": "root",
+     "image": "legL.png",
+     "box": [
+      34,
+      221,
+      99,
+      156
+     ],
+     "pivot": [
+      73.5,
+      19.0
+     ],
+     "mesh": false,
+     "spring": false
+    },
+    {
+     "name": "legR",
+     "parent": "root",
+     "image": "legR.png",
+     "box": [
+      125,
+      221,
+      91,
+      168
+     ],
+     "pivot": [
+      27.5,
+      19.0
+     ],
+     "mesh": false,
+     "spring": false
+    },
+    {
+     "name": "torso",
+     "parent": "root",
+     "image": "torso.png",
+     "box": [
+      83,
+      62,
+      116,
+      182
+     ],
+     "pivot": [
+      47.0,
+      173.0
+     ],
+     "mesh": true,
+     "spring": false
+    },
+    {
+     "name": "strap",
+     "parent": "torso",
+     "image": "strap.png",
+     "box": [
+      134,
+      230,
+      45,
+      91
+     ],
+     "pivot": [
+      11.0,
+      7.5
+     ],
+     "mesh": false,
+     "spring": true
+    },
+    {
+     "name": "armL",
+     "parent": "torso",
+     "image": "armL.png",
+     "box": [
+      24,
+      93,
+      85,
+      100
+     ],
+     "pivot": [
+      68.5,
+      23.0
+     ],
+     "mesh": false,
+     "spring": false
+    },
+    {
+     "name": "armL2",
+     "parent": "armL",
+     "image": "armL2.png",
+     "box": [
+      24,
+      82,
+      75,
+      111
+     ],
+     "pivot": [
+      22.0,
+      93.0
+     ],
+     "mesh": false,
+     "spring": false
+    },
+    {
+     "name": "armR",
+     "parent": "torso",
+     "image": "armR.png",
+     "box": [
+      161,
+      71,
+      83,
+      132
+     ],
+     "pivot": [
+      19.0,
+      40.0
+     ],
+     "mesh": false,
+     "spring": false
+    },
+    {
+     "name": "armR2",
+     "parent": "armR",
+     "image": "armR2.png",
+     "box": [
+      126,
+      146,
+      118,
+      58
+     ],
+     "pivot": [
+      99.0,
+      35.0
+     ],
+     "mesh": false,
+     "spring": false
+    },
+    {
+     "name": "head",
+     "parent": "torso",
+     "image": "head.png",
+     "box": [
+      78,
+      7,
+      76,
+      88
+     ],
+     "pivot": [
+      42.0,
+      82.0
+     ],
+     "mesh": false,
+     "spring": false
     }
-  ],
-  "stillStatic": [
+   ]
+  },
+  {
+   "id": "inkasak",
+   "name": "Inkasák",
+   "source": "public/nocna/enemies/enemy-inkasak.webp",
+   "sourceSize": [
+    329,
+    512
+   ],
+   "parts": [
     {
-      "id": "pokutomat",
-      "name": "Pokutomat",
-      "src": "public/nocna/enemies/enemy-pokutomat.webp"
+     "name": "legL2",
+     "parent": "legL",
+     "image": "legL2.png",
+     "box": [
+      46,
+      352,
+      89,
+      153
+     ],
+     "pivot": [
+      56.5,
+      33.0
+     ],
+     "mesh": false,
+     "spring": false
     },
     {
-      "id": "ozran",
-      "name": "Ožran",
-      "src": "public/nocna/enemies/enemy-ozran.webp"
+     "name": "legR2",
+     "parent": "legR",
+     "image": "legR2.png",
+     "box": [
+      175,
+      352,
+      103,
+      133
+     ],
+     "pivot": [
+      35.0,
+      33.0
+     ],
+     "mesh": false,
+     "spring": false
     },
     {
-      "id": "zlodej",
-      "name": "Zlodej paragónov",
-      "src": "public/nocna/enemies/enemy-zlodej-paragonov.webp"
+     "name": "legL",
+     "parent": "root",
+     "image": "legL.png",
+     "box": [
+      61,
+      259,
+      105,
+      159
+     ],
+     "pivot": [
+      59.0,
+      21.0
+     ],
+     "mesh": false,
+     "spring": false
     },
     {
-      "id": "uradnicka",
-      "name": "Úradníčka",
-      "src": "public/nocna/enemies/enemy-uradnicka.webp"
+     "name": "legR",
+     "parent": "root",
+     "image": "legR.png",
+     "box": [
+      161,
+      259,
+      83,
+      159
+     ],
+     "pivot": [
+      41.5,
+      21.0
+     ],
+     "mesh": false,
+     "spring": false
     },
     {
-      "id": "krovinorez",
-      "name": "Krovinorez",
-      "src": "public/nocna/enemies/elite-krovinorez.webp"
+     "name": "torso",
+     "parent": "root",
+     "image": "torso.png",
+     "box": [
+      72,
+      53,
+      178,
+      223
+     ],
+     "pivot": [
+      90.5,
+      212.0
+     ],
+     "mesh": true,
+     "spring": false
     },
     {
-      "id": "motorka",
-      "name": "Motorka smrti",
-      "src": "public/nocna/enemies/elite-motorka-smrti.webp"
+     "name": "chain",
+     "parent": "torso",
+     "image": "chain.png",
+     "box": [
+      116,
+      68,
+      83,
+      51
+     ],
+     "pivot": [
+      39.0,
+      12.0
+     ],
+     "mesh": false,
+     "spring": true
     },
     {
-      "id": "vyberca",
-      "name": "Výberca mýta",
-      "src": "public/nocna/enemies/elite-vyberca-myta.webp"
+     "name": "armL",
+     "parent": "torso",
+     "image": "armL.png",
+     "box": [
+      15,
+      79,
+      82,
+      139
+     ],
+     "pivot": [
+      51.0,
+      30.0
+     ],
+     "mesh": false,
+     "spring": false
     },
     {
-      "id": "demon",
-      "name": "Démon žiariviek",
-      "src": "public/nocna/bosses/boss-2-demon-ziariviek.webp"
+     "name": "armL2",
+     "parent": "armL",
+     "image": "armL2.png",
+     "box": [
+      7,
+      170,
+      130,
+      173
+     ],
+     "pivot": [
+      33.0,
+      22.5
+     ],
+     "mesh": false,
+     "spring": false
     },
     {
-      "id": "anjel",
-      "name": "Anjel exekúcie",
-      "src": "public/nocna/bosses/boss-3-anjel-exekucie.webp"
+     "name": "armR",
+     "parent": "torso",
+     "image": "armR.png",
+     "box": [
+      210,
+      91,
+      54,
+      147
+     ],
+     "pivot": [
+      16.0,
+      11.5
+     ],
+     "mesh": false,
+     "spring": false
     },
     {
-      "id": "general",
-      "name": "Generál podateľne",
-      "src": "public/nocna/bosses/boss-4-general-podatelne.webp"
+     "name": "armR2",
+     "parent": "armR",
+     "image": "armR2.png",
+     "box": [
+      224,
+      133,
+      98,
+      106
+     ],
+     "pivot": [
+      20.0,
+      89.5
+     ],
+     "mesh": false,
+     "spring": false
     },
     {
-      "id": "prednosta",
-      "name": "Prednosta",
-      "src": "public/nocna/bosses/boss-5-prednosta.webp"
+     "name": "head",
+     "parent": "torso",
+     "image": "head.png",
+     "box": [
+      118,
+      7,
+      71,
+      79
+     ],
+     "pivot": [
+      34.5,
+      73.0
+     ],
+     "mesh": false,
+     "spring": false
     }
-  ],
-  "notes": [
-    "Parts are cut from the flat WebP with 8px overlap at the joints.",
-    "Pivot is pixels from the part's top-left. Spine +x points along the limb, +y is up.",
-    "Replace a part by keeping the same name, size and pivot, then re-export the atlas."
-  ]
+   ]
+  },
+  {
+   "id": "kurier",
+   "name": "Pekelný kuriér",
+   "source": "public/nocna/bosses/boss-1-pekelny-kurier.webp",
+   "sourceSize": [
+    416,
+    512
+   ],
+   "parts": [
+    {
+     "name": "wheelF",
+     "parent": "scooter",
+     "image": "wheelF.png",
+     "size": [
+      117,
+      117
+     ],
+     "pivot": [
+      58.5,
+      58.5
+     ],
+     "box": null,
+     "mesh": false,
+     "spring": false,
+     "wheel": true,
+     "axle": {
+      "x": 57.35,
+      "y": 447.05,
+      "rotationImageDeg": 15.54,
+      "scaleX": 0.8486,
+      "scaleY": 1.0,
+      "note": "Put the wheel sprite (anchor at pivot) inside an axle container at x,y with this rotation (clockwise, image space) and non-uniform scale; spin the sprite, not the axle."
+     }
+    },
+    {
+     "name": "wheelR",
+     "parent": "scooter",
+     "image": "wheelR.png",
+     "size": [
+      124,
+      124
+     ],
+     "pivot": [
+      62.0,
+      62.0
+     ],
+     "box": null,
+     "mesh": false,
+     "spring": false,
+     "wheel": true,
+     "axle": {
+      "x": 300.9,
+      "y": 397.85,
+      "rotationImageDeg": -3.03,
+      "scaleX": 0.7552,
+      "scaleY": 1.0,
+      "note": "Put the wheel sprite (anchor at pivot) inside an axle container at x,y with this rotation (clockwise, image space) and non-uniform scale; spin the sprite, not the axle."
+     }
+    },
+    {
+     "name": "scooter",
+     "parent": "root",
+     "image": "scooter.png",
+     "box": [
+      10,
+      189,
+      360,
+      315
+     ],
+     "pivot": [
+      180.0,
+      161.0
+     ],
+     "mesh": true,
+     "spring": false
+    },
+    {
+     "name": "torso",
+     "parent": "root",
+     "image": "torso.png",
+     "box": [
+      87,
+      74,
+      235,
+      208
+     ],
+     "pivot": [
+      123.0,
+      203.5
+     ],
+     "mesh": true,
+     "spring": false
+    },
+    {
+     "name": "flame",
+     "parent": "torso",
+     "image": "flame.png",
+     "box": [
+      240,
+      37,
+      167,
+      279
+     ],
+     "pivot": [
+      80.0,
+      223.0
+     ],
+     "mesh": false,
+     "spring": true
+    },
+    {
+     "name": "pack",
+     "parent": "torso",
+     "image": "pack.png",
+     "box": [
+      259,
+      95,
+      145,
+      200
+     ],
+     "pivot": [
+      21.0,
+      65.0
+     ],
+     "mesh": false,
+     "spring": false
+    },
+    {
+     "name": "armL",
+     "parent": "torso",
+     "image": "armL.png",
+     "box": [
+      94,
+      180,
+      68,
+      51
+     ],
+     "pivot": [
+      52.0,
+      20.0
+     ],
+     "mesh": false,
+     "spring": false
+    },
+    {
+     "name": "armL2",
+     "parent": "armL",
+     "image": "armL2.png",
+     "box": [
+      56,
+      197,
+      52,
+      56
+     ],
+     "pivot": [
+      46.5,
+      23.0
+     ],
+     "mesh": false,
+     "spring": false
+    },
+    {
+     "name": "handlebar",
+     "parent": "scooter",
+     "image": "handlebar.png",
+     "box": [
+      49,
+      212,
+      163,
+      56
+     ],
+     "pivot": [
+      70.0,
+      27.0
+     ],
+     "mesh": false,
+     "spring": false,
+     "extra": true
+    },
+    {
+     "name": "armR",
+     "parent": "torso",
+     "image": "armR.png",
+     "box": [
+      211,
+      110,
+      112,
+      135
+     ],
+     "pivot": [
+      41.5,
+      40.0
+     ],
+     "mesh": false,
+     "spring": false
+    },
+    {
+     "name": "armR2",
+     "parent": "armR",
+     "image": "armR2.png",
+     "box": [
+      186,
+      200,
+      141,
+      65
+     ],
+     "pivot": [
+      114.0,
+      22.5
+     ],
+     "mesh": false,
+     "spring": false
+    },
+    {
+     "name": "head",
+     "parent": "torso",
+     "image": "head.png",
+     "box": [
+      117,
+      8,
+      120,
+      190
+     ],
+     "pivot": [
+      55.5,
+      178.0
+     ],
+     "mesh": false,
+     "spring": false
+    }
+   ]
+  }
+ ],
+ "notes": [
+  "box = where the part sits in the flat source at rest (x, y, w, h); image size == box size (1x).",
+  "pivot = rotation point in pixels from the part image top-left (1x).",
+  "Parts already include joint overlap and painted fill under neighbours; build with pad 0 (do not re-crop the flat art)."
+ ]
 }

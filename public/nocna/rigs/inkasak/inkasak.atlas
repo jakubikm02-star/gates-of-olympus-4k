@@ -1,82 +1,82 @@
 inkasak.webp
-size: 1024,378
+size: 2048,610
 format: RGBA8888
 filter: Linear,Linear
 repeat: none
 legL2
   rotate: false
-  xy: 2, 211
-  size: 116, 165
-  orig: 116, 165
+  xy: 2, 302
+  size: 178, 306
+  orig: 178, 306
   offset: 0, 0
   index: -1
 legR2
   rotate: false
-  xy: 120, 216
-  size: 121, 160
-  orig: 121, 160
+  xy: 182, 342
+  size: 206, 266
+  orig: 206, 266
   offset: 0, 0
   index: -1
 legL
   rotate: false
-  xy: 243, 220
-  size: 126, 156
-  orig: 126, 156
+  xy: 390, 290
+  size: 210, 318
+  orig: 210, 318
   offset: 0, 0
   index: -1
 legR
   rotate: false
-  xy: 371, 215
-  size: 131, 161
-  orig: 131, 161
+  xy: 602, 290
+  size: 166, 318
+  orig: 166, 318
   offset: 0, 0
   index: -1
 torso
   rotate: false
-  xy: 504, 150
-  size: 266, 226
-  orig: 266, 226
+  xy: 770, 162
+  size: 356, 446
+  orig: 356, 446
   offset: 0, 0
   index: -1
 chain
   rotate: false
-  xy: 772, 282
-  size: 116, 94
-  orig: 116, 94
+  xy: 1128, 506
+  size: 166, 102
+  orig: 166, 102
   offset: 0, 0
   index: -1
 armL
   rotate: false
-  xy: 890, 240
-  size: 126, 136
-  orig: 126, 136
+  xy: 1296, 330
+  size: 164, 278
+  orig: 164, 278
   offset: 0, 0
   index: -1
 armL2
   rotate: false
-  xy: 2, 2
-  size: 136, 146
-  orig: 136, 146
+  xy: 1462, 262
+  size: 260, 346
+  orig: 260, 346
   offset: 0, 0
   index: -1
 armR
   rotate: false
-  xy: 140, 22
-  size: 127, 126
-  orig: 127, 126
+  xy: 1724, 314
+  size: 108, 294
+  orig: 108, 294
   offset: 0, 0
   index: -1
 armR2
   rotate: false
-  xy: 269, 12
-  size: 117, 136
-  orig: 117, 136
+  xy: 1834, 396
+  size: 196, 212
+  orig: 196, 212
   offset: 0, 0
   index: -1
 head
   rotate: false
-  xy: 388, 14
-  size: 146, 134
-  orig: 146, 134
+  xy: 2, 2
+  size: 142, 158
+  orig: 142, 158
   offset: 0, 0
   index: -1
