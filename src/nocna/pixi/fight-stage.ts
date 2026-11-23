@@ -486,19 +486,21 @@ export class FightStage {
     this.useBg(snap.bg);
     this.bg.position.set(w / 2, h / 2);
     const L = FEEL.layout;
+    const inset = 28;
+    const frameOut = 10;
     let foeX = w * 0.5;
     let foeY = h * (L.enemyTop + L.enemyH);
     let foeH = h * L.enemyH;
     let reelY = h * (1 - L.reelBottom - L.reelH);
-    let reelX = w * L.gap;
-    let reelW = w * (1 - L.gap * 2);
+    let reelX = Math.max(w * L.gap, inset + frameOut);
+    let reelW = w - reelX - (inset + frameOut);
     if (land) {
-      foeX = w * L.landEnemyW * 0.55;
-      foeY = h * 0.78;
-      foeH = h * 0.7;
-      reelX = w * (L.landEnemyW + 0.02);
-      reelW = w * (1 - L.landEnemyW - 0.08);
-      reelY = h * 0.28;
+      foeX = Math.max(inset + 80, w * L.landEnemyW * 0.55);
+      foeY = h * 0.62;
+      foeH = h * 0.5;
+      reelX = Math.max(w * (L.landEnemyW + 0.02), inset + frameOut);
+      reelW = w - reelX - (inset + frameOut);
+      reelY = h * 0.22;
     }
     this.foeX = foeX;
     this.foeY = foeY;
@@ -533,22 +535,27 @@ export class FightStage {
       win.root.eventMode = "static";
       win.root.on("pointertap", () => this.onReel(i));
     });
-    this.placeDeck(snap, foeX, foeY, foeH);
-    const barW = Math.min(220, w * 0.46);
-    const barX = land ? 16 : 18;
-    const barY = land ? h * 0.86 : reelY - 28;
-    this.youX = barX + 28;
-    this.youY = barY;
-    this.paintBars(barX, barY, barW, foeX, foeY, pal, snap);
-    this.coinX = w - 36;
-    this.coinY = 28;
+    this.placeDeck(snap, foeX, foeY, foeH, w, inset);
+    const btnH = Math.min(64, h * 0.09);
+    const btnTop = h - btnH - 14;
+    const plateH = 50;
+    let gaugeTop = (land ? foeY + 18 : reelY - plateH - 12);
+    gaugeTop = Math.max(inset, Math.min(gaugeTop, btnTop - plateH - 8));
+    const numW = 40;
+    const iconCol = 22;
+    const barW = Math.max(64, Math.min(210, w - inset * 2 - iconCol - numW - 48));
+    const plateW = 12 + iconCol + 8 + barW + 8 + numW + 8;
+    this.paintBars(inset, gaugeTop, plateW, barW, foeX, foeY, w, h, pal);
+    this.coinX = w - 72;
+    this.coinY = 36;
     this.coinNum.text = String(snap.coins);
-    this.coinNum.position.set(w - 52, 16);
+    this.coinNum.anchor.set(1, 0.5);
+    this.coinNum.position.set(w - 86, 36);
     this.turnText.text = snap.hint || snap.turn;
-    this.turnText.position.set(w / 2, 8);
+    this.turnText.position.set(w / 2, 22);
     this.intentText.text = snap.shop ? "" : snap.intent;
     this.btnLabel.text = snap.button;
-    const bw = Math.min(w * 0.84, 420);
+    const bw = Math.min(w - inset * 2, 420);
     const bh = Math.min(64, h * 0.09);
     const bx = (w - bw) / 2;
     const by = h - bh - 12;
@@ -634,7 +641,7 @@ export class FightStage {
       else if (spec.mode !== "sit") this.sit(win, spec, cell);
       win.chip.text = spec.mode === "sit" ? spec.chip : "";
     });
-    this.placeDeck(snap, this.foeX, this.foeY, this.app.screen.height * FEEL.layout.enemyH);
+    this.placeDeck(snap, this.foeX, this.foeY, this.app.screen.height * FEEL.layout.enemyH, this.app.screen.width, 28);
   }
 
   private paintButton(bw: number, bh: number, pal: Palette) {
@@ -727,36 +734,46 @@ export class FightStage {
     win.glass.roundRect(8, cell * 0.55, cell - 16, cell * 0.28, 8).fill({ color: pal.accent, alpha: 0.08 });
     }
 
-  private paintBars(x: number, y: number, barW: number, foeX: number, foeY: number, pal: Palette, _snap: FightSnap) {
+  private paintBars(plateX: number, plateY: number, plateW: number, barW: number, foeX: number, foeY: number, w: number, h: number, pal: Palette) {
+    const inset = 28;
     this.barW = barW;
-    this.eBarW = barW * 0.8;
+    this.eBarW = Math.max(48, Math.min(barW * 0.75, w - inset * 2 - 96));
+    const ePlateW = this.eBarW + 88;
+    let ePlateX = foeX - ePlateW / 2;
+    ePlateX = Math.max(inset, Math.min(w - inset - ePlateW, ePlateX));
+    const ePlateY = Math.max(inset + 28, Math.min(foeY + 4, h - inset - 36));
     this.plates.clear();
-    this.plates.roundRect(x - 28, y - 16, barW + 78, 48, 12).fill({ color: 0x16120e, alpha: 0.88 }).stroke({ color: pal.metal, width: 2 });
-    this.plates.roundRect(foeX - this.eBarW / 2 - 36, foeY - 6, this.eBarW + 78, 32, 10).fill({ color: 0x16120e, alpha: 0.88 }).stroke({ color: pal.metal, width: 2 });
-    this.hpGhost.position.set(x, y);
-    this.hpFill.position.set(x, y);
-    this.shFill.position.set(x, y + 14);
-    this.ehpFill.position.set(foeX - this.eBarW / 2, foeY + 6);
+    this.plates.roundRect(plateX, plateY, plateW, 50, 12).fill({ color: 0x16120e, alpha: 0.92 }).stroke({ color: pal.metal, width: 2 });
+    this.plates.roundRect(ePlateX, ePlateY, ePlateW, 32, 10).fill({ color: 0x16120e, alpha: 0.92 }).stroke({ color: pal.metal, width: 2 });
+    const barX = plateX + 42;
+    this.hpGhost.position.set(barX, plateY + 12);
+    this.hpFill.position.set(barX, plateY + 12);
+    this.shFill.position.set(barX, plateY + 28);
+    this.ehpFill.position.set(ePlateX + 10, ePlateY + 12);
     this.hpGhost.scale.y = 10;
     this.hpFill.scale.y = 10;
     this.shFill.scale.y = 6;
     this.ehpFill.scale.y = 8;
-    this.heart.position.set(x - 14, y + 8);
-    this.heart.width = 20;
-    this.heart.height = 20;
-    this.shieldIcon.position.set(x - 14, y + 18);
+    this.heart.position.set(plateX + 20, plateY + 16);
+    this.heart.width = 18;
+    this.heart.height = 18;
+    this.shieldIcon.position.set(plateX + 20, plateY + 34);
     this.shieldIcon.width = 16;
     this.shieldIcon.height = 16;
-    this.ehpNum.anchor.set(0, 1);
-    this.ehpNum.position.set(foeX - this.eBarW / 2, foeY - 2);
-    this.hpNum.position.set(x + barW + 8, y - 4);
-    this.intentText.position.set(foeX + this.eBarW / 2 + 12, foeY + 2);
+    this.youX = barX;
+    this.youY = plateY + 16;
+    this.ehpNum.anchor.set(1, 0.5);
+    this.ehpNum.position.set(ePlateX + ePlateW - 8, ePlateY + 16);
+    this.hpNum.anchor.set(1, 0);
+    this.hpNum.position.set(plateX + plateW - 8, plateY + 8);
+    this.intentText.anchor.set(0, 0.5);
+    this.intentText.position.set(ePlateX + 16 + this.eBarW, ePlateY + 16);
     this.hpFill.tint = pal.hp;
     this.shFill.tint = pal.shield;
     this.ehpFill.tint = pal.hp;
   }
 
-  private placeDeck(snap: FightSnap, foeX: number, foeY: number, foeH: number) {
+  private placeDeck(snap: FightSnap, foeX: number, foeY: number, foeH: number, w = 0, inset = 28) {
     const deck = snap.shop ? snap.deck : [];
     while (this.deck.length < deck.length) {
       const s = new Sprite();
@@ -776,8 +793,13 @@ export class FightStage {
       const art = SYM[id as keyof typeof SYM]?.art;
       if (art) s.texture = Texture.from(art);
       s.visible = true;
-      const size = 56;
-      s.position.set(foeX - ((Math.min(5, deck.length) - 1) * 64) / 2 + (i % 5) * 64, foeY - foeH * 0.55 + Math.floor(i / 5) * 64);
+      const size = 48;
+      const cols = Math.min(5, deck.length);
+      const rowW = (cols - 1) * 56;
+      let x = foeX - rowW / 2 + (i % 5) * 56;
+      x = Math.max(inset + size / 2, Math.min((w || foeX * 2) - inset - size / 2, x));
+      const y = Math.max(inset + size / 2, foeY - foeH * 0.45 + Math.floor(i / 5) * 56);
+      s.position.set(x, y);
       s.width = size;
       s.height = size;
     });
