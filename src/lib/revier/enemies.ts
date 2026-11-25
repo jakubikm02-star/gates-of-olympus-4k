@@ -126,7 +126,7 @@ const FOES: Record<string, Foe> = {
     taunt: "Svetlo tu stojí viac ako ty.",
     boss: true,
     elite: false,
-    hp: 420,
+    hp: 380,
     pattern: (s) => [hit(s(20)), poison(s(6), 2), shield(s(24)), hit(s(20))],
   },
   anjel: {

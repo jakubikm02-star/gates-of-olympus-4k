@@ -210,6 +210,6 @@ export function rollRare(state: number): { state: number; sym: SymId } {
 }
 
 export function foeScale(enemy: { boss: boolean; elite: boolean; enraged: boolean }): number {
-  const base = enemy.boss ? 0.46 : enemy.elite ? 0.52 : 0.56;
+  const base = enemy.boss ? 0.42 : enemy.elite ? 0.52 : 0.58;
   return base * (enemy.enraged ? 1.16 : 1);
 }

@@ -6,6 +6,7 @@ import {
   ENERGY_AT,
   ENERGY_BONUS,
   EQUIP_PRICE,
+  UPGRADE_PRICE,
   HEAL_GAIN,
   HEAL_PRICE,
   HEAL_STOCK,
@@ -73,6 +74,9 @@ export function createRun(seed: number, entry = 0): Run {
     keys: 0,
     stamp: false,
     equip: [],
+    levels: {},
+    fortify: {},
+    pro: [],
   };
 }
 
@@ -325,7 +329,9 @@ export function resolveReel(run: Run, plan: Plan, reel: number): { run: Run; fx:
     fx.push({ t: "hit", amount: hit.dealt, crit: step.crit, pierce, blocked: hit.blocked, bonus });
   };
 
-  const power = rowMul(plan.lands, step.reel, next.call) * (next.wager > 0 ? next.wager : 1) * (1 + next.momentum * 0.04);
+  const trained = 1 + (next.levels[sym] ?? 0) * 0.1;
+  const proMul = next.pro.includes(sym) ? 1.2 : 1;
+  const power = rowMul(plan.lands, step.reel, next.call) * (next.wager > 0 ? next.wager : 1) * (1 + next.momentum * 0.04) * trained * proMul;
   let raw = def.dmg;
   if (def.hook === "left") raw = step.reel === 0 ? def.dmg + 10 : def.dmg;
   if (def.hook === "right") raw = step.reel === plan.lands.length - 1 ? def.dmg * 2 : def.dmg;
@@ -351,7 +357,7 @@ export function resolveReel(run: Run, plan: Plan, reel: number): { run: Run; fx:
     }
   }
   if (raw > 0) {
-    raw = Math.max(0, Math.round(raw * power) + procBonus(sym, step.reel, next.rng));
+    raw = Math.max(0, Math.round(raw * power) + (next.fortify[sym] ?? 0) * 2 + procBonus(sym, step.reel, next.rng));
     if (next.keys > 0) {
       raw += 8;
       next = { ...next, keys: next.keys - 1 };
@@ -422,7 +428,7 @@ export function resolveReel(run: Run, plan: Plan, reel: number): { run: Run; fx:
     const amount = def.self;
     next = { ...next, hp: next.hp - amount, stats: { ...next.stats, taken: next.stats.taken + amount } };
     fx.push({ t: "self", amount });
-    if (next.hp <= 0) next = die(next, "95 natural — vlastná dávka");
+    if (next.hp <= 0) next = die(next, sym === "natural" ? "95 natural — vlastná dávka" : `${def.name} ťa dorazila`);
   }
 
   if (dealt > 0) {
@@ -610,6 +616,51 @@ export function buyKeys(run: Run): Run {
 export function buyStamp(run: Run): Run {
   if (run.phase !== "shop" || !run.shop || run.coins < SUPPORT_PRICE || run.stamp) return run;
   return { ...run, coins: run.coins - SUPPORT_PRICE, stamp: true };
+}
+
+function copies(deck: readonly SymId[], sym: SymId): number {
+  let n = 0;
+  for (const id of deck) if (id === sym) n += 1;
+  return n;
+}
+
+function dropOne(deck: readonly SymId[], sym: SymId): SymId[] {
+  const at = deck.indexOf(sym);
+  if (at < 0) return deck.slice();
+  const next = deck.slice();
+  next.splice(at, 1);
+  return next;
+}
+
+/** Pay to raise one card a level, up to 3. */
+export function upgradeSymbol(run: Run, sym: SymId): Run {
+  if (run.phase !== "shop" || !run.shop || !run.deck.includes(sym)) return run;
+  const lv = run.levels[sym] ?? 0;
+  if (lv >= 3 || run.coins < UPGRADE_PRICE) return run;
+  return { ...run, coins: run.coins - UPGRADE_PRICE, levels: { ...run.levels, [sym]: lv + 1 } };
+}
+
+/** Feed a spare copy. Same level bump, paid with the duplicate. */
+export function trainSymbol(run: Run, sym: SymId): Run {
+  if (run.phase !== "shop" || !run.shop) return run;
+  const lv = run.levels[sym] ?? 0;
+  if (lv >= 3 || copies(run.deck, sym) < 2) return run;
+  return { ...run, deck: dropOne(run.deck, sym), levels: { ...run.levels, [sym]: lv + 1 } };
+}
+
+/** Two maxed copies become one Pro card. */
+export function makePro(run: Run, sym: SymId): Run {
+  if (run.phase !== "shop" || !run.shop) return run;
+  if ((run.levels[sym] ?? 0) < 3 || copies(run.deck, sym) < 2 || run.pro.includes(sym)) return run;
+  return { ...run, deck: dropOne(run.deck, sym), pro: [...run.pro, sym] };
+}
+
+/** Feed up to three spares for a flat bump that stays for the run. */
+export function fortifySymbol(run: Run, sym: SymId): Run {
+  if (run.phase !== "shop" || !run.shop) return run;
+  const n = run.fortify[sym] ?? 0;
+  if (n >= 3 || copies(run.deck, sym) < 2) return run;
+  return { ...run, deck: dropOne(run.deck, sym), fortify: { ...run.fortify, [sym]: n + 1 } };
 }
 
 export function buyEquip(run: Run, id: EquipId): Run {

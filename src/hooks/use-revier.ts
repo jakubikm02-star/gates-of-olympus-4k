@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as sfx from "@/lib/slot/audio";
-import { linkBetween, metaOf, STAT_NAME } from "@/lib/revier/depth";
+import { linkBetween, metaOf, procBonus, STAT_NAME } from "@/lib/revier/depth";
 import { FEEL, type FeelTarget } from "@/lib/revier/feel";
 import {
   armWager,
@@ -28,8 +28,12 @@ import {
   resign,
   resolveReel,
   sealSpin,
+  fortifySymbol,
+  makePro,
   takeFace,
   togglePick,
+  trainSymbol,
+  upgradeSymbol,
 } from "@/lib/revier/engine";
 import { symDef, symMark } from "@/lib/revier/symbols";
 import type { Beat, Plan, Run, SymId } from "@/lib/revier/types";
@@ -160,9 +164,12 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
   const foeId = run.enemy?.id ?? "";
   useEffect(() => {
     if (!foeId) return;
-    setFoeSpin(true);
-    const t = window.setTimeout(() => setFoeSpin(false), reduced ? 90 : 620);
-    return () => window.clearTimeout(t);
+    const start = window.setTimeout(() => setFoeSpin(true), reduced ? 0 : 700);
+    const stop = window.setTimeout(() => setFoeSpin(false), reduced ? 80 : 1500);
+    return () => {
+      window.clearTimeout(start);
+      window.clearTimeout(stop);
+    };
   }, [foeRoll, foeId, reduced]);
 
   const emptyWins = (n: number): WinView[] =>
@@ -314,6 +321,7 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
         selfChip: step.sym === "natural" ? "❤−8" : undefined,
         target: targetOf(step.sym),
         slow,
+        proc: procBonus(step.sym, step.reel, runRef.current.rng) || undefined,
       };
       if (slow) {
         snd(() => sfx.playSoftHit("riser"));
@@ -548,6 +556,10 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
     keys: () => openShop(buyKeys(runRef.current)),
     stamp: () => openShop(buyStamp(runRef.current)),
     equip: (id: "uder" | "stit") => openShop(buyEquip(runRef.current, id)),
+    upgrade: (sym: SymId) => openShop(upgradeSymbol(runRef.current, sym)),
+    train: (sym: SymId) => openShop(trainSymbol(runRef.current, sym)),
+    pro: (sym: SymId) => openShop(makePro(runRef.current, sym)),
+    fortify: (sym: SymId) => openShop(fortifySymbol(runRef.current, sym)),
     wager: () => {
       if (stageRef.current !== "ready") return;
       const next = armWager(runRef.current);

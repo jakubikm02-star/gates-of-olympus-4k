@@ -104,7 +104,8 @@ function want(run: Run, sym: SymId): number {
     case "konektor":
       return run.coins < 6 ? 12 : 5;
     case "natural":
-      return run.hp > 32 ? (almost ? 36 : 17) : -30;
+      if (run.hp <= 16) return -80;
+      return run.hp > 40 ? (almost ? 36 : 14) : -40;
     case "restart":
       return 4;
     case "pokuta":
@@ -140,6 +141,12 @@ function chooseStop(run: Run, strip: readonly SymId[], profile: BotProfile): { r
         index = at;
       }
     }
+  }
+  const picked = strip[index] ?? "medzera";
+  const self = picked === "natural" ? 8 : 0;
+  if (self > 0 && run.hp <= self + 4) {
+    const safer = window.find((at) => strip[at] !== "natural");
+    if (safer != null) index = safer;
   }
   return { run: { ...run, rng: tossed.state }, index };
 }
@@ -319,6 +326,7 @@ export function playRun(seed: number, profile: BotProfile = DECENT, entry = 250)
 
 export function bucketCause(cause: string): string {
   if (cause.startsWith("95")) return "95 natural";
+  if (cause.startsWith("Pokuta")) return "Pokuta";
   if (cause.startsWith("Jed")) return "jed";
   if (cause === "Čas") return "čas";
   const name = cause.split(" ťa ")[0] ?? cause;

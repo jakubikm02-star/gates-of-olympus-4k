@@ -171,6 +171,12 @@ export interface Run {
   /** Pečiatka úradu: the next enemy swing is stunned. */
   stamp: boolean;
   equip: EquipId[];
+  /** Run-scoped level, 0–3, from training or the upgrade service. */
+  levels: Partial<Record<SymId, number>>;
+  /** Spares fed in, 0–3. Each one is a flat bump. */
+  fortify: Partial<Record<SymId, number>>;
+  /** Two maxed copies combined. */
+  pro: SymId[];
 }
 
 export interface LiveSpin {

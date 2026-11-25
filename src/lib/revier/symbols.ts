@@ -67,6 +67,7 @@ export const REEL_PRICE = 15;
 export const REEL5_PRICE = 28;
 export const SUPPORT_PRICE = 7;
 export const EQUIP_PRICE = 9;
+export const UPGRADE_PRICE = 8;
 export const HOLD_PRICE = 2;
 export const START_HP = 100;
 export const START_REELS = 3;

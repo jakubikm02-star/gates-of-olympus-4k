@@ -41,7 +41,15 @@ const ENEMY_URLS = Object.keys(RIGS).concat([
   "/nocna/bosses/boss-5-prednosta.webp",
 ]);
 
-export const fpsProbe = { avg: 0, max: 0, samples: [] as number[] };
+export const fpsProbe = { avg: 0, max: 0, samples: [] as number[], reset: false };
+
+/** Sharpest first. The cabinet walks down this ladder and only walks back up after a long calm stretch. */
+const RES_LADDER = [2, 1.5, 1.25, 1] as const;
+
+function rungFor(dpr: number): number {
+  for (let i = 0; i < RES_LADDER.length; i++) if (RES_LADDER[i]! <= dpr + 0.01) return i;
+  return RES_LADDER.length - 1;
+}
 
 function urls(): string[] {
   const syms = Object.values(SYM).map((def) => def.art);
@@ -175,7 +183,15 @@ export class FightStage {
   private vignette = new Graphics();
   private chargeFill = new Sprite(Texture.WHITE);
   private cueFoe = false;
-  private droppedRes = false;
+  private rung = 0;
+  private resCool = 0;
+  private ceilingUntil = 0;
+  private slowStreak = 0;
+  private fastStreak = 0;
+  private recentMax = 0;
+  private bandY = 80;
+  private foeCell = 56;
+  private frameN = 0;
   private bgUrl = "";
   private bgScaled = new Map<string, Texture>();
   private barW = 180;
@@ -241,7 +257,8 @@ export class FightStage {
     await preloadNocna();
     const app = new Application();
     const raw = window.devicePixelRatio || 1;
-    const dpr = Math.max(1, Math.round(Math.min(FEEL.dprCap, raw) * 2) / 2);
+    const rung = rungFor(Math.min(FEEL.dprCap, raw));
+    const dpr = RES_LADDER[rung] ?? 1;
     await app.init({
       backgroundAlpha: 0,
       antialias: false,
@@ -257,10 +274,11 @@ export class FightStage {
     app.canvas.style.touchAction = "none";
     host.appendChild(app.canvas);
     const stage = new FightStage(app, host);
+    stage.rung = rung;
     const fit = () => {
       if (stage.destroyed || !app.renderer) return;
       try {
-        app.renderer.resize(Math.max(2, host.clientWidth), Math.max(2, host.clientHeight));
+        app.renderer.resize(Math.max(2, host.clientWidth), Math.max(2, host.clientHeight), RES_LADDER[stage.rung] ?? 1);
         stage.layout();
       } catch {
         /* renderer already gone */
@@ -338,7 +356,12 @@ export class FightStage {
       if (impacted) return;
       impacted = true;
       onImpact();
-      this.popNumber(cue.chip, cue.crit);
+      this.popNumber(cue.proc ? `PROC +${cue.proc}` : cue.chip, Boolean(cue.proc) || cue.crit);
+      if (cue.proc) {
+        const win = (cue.row === "foe" ? this.foeWins : this.wins)[cue.reel];
+        if (win) win.root.scale.set(1.12);
+        this.particles.burst({ x: this.foeX, y: this.foeY - 20, n: 12, color: this.pal.glow, speed: 0.4, life: 380, g: FEEL.gravity, ring: true, trails: this.quality.tier === "high" });
+      }
       if (cue.target === "foe" && cue.sym !== "restart") void this.rig?.play(this.snap && this.snap.ehp <= 0 ? "death" : "hit", { loop: false, mix: FEEL.rigMix });
       if (!this.reduced && this.quality.tier === "high" && cue.crit) this.flashBlur();
       this.kick(cue.crit ? FEEL.shakeCritMs : FEEL.shakeHitMs);
@@ -537,22 +560,26 @@ export class FightStage {
     const L = FEEL.layout;
     const inset = 28;
     const frameOut = 10;
+    const foeCount = Math.max(1, snap.foeWindows?.length || 3);
+    const foeCell = Math.min(68, Math.max(46, (w - 56 - (foeCount - 1) * 8) / foeCount));
+    this.foeCell = foeCell;
     let foeX = w * 0.5;
-    let foeY = h * (L.enemyTop + L.enemyH);
-    let foeH = h * L.enemyH;
+    let foeH = land ? h * 0.4 : h * 0.26;
+    let foeY = (land ? h * 0.06 : 28) + foeH;
     let reelY = h * (1 - L.reelBottom - L.reelH);
     let reelX = Math.max(w * L.gap, inset + frameOut);
     let reelW = w - reelX - (inset + frameOut);
     if (land) {
       foeX = Math.max(inset + 80, w * L.landEnemyW * 0.55);
-      foeY = h * 0.62;
-      foeH = h * 0.5;
+      foeH = h * 0.4;
+      foeY = h * 0.08 + foeH;
       reelX = Math.max(w * (L.landEnemyW + 0.02), inset + frameOut);
       reelW = w - reelX - (inset + frameOut);
       reelY = h * 0.22;
     }
     this.foeX = foeX;
     this.foeY = foeY;
+    this.bandY = foeY + 14;
     if (this.rig?.doc) {
       const sk = this.rig.doc.skeleton.height || 512;
       const sc = (foeH * 0.9) / sk;
@@ -808,13 +835,17 @@ export class FightStage {
     const ePlateW = this.eBarW + 88;
     let ePlateX = foeX - ePlateW / 2;
     ePlateX = Math.max(inset, Math.min(w - inset - ePlateW, ePlateX));
-    const ePlateY = Math.max(inset + 28, Math.min(foeY + 4, h - inset - 36));
+    const ePlateY = Math.max(inset + 8, Math.min(this.bandY + this.foeCell + 10, h - inset - 80));
     this.ePlateX = ePlateX;
     this.ePlateY = ePlateY;
     this.chargeFill.position.set(ePlateX + 10, ePlateY + 28);
+    const showEnemy = !this.snap?.shop;
     this.plates.clear();
     this.plates.roundRect(plateX, plateY, plateW, 50, 12).fill({ color: 0x16120e, alpha: 0.92 }).stroke({ color: pal.metal, width: 2 });
-    this.plates.roundRect(ePlateX, ePlateY, ePlateW, 32, 10).fill({ color: 0x16120e, alpha: 0.92 }).stroke({ color: pal.metal, width: 2 });
+    if (showEnemy) this.plates.roundRect(ePlateX, ePlateY, ePlateW, 32, 10).fill({ color: 0x16120e, alpha: 0.92 }).stroke({ color: pal.metal, width: 2 });
+    this.ehpFill.visible = showEnemy;
+    this.ehpNum.visible = showEnemy;
+    this.chargeFill.visible = showEnemy && (this.snap?.charge ?? 0) > 0;
     const barX = plateX + 42;
     this.hpGhost.position.set(barX, plateY + 12);
     this.hpFill.position.set(barX, plateY + 12);
@@ -833,11 +864,11 @@ export class FightStage {
     this.youX = barX;
     this.youY = plateY + 16;
     this.ehpNum.anchor.set(1, 0.5);
-    this.ehpNum.position.set(ePlateX + ePlateW - 8, ePlateY + 16);
+    this.ehpNum.position.set(ePlateX + ePlateW - 10, ePlateY + 16);
     this.hpNum.anchor.set(1, 0);
     this.hpNum.position.set(plateX + plateW - 8, plateY + 8);
-    this.intentText.anchor.set(1, 1);
-    this.intentText.position.set(ePlateX + ePlateW - 8, ePlateY - 4);
+    this.intentText.anchor.set(1, 0.5);
+    this.intentText.position.set(w - 16, this.bandY + this.foeCell / 2);
     this.hpFill.tint = pal.hp;
     this.shFill.tint = pal.shield;
     this.ehpFill.tint = pal.hp;
@@ -851,11 +882,11 @@ export class FightStage {
   private placeFoeRow(snap: FightSnap) {
     const n = snap.shop ? 0 : (snap.foeWindows?.length ?? 0);
     while (this.foeWins.length < Math.max(n, 1)) this.foeWins.push(this.makeWin());
-    const cell = n > 0 ? Math.min(58, Math.max(36, (this.eBarW + 24) / n)) : 40;
-    const gap = 6;
+    const cell = this.foeCell;
+    const gap = 8;
     const rowW = cell * n + gap * Math.max(0, n - 1);
-    const x0 = this.ePlateX + Math.max(0, (this.eBarW + 40 - rowW) / 2);
-    const y = Math.max(18, this.ePlateY - cell - 8);
+    const x0 = Math.max(16, (this.app.screen.width - rowW) / 2 - 18);
+    const y = this.bandY;
     this.foeWins.forEach((win, i) => {
       const spec = snap.foeWindows?.[i];
       win.root.visible = i < n;
@@ -1041,12 +1072,52 @@ export class FightStage {
     return { x: this.foeX, y: this.foeY - 80 };
   }
 
+  private applyRung(next: number, now: number, cool: number) {
+    const down = next > this.rung;
+    this.rung = next;
+    this.slowStreak = 0;
+    this.fastStreak = 0;
+    this.recentMax = 0;
+    this.resCool = now + cool;
+    if (down) this.ceilingUntil = now + 15000;
+    fpsProbe.reset = true;
+    fpsProbe.max = 0;
+    const res = RES_LADDER[this.rung] ?? 1;
+    this.app.renderer.resize(this.app.screen.width, this.app.screen.height, res);
+    for (const text of [this.num, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.btnLabel]) text.resolution = res;
+  }
+
+  /** Walk 2 → 1.5 → 1.25 → 1 when the average stays under 55. Climb back only after a long stretch above 62. */
+  private tuneResolution(now: number, raw: number) {
+    if (now < this.resCool || fpsProbe.samples.length < 16 || fpsProbe.avg <= 0) return;
+    const avg = fpsProbe.avg;
+    this.recentMax = Math.max(raw, this.recentMax * 0.98);
+    if (avg < 55) {
+      this.slowStreak += 1;
+      this.fastStreak = 0;
+    } else if (avg >= 64 && this.recentMax < 28) {
+      this.fastStreak += 1;
+      this.slowStreak = 0;
+    } else {
+      this.slowStreak = 0;
+      this.fastStreak = 0;
+    }
+    const cap = Math.min(FEEL.dprCap, window.devicePixelRatio || 1);
+    if (this.slowStreak >= 8 && this.rung < RES_LADDER.length - 1) {
+      this.applyRung(this.rung + 1, now, 700);
+      return;
+    }
+    const higher = RES_LADDER[this.rung - 1] ?? 2;
+    if (now >= this.ceilingUntil && this.fastStreak >= 240 && this.rung > 0 && higher <= cap + 0.01) {
+      this.applyRung(this.rung - 1, now, 3000);
+    }
+  }
+
   private tick = (ticker: Ticker) => {
     const raw = ticker.deltaMS;
     this.quality.note(raw);
-    const probe = fpsProbe as typeof fpsProbe & { reset?: boolean };
-    if (probe.reset) {
-      probe.reset = false;
+    if (fpsProbe.reset) {
+      fpsProbe.reset = false;
       fpsProbe.samples.length = 0;
       fpsProbe.max = 0;
       this.fpsSum = 0;
@@ -1077,8 +1148,11 @@ export class FightStage {
       const left = this.foeSpinUntil - performance.now();
       this.foeIcon.rotation = left > 0 ? Math.sin(left / 36) * 0.6 : 0;
     }
-    this.particles.tick(dt, this.quality.tier === "high" && !this.reduced);
-    this.rig?.update(dt);
+    const lively = this.quality.tier === "high" && !this.reduced;
+    this.particles.tick(dt, lively);
+    this.frameN += 1;
+    const stride = lively ? 1 : 3;
+    if (this.frameN % stride === 0) this.rig?.update(dt * stride);
     const now = performance.now();
     if (this.shakeT > 0) {
       this.shakeT -= dt;
@@ -1111,13 +1185,7 @@ export class FightStage {
       const charge = snap.shop ? 0 : Math.max(0, snap.charge) / 3;
       this.chargeFill.visible = charge > 0;
       this.chargeFill.scale.x = Math.max(0.01, this.eBarW * charge);
-      if (!this.droppedRes && fpsProbe.samples.length > 40 && fpsProbe.avg > 0 && fpsProbe.avg < 50 && this.app.renderer.resolution > 1) {
-        this.droppedRes = true;
-        const w = this.app.screen.width;
-        const h = this.app.screen.height;
-        this.app.renderer.resize(w, h, 1);
-        this.layout();
-      }
+      this.tuneResolution(now, raw);
       }
     const spinBag = PLAY_SYMS;
     for (let i = 0; i < this.foeWins.length; i++) {

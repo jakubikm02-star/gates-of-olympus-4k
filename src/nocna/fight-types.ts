@@ -59,6 +59,7 @@ export interface Cue {
   target: FeelTarget;
   row?: "you" | "foe";
   slow?: boolean;
+  proc?: number;
 }
 
 export interface FightHandle {
