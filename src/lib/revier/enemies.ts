@@ -66,8 +66,8 @@ const FOES: Record<string, Foe> = {
     taunt: "Lístok je vytlačený. Diskusia nie.",
     boss: false,
     elite: false,
-    hp: 155,
-    pattern: (s) => [hit(s(11)), hit(s(12)), hit(s(24), true)],
+    hp: 150,
+    pattern: (s) => [hit(s(10)), hit(s(11)), hit(s(20), true)],
   },
   ozran: {
     id: "ozran",
@@ -77,7 +77,7 @@ const FOES: Record<string, Foe> = {
     boss: false,
     elite: false,
     hp: 136,
-    pattern: (s) => [poison(s(6), 3), hit(s(14)), hit(s(15))],
+    pattern: (s) => [poison(s(5), 2), hit(s(14)), hit(s(14))],
   },
   inkasak: {
     id: "inkasak",
@@ -86,8 +86,8 @@ const FOES: Record<string, Foe> = {
     taunt: "Dlžíš. Ja som splátkový kalendár.",
     boss: false,
     elite: false,
-    hp: 170,
-    pattern: (s) => [hit(s(16)), shield(s(18)), hit(s(20))],
+    hp: 158,
+    pattern: (s) => [hit(s(14)), shield(s(16)), hit(s(17))],
   },
   zlodej: {
     id: "zlodej",
@@ -127,7 +127,7 @@ const FOES: Record<string, Foe> = {
     boss: true,
     elite: false,
     hp: 480,
-    pattern: (s) => [hit(s(20)), poison(s(8), 3), shield(s(24)), hit(s(22))],
+    pattern: (s) => [hit(s(20)), poison(s(6), 2), shield(s(24)), hit(s(20))],
   },
   anjel: {
     id: "anjel",
@@ -136,8 +136,8 @@ const FOES: Record<string, Foe> = {
     taunt: "Štít som ti neuznal.",
     boss: true,
     elite: false,
-    hp: 560,
-    pattern: (s) => [pierce(s(26)), hit(s(20)), hit(s(34), true)],
+    hp: 500,
+    pattern: (s) => [pierce(s(18)), hit(s(16)), hit(s(26), true)],
   },
   general: {
     id: "general",
@@ -146,8 +146,8 @@ const FOES: Record<string, Foe> = {
     taunt: "Podaj to. A potom podaj seba.",
     boss: true,
     elite: false,
-    hp: 820,
-    pattern: (s) => [hit(s(22)), shield(s(32)), stun(s(14)), hit(s(34), true)],
+    hp: 800,
+    pattern: (s) => [hit(s(21)), shield(s(30)), stun(s(13)), hit(s(32), true)],
   },
   prednosta: {
     id: "prednosta",
@@ -156,8 +156,8 @@ const FOES: Record<string, Foe> = {
     taunt: "Smena končí, keď poviem.",
     boss: true,
     elite: false,
-    hp: 980,
-    pattern: (s) => [hit(s(24)), hit(s(40), true), heal(s(36)), pierce(s(30))],
+    hp: 960,
+    pattern: (s) => [hit(s(22)), hit(s(38), true), heal(s(32)), pierce(s(28))],
   },
   krovinorez: {
     id: "krovinorez",
@@ -167,7 +167,7 @@ const FOES: Record<string, Foe> = {
     boss: false,
     elite: true,
     hp: 280,
-    pattern: (s) => [hit(s(18), true), poison(s(7), 3), hit(s(16))],
+    pattern: (s) => [hit(s(18), true), poison(s(5), 2), hit(s(16))],
   },
   motorka: {
     id: "motorka",
@@ -289,7 +289,7 @@ function intentFromKit(sym: SymId, amount: number): Intent {
     return { kind: "shield", amount: n, label: `${name} · štít ${n}` };
   }
   if (sym === "gemp" || sym === "kraj" || sym === "boticka") {
-    return { kind: "poison", amount: Math.max(1, Math.round(n * 0.45)), turns: 3, label: `${name} · jed` };
+    return { kind: "poison", amount: Math.max(1, Math.round(n * 0.35)), turns: 2, label: `${name} · jed` };
   }
   if (sym === "case" || sym === "konektor" || sym === "gemy") {
     return { kind: "steal", amount: Math.max(1, Math.round(n * 0.7)), turns: 2, label: `${name} · krádež` };

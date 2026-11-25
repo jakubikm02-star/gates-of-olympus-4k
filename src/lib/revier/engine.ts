@@ -638,12 +638,14 @@ export function enemyPhase(run: Run): { run: Run; beats: Beat[] } {
     enemy = { ...enemy, hp: enemy.hp + gained };
     beats.push({ t: "heal", amount: gained, blocked: 0, text: `Liečenie ${gained}` });
   } else if (intent.kind === "poison") {
-    applyHit(Math.max(1, Math.round(amount * 0.6)), false);
+    applyHit(Math.max(1, Math.round(amount * 0.45)), false);
     if (next.hp > 0) {
       const prev = next.poison;
-      const dmg = Math.min(POISON_CAP, (prev?.dmg ?? 0) + amount);
-      next = { ...next, poison: { dmg, left: Math.max(prev?.left ?? 0, intent.turns ?? 3) } };
-      beats.push({ t: "poison", amount, blocked: 0, text: `Jed ${amount}` });
+      const tick = Math.max(1, Math.round(amount * 0.75));
+      const dmg = Math.min(POISON_CAP, Math.max(prev?.dmg ?? 0, tick));
+      const left = Math.min(2, Math.max(prev?.left ?? 0, Math.min(2, intent.turns ?? 2)));
+      next = { ...next, poison: { dmg, left } };
+      beats.push({ t: "poison", amount: tick, blocked: 0, text: `Jed ${tick}` });
     }
   } else if (intent.kind === "steal") {
     const coins = Math.min(next.coins, intent.turns ?? 2);
