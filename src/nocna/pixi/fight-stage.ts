@@ -71,6 +71,7 @@ interface WinNode {
   frame: Graphics;
   glass: Graphics;
   icon: Sprite;
+  slip: Sprite;
   chip: Text;
   token: number;
   size: number;
@@ -679,6 +680,7 @@ export class FightStage {
     const deckWas = this.deck.map((s) => s.visible);
     for (const win of [...this.wins, ...this.foeWins]) {
       win.icon.visible = false;
+      win.slip.visible = false;
       win.chip.visible = false;
     }
     for (const s of this.deck) s.visible = false;
@@ -943,18 +945,23 @@ export class FightStage {
     const glass = new Graphics();
     const icon = new Sprite();
     icon.anchor.set(0.5);
+    const slip = new Sprite();
+    slip.anchor.set(0.5);
+    slip.visible = false;
     const chip = new Text({
       text: "",
       style: { fill: 0xfff6d2, fontSize: 16, fontWeight: "700", fontFamily: "Oswald, sans-serif", stroke: { color: 0x140e08, width: 3 } },
     });
     chip.resolution = Math.max(1, Math.round(this.app.renderer.resolution || 1));
     chip.anchor.set(0.5, 1);
-    root.addChild(frame, hole, glass, icon, chip);
+    root.addChild(frame, hole, glass, slip, icon, chip);
     this.world.addChild(root);
-    return { root, hole, frame, glass, icon, chip, token: -1, size: 80 };
+    return { root, hole, frame, glass, icon, slip, chip, token: -1, size: 80 };
   }
 
   private sit(win: WinNode, spec: WinSnap | undefined, cell: number) {
+    win.slip.visible = false;
+    win.icon.scale.set(1);
     if (!spec || spec.mode === "empty" || !spec.sym) {
       win.icon.visible = false;
       return;
@@ -972,6 +979,8 @@ export class FightStage {
   }
 
   private dropIn(win: WinNode, spec: WinSnap, cell: number) {
+    win.slip.visible = false;
+    win.icon.scale.set(1);
     const art = spec.sym ? SYM[spec.sym as keyof typeof SYM]?.art : "";
     if (art) win.icon.texture = Texture.from(art);
     win.icon.visible = true;
@@ -1191,15 +1200,33 @@ export class FightStage {
     for (let i = 0; i < this.foeWins.length; i++) {
       const win = this.foeWins[i];
       const spec = snap?.foeWindows[i];
-      if (!win.root.visible || !spec || spec.mode !== "flicker") continue;
-      const id = spinBag[(Math.floor(now / 70) + i) % spinBag.length]!;
+      if (!win.root.visible || !spec || spec.mode !== "flicker") {
+        if (win.slip.visible) win.slip.visible = false;
+        continue;
+      }
+      const period = 90;
+      const phase = (now / period + i * 0.41) % 1;
+      const idx = (Math.floor(now / period) + i * 3) % spinBag.length;
+      const cur = spinBag[idx]!;
+      const nxt = spinBag[(idx + 1) % spinBag.length]!;
+      const w = win.size * 0.62;
+      const h = win.size * 0.95;
+      const travel = win.size * 0.9;
+      win.chip.text = "";
       win.icon.visible = true;
-      win.icon.texture = Texture.from(SYM[id].art);
-      win.icon.position.set(win.size / 2, win.size / 2);
-      win.icon.width = win.size * 0.72;
-      win.icon.height = win.size * 0.72;
+      win.slip.visible = true;
+      win.icon.texture = Texture.from(SYM[cur].art);
+      win.slip.texture = Texture.from(SYM[nxt].art);
+      win.icon.width = w;
+      win.icon.height = h;
+      win.slip.width = w;
+      win.slip.height = h;
+      win.icon.position.set(win.size / 2, win.size / 2 + (phase - 0.15) * travel);
+      win.slip.position.set(win.size / 2, win.size / 2 + (phase - 1.15) * travel);
+      win.icon.alpha = 0.55 + phase * 0.4;
+      win.slip.alpha = 0.9 - phase * 0.45;
       win.glass.visible = true;
-      win.glass.alpha = 0.45;
+      win.glass.alpha = 0.35;
     }
     for (let i = 0; i < this.wins.length; i++) {
       const win = this.wins[i];

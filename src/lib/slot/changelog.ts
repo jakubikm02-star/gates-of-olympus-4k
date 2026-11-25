@@ -7,6 +7,7 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-11-25", text: "NOČNÁ SMENA: plechovky sú PARKVOLT, bez cudzieho znaku. Obchod má kovové karty, vzácnosť svieti a úprava karty je v jednom okne. Klasický automat sa nemení." },
   { day: "2026-11-25", text: "NOČNÁ SMENA: nepriateľov valec má vlastný pás medzi postavou a jeho životom. Obchod ukáže cenu, vzácnosť a jednu vetu, skrytý výber, premiešanie, vyradenie a zlepšenie. Výboj je meter. Obraz zľaví po krokoch, keď nestíha. Klasický automat sa nemení." },
   { day: "2026-11-25", text: "NOČNÁ SMENA má napätie. Posledný valec vie spomaliť, veľký úder sa nabíja na páse, pod štvrtinou života bije srdce a pred smrteľným zásahom sa obraz na chvíľu stíši. Pred točením môžeš ísť all-in, zamknúť valec alebo minúť výboj. Nepriateľ točí vlastný rad okien z tých istých symbolov, čo kupuješ ty. Pokuta je čitateľná, Neplatič dýcha tichšie a údery sú kratšie. Klasický automat sa nemení." },
   { day: "2026-11-25", text: "NOČNÁ SMENA je o kúsok zľahčená. Anjel exekúcie, Inkasák a Pokutomat bijú menej, jed sa už nesčítava do výšky a trvá kratšie. Do Rannej špičky sa dostane asi jeden beh z dvadsiatich. Klasický automat sa nemení." },

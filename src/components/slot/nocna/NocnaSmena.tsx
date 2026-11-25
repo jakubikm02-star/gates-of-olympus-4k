@@ -309,16 +309,6 @@ export function NocnaSmena(props: Props) {
           </button>
         </div>
       ) : null}
-      {v.stage === "shop" && v.run.shop?.faces.length ? (
-        <div className="ns-faces" aria-label="Výber kariet">
-          {v.run.shop.faces.map((id, i) => (
-            <button key={`${id}-${i}`} type="button" onClick={() => v.face(i)}>
-              <img src={symDef(id)?.art} alt="" />
-              <span>{symDef(id)?.name ?? id}</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
       <button
         type="button"
         className="ns-go"
@@ -368,6 +358,7 @@ function Shop(props: {
   onBubble: (title: string, text: string) => void;
 }) {
   const shop = props.run.shop;
+  const [edit, setEdit] = useState<SymId | null>(null);
   if (!shop) return null;
   const counts = new Map<SymId, number>();
   for (const id of props.run.deck) counts.set(id, (counts.get(id) ?? 0) + 1);
@@ -394,11 +385,11 @@ function Shop(props: {
         })}
       </div>
       <div className="ns-shop-row">
-        <button type="button" disabled={props.run.coins < price} onClick={props.onReroll}>
-          Premiešať {price} RJ
+        <button type="button" className="ns-svc" disabled={props.run.coins < price} onClick={props.onReroll}>
+          <span aria-hidden="true">↻</span> Premiešať {price}
         </button>
-        <button type="button" disabled={props.run.coins < HEAL_PRICE || shop.heals >= HEAL_STOCK || props.run.hp >= props.run.maxHp} onClick={props.onHeal}>
-          Život {HEAL_PRICE}
+        <button type="button" className="ns-svc" disabled={props.run.coins < HEAL_PRICE || shop.heals >= HEAL_STOCK || props.run.hp >= props.run.maxHp} onClick={props.onHeal}>
+          <span aria-hidden="true">♥</span> Život {HEAL_PRICE}
         </button>
       </div>
       {shop.faces.length ? (
@@ -415,17 +406,17 @@ function Shop(props: {
         </div>
       ) : null}
       <div className="ns-services">
-        <button type="button" disabled={props.run.coins < SUPPORT_PRICE || props.run.keys >= 2} onClick={props.onKeys}>
-          Kľúče od auta {SUPPORT_PRICE}
+        <button type="button" className="ns-svc" disabled={props.run.coins < SUPPORT_PRICE || props.run.keys >= 2} onClick={props.onKeys}>
+          <span aria-hidden="true">⚿</span> Kľúče {SUPPORT_PRICE}
         </button>
-        <button type="button" disabled={props.run.coins < SUPPORT_PRICE || props.run.stamp} onClick={props.onStamp}>
-          Pečiatka úradu {SUPPORT_PRICE}
+        <button type="button" className="ns-svc" disabled={props.run.coins < SUPPORT_PRICE || props.run.stamp} onClick={props.onStamp}>
+          <span aria-hidden="true">▣</span> Pečiatka {SUPPORT_PRICE}
         </button>
-        <button type="button" disabled={props.run.coins < EQUIP_PRICE || props.run.equip.includes("uder") || props.run.equip.length >= 2} onClick={() => props.onEquip("uder")}>
-          Slot Sila {props.run.equip.includes("uder") ? "máš" : EQUIP_PRICE}
+        <button type="button" className="ns-svc" disabled={props.run.coins < EQUIP_PRICE || props.run.equip.includes("uder") || props.run.equip.length >= 2} onClick={() => props.onEquip("uder")}>
+          <span aria-hidden="true">⚔</span> Sila {props.run.equip.includes("uder") ? "máš" : EQUIP_PRICE}
         </button>
-        <button type="button" disabled={props.run.coins < EQUIP_PRICE || props.run.equip.includes("stit") || props.run.equip.length >= 2} onClick={() => props.onEquip("stit")}>
-          Slot Odolnosť {props.run.equip.includes("stit") ? "máš" : EQUIP_PRICE}
+        <button type="button" className="ns-svc" disabled={props.run.coins < EQUIP_PRICE || props.run.equip.includes("stit") || props.run.equip.length >= 2} onClick={() => props.onEquip("stit")}>
+          <span aria-hidden="true">🛡</span> Odolnosť {props.run.equip.includes("stit") ? "máš" : EQUIP_PRICE}
         </button>
       </div>
       <p className="ns-deck-count">
@@ -452,27 +443,36 @@ function Shop(props: {
                   </small>
                 </div>
               </div>
-              <div className="ns-row-actions">
-                <button type="button" disabled={props.run.deck.length <= 3 || props.run.coins < REMOVE_PRICE} onClick={() => props.onRemove(at)}>
-                  Vyradiť
-                </button>
-                <button type="button" disabled={lv >= 3 || props.run.coins < UPGRADE_PRICE} onClick={() => props.onUpgrade(id)}>
-                  Zlepšiť {UPGRADE_PRICE}
-                </button>
-                <button type="button" disabled={n < 2 || lv >= 3} onClick={() => props.onTrain(id)}>
-                  Tréning
-                </button>
-                <button type="button" disabled={n < 2 || lv < 3 || pro} onClick={() => props.onPro(id)}>
-                  Pro
-                </button>
-                <button type="button" disabled={n < 2 || fort >= 3} onClick={() => props.onFortify(id)}>
-                  Pevnosť
-                </button>
-              </div>
+              <button type="button" className="ns-svc ns-edit" onClick={() => setEdit(id)}>
+                Upraviť
+              </button>
             </li>
           );
         })}
       </ul>
+      {edit ? (
+        <div className="ns-sheet" role="dialog" aria-label="Upraviť kartu">
+          <b>{symDef(edit)?.name ?? edit}</b>
+          <button type="button" className="ns-svc" disabled={props.run.deck.length <= 3 || props.run.coins < REMOVE_PRICE} onClick={() => { props.onRemove(props.run.deck.lastIndexOf(edit)); setEdit(null); }}>
+            Vyradiť
+          </button>
+          <button type="button" className="ns-svc" disabled={(props.run.levels[edit] ?? 0) >= 3 || props.run.coins < UPGRADE_PRICE} onClick={() => props.onUpgrade(edit)}>
+            Zlepšiť {UPGRADE_PRICE}
+          </button>
+          <button type="button" className="ns-svc" disabled={(counts.get(edit) ?? 0) < 2 || (props.run.levels[edit] ?? 0) >= 3} onClick={() => props.onTrain(edit)}>
+            Tréning
+          </button>
+          <button type="button" className="ns-svc" disabled={(counts.get(edit) ?? 0) < 2 || (props.run.levels[edit] ?? 0) < 3 || props.run.pro.includes(edit)} onClick={() => props.onPro(edit)}>
+            Pro
+          </button>
+          <button type="button" className="ns-svc" disabled={(counts.get(edit) ?? 0) < 2 || (props.run.fortify[edit] ?? 0) >= 3} onClick={() => props.onFortify(edit)}>
+            Pevnosť
+          </button>
+          <button type="button" className="ns-svc" onClick={() => setEdit(null)}>
+            Zavrieť
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
