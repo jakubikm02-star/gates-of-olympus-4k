@@ -71,6 +71,12 @@ function rungFor(dpr: number): number {
 
 const DJ_STILL = ["aura", "auraHot", "desk", "mic", "torso", "armLU", "armLL", "armRU", "armRL"] as const;
 const DJ_LIVE = ["head", "jaw", "handL", "handR"] as const;
+/** Room above and below the skeleton so the aura and the head are not clipped. */
+const PLATE_W = 560;
+const PLATE_INNER = 596;
+const PLATE_PAD_TOP = 220;
+const PLATE_PAD_BOTTOM = 48;
+const PLATE_H = PLATE_PAD_TOP + PLATE_INNER + PLATE_PAD_BOTTOM;
 
 function urls(): string[] {
   const syms = Object.values(SYM).map((def) => def.art);
@@ -1119,8 +1125,8 @@ export class FightStage {
       rig.showOnly(DJ_LIVE);
       return;
     }
-    const w = 480;
-    const h = 600;
+    const w = PLATE_W;
+    const h = PLATE_H;
     if (!this.djPlateRT || this.djPlateRT.width !== w || this.djPlateRT.height !== h) {
       this.djPlateRT?.destroy(true);
       this.djPlateRT = RenderTexture.create({ width: w, height: h, resolution: 1 });
@@ -1142,8 +1148,9 @@ export class FightStage {
     const py = rig.position.y;
     const sc = rig.scale.x;
     parent?.removeChild(rig);
-    rig.position.set(w / 2, h - 2);
-    rig.scale.set((h - 4) / (rig.doc.skeleton.height || 1400));
+    const skel = rig.doc.skeleton.height || 1400;
+    rig.position.set(w / 2, PLATE_PAD_TOP + PLATE_INNER);
+    rig.scale.set(PLATE_INNER / skel);
     const bg = this.app.renderer.background;
     const prevAlpha = bg.alpha;
     const prevColor = bg.color;
@@ -1191,11 +1198,15 @@ export class FightStage {
   private placeDomPlate() {
     const el = this.plateEl;
     const plate = this.djPlate;
-    if (!el || !plate) return;
-    const w = plate.width;
-    const h = plate.height;
-    el.style.left = `${plate.x - w / 2}px`;
-    el.style.top = `${plate.y - h}px`;
+    const rig = this.rig;
+    if (!el || !plate || !rig?.doc) return;
+    const skel = rig.doc.skeleton.height || 1400;
+    const k = rig.scale.x / (PLATE_INNER / skel);
+    const w = PLATE_W * k;
+    const h = PLATE_H * k;
+    const foot = PLATE_PAD_BOTTOM * k;
+    el.style.left = `${rig.position.x - w / 2}px`;
+    el.style.top = `${rig.position.y + foot - h}px`;
     el.style.width = `${w}px`;
     el.style.height = `${h}px`;
     plate.visible = false;
@@ -1258,11 +1269,11 @@ export class FightStage {
 
   private placeDjPlate(rig: Rig) {
     if (!this.djPlate || !this.djPlateRT || !rig.doc) return;
-    const bakeScale = (this.djPlateRT.height - 4) / (rig.doc.skeleton.height || 1400);
-    const k = rig.scale.x / bakeScale;
-    this.djPlate.position.set(rig.position.x, rig.position.y);
-    this.djPlate.width = this.djPlateRT.width * k;
-    this.djPlate.height = this.djPlateRT.height * k;
+    const skel = rig.doc.skeleton.height || 1400;
+    const k = rig.scale.x / (PLATE_INNER / skel);
+    this.djPlate.position.set(rig.position.x, rig.position.y + PLATE_PAD_BOTTOM * k);
+    this.djPlate.width = PLATE_W * k;
+    this.djPlate.height = PLATE_H * k;
     if (this.plateEl) this.placeDomPlate();
     else this.djPlate.visible = true;
   }
