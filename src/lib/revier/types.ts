@@ -38,7 +38,11 @@ export type SymId =
   | "okres"
   | "kraj"
   | "stat"
+  | "pokuta"
   | "medzera";
+
+export type StatId = "sila" | "odolnost" | "rychlost" | "charizma";
+export type EquipId = "uder" | "stit";
 
 /** How a symbol bends the basic numbers. Absent means the numbers stand alone. */
 export type SymHook = "left" | "right" | "chain" | "copy" | "burst" | "grow" | "double" | "wild";
@@ -77,11 +81,19 @@ export interface Enemy {
   pattern: Intent[];
   pi: number;
   intent: Intent;
-  /** Landed enemy-reel symbol. Empty kit means the scripted pattern is the whole telegraph. */
+  /** First landed window. The row itself is `lands`. */
   reel: SymId;
   kit: SymId[];
+  /** Shared-pool deck. Empty on fixtures, so the scripted pattern stays the test path. */
+  deck: SymId[];
+  /** Symbols sitting in the enemy's windows. The telegraph is this roll. */
+  lands: SymId[];
+  windows: number;
   /** Increments every time the enemy reel lands, so the cabinet can spin. */
   roll: number;
+  enraged: boolean;
+  /** Big hit winding up. `left` is how many enemy turns remain, including the impact. */
+  charge: { left: number; amount: number; pierce: boolean } | null;
 }
 
 export interface Offer {
@@ -93,6 +105,10 @@ export interface Shop {
   offers: Offer[];
   heals: number;
   rerolled: boolean;
+  /** How many times this shop was already shuffled. The price climbs. */
+  rolls: number;
+  /** Face-down draft. One pick, then the row closes. */
+  faces: SymId[];
 }
 
 export interface Stats {
@@ -137,6 +153,30 @@ export interface Run {
   entry: number;
   /** Times a growing symbol has already fired. */
   growth: Partial<Record<SymId, number>>;
+  /** Stats the round is calling. Matching symbols hit a little harder. */
+  call: StatId[];
+  /** 0–100. The player spends it with a tap before the spin. */
+  super: number;
+  /** Next spin's damage multiplier. 1, or 1.5 after an all-in. */
+  wager: number;
+  held: number | null;
+  heldSym: SymId | null;
+  /** Shops in a row with only ordinary offers. */
+  pity: number;
+  /** Win streak inside the run. Caps at 3. */
+  momentum: number;
+  lastLands: SymId[];
+  /** Kľúče od auta: bonus damage still in the glovebox. */
+  keys: number;
+  /** Pečiatka úradu: the next enemy swing is stunned. */
+  stamp: boolean;
+  equip: EquipId[];
+  /** Run-scoped level, 0–3, from training or the upgrade service. */
+  levels: Partial<Record<SymId, number>>;
+  /** Spares fed in, 0–3. Each one is a flat bump. */
+  fortify: Partial<Record<SymId, number>>;
+  /** Two maxed copies combined. */
+  pro: SymId[];
 }
 
 export interface LiveSpin {

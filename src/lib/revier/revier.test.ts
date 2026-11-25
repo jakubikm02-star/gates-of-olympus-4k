@@ -133,6 +133,18 @@ describe("Nočná smena combat", () => {
     assert.equal(buyFourthReel({ ...run, floor: 3, coins: REEL_PRICE }).reels, 4);
   });
 
+  it("the enemy spins the same shared symbols the shop sells", () => {
+    let seeded = createRun(11, 250);
+    for (const sym of seeded.draft.slice(0, 3)) seeded = togglePick(seeded, sym);
+    const real = dismissBanner(confirmDraft(seeded));
+    const enemy = real.enemy;
+    assert.ok(enemy);
+    assert.equal(enemy!.lands.length, enemy!.boss ? 4 : 3);
+    assert.ok(enemy!.deck.length >= 8);
+    for (const sym of enemy!.lands) assert.ok(enemy!.deck.includes(sym));
+    assert.ok(enemy!.intent.amount > 0);
+  });
+
   it("the same seed stops on the same symbols", () => {
     const run = face(armed(), { name: "Neplatič", hp: 140 });
     const a = beginSpin(run);

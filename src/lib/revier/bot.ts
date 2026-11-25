@@ -1,13 +1,19 @@
 import {
+  armWager,
   beginSpin,
+  buyEquip,
+  buyFifthReel,
   buyFourthReel,
   buyHeal,
+  buyKeys,
   buyOffer,
   confirmDraft,
   createRun,
   dismissBanner,
   enemyPhase,
   finishPlayer,
+  fireSuper,
+  holdReel,
   leaveShop,
   lockReel,
   nextOpenReel,
@@ -16,10 +22,11 @@ import {
   rerollShop,
   resolveReel,
   sealSpin,
+  takeFace,
   togglePick,
 } from "./engine.ts";
 import { roll } from "./rng.ts";
-import { HEAL_PRICE, REEL_PRICE, REMOVE_PRICE, REROLL_PRICE, SYM } from "./symbols.ts";
+import { EQUIP_PRICE, HEAL_PRICE, HOLD_PRICE, REEL5_PRICE, REEL_PRICE, REMOVE_PRICE, REROLL_PRICE, SUPPORT_PRICE, SYM, symDef } from "./symbols.ts";
 import type { Intent, Run, SymId } from "./types.ts";
 
 export interface BotProfile {
@@ -67,7 +74,11 @@ function incoming(intent: Intent): number {
 }
 
 function scoreOf(sym: SymId): number {
-  return DRAFT[sym] ?? 3;
+  if (DRAFT[sym] != null) return DRAFT[sym]!;
+  if (sym === "pokuta" || sym === "medzera") return -20;
+  const def = symDef(sym);
+  if (!def) return 0;
+  return Math.round(def.dmg * 0.35 + def.shield * 0.28 + def.heal * 0.3 + def.dot * 1.2 + (def.stun ? 7 : 0) + def.coins * 2);
 }
 
 function want(run: Run, sym: SymId): number {
@@ -93,11 +104,22 @@ function want(run: Run, sym: SymId): number {
     case "konektor":
       return run.coins < 6 ? 12 : 5;
     case "natural":
-      return run.hp > 32 ? (almost ? 36 : 17) : -30;
+      if (run.hp <= 16) return -80;
+      return run.hp > 40 ? (almost ? 36 : 14) : -40;
     case "restart":
       return 4;
-    default:
-      return -80;
+    case "pokuta":
+      return -40;
+    default: {
+      const def = symDef(sym);
+      if (!def) return 0;
+      if (def.self > 0 && run.hp < 36) return -28;
+      let score = def.dmg * 0.45 + def.shield * 0.3 + def.heal * 0.4 + def.dot + (def.stun ? 8 : 0);
+      if (def.pierce && enemy.shield > 0) score += 10;
+      if (def.shield > 0 && threat) score += 12;
+      if (def.dmg > 0 && almost) score += 10;
+      return Math.round(score);
+    }
   }
 }
 
@@ -119,6 +141,12 @@ function chooseStop(run: Run, strip: readonly SymId[], profile: BotProfile): { r
         index = at;
       }
     }
+  }
+  const picked = strip[index] ?? "medzera";
+  const self = picked === "natural" ? 8 : 0;
+  if (self > 0 && run.hp <= self + 4) {
+    const safer = window.find((at) => strip[at] !== "natural");
+    if (safer != null) index = safer;
   }
   return { run: { ...run, rng: tossed.state }, index };
 }
@@ -159,8 +187,44 @@ function shop(run: Run): Run {
         continue;
       }
     }
+    if (stock.faces.length > 0 && next.deck.length < 8) {
+      let at = -1;
+      let bestFace = 14;
+      stock.faces.forEach((sym, i) => {
+        const score = scoreOf(sym);
+        if (score > bestFace) {
+          bestFace = score;
+          at = i;
+        }
+      });
+      if (at >= 0) {
+        next = takeFace(next, at);
+        continue;
+      }
+    }
     if (next.reels < 4 && next.floor >= 3 && next.coins >= REEL_PRICE && next.deck.length >= 7 && next.hp >= 45) {
       const bought = buyFourthReel(next);
+      if (bought !== next) {
+        next = bought;
+        continue;
+      }
+    }
+    if (next.reels === 4 && next.floor >= 4 && next.coins >= REEL5_PRICE && next.hp >= 50) {
+      const bought = buyFifthReel(next);
+      if (bought !== next) {
+        next = bought;
+        continue;
+      }
+    }
+    if (next.equip.length < 1 && next.coins >= EQUIP_PRICE + 4 && next.hp >= 48) {
+      const bought = buyEquip(next, next.shield < 8 ? "stit" : "uder");
+      if (bought !== next) {
+        next = bought;
+        continue;
+      }
+    }
+    if (next.keys < 1 && next.coins >= SUPPORT_PRICE + 6 && next.hp >= 55) {
+      const bought = buyKeys(next);
       if (bought !== next) {
         next = bought;
         continue;
@@ -212,6 +276,19 @@ export function playRun(seed: number, profile: BotProfile = DECENT, entry = 250)
     const upkeep = playerUpkeep(run);
     run = upkeep.run;
     if (run.phase === "dead") break;
+    if (run.super >= 100 && run.enemy && run.enemy.hp > 24) {
+      run = fireSuper(run);
+      if (run.phase !== "fight") continue;
+    }
+    if (run.enemy && run.hp > 58 && run.enemy.hp + run.enemy.shield <= 36) run = armWager(run);
+    if (run.enemy && run.coins >= HOLD_PRICE) {
+      const threat = incoming(run.enemy.intent) > run.shield + 6;
+      const holdAt = run.lastLands.findIndex((sym) => {
+        const def = symDef(sym);
+        return threat && def && def.shield > 0;
+      });
+      if (holdAt >= 0) run = holdReel(run, holdAt);
+    }
     const opened = beginSpin(run);
     if (!opened) break;
     run = opened.run;
@@ -249,6 +326,7 @@ export function playRun(seed: number, profile: BotProfile = DECENT, entry = 250)
 
 export function bucketCause(cause: string): string {
   if (cause.startsWith("95")) return "95 natural";
+  if (cause.startsWith("Pokuta")) return "Pokuta";
   if (cause.startsWith("Jed")) return "jed";
   if (cause === "Čas") return "čas";
   const name = cause.split(" ťa ")[0] ?? cause;

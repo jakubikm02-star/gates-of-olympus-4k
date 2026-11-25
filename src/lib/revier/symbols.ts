@@ -1,3 +1,4 @@
+import { FAMILY_NAME, RARITY_NAME, STAT_NAME, metaOf } from "./depth.ts";
 import type { SymHook, SymId, SymMotion } from "./types.ts";
 
 /** Opening draft. Order is the contract the seeded tests shuffle. */
@@ -63,8 +64,17 @@ export const HEAL_STOCK = 2;
 export const REROLL_PRICE = 5;
 export const REMOVE_PRICE = 10;
 export const REEL_PRICE = 15;
+export const REEL5_PRICE = 28;
+export const SUPPORT_PRICE = 7;
+export const EQUIP_PRICE = 9;
+export const UPGRADE_PRICE = 8;
+export const HOLD_PRICE = 2;
 export const START_HP = 100;
 export const START_REELS = 3;
+
+export function rerollCost(rolls: number): number {
+  return REROLL_PRICE + Math.max(0, rolls) * 3;
+}
 
 export interface SymDef {
   id: SymId;
@@ -278,15 +288,20 @@ export const SYM: Record<Exclude<SymId, "medzera">, SymDef> = {
   hour: s("hour", "Presýpacie hodiny", "Úder 5 a pri každom ďalšom použití +3.", "/symbols/hourglass.png", 9, 4, { dmg: 5, hook: "grow", motion: "strike" }),
   ring: s("ring", "Prsteň", "Zopakuje úder suseda vľavo ešte raz.", "/symbols/ring.png", 12, 3, { dmg: 0, hook: "double", motion: "copy" }),
   fs: s("fs", "Finančná správa", "14 cez štít.", "/symbols/fs.png", 12, 4, { dmg: 14, pierce: true, motion: "pierce" }),
-  can1: s("can1", "Plechovka I", "Zmaže sa a dá 10.", "/symbols/can-t1.webp", 6, 5, { dmg: 10, hook: "burst", motion: "burst" }),
-  can2: s("can2", "Plechovka II", "Zmaže sa a dá 16.", "/symbols/can-t2.webp", 8, 4, { dmg: 16, hook: "burst", motion: "burst" }),
-  can3: s("can3", "Plechovka III", "Zmaže sa a dá 24.", "/symbols/can-t3.webp", 11, 3, { dmg: 24, hook: "burst", motion: "burst" }),
-  can4: s("can4", "Plechovka IV", "Zmaže sa a dá 34.", "/symbols/can-t4.webp", 14, 2, { dmg: 34, hook: "burst", motion: "burst" }),
-  canarc: s("canarc", "Oblúková plechovka", "Štít 8 a úder 8.", "/symbols/can-arc.webp", 10, 4, { shield: 8, dmg: 8, motion: "guard", aim: "you" }),
+  can1: s("can1", "Plechovka I", "Zmaže sa a dá 10.", "/spektrum/can-green.webp", 6, 5, { dmg: 10, hook: "burst", motion: "burst" }),
+  can2: s("can2", "Plechovka II", "Zmaže sa a dá 16.", "/spektrum/can-blue.webp", 8, 4, { dmg: 16, hook: "burst", motion: "burst" }),
+  can3: s("can3", "Plechovka III", "Zmaže sa a dá 24.", "/spektrum/can-violet.webp", 11, 3, { dmg: 24, hook: "burst", motion: "burst" }),
+  can4: s("can4", "Plechovka IV", "Zmaže sa a dá 34.", "/spektrum/can-yellow.webp", 14, 2, { dmg: 34, hook: "burst", motion: "burst" }),
+  canarc: s("canarc", "Oblúková plechovka", "Štít 8 a úder 8.", "/spektrum/can-orange.webp", 10, 4, { shield: 8, dmg: 8, motion: "guard", aim: "you" }),
   ulica: s("ulica", "1-FTTB", "Úder 6, na ľavom valci 16.", "/symbols/fttb-ulica.png", 7, 5, { dmg: 6, hook: "left", motion: "strike" }),
   okres: s("okres", "2-FTTB", "Štít 10.", "/symbols/fttb-okres.png", 8, 5, { shield: 10, motion: "guard", aim: "you" }),
   kraj: s("kraj", "3-FTTB", "Jed 5 na 3 ťahy.", "/symbols/fttb-kraj.png", 9, 4, { dot: 5, dotTurns: 3, motion: "venom" }),
   stat: s("stat", "4-FTTB", "Úder 10, na pravom valci 20 cez štít.", "/symbols/fttb-stat.png", 12, 3, { dmg: 10, hook: "right", pierce: true, motion: "pierce" }),
+  pokuta: s("pokuta", "Pokuta", "Vnútený lístok. Keď padne, stratíš 6 HP a dáš úder 4.", "/symbols/listok-ulica.svg", 0, 0, {
+    dmg: 4,
+    self: 6,
+    motion: "stamp",
+  }),
 };
 
 function s(
@@ -337,7 +352,11 @@ export function symMark(id: SymId, mul = 1): { chip: string; detail: string } | 
   else if (def.stun) chip = "✦";
   else if (id === "restart") chip = "↻";
   if (def.dot > 0) chip = `${chip} ◉${n(def.dot)}`;
-  return { chip, detail: def.blurb };
+  const meta = metaOf(id);
+  const extra = meta
+    ? ` ${FAMILY_NAME[meta.family]}, ${RARITY_NAME[meta.rarity]}. Volá sa ${STAT_NAME[meta.stat]}.`
+    : "";
+  return { chip, detail: def.blurb + extra };
 }
 
 export function critMul(count: number): number {

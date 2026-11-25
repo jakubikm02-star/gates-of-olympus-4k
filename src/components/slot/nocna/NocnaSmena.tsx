@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { HEAL_PRICE, HEAL_STOCK, REEL_PRICE, REMOVE_PRICE, REROLL_PRICE, aspectKind, floorInfo, symDef, symMark } from "@/lib/revier/symbols";
+import { FAMILY_NAME, metaOf, RARITY_NAME, rarityOf } from "@/lib/revier/depth";
+import { EQUIP_PRICE, HEAL_PRICE, HEAL_STOCK, HOLD_PRICE, REEL5_PRICE, REEL_PRICE, REMOVE_PRICE, SUPPORT_PRICE, UPGRADE_PRICE, aspectKind, floorInfo, rerollCost, symDef, symMark } from "@/lib/revier/symbols";
+import { muffleMusic, playSoftHit, setNsSfx } from "@/lib/slot/audio";
 import type { NocnaRecord, Run, SymId } from "@/lib/revier/types";
 import { useRevier, type Stage } from "@/hooks/use-revier";
 import { preloadNocna } from "@/nocna/preload";
@@ -13,18 +15,34 @@ interface Props {
   onExit: () => void;
 }
 
-const FIGHT: Stage[] = ["ready", "spin", "preview", "act", "enemy", "shop"];
+const FIGHT: Stage[] = ["ready", "spin", "preview", "act", "enemy"];
 
 export function NocnaSmena(props: Props) {
   const v = useRevier(props);
   const host = useRef<HTMLDivElement>(null);
   const fightRef = useRef<FightHandle | null>(null);
   const [gear, setGear] = useState(false);
+  const [sfxVol, setSfxVol] = useState(55);
   const [box, setBox] = useState({ w: 412, h: 915 });
   const kind = aspectKind(box.w, box.h);
   const info = floorInfo(v.run.floor);
   const showFight = FIGHT.includes(v.stage);
   const fps = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("fps");
+
+  useEffect(() => {
+    const danger = v.run.hp > 0 && v.run.hp / Math.max(1, v.run.maxHp) <= 0.25 && v.stage !== "dead" && v.stage !== "draft";
+    const hot = danger || (v.suspense && v.stage === "spin");
+    if (!hot) {
+      muffleMusic(false);
+      return;
+    }
+    muffleMusic(danger);
+    const timer = window.setInterval(() => playSoftHit("heart"), danger ? 720 : 880);
+    return () => {
+      window.clearInterval(timer);
+      muffleMusic(false);
+    };
+  }, [v.run.hp, v.run.maxHp, v.suspense, v.stage]);
 
   useEffect(() => {
     void preloadNocna();
@@ -145,7 +163,9 @@ export function NocnaSmena(props: Props) {
                 <button key={id} type="button" className={at >= 0 ? "is-on" : ""} onClick={() => v.toggle(id)}>
                   {at >= 0 ? <em>{at + 1}</em> : null}
                   <img src={def.art} alt="" />
-                  <span>{mark.chip}</span>
+                  <span>{def.name}</span>
+                  <b>{mark.chip}</b>
+                  {metaOf(id) ? <small>{FAMILY_NAME[metaOf(id)!.family]}</small> : null}
                   <i
                     role="button"
                     aria-label="Detail"
@@ -161,6 +181,25 @@ export function NocnaSmena(props: Props) {
             })}
           </div>
         </section>
+      ) : null}
+
+      {v.stage === "shop" && v.run.shop ? (
+        <Shop
+          run={v.run}
+          onBuy={v.buy}
+          onReroll={v.reroll}
+          onRemove={v.remove}
+          onFace={v.face}
+          onUpgrade={v.upgrade}
+          onTrain={v.train}
+          onPro={v.pro}
+          onFortify={v.fortify}
+          onHeal={v.heal}
+          onKeys={v.keys}
+          onStamp={v.stamp}
+          onEquip={v.equip}
+          onBubble={v.openBubble}
+        />
       ) : null}
 
       {v.stage === "banner" ? (
@@ -200,24 +239,73 @@ export function NocnaSmena(props: Props) {
           <button type="button" className={v.calm ? "is-on" : ""} onClick={() => v.setCalm(!v.calm)} aria-pressed={v.calm}>
             Kľud
           </button>
+          <label className="ns-sfx">
+            Zvuk {sfxVol}
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={sfxVol}
+              aria-label="Hlasitosť úderov"
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                setSfxVol(next);
+                setNsSfx(next / 100);
+              }}
+            />
+          </label>
           {v.stage === "shop" && v.run.shop ? (
             <>
               <button type="button" disabled={v.run.coins < REMOVE_PRICE || v.run.deck.length <= 3} onClick={() => v.remove(v.run.deck.length - 1)}>
                 Vyradiť {REMOVE_PRICE}
               </button>
-              <button type="button" disabled={v.run.coins < REROLL_PRICE} onClick={v.reroll}>
-                Premiešať {REROLL_PRICE}
+              <button type="button" disabled={v.run.coins < rerollCost(v.run.shop.rolls)} onClick={v.reroll}>
+                Premiešať {rerollCost(v.run.shop.rolls)}
               </button>
               <button type="button" disabled={v.run.coins < HEAL_PRICE || v.run.shop.heals >= HEAL_STOCK || v.run.hp >= v.run.maxHp} onClick={v.heal}>
                 Život {HEAL_PRICE}
               </button>
               <button type="button" disabled={v.run.reels >= 4 || v.run.floor < 3 || v.run.coins < REEL_PRICE} onClick={v.fourth}>
-                Valec {v.run.floor < 3 ? "3" : REEL_PRICE}
+                4. valec {v.run.floor < 3 ? "od 3" : REEL_PRICE}
+              </button>
+              <button type="button" disabled={v.run.reels !== 4 || v.run.floor < 4 || v.run.coins < REEL5_PRICE} onClick={v.fifth}>
+                5. valec {REEL5_PRICE}
+              </button>
+              <button type="button" disabled={v.run.coins < SUPPORT_PRICE || v.run.keys >= 2} onClick={v.keys}>
+                Kľúče {SUPPORT_PRICE}
+              </button>
+              <button type="button" disabled={v.run.coins < SUPPORT_PRICE || v.run.stamp} onClick={v.stamp}>
+                Pečiatka {SUPPORT_PRICE}
+              </button>
+              <button type="button" disabled={v.run.coins < EQUIP_PRICE || v.run.equip.includes("uder") || v.run.equip.length >= 2} onClick={() => v.equip("uder")}>
+                Sila {EQUIP_PRICE}
+              </button>
+              <button type="button" disabled={v.run.coins < EQUIP_PRICE || v.run.equip.includes("stit") || v.run.equip.length >= 2} onClick={() => v.equip("stit")}>
+                Odolnosť {EQUIP_PRICE}
               </button>
             </>
           ) : null}
           <button type="button" onClick={v.giveUp}>
             {v.stage === "draft" ? "Späť" : "Vzdať"}
+          </button>
+        </div>
+      ) : null}
+      {showFight ? (
+        <div className="ns-meter" aria-label="Výboj">
+          <i style={{ width: `${Math.min(100, v.run.super)}%` }} />
+          <span>VÝBOJ {v.run.super}{v.run.momentum > 0 ? ` · SÉRIA +${v.run.momentum}` : ""}</span>
+        </div>
+      ) : null}
+      {v.stage === "ready" ? (
+        <div className="ns-risk">
+          <button type="button" disabled={v.run.super < 100} onClick={v.burst}>
+            VÝBOJ
+          </button>
+          <button type="button" disabled={v.run.hp <= 18 || v.run.wager > 1} onClick={v.wager}>
+            ALL-IN
+          </button>
+          <button type="button" disabled={v.run.coins < HOLD_PRICE || !v.run.lastLands.length} onClick={() => v.hold(0)}>
+            ZÁMOK {HOLD_PRICE}
           </button>
         </div>
       ) : null}
@@ -246,6 +334,147 @@ export function NocnaSmena(props: Props) {
 
 function titleOf(id: string) {
   return symDef(id as SymId)?.name ?? id;
+}
+
+function lineOf(blurb: string) {
+  const cut = blurb.split(". ")[0] ?? blurb;
+  return cut.endsWith(".") ? cut : `${cut}.`;
+}
+
+function Shop(props: {
+  run: ReturnType<typeof useRevier>["run"];
+  onBuy: (i: number) => void;
+  onReroll: () => void;
+  onRemove: (i: number) => void;
+  onFace: (i: number) => void;
+  onUpgrade: (sym: SymId) => void;
+  onTrain: (sym: SymId) => void;
+  onPro: (sym: SymId) => void;
+  onFortify: (sym: SymId) => void;
+  onHeal: () => void;
+  onKeys: () => void;
+  onStamp: () => void;
+  onEquip: (id: "uder" | "stit") => void;
+  onBubble: (title: string, text: string) => void;
+}) {
+  const shop = props.run.shop;
+  const [edit, setEdit] = useState<SymId | null>(null);
+  if (!shop) return null;
+  const counts = new Map<SymId, number>();
+  for (const id of props.run.deck) counts.set(id, (counts.get(id) ?? 0) + 1);
+  const rows = [...counts.entries()];
+  const price = rerollCost(shop.rolls);
+  return (
+    <section className="ns-plate ns-shop" aria-label="Obchod">
+      <h2>OBCHOD</h2>
+      <p className="ns-pity">Istota vyššej karty {Math.min(4, props.run.pity)}/4</p>
+      <div className="ns-offers">
+        {shop.offers.map((offer, i) => {
+          const def = symDef(offer.sym);
+          const rarity = rarityOf(offer.sym);
+          if (!def) return null;
+          return (
+            <button key={`${offer.sym}-${i}`} type="button" className={`ns-offer is-${rarity}${offer.sym === "pokuta" ? " is-pokuta" : ""}`} disabled={props.run.coins < offer.price} onClick={() => props.onBuy(i)}>
+              <img src={def.art} alt="" />
+              <b>{def.name}</b>
+              <small>{RARITY_NAME[rarity]}</small>
+              <em>{lineOf(def.blurb)}</em>
+              <span className="ns-price">{offer.price} RJ</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="ns-shop-row">
+        <button type="button" className="ns-svc" disabled={props.run.coins < price} onClick={props.onReroll}>
+          <span aria-hidden="true">↻</span> Premiešať {price}
+        </button>
+        <button type="button" className="ns-svc" disabled={props.run.coins < HEAL_PRICE || shop.heals >= HEAL_STOCK || props.run.hp >= props.run.maxHp} onClick={props.onHeal}>
+          <span aria-hidden="true">♥</span> Život {HEAL_PRICE}
+        </button>
+      </div>
+      {shop.faces.length ? (
+        <div className="ns-draft" aria-label="Skrytý výber">
+          <p>Skrytý výber · vezmi jednu</p>
+          <div className="ns-offers">
+            {shop.faces.map((id, i) => (
+              <button key={`face-${i}`} type="button" className="ns-offer is-back" onClick={() => props.onFace(i)}>
+                <b>?</b>
+                <em>Neznáma karta</em>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <div className="ns-services">
+        <button type="button" className="ns-svc" disabled={props.run.coins < SUPPORT_PRICE || props.run.keys >= 2} onClick={props.onKeys}>
+          <span aria-hidden="true">⚿</span> Kľúče {SUPPORT_PRICE}
+        </button>
+        <button type="button" className="ns-svc" disabled={props.run.coins < SUPPORT_PRICE || props.run.stamp} onClick={props.onStamp}>
+          <span aria-hidden="true">▣</span> Pečiatka {SUPPORT_PRICE}
+        </button>
+        <button type="button" className="ns-svc" disabled={props.run.coins < EQUIP_PRICE || props.run.equip.includes("uder") || props.run.equip.length >= 2} onClick={() => props.onEquip("uder")}>
+          <span aria-hidden="true">⚔</span> Sila {props.run.equip.includes("uder") ? "máš" : EQUIP_PRICE}
+        </button>
+        <button type="button" className="ns-svc" disabled={props.run.coins < EQUIP_PRICE || props.run.equip.includes("stit") || props.run.equip.length >= 2} onClick={() => props.onEquip("stit")}>
+          <span aria-hidden="true">🛡</span> Odolnosť {props.run.equip.includes("stit") ? "máš" : EQUIP_PRICE}
+        </button>
+      </div>
+      <p className="ns-deck-count">
+        Balík {rows.length} druhov · {props.run.deck.length} kariet
+        {props.run.equip.length ? ` · výbava ${props.run.equip.length}/2` : ""}
+      </p>
+      <ul className="ns-deck-list">
+        {rows.map(([id, n]) => {
+          const def = symDef(id);
+          const lv = props.run.levels[id] ?? 0;
+          const fort = props.run.fortify[id] ?? 0;
+          const pro = props.run.pro.includes(id);
+          const at = props.run.deck.lastIndexOf(id);
+          return (
+            <li key={id} className={id === "pokuta" ? "is-pokuta" : ""}>
+              <div className="ns-deck-head">
+                <img src={def?.art} alt="" />
+                <div>
+                  <b>{def?.name ?? id} ×{n}{pro ? " PRO" : ""}</b>
+                  <small>
+                    {lv > 0 ? `úroveň ${lv} ` : ""}
+                    {fort > 0 ? `pevnosť ${fort} ` : ""}
+                    {id === "pokuta" ? "Vnútený lístok. Stojí ťa život." : lineOf(def?.blurb ?? "")}
+                  </small>
+                </div>
+              </div>
+              <button type="button" className="ns-svc ns-edit" onClick={() => setEdit(id)}>
+                Upraviť
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {edit ? (
+        <div className="ns-sheet" role="dialog" aria-label="Upraviť kartu">
+          <b>{symDef(edit)?.name ?? edit}</b>
+          <button type="button" className="ns-svc" disabled={props.run.deck.length <= 3 || props.run.coins < REMOVE_PRICE} onClick={() => { props.onRemove(props.run.deck.lastIndexOf(edit)); setEdit(null); }}>
+            Vyradiť
+          </button>
+          <button type="button" className="ns-svc" disabled={(props.run.levels[edit] ?? 0) >= 3 || props.run.coins < UPGRADE_PRICE} onClick={() => props.onUpgrade(edit)}>
+            Zlepšiť {UPGRADE_PRICE}
+          </button>
+          <button type="button" className="ns-svc" disabled={(counts.get(edit) ?? 0) < 2 || (props.run.levels[edit] ?? 0) >= 3} onClick={() => props.onTrain(edit)}>
+            Tréning
+          </button>
+          <button type="button" className="ns-svc" disabled={(counts.get(edit) ?? 0) < 2 || (props.run.levels[edit] ?? 0) < 3 || props.run.pro.includes(edit)} onClick={() => props.onPro(edit)}>
+            Pro
+          </button>
+          <button type="button" className="ns-svc" disabled={(counts.get(edit) ?? 0) < 2 || (props.run.fortify[edit] ?? 0) >= 3} onClick={() => props.onFortify(edit)}>
+            Pevnosť
+          </button>
+          <button type="button" className="ns-svc" onClick={() => setEdit(null)}>
+            Zavrieť
+          </button>
+        </div>
+      ) : null}
+    </section>
+  );
 }
 
 

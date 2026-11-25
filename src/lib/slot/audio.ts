@@ -2327,6 +2327,71 @@ export function playHack(): void {
   });
 }
 
+let nsSfx = 0.55;
+let nsHitAt = 0;
+let muff: BiquadFilterNode | null = null;
+
+/** Night-shift hits only. Short, dull, and easy to miss if they pile up. */
+export function setNsSfx(value: number): void {
+  nsSfx = Math.max(0, Math.min(1, value));
+}
+
+export function playSoftHit(kind: "hit" | "big" | "riser" | "heart" | "drop" = "hit"): void {
+  unlockAudio();
+  if (!ctx || !sfx || nsSfx <= 0.01 || muted) return;
+  const now = ctx.currentTime;
+  if ((kind === "hit" || kind === "heart") && now - nsHitAt < 0.14) return;
+  if (kind === "hit" || kind === "big") nsHitAt = now;
+  const osc = ctx.createOscillator();
+  const filter = ctx.createBiquadFilter();
+  const gain = ctx.createGain();
+  filter.type = "lowpass";
+  filter.frequency.value = kind === "big" ? 880 : kind === "riser" ? 1400 : 560;
+  const variant = Math.floor(Math.random() * 4);
+  const base = kind === "heart" ? 62 : kind === "riser" ? 160 : kind === "drop" ? 120 : 196;
+  osc.type = kind === "heart" ? "sine" : "triangle";
+  osc.frequency.value = base * (0.9 + variant * 0.045) * (0.96 + Math.random() * 0.08);
+  const peak = (kind === "big" ? 0.14 : kind === "heart" ? 0.07 : kind === "riser" ? 0.05 : 0.08) * nsSfx;
+  const dur = kind === "riser" ? 0.42 : kind === "big" ? 0.2 : kind === "heart" ? 0.16 : 0.07;
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+  if (kind === "riser") osc.frequency.exponentialRampToValueAtTime(Math.max(40, base * 2.1), now + dur);
+  if (kind === "drop") duckMusic(0.28);
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(sfx);
+  osc.start(now);
+  osc.stop(now + dur + 0.02);
+  releaseOnEnd(osc, filter, gain);
+}
+
+/** Pull the bed under a low-pass while life is in the red. Restored on the way out. */
+export function muffleMusic(on: boolean): void {
+  if (!ctx || !music || !master) return;
+  if (on && !muff) {
+    muff = ctx.createBiquadFilter();
+    muff.type = "lowpass";
+    muff.frequency.value = 480;
+    try {
+      music.disconnect();
+      music.connect(muff);
+      muff.connect(master);
+    } catch {
+      muff = null;
+    }
+  } else if (!on && muff) {
+    try {
+      music.disconnect(muff);
+      muff.disconnect();
+      music.connect(master);
+    } catch {
+      /* already */
+    }
+    muff = null;
+  }
+}
+
 export function playStrike(): void {
   withCue("zFs", () => {
     if (playOwn("zFs", { gain: 0.75 })) return;
