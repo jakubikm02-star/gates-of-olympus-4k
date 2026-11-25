@@ -98,6 +98,8 @@ export class CoinTray {
         body.y += (body.ty - body.y) * Math.min(1, dt * 8);
         body.ang += dt * 12;
         if (Math.hypot(body.tx - body.x, body.ty - body.y) < 8) body.value = 0;
+      } else if (body.settled) {
+        continue;
       } else {
         body.vy += g * dt;
         body.x += body.vx * dt;

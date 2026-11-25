@@ -266,7 +266,7 @@
   top: 4px;
   bottom: auto;
   left: 46px;
-  right: 72px;
+  right: 8px;
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
@@ -275,7 +275,36 @@
 }
 .ns-band button { min-height: 30px; padding: 0 8px; font-size: 0.74rem; white-space: nowrap; border-radius: 12px; }
 @media (min-aspect-ratio: 1.05) {
-  .ns-band { width: min(42vw, 380px); right: auto; }
+  .ns.is-land .ns-risk.ns-band,
+  .ns.is-fold-land .ns-risk.ns-band {
+    width: 44%;
+    right: auto;
+    left: 8px;
+  }
+  .ns.is-land .ns-risk:not(.ns-band),
+  .ns.is-fold-land .ns-risk:not(.ns-band) {
+    left: 50%;
+    right: 8px;
+    bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+  .ns.is-land .ns-risk:not(.ns-band) .ns-act,
+  .ns.is-fold-land .ns-risk:not(.ns-band) .ns-act {
+    min-height: 56px;
+    padding: 4px 8px;
+  }
+  .ns.is-land .ns-go,
+  .ns.is-fold-land .ns-go {
+    left: 50%;
+    right: 8px;
+    bottom: calc(6px + env(safe-area-inset-bottom));
+    height: 52px;
+  }
+  .ns.is-land .ns-meter,
+  .ns.is-fold-land .ns-meter {
+    left: 50%;
+    right: 8px;
+    bottom: calc(128px + env(safe-area-inset-bottom));
+  }
 }
 .ns-band button.is-on { background: #f0c14a; color: #1a1208; }
 .ns-faces { top: 54%; }

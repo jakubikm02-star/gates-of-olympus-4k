@@ -222,6 +222,9 @@ export class FightStage {
   private fastStreak = 0;
   private recentMax = 0;
   private bandY = 80;
+  private rowCenter = 0;
+  private rowLeft = 8;
+  private rowRight = 400;
   private foeCell = 56;
   private frameN = 0;
   private bgUrl = "";
@@ -278,8 +281,7 @@ export class FightStage {
     this.chargeFill.tint = 0xffb020;
     this.chargeFill.scale.y = 4;
     this.vignette.alpha = 0;
-    const res = Math.max(1, Math.round(this.app.renderer.resolution || 1));
-    for (const text of [this.num, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.btnLabel]) text.resolution = res;
+    for (const text of [this.num, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.btnLabel, this.bpmText]) text.resolution = 1;
     this.bpmText.anchor.set(0.5, 1);
     this.world.addChild(this.baked, this.bg, this.bgDim, this.cloneLayer, this.rigLayer, this.light, this.cabinet, this.plates, this.tray.view, this.hpGhost, this.hpFill, this.shFill, this.ehpFill, this.chargeFill, this.heart, this.shieldIcon, this.coinIcon, this.bars, this.flyer, this.num, this.intentText, this.bpmText, this.foeIcon, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.vignette, this.btn);
     this.world.addChild(this.wave);
@@ -653,13 +655,17 @@ export class FightStage {
     const foeCell = Math.min(68, Math.max(46, (w - 56 - (foeCount - 1) * 8) / foeCount));
     this.foeCell = foeCell;
     const blast = (snap.enemyArt ?? "").includes("blastbeat");
-    let foeX = w * 0.5;
+    const split = land;
+    const leftW = split ? w * 0.46 : w;
+    const rightX = split ? w * 0.5 : 0;
+    const rightW = split ? w - rightX - 10 : w;
+    let foeX = split ? leftW * 0.52 : w * 0.5;
     let foeH = land ? h * 0.4 : h * 0.26;
     let foeY = (land ? h * 0.06 : 28) + foeH;
     let reelY = h * (1 - L.reelBottom - L.reelH);
-    let reelX = Math.max(w * L.gap, inset + frameOut);
-    let reelW = w - reelX - (inset + frameOut);
-    if (land) {
+    let reelX = split ? rightX : Math.max(w * L.gap, inset + frameOut);
+    let reelW = split ? rightW : w - reelX - (inset + frameOut);
+    if (land && !blast) {
       foeX = Math.max(inset + 80, w * L.landEnemyW * 0.55);
       foeH = h * 0.4;
       foeY = h * 0.08 + foeH;
@@ -667,17 +673,27 @@ export class FightStage {
       reelW = w - reelX - (inset + frameOut);
       reelY = h * 0.22;
     }
-    if (blast) {
-      // One chip row, then the turn line, then the boss. About 25% taller than the old 0.26-screen figure.
-      const top = land ? 64 : 92;
-      const wanted = h * (land ? 0.46 : 0.3);
-      const maxFeet = land ? h - 8 : Math.min(h * 0.6, reelY - 16);
+    if (blast && split) {
+      const top = 96;
+      const footRoom = 118;
+      foeH = Math.max(90, h - top - footRoom);
+      foeY = top + foeH;
+      foeX = leftW * 0.48;
+      reelY = 28;
+    } else if (blast) {
+      const top = 92;
+      const wanted = h * 0.3;
+      const maxFeet = Math.min(h * 0.58, reelY - 16);
       foeH = Math.max(110, Math.min(wanted, maxFeet - top));
       foeY = top + foeH;
     }
     this.foeX = foeX;
     this.foeY = foeY;
-    this.bandY = foeY + 14;
+    this.bandY = foeY + 8;
+    this.rowCenter = blast && split ? leftW * 0.48 : w / 2;
+    this.rowLeft = blast && split ? 8 : 8;
+    this.rowRight = blast && split ? leftW - 10 : w - 8;
+    if (blast && split) this.foeCell = Math.min(this.foeCell, Math.max(34, Math.floor((leftW - 36) / foeCount)));
     if (this.rig?.doc) {
       const sk = this.rig.doc.skeleton.height || 512;
       const sc = (foeH * (blast ? 1 : 0.74)) / sk;
@@ -697,7 +713,8 @@ export class FightStage {
     this.paintCabinet(w, h, pal, land);
     const n = Math.max(1, snap.windows.length || 3);
     const gap = 10;
-    const cell = Math.min((reelW - gap * (n - 1)) / n, h * L.reelH);
+    const cellCap = blast && split ? Math.max(72, h - 168) : h * L.reelH;
+    const cell = Math.min((reelW - gap * (n - 1)) / n, cellCap);
     const rowW = cell * n + gap * (n - 1);
     const x0 = reelX + (reelW - rowW) / 2;
     while (this.wins.length < n) this.wins.push(this.makeWin());
@@ -723,31 +740,33 @@ export class FightStage {
     const btnH = Math.min(64, h * 0.09);
     const btnTop = h - btnH - 14;
     const plateH = 50;
-    let gaugeTop = land ? foeY + 28 : reelY + cell + 10;
+    let gaugeTop = blast && split ? reelY + cell + 8 : land ? foeY + 28 : reelY + cell + 10;
     gaugeTop = Math.max(inset, Math.min(gaugeTop, btnTop - plateH - 8));
     const numW = 40;
     const iconCol = 22;
-    const barW = Math.max(64, Math.min(210, w - inset * 2 - iconCol - numW - 48));
+    const barRoom = blast && split ? rightW - 16 : w - inset * 2;
+    const barW = Math.max(64, Math.min(210, barRoom - iconCol - numW - 48));
     const plateW = 12 + iconCol + 8 + barW + 8 + numW + 8;
-    this.paintBars(inset, gaugeTop, plateW, barW, foeX, foeY, w, h, pal);
-    this.coinX = w - 72;
-    this.coinY = blast ? 18 : 36;
+    const plateX = blast && split ? rightX : inset;
+    this.paintBars(plateX, gaugeTop, plateW, barW, foeX, foeY, w, h, pal);
+    this.coinX = w - 28;
+    this.coinY = blast && !split ? 56 : 18;
     this.coinNum.text = String(snap.coins);
     this.coinNum.anchor.set(1, 0.5);
-    this.coinNum.position.set(w - 86, 36);
+    this.coinNum.position.set(w - 14, this.coinY);
     this.turnText.text = snap.hint || snap.turn;
-    this.turnText.position.set(blast ? (land ? foeX + 70 : w * 0.7) : w / 2, blast ? (land ? 36 : 58) : 64);
+    this.turnText.position.set(blast ? (land ? foeX + 56 : w * 0.55) : w / 2, blast ? (land ? 36 : 58) : 64);
     this.intentText.text = snap.shop ? "" : snap.intent;
     this.btnLabel.text = snap.button;
-    const bw = Math.min(w - inset * 2, 420);
-    const bh = Math.min(64, h * 0.09);
-    const bx = (w - bw) / 2;
-    const by = h - bh - 12;
+    const bw = blast && split ? Math.min(rightW - 8, 480) : Math.min(w - inset * 2, 420);
+    const bh = blast && split ? 52 : Math.min(64, h * 0.09);
+    const bx = blast && split ? rightX + (rightW - bw) / 2 : (w - bw) / 2;
+    const by = blast && split ? h - bh - 8 : h - bh - 12;
     this.btn.position.set(bx + bw / 2, by + bh / 2);
-    const trayW = Math.min(bw, 280);
+    const trayW = blast && split ? Math.min(150, rightW * 0.45) : Math.min(bw, 280);
     const trayH = 46;
-    const trayX = (w - trayW) / 2;
-    const trayY = Math.max(gaugeTop + plateH + 6, by - trayH - 8);
+    const trayX = blast && split ? rightX + 4 : (w - trayW) / 2;
+    const trayY = blast && split ? Math.min(gaugeTop + plateH + 4, by - trayH - 6) : Math.max(gaugeTop + plateH + 6, by - trayH - 8);
     this.tray.place(trayX, trayY, trayW, trayH);
     this.tray.setTexture(this.coinIcon.texture);
     this.tray.physics = this.quality.tier === "high" && !this.reduced;
@@ -776,8 +795,9 @@ export class FightStage {
     const hide = [
       this.baked, this.cloneLayer, this.rigLayer, this.bpmText, this.btn, this.flyer, this.num, this.hpFill, this.hpGhost, this.shFill, this.ehpFill,
       this.heart, this.shieldIcon, this.coinIcon, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText,
-      this.vignette, this.chargeFill,
+      this.vignette, this.chargeFill, this.wave,
     ];
+    if (this.djPlate) hide.push(this.djPlate);
     const was = hide.map((node) => node.visible);
     for (const node of hide) node.visible = false;
     const iconWas = this.wins.map((win) => win.icon.visible);
@@ -814,7 +834,6 @@ export class FightStage {
     hide.forEach((node, i) => {
       node.visible = was[i];
     });
-    this.baked.visible = true;
     this.wins.forEach((win, i) => {
       win.icon.visible = iconWas[i];
       win.chip.visible = chipWas[i];
@@ -829,6 +848,24 @@ export class FightStage {
     this.deck.forEach((s, i) => {
       s.visible = deckWas[i];
     });
+    this.baked.visible = false;
+    this.publishCabinet();
+  }
+
+  /** The static cabinet lives on the DOM, so the WebGL frame does not fill the screen every tick. */
+  private publishCabinet() {
+    if (!this.rt) return;
+    try {
+      const canvas = this.app.renderer.extract.canvas({ target: this.rt });
+      const host = this.app.canvas.parentElement;
+      if (!host || !canvas.toDataURL) return;
+      host.style.backgroundImage = `url(${canvas.toDataURL("image/jpeg", 0.72)})`;
+      host.style.backgroundSize = "100% 100%";
+      host.style.backgroundPosition = "center";
+      host.style.backgroundRepeat = "no-repeat";
+    } catch {
+      this.baked.visible = true;
+    }
   }
 
   /** Numbers and symbols only. Geometry stays cached. */
@@ -947,10 +984,18 @@ export class FightStage {
     const inset = 28;
     this.barW = barW;
     this.eBarW = Math.max(48, Math.min(barW * 0.75, w - inset * 2 - 96));
-    const ePlateW = this.eBarW + 88;
+    let ePlateW = this.eBarW + 88;
     let ePlateX = foeX - ePlateW / 2;
     ePlateX = Math.max(inset, Math.min(w - inset - ePlateW, ePlateX));
-    const ePlateY = Math.max(inset + 8, Math.min(this.bandY + this.foeCell + 6, plateY - 40));
+    if (foeX < w * 0.4) {
+      const limit = w * 0.46 - 8;
+      ePlateX = Math.max(8, Math.min(ePlateX, limit - 120));
+      const maxW = Math.max(100, limit - ePlateX);
+      this.eBarW = Math.max(40, maxW - 56);
+      ePlateW = this.eBarW + 56;
+    }
+    const underFoe = this.bandY + this.foeCell + 6;
+    const ePlateY = foeX < w * 0.4 ? underFoe : Math.max(inset + 8, Math.min(underFoe, plateY - 40));
     this.ePlateX = ePlateX;
     this.ePlateY = ePlateY;
     this.chargeFill.position.set(ePlateX + 10, ePlateY + 28);
@@ -1000,7 +1045,8 @@ export class FightStage {
     const cell = this.foeCell;
     const gap = 8;
     const rowW = cell * n + gap * Math.max(0, n - 1);
-    const x0 = Math.max(16, (this.app.screen.width - rowW) / 2 - 18);
+    let x0 = this.rowCenter - rowW / 2;
+    x0 = Math.max(this.rowLeft, Math.min(x0, this.rowRight - rowW));
     const y = this.bandY;
     this.foeWins.forEach((win, i) => {
       const spec = snap.foeWindows?.[i];
@@ -1085,7 +1131,14 @@ export class FightStage {
     parent?.removeChild(rig);
     rig.position.set(w / 2, h - 2);
     rig.scale.set((h - 4) / (rig.doc.skeleton.height || 1400));
+    const bg = this.app.renderer.background;
+    const prevAlpha = bg.alpha;
+    const prevColor = bg.color;
+    bg.alpha = 0;
+    bg.color = 0x000000;
     this.app.renderer.render({ container: rig, target: this.djPlateRT, clear: true });
+    bg.alpha = prevAlpha;
+    bg.color = prevColor;
     parent?.addChildAt(rig, index);
     rig.position.set(px, py);
     rig.scale.set(sc);
@@ -1176,7 +1229,7 @@ export class FightStage {
       text: "",
       style: { fill: 0xfff6d2, fontSize: 16, fontWeight: "700", fontFamily: "Oswald, sans-serif", stroke: { color: 0x140e08, width: 3 } },
     });
-    chip.resolution = Math.max(1, Math.round(this.app.renderer.resolution || 1));
+    chip.resolution = 1;
     chip.anchor.set(0.5, 1);
     root.addChild(frame, hole, glass, clip, slip, icon, mark, chip);
     clip.visible = false;
@@ -1337,7 +1390,7 @@ export class FightStage {
     fpsProbe.max = 0;
     const res = RES_LADDER[this.rung] ?? 1;
     this.app.renderer.resize(this.app.screen.width, this.app.screen.height, res);
-    for (const text of [this.num, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.btnLabel]) text.resolution = res;
+    for (const text of [this.num, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.btnLabel, this.bpmText]) text.resolution = 1;
   }
 
   /** Walk 2 → 1.5 → 1.25 → 1 when the average stays under 55. Climb back only after a long stretch above 62. */
@@ -1422,8 +1475,7 @@ export class FightStage {
       const mag = (this.shakeT / FEEL.shakeCritMs) * 8 * this.shake;
       this.world.position.set(Math.sin(now / 16) * mag, Math.cos(now / 18) * mag * 0.6);
     } else if (this.world.position.x !== 0 || this.world.position.y !== 0) this.world.position.set(0, 0);
-    const pulse = this.snap?.pulse && !this.reduced ? 1 + Math.sin(now / 280) * 0.03 : 1;
-    const nextScale = this.btnScale * pulse;
+    const nextScale = this.btnScale;
     if (Math.abs(this.btn.scale.x - nextScale) > 0.002) this.btn.scale.set(nextScale);
     if (snap) {
       const maxHp = Math.max(1, snap.maxHp);
