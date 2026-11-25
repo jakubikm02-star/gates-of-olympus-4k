@@ -92,6 +92,24 @@ export class Rig extends Container {
   }
 
   /**
+   * Hide every slot except `keep`. Used so the desk, body and aura can be one
+   * baked texture while the head, jaw, hands and eyes stay live.
+   */
+  showOnly(keep: readonly string[]) {
+    const allow = new Set(keep);
+    for (const [name, node] of this.slotNodes) {
+      node.visible = allow.has(name);
+    }
+  }
+
+  showAllSlots() {
+    for (const [name, node] of this.slotNodes) {
+      node.visible = name !== "teeBlack" && name !== "auraHot";
+    }
+    this.setPhase(this.phaseOn);
+  }
+
+  /**
    * Phase 2. The old rig swaps a black shirt. Martin's DJ already wears black,
    * so the aura thickens and the headbang clock runs faster instead.
    */

@@ -50,10 +50,27 @@ export const fpsProbe = { avg: 0, max: 0, samples: [] as number[], reset: false 
 /** Sharpest first. The cabinet walks down this ladder and only walks back up after a long calm stretch. */
 const RES_LADDER = [2, 1.5, 1.25, 1] as const;
 
+/** Phones and the Fold cover. The unfolded inner screen stays on the full cap. */
+function mobileScreen(): boolean {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  return Math.min(w, h) <= 520 || (h > w && w <= 540);
+}
+
+function resolutionCap(): number {
+  const dpr = window.devicePixelRatio || 1;
+  if (typeof location !== "undefined" && new URLSearchParams(location.search).has("lockdpr")) return Math.min(2, dpr);
+  const cap = mobileScreen() ? 1.5 : FEEL.dprCap;
+  return Math.min(cap, dpr);
+}
+
 function rungFor(dpr: number): number {
   for (let i = 0; i < RES_LADDER.length; i++) if (RES_LADDER[i]! <= dpr + 0.01) return i;
   return RES_LADDER.length - 1;
 }
+
+const DJ_STILL = ["aura", "auraHot", "desk", "mic", "torso", "armLU", "armLL", "armRU", "armRL"] as const;
+const DJ_LIVE = ["head", "jaw", "eyes", "handL", "handR"] as const;
 
 function urls(): string[] {
   const syms = Object.values(SYM).map((def) => def.art);
@@ -273,8 +290,8 @@ export class FightStage {
   static async mount(host: HTMLElement): Promise<FightStage> {
     await preloadNocna();
     const app = new Application();
-    const raw = window.devicePixelRatio || 1;
-    const rung = rungFor(Math.min(FEEL.dprCap, raw));
+    const raw = resolutionCap();
+    const rung = rungFor(raw);
     const dpr = RES_LADDER[rung] ?? 1;
     await app.init({
       backgroundAlpha: 0,
@@ -582,6 +599,7 @@ export class FightStage {
         this.rigClip = "stun";
         void this.rig.play("stun", { loop: true, mix: FEEL.rigMix });
       }
+      if (art.includes("blastbeat")) this.ensureDjPlate(bang);
       return;
     }
     const token = ++this.rigToken;
@@ -594,6 +612,7 @@ export class FightStage {
         return;
       }
       this.rig?.destroy();
+      this.djPlatePhase = null;
       this.rig = rig;
       this.rigLayer.addChild(rig);
       rig.setQuality({ springs: false, mesh: false });
@@ -633,6 +652,7 @@ export class FightStage {
     const foeCount = Math.max(1, snap.foeWindows?.length || 3);
     const foeCell = Math.min(68, Math.max(46, (w - 56 - (foeCount - 1) * 8) / foeCount));
     this.foeCell = foeCell;
+    const blast = (snap.enemyArt ?? "").includes("blastbeat");
     let foeX = w * 0.5;
     let foeH = land ? h * 0.4 : h * 0.26;
     let foeY = (land ? h * 0.06 : 28) + foeH;
@@ -647,24 +667,33 @@ export class FightStage {
       reelW = w - reelX - (inset + frameOut);
       reelY = h * 0.22;
     }
+    if (blast) {
+      // One chip row, then the turn line, then the boss. About 25% taller than the old 0.26-screen figure.
+      const top = land ? 64 : 92;
+      const wanted = h * (land ? 0.46 : 0.3);
+      const maxFeet = land ? h - 8 : Math.min(h * 0.6, reelY - 16);
+      foeH = Math.max(110, Math.min(wanted, maxFeet - top));
+      foeY = top + foeH;
+    }
     this.foeX = foeX;
     this.foeY = foeY;
     this.bandY = foeY + 14;
     if (this.rig?.doc) {
       const sk = this.rig.doc.skeleton.height || 512;
-      const blast = (snap.enemyArt ?? "").includes("blastbeat");
-      const sc = (foeH * (blast ? 0.98 : 0.74)) / sk;
+      const sc = (foeH * (blast ? 1 : 0.74)) / sk;
       this.rig.scale.set(sc);
       this.rig.position.set(foeX, foeY);
       this.rig.visible = true;
-      const phase = Boolean(snap.enraged) && (snap.enemyArt ?? "").includes("blastbeat");
+      const phase = Boolean(snap.enraged) && blast;
       this.phaseOn = phase;
       this.rig.setPhase(phase);
+      this.ensureDjPlate(phase);
     }
     this.placeClones(snap, foeX, foeY, foeH, w, land);
     this.bpmText.visible = snap.bpm > 0 && !snap.shop;
     this.bpmText.text = snap.bpm > 0 ? `BPM ${snap.bpm}` : "";
-    this.bpmText.position.set(foeX, Math.max(18, foeY - foeH - 4));
+    this.bpmText.anchor.set(0.5, 0);
+    this.bpmText.position.set(blast ? (land ? foeX - 78 : w * 0.28) : foeX, blast ? (land ? 36 : 58) : Math.max(18, foeY - foeH - 4));
     this.paintCabinet(w, h, pal, land);
     const n = Math.max(1, snap.windows.length || 3);
     const gap = 10;
@@ -694,7 +723,7 @@ export class FightStage {
     const btnH = Math.min(64, h * 0.09);
     const btnTop = h - btnH - 14;
     const plateH = 50;
-    let gaugeTop = (land ? foeY + 18 : reelY - plateH - 12);
+    let gaugeTop = land ? foeY + 28 : reelY + cell + 10;
     gaugeTop = Math.max(inset, Math.min(gaugeTop, btnTop - plateH - 8));
     const numW = 40;
     const iconCol = 22;
@@ -702,12 +731,12 @@ export class FightStage {
     const plateW = 12 + iconCol + 8 + barW + 8 + numW + 8;
     this.paintBars(inset, gaugeTop, plateW, barW, foeX, foeY, w, h, pal);
     this.coinX = w - 72;
-    this.coinY = 36;
+    this.coinY = blast ? 18 : 36;
     this.coinNum.text = String(snap.coins);
     this.coinNum.anchor.set(1, 0.5);
     this.coinNum.position.set(w - 86, 36);
     this.turnText.text = snap.hint || snap.turn;
-    this.turnText.position.set(w / 2, 64);
+    this.turnText.position.set(blast ? (land ? foeX + 70 : w * 0.7) : w / 2, blast ? (land ? 36 : 58) : 64);
     this.intentText.text = snap.shop ? "" : snap.intent;
     this.btnLabel.text = snap.button;
     const bw = Math.min(w - inset * 2, 420);
@@ -921,7 +950,7 @@ export class FightStage {
     const ePlateW = this.eBarW + 88;
     let ePlateX = foeX - ePlateW / 2;
     ePlateX = Math.max(inset, Math.min(w - inset - ePlateW, ePlateX));
-    const ePlateY = Math.max(inset + 8, Math.min(this.bandY + this.foeCell + 10, h - inset - 80));
+    const ePlateY = Math.max(inset + 8, Math.min(this.bandY + this.foeCell + 6, plateY - 40));
     this.ePlateX = ePlateX;
     this.ePlateY = ePlateY;
     this.chargeFill.position.set(ePlateX + 10, ePlateY + 28);
@@ -1020,6 +1049,59 @@ export class FightStage {
       s.width = size;
       s.height = size;
     });
+  }
+
+  /** One texture for the still body. Head, jaw, eyes and both hands stay on the rig. */
+  private ensureDjPlate(phase: boolean) {
+    const rig = this.rig;
+    if (!rig?.doc) return;
+    if (this.djPlate && this.djPlatePhase === phase) {
+      this.placeDjPlate(rig);
+      rig.showOnly(DJ_LIVE);
+      return;
+    }
+    const w = 480;
+    const h = 600;
+    if (!this.djPlateRT || this.djPlateRT.width !== w || this.djPlateRT.height !== h) {
+      this.djPlateRT?.destroy(true);
+      this.djPlateRT = RenderTexture.create({ width: w, height: h, resolution: 1 });
+      if (!this.djPlate) {
+        this.djPlate = new Sprite(this.djPlateRT);
+        this.djPlate.anchor.set(0.5, 1);
+        const at = this.world.getChildIndex(this.rigLayer);
+        this.world.addChildAt(this.djPlate, at);
+      } else this.djPlate.texture = this.djPlateRT;
+    }
+    const still = phase
+      ? (["auraHot", "desk", "mic", "torso", "armLU", "armLL", "armRU", "armRL"] as const)
+      : (["aura", "desk", "mic", "torso", "armLU", "armLL", "armRU", "armRL"] as const);
+    rig.setPhase(phase);
+    rig.showOnly(still);
+    const parent = rig.parent;
+    const index = parent ? parent.getChildIndex(rig) : 0;
+    const px = rig.position.x;
+    const py = rig.position.y;
+    const sc = rig.scale.x;
+    parent?.removeChild(rig);
+    rig.position.set(w / 2, h - 2);
+    rig.scale.set((h - 4) / (rig.doc.skeleton.height || 1400));
+    this.app.renderer.render({ container: rig, target: this.djPlateRT, clear: true });
+    parent?.addChildAt(rig, index);
+    rig.position.set(px, py);
+    rig.scale.set(sc);
+    rig.showOnly(DJ_LIVE);
+    this.djPlatePhase = phase;
+    this.placeDjPlate(rig);
+  }
+
+  private placeDjPlate(rig: Rig) {
+    if (!this.djPlate || !this.djPlateRT || !rig.doc) return;
+    const bakeScale = (this.djPlateRT.height - 4) / (rig.doc.skeleton.height || 1400);
+    const k = rig.scale.x / bakeScale;
+    this.djPlate.visible = true;
+    this.djPlate.position.set(rig.position.x, rig.position.y);
+    this.djPlate.width = this.djPlateRT.width * k;
+    this.djPlate.height = this.djPlateRT.height * k;
   }
 
   private placeClones(snap: FightSnap, foeX: number, foeY: number, foeH: number, w: number, land: boolean) {
@@ -1215,6 +1297,10 @@ export class FightStage {
   private fxAt = 0;
   private wave = new Graphics();
   private waveUntil = 0;
+  /** Desk, body, arms and aura, drawn once. The head and hands stay live on top. */
+  private djPlate: Sprite | null = null;
+  private djPlateRT: RenderTexture | null = null;
+  private djPlatePhase: boolean | null = null;
 
   private placeFoe(snap: FightSnap) {
     this.placeFoeRow(snap);
@@ -1269,7 +1355,7 @@ export class FightStage {
       this.slowStreak = 0;
       this.fastStreak = 0;
     }
-    const cap = Math.min(FEEL.dprCap, window.devicePixelRatio || 1);
+    const cap = resolutionCap();
     if (this.slowStreak >= 8 && this.rung < RES_LADDER.length - 1) {
       this.applyRung(this.rung + 1, now, 700);
       return;
@@ -1313,7 +1399,7 @@ export class FightStage {
     this.cloneSprites.forEach((sprite, i) => {
       if (!sprite.visible) return;
       const base = (sprite as Sprite & { __base?: number }).__base;
-      if (base != null) sprite.y = base + Math.sin(now / 420 + i) * 2;
+      if (base != null && Math.abs(sprite.y - base) > 0.5) sprite.y = base;
     });
     if (this.wave.visible) {
       const left = this.waveUntil - now;
