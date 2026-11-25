@@ -7,6 +7,7 @@ import { FEEL } from "@/lib/revier/feel";
 import type { FeelTarget } from "@/lib/revier/feel";
 import { PLAY_SYMS, SYM, bgSrc } from "@/lib/revier/symbols";
 import type { Cue, FightSnap, WinSnap } from "@/nocna/fight-types";
+import { playCymbal, playDjArp } from "@/lib/slot/audio";
 import { Rig } from "@/nocna/rig/runtime";
 import { Director, type Clip } from "./director";
 import { ease } from "./eases";
@@ -22,6 +23,7 @@ export type { Cue, FightSnap, WinSnap };
  * single-bone idle until real separated part art exists.
  */
 const RIGS: Record<string, string> = {
+  "/nocna/bosses/boss-dj-blastbeat.webp": "/nocna/rigs/blastbeat/blastbeat",
   "/nocna/enemies/enemy-neplatic.webp": "/nocna/rigs/neplatic/neplatic",
   "/nocna/enemies/enemy-inkasak.webp": "/nocna/rigs/inkasak/inkasak",
   "/nocna/bosses/boss-1-pekelny-kurier.webp": "/nocna/rigs/kurier/kurier",
@@ -39,6 +41,10 @@ const ENEMY_URLS = Object.keys(RIGS).concat([
   "/nocna/bosses/boss-3-anjel-exekucie.webp",
   "/nocna/bosses/boss-4-general-podatelne.webp",
   "/nocna/bosses/boss-5-prednosta.webp",
+  "/nocna/bosses/boss-dj-blastbeat.webp",
+  "/nocna/bosses/clone-dye.webp",
+  "/nocna/bosses/clone-dye-up.webp",
+  "/nocna/bosses/clone-black-up.webp",
 ]);
 
 export const fpsProbe = { avg: 0, max: 0, samples: [] as number[], reset: false };
@@ -76,6 +82,7 @@ interface WinNode {
   chip: Text;
   token: number;
   size: number;
+  mark: Graphics;
 }
 
 class Quality {
@@ -110,6 +117,14 @@ export class FightStage {
   private bg = new Sprite();
   private bgDim = new Graphics();
   private rigLayer = new Container();
+  private cloneLayer = new Container();
+  private bpmText = new Text({
+    text: "",
+    style: { fill: 0xffe08a, fontSize: 16, fontWeight: "700", fontFamily: "Oswald, sans-serif", stroke: { color: 0x140e08, width: 3 } },
+  });
+  private cloneSprites: Sprite[] = [];
+  private phaseOn = false;
+  private arpAt = 0;
   private cabinet = new Graphics();
   private light = new Graphics();
   private rig: Rig | null = null;
@@ -250,7 +265,8 @@ export class FightStage {
     this.vignette.alpha = 0;
     const res = Math.max(1, Math.round(this.app.renderer.resolution || 1));
     for (const text of [this.num, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.btnLabel]) text.resolution = res;
-    this.world.addChild(this.baked, this.bg, this.bgDim, this.rigLayer, this.light, this.cabinet, this.plates, this.tray.view, this.hpGhost, this.hpFill, this.shFill, this.ehpFill, this.chargeFill, this.heart, this.shieldIcon, this.coinIcon, this.bars, this.flyer, this.num, this.intentText, this.foeIcon, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.vignette, this.btn);
+    this.bpmText.anchor.set(0.5, 1);
+    this.world.addChild(this.baked, this.bg, this.bgDim, this.cloneLayer, this.rigLayer, this.light, this.cabinet, this.plates, this.tray.view, this.hpGhost, this.hpFill, this.shFill, this.ehpFill, this.chargeFill, this.heart, this.shieldIcon, this.coinIcon, this.bars, this.flyer, this.num, this.intentText, this.bpmText, this.foeIcon, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.vignette, this.btn);
     app.stage.addChild(this.world);
     app.ticker.add(this.tick);
   }
@@ -358,7 +374,13 @@ export class FightStage {
       if (impacted) return;
       impacted = true;
       onImpact();
-      this.popNumber(cue.proc ? `PROC +${cue.proc}` : cue.chip, Boolean(cue.proc) || cue.crit);
+      const chemLabel = cue.chem ? `CHÉMIA +${Math.round(cue.chem * 100)}%` : "";
+      this.popNumber(cue.proc ? `PROC +${cue.proc}` : chemLabel || cue.chip, Boolean(cue.proc) || cue.crit || Boolean(cue.chem));
+      if (cue.chem) {
+        const win = row[cue.reel];
+        if (win) win.root.scale.set(1.08);
+        this.particles.burst({ x: (win?.root.x ?? this.foeX) + 20, y: (win?.root.y ?? this.foeY) + 20, n: 6, color: 0xffe08a, speed: 0.2, life: 280, g: FEEL.gravity, ring: true, trails: false });
+      }
       if (cue.proc) {
         const win = (cue.row === "foe" ? this.foeWins : this.wins)[cue.reel];
         if (win) win.root.scale.set(1.12);
@@ -502,6 +524,8 @@ export class FightStage {
     if (name === "hit") this.foeWait?.();
     if (name === "shake") this.kick(FEEL.shakeHitMs);
     if (name === "fx") this.particles.burst({ x: this.foeX, y: this.foeY - 40, n: 10, color: this.pal.danger, speed: 0.3, life: 360, g: FEEL.gravity, trails: this.quality.tier === "high" });
+    if (name === "arp") playDjArp();
+    if (name === "cymbal") playCymbal();
   };
 
   private syncRig(snap: FightSnap) {
@@ -530,8 +554,10 @@ export class FightStage {
       this.rig?.destroy();
       this.rig = rig;
       this.rigLayer.addChild(rig);
-      rig.setQuality({ springs: !this.reduced && this.quality.tier === "high", mesh: false });
-      const boss = art.includes("kurier");
+      rig.setQuality({ springs: false, mesh: false });
+      rig.setPhase(Boolean(this.snap?.enraged) && art.includes("blastbeat"));
+      this.phaseOn = Boolean(this.snap?.enraged) && art.includes("blastbeat");
+      const boss = art.includes("kurier") || art.includes("blastbeat");
       if (boss && !this.introDone.has(art)) {
         this.introDone.add(art);
         this.rigClip = "intro";
@@ -584,11 +610,18 @@ export class FightStage {
     this.bandY = foeY + 14;
     if (this.rig?.doc) {
       const sk = this.rig.doc.skeleton.height || 512;
-      const sc = (foeH * 0.9) / sk;
+      const sc = (foeH * 0.74) / sk;
       this.rig.scale.set(sc);
       this.rig.position.set(foeX, foeY);
       this.rig.visible = true;
+      const phase = Boolean(snap.enraged) && (snap.enemyArt ?? "").includes("blastbeat");
+      this.phaseOn = phase;
+      this.rig.setPhase(phase);
     }
+    this.placeClones(snap, foeX, foeY, foeH, w, land);
+    this.bpmText.visible = snap.bpm > 0 && !snap.shop;
+    this.bpmText.text = snap.bpm > 0 ? `BPM ${snap.bpm}` : "";
+    this.bpmText.position.set(foeX, Math.max(18, foeY - foeH - 4));
     this.paintCabinet(w, h, pal, land);
     const n = Math.max(1, snap.windows.length || 3);
     const gap = 10;
@@ -609,6 +642,7 @@ export class FightStage {
       else if (!win.icon.visible || spec?.mode !== "sit") this.sit(win, spec, cell);
       win.chip.text = spec?.mode === "sit" ? spec.chip : "";
       win.chip.position.set(cell / 2, cell - 4);
+      this.paintMark(win, cell, snap, i);
       win.root.removeAllListeners();
       win.root.eventMode = "static";
       win.root.on("pointertap", () => this.onReel(i));
@@ -668,7 +702,7 @@ export class FightStage {
       this.baked.texture = this.rt;
     }
     const hide = [
-      this.baked, this.rigLayer, this.btn, this.flyer, this.num, this.hpFill, this.hpGhost, this.shFill, this.ehpFill,
+      this.baked, this.cloneLayer, this.rigLayer, this.bpmText, this.btn, this.flyer, this.num, this.hpFill, this.hpGhost, this.shFill, this.ehpFill,
       this.heart, this.shieldIcon, this.coinIcon, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText,
       this.vignette, this.chargeFill,
     ];
@@ -945,6 +979,53 @@ export class FightStage {
     });
   }
 
+  private placeClones(snap: FightSnap, foeX: number, foeY: number, foeH: number, w: number, land: boolean) {
+    const gap = land ? 86 : Math.min(92, Math.max(64, (w - 24) / 5));
+    snap.clones.forEach((clone, i) => {
+      let sprite = this.cloneSprites[i];
+      if (!sprite) {
+        sprite = new Sprite();
+        sprite.anchor.set(0.5, 1);
+        this.cloneLayer.addChild(sprite);
+        this.cloneSprites[i] = sprite;
+      }
+      const alive = clone.hp > 0 && !snap.shop;
+      sprite.visible = alive;
+      if (!alive) return;
+      sprite.width = foeH * 0.38;
+      sprite.height = foeH * 0.58;
+      const count = snap.clones.filter((row) => row.hp > 0).length;
+      const slot = snap.clones.slice(0, i + 1).filter((row) => row.hp > 0).length - 1;
+      const x = foeX + (slot - (count - 1) / 2) * gap;
+      sprite.position.set(Math.max(40, Math.min(Math.max(40, w - 40), x)), foeY - foeH * 0.02);
+      sprite.tint = snap.focus === i ? 0xffe7a3 : 0xffffff;
+      (sprite as Sprite & { __black?: boolean; __armed?: boolean }).__black = clone.black;
+      (sprite as Sprite & { __armed?: boolean }).__armed = clone.armed;
+    });
+    for (let i = snap.clones.length; i < this.cloneSprites.length; i++) {
+      const sprite = this.cloneSprites[i];
+      if (sprite) sprite.visible = false;
+    }
+  }
+
+  private paintMark(win: WinNode, cell: number, snap: FightSnap, i: number) {
+    win.mark.clear();
+    if (snap.shop) return;
+    const marked = snap.clones.some((clone) => clone.hp > 0 && clone.mark === i);
+    const armed = snap.clones.some((clone) => clone.hp > 0 && clone.mark === i && clone.armed);
+    const fan = snap.fan?.reel === i;
+    if (!marked && !fan) return;
+    const color = armed ? 0xff5a3c : fan && !marked ? 0x7ec8ff : 0xffd15a;
+    win.mark.roundRect(3, 3, cell - 6, cell - 6, 12).stroke({ color, width: armed ? 5 : 3, alpha: 0.95 });
+    if (fan) {
+      const dir = snap.fan?.dir ?? 1;
+      const y = cell * 0.5;
+      const x0 = dir > 0 ? cell * 0.28 : cell * 0.72;
+      const x1 = dir > 0 ? cell * 0.72 : cell * 0.28;
+      win.mark.moveTo(x0, y).lineTo(x1, y).stroke({ color: 0x7ec8ff, width: 3, alpha: 0.9 });
+    }
+  }
+
   private makeWin(): WinNode {
     const root = new Container();
     const frame = new Graphics();
@@ -956,17 +1037,18 @@ export class FightStage {
     const slip = new Sprite();
     slip.anchor.set(0.5);
     slip.visible = false;
+    const mark = new Graphics();
     const chip = new Text({
       text: "",
       style: { fill: 0xfff6d2, fontSize: 16, fontWeight: "700", fontFamily: "Oswald, sans-serif", stroke: { color: 0x140e08, width: 3 } },
     });
     chip.resolution = Math.max(1, Math.round(this.app.renderer.resolution || 1));
     chip.anchor.set(0.5, 1);
-    root.addChild(frame, hole, glass, clip, slip, icon, chip);
+    root.addChild(frame, hole, glass, clip, slip, icon, mark, chip);
     icon.mask = clip;
     slip.mask = clip;
     this.world.addChild(root);
-    return { root, hole, frame, glass, clip, icon, slip, chip, token: -1, size: 80 };
+    return { root, hole, frame, glass, clip, icon, slip, chip, mark, token: -1, size: 80 };
   }
 
   private sit(win: WinNode, spec: WinSnap | undefined, cell: number) {
@@ -1161,6 +1243,17 @@ export class FightStage {
       }
     }
     this.director.tick(dt);
+    const now = performance.now();
+    this.cloneSprites.forEach((sprite, i) => {
+      if (!sprite.visible) return;
+      const meta = sprite as Sprite & { __black?: boolean; __armed?: boolean; __art?: string };
+      const up = Boolean(meta.__armed) || Math.sin(now / 340 + i * 0.7) > 0;
+      const art = meta.__black ? "/nocna/bosses/clone-black-up.webp" : up ? "/nocna/bosses/clone-dye-up.webp" : "/nocna/bosses/clone-dye.webp";
+      if (meta.__art !== art) {
+        meta.__art = art;
+        sprite.texture = Texture.from(art);
+      }
+    });
     this.tray.physics = this.quality.tier === "high" && !this.reduced;
     this.tray.update(dt);
     if (this.foeIcon.visible) {
@@ -1172,7 +1265,6 @@ export class FightStage {
     this.frameN += 1;
     const stride = lively ? 1 : 3;
     if (this.frameN % stride === 0) this.rig?.update(dt * stride);
-    const now = performance.now();
     if (this.shakeT > 0) {
       this.shakeT -= dt;
       const mag = (this.shakeT / FEEL.shakeCritMs) * 8 * this.shake;

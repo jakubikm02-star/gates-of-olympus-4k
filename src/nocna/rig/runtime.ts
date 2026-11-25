@@ -47,6 +47,8 @@ export class Rig extends Container {
   private regions = new Map<string, Texture>();
   private meshes: { bone: string; mesh: MeshPlane | MeshSimple; base: Float32Array }[] = [];
   private sprites: Sprite[] = [];
+  private slotNodes = new Map<string, Container>();
+  private phaseOn = false;
   private stunMark: Container | null = null;
   private flash: Graphics | null = null;
   private clip = "idle";
@@ -85,6 +87,16 @@ export class Rig extends Container {
 
   setQuality(q: RigQuality) {
     this.quality = q;
+  }
+
+  /** Phase 2 swaps the tie-dye shirt for the black one. Other rigs ignore it. */
+  setPhase(on: boolean) {
+    this.phaseOn = on;
+    const dye = this.slotNodes.get("tee");
+    const black = this.slotNodes.get("teeBlack");
+    if (!dye && !black) return;
+    if (dye) dye.visible = !on;
+    if (black) black.visible = on;
   }
 
   play(name: string, opts?: { loop?: boolean; mix?: number }) {
@@ -188,6 +200,8 @@ export class Rig extends Container {
     this.order = [];
     this.meshes = [];
     this.sprites = [];
+    this.slotNodes.clear();
+    this.phaseOn = false;
     this.stunMark = null;
     this.flash = null;
     this.regions.clear();
@@ -248,6 +262,8 @@ export class Rig extends Container {
       // Slot order, not tree order. A torso sprite added after its children
       // would otherwise cover the head.
       wrap.zIndex = index;
+      wrap.visible = slot.name !== "teeBlack";
+      this.slotNodes.set(slot.name, wrap);
       bone.view.addChild(wrap);
     });
     this.attachMarks(skin);

@@ -46,6 +46,7 @@ export const EXTRA_SYMS = [
   "okres",
   "kraj",
   "stat",
+  "syntik",
 ] as const satisfies readonly SymId[];
 
 export const PLAY_SYMS = [...CORE_SYMS, ...EXTRA_SYMS] as const satisfies readonly SymId[];
@@ -302,6 +303,12 @@ export const SYM: Record<Exclude<SymId, "medzera">, SymDef> = {
     self: 6,
     motion: "stamp",
   }),
+  syntik: s("syntik", "Syntík", "Úder 8. Sused z rovnakej rodiny dostane +8.", "/nocna/symbols/sym-syntik.webp", 11, 6, {
+    dmg: 8,
+    motion: "strike",
+  }),
+  cymbal: s("cymbal", "Činel", "Úder 11. Patrí kapele.", "/nocna/symbols/sym-cymbal.webp", 0, 0, { dmg: 11, motion: "strike" }),
+  ventilator: s("ventilator", "Ventilátor", "Úder 5. Vietor ide bokom.", "/nocna/symbols/sym-ventilator.webp", 0, 0, { dmg: 5, motion: "strike" }),
 };
 
 function s(

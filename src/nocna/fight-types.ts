@@ -47,6 +47,11 @@ export interface FightSnap {
   turn: string;
   hint: string;
   active: number | null;
+  /** DJ Blastbeat. 0 when this is any other fight. */
+  bpm: number;
+  clones: { hp: number; max: number; black: boolean; mark: number | null; armed: boolean }[];
+  fan: { reel: number; dir: number } | null;
+  focus: number;
 }
 
 export interface Cue {
@@ -60,6 +65,8 @@ export interface Cue {
   row?: "you" | "foe";
   slow?: boolean;
   proc?: number;
+  /** Positive chemistry with the previous window, as a fraction (0.1 = +10 %). */
+  chem?: number;
 }
 
 export interface FightHandle {

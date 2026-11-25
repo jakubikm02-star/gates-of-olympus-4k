@@ -1,3 +1,5 @@
+import { aimDj } from "./blastbeat.ts";
+import { botSpend, emptyDielna, grantScrews, type Dielna } from "./dielna.ts";
 import {
   armWager,
   beginSpin,
@@ -152,9 +154,9 @@ function chooseStop(run: Run, strip: readonly SymId[], profile: BotProfile): { r
 }
 
 function draft(run: Run): Run {
-  const ranked = run.draft.slice().sort((a, b) => scoreOf(b) - scoreOf(a) || a.localeCompare(b));
+  const preferred: SymId[] = ["krimp", "blocek", "stit", "konektor", "gemr", "roof"];
   let next = run;
-  for (const sym of ranked.slice(0, 3)) next = togglePick(next, sym);
+  for (const sym of preferred) next = togglePick(next, sym);
   return confirmDraft(next);
 }
 
@@ -260,8 +262,9 @@ function shop(run: Run): Run {
   return leaveShop(next);
 }
 
-export function playRun(seed: number, profile: BotProfile = DECENT, entry = 250): RunSummary {
+export function playRun(seed: number, profile: BotProfile = DECENT, entry = 250, perks?: Dielna["perks"]): RunSummary {
   let run = draft(createRun(seed, entry));
+  if (perks && Object.keys(perks).length) run = { ...run, meta: perks };
   if (run.phase === "banner") run = dismissBanner(run);
   for (let guard = 0; guard < 420 && run.phase !== "dead"; guard++) {
     if (run.phase === "banner") {
@@ -289,6 +292,7 @@ export function playRun(seed: number, profile: BotProfile = DECENT, entry = 250)
       });
       if (holdAt >= 0) run = holdReel(run, holdAt);
     }
+    run = aimDj(run);
     const opened = beginSpin(run);
     if (!opened) break;
     run = opened.run;
@@ -322,6 +326,18 @@ export function playRun(seed: number, profile: BotProfile = DECENT, entry = 250)
     coins: run.stats.coins,
     hp: run.hp,
   };
+}
+
+/** Thirty runs on one profile. Index 0, 9 and 29 are the reported mornings. */
+export function playCareer(seed: number, runs = 30, profile: BotProfile = DECENT): { mornings: boolean[]; screws: number } {
+  let dielna = emptyDielna();
+  const mornings: boolean[] = [];
+  for (let i = 0; i < runs; i++) {
+    const row = playRun(seed + i * 997, profile, 250, dielna.perks);
+    mornings.push(row.cleared5);
+    dielna = botSpend(grantScrews(dielna, row.bestFloor, row.kills));
+  }
+  return { mornings, screws: dielna.screws };
 }
 
 export function bucketCause(cause: string): string {

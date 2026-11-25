@@ -1,0 +1,54 @@
+blastbeat.webp
+size: 2048,420
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+legs
+  rotate: false
+  xy: 8, 72
+  size: 230, 340
+  orig: 230, 340
+  offset: 0, 0
+  index: -1
+desk
+  rotate: false
+  xy: 246, 162
+  size: 334, 250
+  orig: 334, 250
+  offset: 0, 0
+  index: -1
+tee
+  rotate: false
+  xy: 588, 112
+  size: 227, 300
+  orig: 227, 300
+  offset: 0, 0
+  index: -1
+teeBlack
+  rotate: false
+  xy: 823, 112
+  size: 187, 300
+  orig: 187, 300
+  offset: 0, 0
+  index: -1
+armL
+  rotate: false
+  xy: 1018, 132
+  size: 254, 280
+  orig: 254, 280
+  offset: 0, 0
+  index: -1
+armR
+  rotate: false
+  xy: 1280, 132
+  size: 226, 280
+  orig: 226, 280
+  offset: 0, 0
+  index: -1
+head
+  rotate: false
+  xy: 1514, 152
+  size: 164, 260
+  orig: 164, 260
+  offset: 0, 0
+  index: -1
