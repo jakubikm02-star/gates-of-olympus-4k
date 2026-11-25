@@ -71,12 +71,17 @@ function rungFor(dpr: number): number {
 
 const DJ_STILL = ["aura", "auraHot", "desk", "mic", "torso", "armLU", "armLL", "armRU", "armRL"] as const;
 const DJ_LIVE = ["head", "jaw", "handL", "handR"] as const;
-/** Room above and below the skeleton so the aura and the head are not clipped. */
-const PLATE_W = 560;
+/** Room above, below and beside the skeleton so the head and the desk are not clipped. */
+const PLATE_CORE_W = 560;
+const PLATE_PAD_X = 40;
+const PLATE_W = PLATE_CORE_W + PLATE_PAD_X * 2;
 const PLATE_INNER = 596;
 const PLATE_PAD_TOP = 220;
 const PLATE_PAD_BOTTOM = 48;
 const PLATE_H = PLATE_PAD_TOP + PLATE_INNER + PLATE_PAD_BOTTOM;
+/** Spine width of the keyboard, and how far it hangs left and right of the root. */
+const DESK_SPAN = 1398;
+const DESK_LEFT = 704;
 
 function urls(): string[] {
   const syms = Object.values(SYM).map((def) => def.art);
@@ -689,10 +694,15 @@ export class FightStage {
       const bandTop = h - footer;
       const feetLimit = bandTop - 10;
       const room = Math.max(110, feetLimit - chipBottom);
-      foeH = Math.min(room, h * 0.55);
+      const deskMargin = 18;
+      const maxByDesk = ((leftW - deskMargin * 2) / DESK_SPAN) * 1400;
+      foeH = Math.min(room, h * 0.55, maxByDesk);
       const extra = Math.max(0, room - foeH);
       foeY = chipBottom + extra / 2 + foeH;
-      foeX = leftW * 0.5;
+      // The keyboard hangs further left than right. Sit it inside the column.
+      const scale = foeH / 1400;
+      const deskMid = foeH > 0 ? (DESK_LEFT - (DESK_SPAN - DESK_LEFT)) * scale * 0.5 : 0;
+      foeX = Math.min(leftW - deskMargin - (DESK_SPAN - DESK_LEFT) * scale, Math.max(deskMargin + DESK_LEFT * scale, leftW * 0.5 + deskMid));
       reelY = 28;
       this.bandY = bandTop;
     } else if (blast) {
@@ -1209,6 +1219,12 @@ export class FightStage {
     el.style.top = `${rig.position.y + foot - h}px`;
     el.style.width = `${w}px`;
     el.style.height = `${h}px`;
+    // The keyboard sits on the skeleton's feet. Fade the last 30px of it.
+    const sole = Math.max(0, h - foot);
+    const fadeStart = Math.max(0, sole - 30);
+    const fade = `linear-gradient(to bottom, #000 0px, #000 ${fadeStart}px, transparent ${sole}px)`;
+    el.style.maskImage = fade;
+    el.style.setProperty("-webkit-mask-image", fade);
     plate.visible = false;
     plate.renderable = false;
   }
@@ -1311,6 +1327,9 @@ export class FightStage {
       el.style.width = `${width}px`;
       el.style.height = `${height}px`;
       el.style.opacity = "0.94";
+      const cloneFade = "linear-gradient(to bottom, #000 calc(100% - 30px), transparent)";
+      el.style.maskImage = cloneFade;
+      el.style.setProperty("-webkit-mask-image", cloneFade);
     });
     for (let i = snap.clones.length; i < this.cloneEls.length; i++) {
       const el = this.cloneEls[i];
