@@ -1,3 +1,4 @@
+import { FAMILY_NAME, RARITY_NAME, STAT_NAME, metaOf } from "./depth.ts";
 import type { SymHook, SymId, SymMotion } from "./types.ts";
 
 /** Opening draft. Order is the contract the seeded tests shuffle. */
@@ -63,8 +64,16 @@ export const HEAL_STOCK = 2;
 export const REROLL_PRICE = 5;
 export const REMOVE_PRICE = 10;
 export const REEL_PRICE = 15;
+export const REEL5_PRICE = 28;
+export const SUPPORT_PRICE = 7;
+export const EQUIP_PRICE = 9;
+export const HOLD_PRICE = 2;
 export const START_HP = 100;
 export const START_REELS = 3;
+
+export function rerollCost(rolls: number): number {
+  return REROLL_PRICE + Math.max(0, rolls) * 3;
+}
 
 export interface SymDef {
   id: SymId;
@@ -287,6 +296,11 @@ export const SYM: Record<Exclude<SymId, "medzera">, SymDef> = {
   okres: s("okres", "2-FTTB", "Štít 10.", "/symbols/fttb-okres.png", 8, 5, { shield: 10, motion: "guard", aim: "you" }),
   kraj: s("kraj", "3-FTTB", "Jed 5 na 3 ťahy.", "/symbols/fttb-kraj.png", 9, 4, { dot: 5, dotTurns: 3, motion: "venom" }),
   stat: s("stat", "4-FTTB", "Úder 10, na pravom valci 20 cez štít.", "/symbols/fttb-stat.png", 12, 3, { dmg: 10, hook: "right", pierce: true, motion: "pierce" }),
+  pokuta: s("pokuta", "Pokuta", "Vnútený lístok. Keď padne, stratíš 6 HP a dáš úder 4.", "/symbols/listok-ulica.svg", 0, 0, {
+    dmg: 4,
+    self: 6,
+    motion: "stamp",
+  }),
 };
 
 function s(
@@ -337,7 +351,11 @@ export function symMark(id: SymId, mul = 1): { chip: string; detail: string } | 
   else if (def.stun) chip = "✦";
   else if (id === "restart") chip = "↻";
   if (def.dot > 0) chip = `${chip} ◉${n(def.dot)}`;
-  return { chip, detail: def.blurb };
+  const meta = metaOf(id);
+  const extra = meta
+    ? ` ${FAMILY_NAME[meta.family]}, ${RARITY_NAME[meta.rarity]}. Volá sa ${STAT_NAME[meta.stat]}.`
+    : "";
+  return { chip, detail: def.blurb + extra };
 }
 
 export function critMul(count: number): number {

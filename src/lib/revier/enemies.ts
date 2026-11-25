@@ -1,7 +1,7 @@
+import { buildDeck, foeScale, rowMul } from "./depth.ts";
 import { pick } from "./rng.ts";
-import { ENEMY_SHIELD_CAP } from "./symbols.ts";
-import type { Enemy, Intent, SymId } from "./types.ts";
-import { symDef } from "./symbols.ts";
+import { ENEMY_SHIELD_CAP, symDef } from "./symbols.ts";
+import type { Enemy, Intent, StatId, SymId } from "./types.ts";
 
 type Scaler = (base: number) => number;
 
@@ -86,7 +86,7 @@ const FOES: Record<string, Foe> = {
     taunt: "Dlžíš. Ja som splátkový kalendár.",
     boss: false,
     elite: false,
-    hp: 158,
+    hp: 142,
     pattern: (s) => [hit(s(14)), shield(s(16)), hit(s(17))],
   },
   zlodej: {
@@ -126,7 +126,7 @@ const FOES: Record<string, Foe> = {
     taunt: "Svetlo tu stojí viac ako ty.",
     boss: true,
     elite: false,
-    hp: 480,
+    hp: 420,
     pattern: (s) => [hit(s(20)), poison(s(6), 2), shield(s(24)), hit(s(20))],
   },
   anjel: {
@@ -136,7 +136,7 @@ const FOES: Record<string, Foe> = {
     taunt: "Štít som ti neuznal.",
     boss: true,
     elite: false,
-    hp: 500,
+    hp: 460,
     pattern: (s) => [pierce(s(18)), hit(s(16)), hit(s(26), true)],
   },
   general: {
@@ -249,9 +249,14 @@ function build(id: string, floor: number, ranna: number, rng: number): { rng: nu
     intent: pattern[0]!,
     reel: "blocek",
     kit: KITS[def.id] ?? [],
+    deck: [],
+    lands: [],
+    windows: def.boss ? 4 : 3,
     roll: 0,
+    enraged: false,
+    charge: null,
   };
-  return openReel({ ...enemy }, rng);
+  return openReel({ ...enemy }, rng, floor);
 }
 
 const KITS: Record<string, SymId[]> = {
@@ -271,40 +276,110 @@ const KITS: Record<string, SymId[]> = {
   myto: ["fs", "dacia", "case", "gemr"],
 };
 
-/** Land the enemy reel and turn that symbol into the telegraphed intent. Amount stays on the scripted step. */
-export function openReel(enemy: Enemy, rng: number): { rng: number; enemy: Enemy } {
-  if (!enemy.kit.length) return { rng, enemy };
-  const drawn = pick(rng, enemy.kit);
-  const base = enemy.pattern[enemy.pi]?.amount ?? enemy.intent.amount;
+export interface FoePart {
+  dmg: number;
+  pierce: boolean;
+  shield: number;
+  heal: number;
+  coins: number;
+  dot: number;
+  stun: boolean;
+}
+
+/** One window of the shared symbol, scaled so three of them feel like the old single swing. */
+export function foePart(lands: readonly SymId[], index: number, enemy: Enemy, call: readonly StatId[]): FoePart {
+  const empty: FoePart = { dmg: 0, pierce: false, shield: 0, heal: 0, coins: 0, dot: 0, stun: false };
+  const sym = lands[index];
+  const def = sym ? symDef(sym) : null;
+  if (!sym || !def) return empty;
+  const scale = foeScale(enemy) * rowMul(lands, index, call);
+  let dmg = def.dmg;
+  if (def.hook === "left") dmg = index === 0 ? def.dmg + 8 : def.dmg;
+  if (def.hook === "right") dmg = index === lands.length - 1 ? def.dmg * 2 : def.dmg;
+  if (def.hook === "chain") dmg = lands.filter((id) => id === sym).length >= 2 ? Math.max(def.dmg, 14) : def.dmg;
+  if (def.hook === "copy" && index > 0) {
+    const left = symDef(lands[index - 1] ?? "medzera");
+    dmg = left && left.dmg > 0 ? left.dmg : def.dmg;
+  }
+  if (def.hook === "double" && index > 0) {
+    const left = symDef(lands[index - 1] ?? "medzera");
+    if (left && left.dmg > 0) dmg += left.dmg;
+  }
   return {
-    rng: drawn.state,
-    enemy: { ...enemy, reel: drawn.item, roll: enemy.roll + 1, intent: intentFromKit(drawn.item, base) },
+    dmg: dmg > 0 ? Math.max(1, Math.round(dmg * scale)) : 0,
+    pierce: def.pierce,
+    shield: def.shield > 0 ? Math.max(1, Math.round(def.shield * scale)) : 0,
+    heal: def.heal > 0 ? Math.max(1, Math.round(def.heal * scale)) : 0,
+    coins: def.coins > 0 ? 1 : 0,
+    dot: def.dot > 0 ? Math.max(1, Math.round(def.dot * foeScale(enemy) * 0.45)) : 0,
+    stun: def.stun,
   };
 }
 
-function intentFromKit(sym: SymId, amount: number): Intent {
-  const n = Math.max(1, Math.round(amount));
-  const name = symDef(sym)?.name ?? sym;
-  if (sym === "roof" || sym === "gemb" || sym === "stit" || sym === "okres" || sym === "canarc") {
-    return { kind: "shield", amount: n, label: `${name} · štít ${n}` };
+function intentFromLands(lands: readonly SymId[], enemy: Enemy): Intent {
+  let dmg = 0;
+  let shield = 0;
+  let pierce = false;
+  let poison = 0;
+  for (let i = 0; i < lands.length; i++) {
+    const part = foePart(lands, i, enemy, []);
+    dmg += part.dmg;
+    shield += part.shield;
+    poison += part.dot;
+    if (part.pierce && part.dmg > 0) pierce = true;
   }
-  if (sym === "gemp" || sym === "kraj" || sym === "boticka") {
-    return { kind: "poison", amount: Math.max(1, Math.round(n * 0.35)), turns: 2, label: `${name} · jed` };
+  if (shield > dmg && shield >= poison) return { kind: "shield", amount: Math.max(1, shield), label: `Štít ${shield}` };
+  if (poison > dmg && poison > 0) return { kind: "poison", amount: Math.min(8, poison), turns: 2, label: `Jed ${Math.min(8, poison)}` };
+  const amount = Math.max(1, dmg);
+  return { kind: pierce ? "pierce" : "hit", amount, label: pierce ? `Cez štít ${amount}` : `Úder ${amount}` };
+}
+
+/** Spin the enemy row from the shared pool and leave it sitting as the telegraph. */
+export function openReel(enemy: Enemy, rng: number, floor = 1): { rng: number; enemy: Enemy } {
+  if (!enemy.deck.length && !enemy.kit.length && enemy.id === "fixture") return { rng, enemy };
+  if (!enemy.deck.length && enemy.kit.length === 0 && !enemy.boss && !enemy.elite && enemy.windows === 0) return { rng, enemy };
+  let state = rng;
+  let deck = enemy.deck;
+  if (!deck.length) {
+    const built = buildDeck(state, enemy.id, enemy.boss ? 12 : 10);
+    state = built.state;
+    deck = built.deck.length ? built.deck : enemy.kit;
   }
-  if (sym === "case" || sym === "konektor" || sym === "gemy") {
-    return { kind: "steal", amount: Math.max(1, Math.round(n * 0.7)), turns: 2, label: `${name} · krádež` };
+  if (!deck.length) return { rng, enemy };
+  const n = enemy.windows > 0 ? enemy.windows : enemy.boss ? 4 : 3;
+  const lands: SymId[] = [];
+  for (let i = 0; i < n; i++) {
+    const got = pick(state, deck);
+    state = got.state;
+    lands.push(got.item);
   }
-  if (sym === "arris" || sym === "data") {
-    return { kind: "stun", amount: Math.max(1, Math.round(n * 0.6)), label: `${name} · pečiatka` };
-  }
-  if (sym === "fs" || sym === "exekucia" || sym === "stat") {
-    return { kind: "pierce", amount: n, label: `${name} · cez štít ${n}` };
-  }
-  if (sym === "pdf" || sym === "natural" || sym === "krimp" || sym === "can4") {
-    return { kind: "heavy", amount: n, label: `${name} · ťažký ${n}` };
-  }
-  if (sym === "crown") return { kind: "double", amount: Math.max(1, Math.round(n * 0.6)), label: `${name} · dvojitý` };
-  return { kind: "hit", amount: n, label: `${name} · úder ${n}` };
+  const step = enemy.pattern[enemy.pi];
+  const heavy = step && (step.kind === "heavy" || step.kind === "pierce") && step.amount >= 16;
+  const preview = intentFromLands(lands, enemy);
+  const charge = heavy
+    ? {
+        left: enemy.boss ? 3 : 2,
+        amount: Math.max(step!.amount, Math.round(preview.amount * 1.25)),
+        pierce: step!.kind === "pierce",
+      }
+    : null;
+  const intent: Intent = charge
+    ? { kind: "heavy", amount: charge.amount, label: `NABÍJA ${charge.left}` }
+    : preview;
+  void floor;
+  return {
+    rng: state,
+    enemy: {
+      ...enemy,
+      deck,
+      lands,
+      windows: n,
+      reel: lands[0] ?? "blocek",
+      roll: enemy.roll + 1,
+      intent,
+      charge,
+    },
+  };
 }
 
 export function spawnFoe(

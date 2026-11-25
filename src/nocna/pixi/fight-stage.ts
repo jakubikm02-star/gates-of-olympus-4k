@@ -44,7 +44,7 @@ const ENEMY_URLS = Object.keys(RIGS).concat([
 export const fpsProbe = { avg: 0, max: 0, samples: [] as number[] };
 
 function urls(): string[] {
-  const syms = PLAY_SYMS.map((id) => SYM[id].art);
+  const syms = Object.values(SYM).map((def) => def.art);
   const bgs = [1, 2, 3, 4, 5, 6].flatMap((floor) =>
     (["port", "land", "fold-port", "fold-land"] as const).map((k) => bgSrc(floor, k)),
   );
@@ -112,6 +112,7 @@ export class FightStage {
   private quality = new Quality();
   private blur = new BlurFilter({ strength: 0 });
   private wins: WinNode[] = [];
+  private foeWins: WinNode[] = [];
   private flyer = new Sprite();
   private num: Text;
   private intentText: Text;
@@ -168,6 +169,13 @@ export class FightStage {
   private builtW = 0;
   private builtH = 0;
   private builtN = 0;
+  private builtF = 0;
+  private ePlateX = 28;
+  private ePlateY = 80;
+  private vignette = new Graphics();
+  private chargeFill = new Sprite(Texture.WHITE);
+  private cueFoe = false;
+  private droppedRes = false;
   private bgUrl = "";
   private bgScaled = new Map<string, Texture>();
   private barW = 180;
@@ -184,7 +192,10 @@ export class FightStage {
     this.num = new Text({ text: "", style: { fill: this.pal.glow, fontSize: 40, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
     this.num.anchor.set(0.5);
     this.num.visible = false;
-    this.intentText = new Text({ text: "", style: { fill: this.pal.glow, fontSize: 28, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
+    this.intentText = new Text({
+      text: "",
+      style: { fill: 0xfff4c8, fontSize: 22, fontWeight: "700", fontFamily: "Oswald, sans-serif", stroke: { color: 0x140e08, width: 4 } },
+    });
     this.ehpNum = new Text({ text: "", style: { fill: this.pal.text, fontSize: 18, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
     this.hpNum = new Text({ text: "", style: { fill: this.pal.text, fontSize: 18, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
     this.coinNum = new Text({ text: "", style: { fill: this.pal.glow, fontSize: 20, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
@@ -216,7 +227,12 @@ export class FightStage {
     this.foeIcon.width = 36;
     this.foeIcon.height = 36;
     this.foeIcon.visible = false;
-    this.world.addChild(this.baked, this.bg, this.bgDim, this.rigLayer, this.light, this.cabinet, this.plates, this.tray.view, this.hpGhost, this.hpFill, this.shFill, this.ehpFill, this.heart, this.shieldIcon, this.coinIcon, this.bars, this.flyer, this.num, this.intentText, this.foeIcon, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.btn);
+    this.chargeFill.tint = 0xffb020;
+    this.chargeFill.scale.y = 4;
+    this.vignette.alpha = 0;
+    const res = Math.max(1, Math.round(this.app.renderer.resolution || 1));
+    for (const text of [this.num, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.btnLabel]) text.resolution = res;
+    this.world.addChild(this.baked, this.bg, this.bgDim, this.rigLayer, this.light, this.cabinet, this.plates, this.tray.view, this.hpGhost, this.hpFill, this.shFill, this.ehpFill, this.chargeFill, this.heart, this.shieldIcon, this.coinIcon, this.bars, this.flyer, this.num, this.intentText, this.foeIcon, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.vignette, this.btn);
     app.stage.addChild(this.world);
     app.ticker.add(this.tick);
   }
@@ -224,7 +240,8 @@ export class FightStage {
   static async mount(host: HTMLElement): Promise<FightStage> {
     await preloadNocna();
     const app = new Application();
-    const dpr = Math.min(FEEL.dprCap, window.devicePixelRatio || 1);
+    const raw = window.devicePixelRatio || 1;
+    const dpr = Math.max(1, Math.round(Math.min(FEEL.dprCap, raw) * 2) / 2);
     await app.init({
       backgroundAlpha: 0,
       antialias: false,
@@ -272,7 +289,8 @@ export class FightStage {
     const w = this.app.screen.width;
     const h = this.app.screen.height;
     const n = Math.max(1, snap.windows.length || 3);
-    if (w !== this.builtW || h !== this.builtH || n !== this.builtN || snap.bg !== this.bgUrl) this.layout();
+    const fn = snap.foeWindows?.length ?? 0;
+    if (w !== this.builtW || h !== this.builtH || n !== this.builtN || fn !== this.builtF || snap.bg !== this.bgUrl) this.layout();
     else this.patch(snap);
     if (prev && prev !== snap.phase && !this.reduced) this.shutter();
   }
@@ -310,9 +328,11 @@ export class FightStage {
   playCue(cue: Cue, onImpact: () => void): Promise<void> {
     const motion = SYM[cue.sym as keyof typeof SYM]?.motion ?? "strike";
     const local = motion === "guard" || motion === "sip" || motion === "coin" || motion === "stamp" || motion === "venom" || motion === "wild";
-    const hold = cue.sym === "exekucia" || cue.sym === "natural" || motion === "burst" ? FEEL.bigHoldMs : FEEL.resultHoldMs;
-    const k = this.reduced ? 0.35 : 1;
+    const hold = cue.sym === "exekucia" || cue.sym === "natural" || motion === "burst" || cue.slow ? FEEL.bigHoldMs : FEEL.resultHoldMs;
+    const k = (this.reduced ? 0.35 : 1) * (cue.slow ? 1.8 : 1);
     this.cueReel = cue.reel;
+    this.cueFoe = cue.row === "foe";
+    const row = cue.row === "foe" ? this.foeWins : this.wins;
     let impacted = false;
     const hit = () => {
       if (impacted) return;
@@ -341,15 +361,15 @@ export class FightStage {
           duration: FEEL.chargeMs * k,
           ease: ease.outCubic,
           update: (u) => {
-            const win = this.wins[cue.reel];
-            if (win) win.root.scale.set(1 + u * 0.06);
+            const win = row[cue.reel];
+            if (win) win.root.scale.set(1 + u * (cue.slow ? 0.1 : 0.06));
           },
         },
         {
           duration: FEEL.travelMs * k,
           ease: ease.outCubic,
           update: (u) => {
-            const win = this.wins[cue.reel];
+            const win = row[cue.reel];
             const from = win ? { x: win.root.x + win.size / 2, y: win.root.y + win.size / 2 } : { x: 40, y: 40 };
             if (local && win) {
               const hop = motion === "sip" ? -u * 18 : motion === "venom" ? u * 10 : motion === "stamp" ? Math.sin(u * Math.PI) * 8 : Math.sin(u * Math.PI) * 12;
@@ -384,6 +404,8 @@ export class FightStage {
       void this.director.play(clip).then(() => {
         this.cueReel = -1;
         for (const win of this.wins) win.root.scale.set(1);
+        for (const win of this.foeWins) win.root.scale.set(1);
+        this.cueFoe = false;
         this.num.visible = false;
         if (this.pending === resolve) this.pending = null;
         resolve();
@@ -391,8 +413,8 @@ export class FightStage {
     });
   }
 
-  playFoe(text: string, _kind: "hit" | "block" | "miss" | "heal", at: "you" | "foe" = "you"): Promise<void> {
-    const k = this.reduced ? 0.4 : 1;
+  playFoe(text: string, _kind: "hit" | "block" | "miss" | "heal", at: "you" | "foe" = "you", slow = false): Promise<void> {
+    const k = (this.reduced ? 0.4 : 1) * (slow ? 1.65 : 1);
     const crit = text === "KRIT" || text === "MEGA";
     if (crit) void this.rig?.play("attack", { loop: false, mix: FEEL.rigMix });
     else if (at === "you") void this.rig?.play("attack", { loop: false, mix: FEEL.rigMix });
@@ -406,7 +428,8 @@ export class FightStage {
         ease: ease.outBack,
         update: (u) => this.num.scale.set(0.4 + u * 0.8),
       });
-      if (text === "shake" || crit) this.kick(FEEL.shakeCritMs);
+      if (text === "shake" || crit || slow) this.kick(FEEL.shakeCritMs);
+      if (slow && this.shake > 0) this.world.scale.set(1.045);
     };
     return new Promise((resolve) => {
       this.pending = resolve;
@@ -434,6 +457,7 @@ export class FightStage {
         })
         .then(() => {
           this.num.visible = false;
+          if (this.world.scale.x !== 1) this.world.scale.set(1);
           if (!crit) void this.rig?.play(this.snap?.stunned ? "stun" : "idle", { loop: true, mix: FEEL.rigMix });
           if (this.pending === resolve) this.pending = null;
           resolve();
@@ -507,6 +531,7 @@ export class FightStage {
     this.builtW = w;
     this.builtH = h;
     this.builtN = Math.max(1, snap.windows.length || 3);
+    this.builtF = snap.foeWindows?.length ?? 0;
     this.useBg(snap.bg);
     this.bg.position.set(w / 2, h / 2);
     const L = FEEL.layout;
@@ -576,7 +601,7 @@ export class FightStage {
     this.coinNum.anchor.set(1, 0.5);
     this.coinNum.position.set(w - 86, 36);
     this.turnText.text = snap.hint || snap.turn;
-    this.turnText.position.set(w / 2, 22);
+    this.turnText.position.set(w / 2, 64);
     this.intentText.text = snap.shop ? "" : snap.intent;
     this.btnLabel.text = snap.button;
     const bw = Math.min(w - inset * 2, 420);
@@ -616,13 +641,16 @@ export class FightStage {
     const hide = [
       this.baked, this.rigLayer, this.btn, this.flyer, this.num, this.hpFill, this.hpGhost, this.shFill, this.ehpFill,
       this.heart, this.shieldIcon, this.coinIcon, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText,
+      this.vignette, this.chargeFill,
     ];
     const was = hide.map((node) => node.visible);
     for (const node of hide) node.visible = false;
     const iconWas = this.wins.map((win) => win.icon.visible);
     const chipWas = this.wins.map((win) => win.chip.visible);
+    const foeIconWas = this.foeWins.map((win) => win.icon.visible);
+    const foeChipWas = this.foeWins.map((win) => win.chip.visible);
     const deckWas = this.deck.map((s) => s.visible);
-    for (const win of this.wins) {
+    for (const win of [...this.wins, ...this.foeWins]) {
       win.icon.visible = false;
       win.chip.visible = false;
     }
@@ -630,7 +658,7 @@ export class FightStage {
     this.bg.visible = true;
     this.cabinet.visible = true;
     this.plates.visible = true;
-    for (const win of this.wins) {
+    for (const win of [...this.wins, ...this.foeWins]) {
       win.frame.visible = true;
       win.hole.visible = true;
       win.glass.visible = true;
@@ -640,7 +668,7 @@ export class FightStage {
     this.cabinet.visible = false;
     this.plates.visible = false;
     this.bgDim.visible = false;
-    for (const win of this.wins) {
+    for (const win of [...this.wins, ...this.foeWins]) {
       win.frame.visible = false;
       win.hole.visible = false;
       win.glass.visible = false;
@@ -652,6 +680,10 @@ export class FightStage {
     this.wins.forEach((win, i) => {
       win.icon.visible = iconWas[i];
       win.chip.visible = chipWas[i];
+    });
+    this.foeWins.forEach((win, i) => {
+      win.icon.visible = foeIconWas[i];
+      win.chip.visible = foeChipWas[i];
     });
     this.deck.forEach((s, i) => {
       s.visible = deckWas[i];
@@ -735,7 +767,7 @@ export class FightStage {
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
-        const maxEdge = 960;
+        const maxEdge = (window.devicePixelRatio || 1) >= 1.5 ? 1440 : 960;
         const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
         if (scale >= 0.99) {
           resolve(Texture.from(url));
@@ -777,6 +809,9 @@ export class FightStage {
     let ePlateX = foeX - ePlateW / 2;
     ePlateX = Math.max(inset, Math.min(w - inset - ePlateW, ePlateX));
     const ePlateY = Math.max(inset + 28, Math.min(foeY + 4, h - inset - 36));
+    this.ePlateX = ePlateX;
+    this.ePlateY = ePlateY;
+    this.chargeFill.position.set(ePlateX + 10, ePlateY + 28);
     this.plates.clear();
     this.plates.roundRect(plateX, plateY, plateW, 50, 12).fill({ color: 0x16120e, alpha: 0.92 }).stroke({ color: pal.metal, width: 2 });
     this.plates.roundRect(ePlateX, ePlateY, ePlateW, 32, 10).fill({ color: 0x16120e, alpha: 0.92 }).stroke({ color: pal.metal, width: 2 });
@@ -801,11 +836,41 @@ export class FightStage {
     this.ehpNum.position.set(ePlateX + ePlateW - 8, ePlateY + 16);
     this.hpNum.anchor.set(1, 0);
     this.hpNum.position.set(plateX + plateW - 8, plateY + 8);
-    this.intentText.anchor.set(0, 0.5);
-    this.intentText.position.set(ePlateX + 16 + this.eBarW, ePlateY + 16);
+    this.intentText.anchor.set(1, 1);
+    this.intentText.position.set(ePlateX + ePlateW - 8, ePlateY - 4);
     this.hpFill.tint = pal.hp;
     this.shFill.tint = pal.shield;
     this.ehpFill.tint = pal.hp;
+    this.vignette.clear();
+    this.vignette.rect(0, 0, w, 16).fill({ color: 0xff2a2a });
+    this.vignette.rect(0, h - 16, w, 16).fill({ color: 0xff2a2a });
+    this.vignette.rect(0, 0, 12, h).fill({ color: 0xff2a2a });
+    this.vignette.rect(w - 12, 0, 12, h).fill({ color: 0xff2a2a });
+  }
+
+  private placeFoeRow(snap: FightSnap) {
+    const n = snap.shop ? 0 : (snap.foeWindows?.length ?? 0);
+    while (this.foeWins.length < Math.max(n, 1)) this.foeWins.push(this.makeWin());
+    const cell = n > 0 ? Math.min(58, Math.max(36, (this.eBarW + 24) / n)) : 40;
+    const gap = 6;
+    const rowW = cell * n + gap * Math.max(0, n - 1);
+    const x0 = this.ePlateX + Math.max(0, (this.eBarW + 40 - rowW) / 2);
+    const y = Math.max(18, this.ePlateY - cell - 8);
+    this.foeWins.forEach((win, i) => {
+      const spec = snap.foeWindows?.[i];
+      win.root.visible = i < n;
+      if (i >= n || !spec) return;
+      win.size = cell;
+      win.root.position.set(x0 + i * (cell + gap), y);
+      this.paintWindow(win, cell, this.pal, Boolean(spec.crit) || Boolean(snap.enraged));
+      const prev = win.token;
+      win.token = spec.token ?? 0;
+      if (spec.mode === "sit" && spec.sym && spec.token !== prev) this.dropIn(win, spec, cell);
+      else if (spec.mode !== "flicker") this.sit(win, spec, cell);
+      win.chip.text = spec.mode === "sit" ? spec.chip : "";
+      win.chip.position.set(cell / 2, cell - 2);
+      win.chip.style.fill = 0xfff6d2;
+    });
   }
 
   private placeDeck(snap: FightSnap, foeX: number, foeY: number, foeH: number, w = 0, inset = 28) {
@@ -847,7 +912,11 @@ export class FightStage {
     const glass = new Graphics();
     const icon = new Sprite();
     icon.anchor.set(0.5);
-    const chip = new Text({ text: "", style: { fill: 0xffe9a0, fontSize: 16, fontWeight: "700", fontFamily: "Oswald, sans-serif" } });
+    const chip = new Text({
+      text: "",
+      style: { fill: 0xfff6d2, fontSize: 16, fontWeight: "700", fontFamily: "Oswald, sans-serif", stroke: { color: 0x140e08, width: 3 } },
+    });
+    chip.resolution = Math.max(1, Math.round(this.app.renderer.resolution || 1));
     chip.anchor.set(0.5, 1);
     root.addChild(frame, hole, glass, icon, chip);
     this.world.addChild(root);
@@ -950,7 +1019,8 @@ export class FightStage {
   private foeSpinUntil = 0;
 
   private placeFoe(snap: FightSnap) {
-    if (!snap.foeArt || snap.shop) {
+    this.placeFoeRow(snap);
+    if (snap.foeWindows?.length || !snap.foeArt || snap.shop) {
       this.foeIcon.visible = false;
       return;
     }
@@ -974,6 +1044,13 @@ export class FightStage {
   private tick = (ticker: Ticker) => {
     const raw = ticker.deltaMS;
     this.quality.note(raw);
+    const probe = fpsProbe as typeof fpsProbe & { reset?: boolean };
+    if (probe.reset) {
+      probe.reset = false;
+      fpsProbe.samples.length = 0;
+      fpsProbe.max = 0;
+      this.fpsSum = 0;
+    }
     fpsProbe.samples.push(raw);
     this.fpsSum += raw;
     if (fpsProbe.samples.length > 240) this.fpsSum -= fpsProbe.samples.shift() ?? 0;
@@ -1029,18 +1106,46 @@ export class FightStage {
         this.lastEhp = ehpLabel;
         this.ehpNum.text = ehpLabel;
       }
+      this.ehpFill.tint = snap.enraged ? 0xff7a2a : this.pal.hp;
+      this.vignette.alpha = snap.danger ? 0.28 + Math.sin(now / 260) * 0.16 : 0;
+      const charge = snap.shop ? 0 : Math.max(0, snap.charge) / 3;
+      this.chargeFill.visible = charge > 0;
+      this.chargeFill.scale.x = Math.max(0.01, this.eBarW * charge);
+      if (!this.droppedRes && fpsProbe.samples.length > 40 && fpsProbe.avg > 0 && fpsProbe.avg < 50 && this.app.renderer.resolution > 1) {
+        this.droppedRes = true;
+        const w = this.app.screen.width;
+        const h = this.app.screen.height;
+        this.app.renderer.resize(w, h, 1);
+        this.layout();
       }
+      }
+    const spinBag = PLAY_SYMS;
+    for (let i = 0; i < this.foeWins.length; i++) {
+      const win = this.foeWins[i];
+      const spec = snap?.foeWindows[i];
+      if (!win.root.visible || !spec || spec.mode !== "flicker") continue;
+      const id = spinBag[(Math.floor(now / 70) + i) % spinBag.length]!;
+      win.icon.visible = true;
+      win.icon.texture = Texture.from(SYM[id].art);
+      win.icon.position.set(win.size / 2, win.size / 2);
+      win.icon.width = win.size * 0.72;
+      win.icon.height = win.size * 0.72;
+      win.glass.visible = true;
+      win.glass.alpha = 0.45;
+    }
     for (let i = 0; i < this.wins.length; i++) {
       const win = this.wins[i];
       if (!win.root.visible) continue;
-      const hot = this.cueReel === i;
-      const alpha = this.cueReel >= 0 && !hot ? 0.45 : 1;
+      const hot = !this.cueFoe && this.cueReel === i;
+      const suspense = Boolean(snap?.suspense && snap.active === i);
+      const alpha = this.cueReel >= 0 && !this.cueFoe && !hot ? 0.45 : 1;
       if (win.root.alpha !== alpha) win.root.alpha = alpha;
-      if (win.frame.visible !== hot) win.frame.visible = hot;
+      if (win.frame.visible !== (hot || suspense)) win.frame.visible = hot || suspense;
+      if (suspense) win.root.scale.set(1 + Math.sin(now / 160) * 0.035);
       const spec = this.snap?.windows[i];
       if (spec?.mode === "flicker") {
         win.glass.visible = true;
-        win.glass.alpha = 0.35 + Math.abs(Math.sin(now / 55));
+        win.glass.alpha = suspense ? 0.7 + Math.abs(Math.sin(now / 90)) * 0.3 : 0.35 + Math.abs(Math.sin(now / 55));
       } else if (win.glass.visible) win.glass.visible = false;
     }
   };

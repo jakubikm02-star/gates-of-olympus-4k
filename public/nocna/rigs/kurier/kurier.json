@@ -2,7 +2,7 @@
   "skeleton": {
     "hash": "kurier",
     "spine": "4.1.0",
-    "x": -208.0,
+    "x": -208,
     "y": 0,
     "width": 416,
     "height": 512,
@@ -21,14 +21,14 @@
       "rotation": -15.54,
       "length": 8,
       "scaleX": 0.8486,
-      "scaleY": 1.0
+      "scaleY": 1
     },
     {
       "name": "wheelF",
       "parent": "wheelF-axle",
-      "x": 0.0,
-      "y": -0.0,
-      "rotation": 0.0,
+      "x": 0,
+      "y": 0,
+      "rotation": 0,
       "length": 8
     },
     {
@@ -39,70 +39,70 @@
       "rotation": 3.03,
       "length": 8,
       "scaleX": 0.7552,
-      "scaleY": 1.0
+      "scaleY": 1
     },
     {
       "name": "wheelR",
       "parent": "wheelR-axle",
-      "x": 0.0,
-      "y": -0.0,
-      "rotation": 0.0,
+      "x": 0,
+      "y": 0,
+      "rotation": 0,
       "length": 8
     },
     {
       "name": "scooter",
       "parent": "root",
-      "x": -18.0,
-      "y": 154.0,
-      "rotation": 0.0,
+      "x": -18,
+      "y": 154,
+      "rotation": 0,
       "length": 155.05
     },
     {
       "name": "torso",
       "parent": "root",
-      "x": 2.0,
+      "x": 2,
       "y": 226.5,
-      "rotation": 0.0,
+      "rotation": 0,
       "length": 226.51
     },
     {
       "name": "flame",
       "parent": "torso",
-      "x": 110.0,
+      "x": 110,
       "y": 17.5,
-      "rotation": 0.0,
+      "rotation": 0,
       "length": 111.38
     },
     {
       "name": "pack",
       "parent": "torso",
-      "x": 70.0,
+      "x": 70,
       "y": 117.5,
-      "rotation": 0.0,
+      "rotation": 0,
       "length": 136.77
     },
     {
       "name": "armL",
       "parent": "torso",
-      "x": -64.0,
+      "x": -64,
       "y": 77.5,
-      "rotation": 0.0,
+      "rotation": 0,
       "length": 100.51
     },
     {
       "name": "armL2",
       "parent": "armL",
       "x": -43.5,
-      "y": -20.0,
-      "rotation": 0.0,
+      "y": -20,
+      "rotation": 0,
       "length": 47.88
     },
     {
       "name": "handlebar",
       "parent": "scooter",
-      "x": -71.0,
-      "y": 111.0,
-      "rotation": 0.0,
+      "x": -71,
+      "y": 111,
+      "rotation": 0,
       "length": 131.76
     },
     {
@@ -110,7 +110,7 @@
       "parent": "torso",
       "x": 42.5,
       "y": 127.5,
-      "rotation": 0.0,
+      "rotation": 0,
       "length": 134.4
     },
     {
@@ -118,7 +118,7 @@
       "parent": "armR",
       "x": 47.5,
       "y": -72.5,
-      "rotation": 0.0,
+      "rotation": 0,
       "length": 86.67
     },
     {
@@ -126,7 +126,7 @@
       "parent": "torso",
       "x": -37.5,
       "y": 91.5,
-      "rotation": 0.0,
+      "rotation": 0,
       "length": 98.89
     },
     {
@@ -214,8 +214,8 @@
       "attachments": {
         "wheelF": {
           "wheelF": {
-            "x": 0.0,
-            "y": 0.0,
+            "x": 0,
+            "y": 0,
             "rotation": 0,
             "width": 117,
             "height": 117
@@ -223,8 +223,8 @@
         },
         "wheelR": {
           "wheelR": {
-            "x": 0.0,
-            "y": 0.0,
+            "x": 0,
+            "y": 0,
             "rotation": 0,
             "width": 124,
             "height": 124
@@ -232,7 +232,7 @@
         },
         "scooter": {
           "scooter": {
-            "x": 0.0,
+            "x": 0,
             "y": 3.5,
             "rotation": 0,
             "width": 360,
@@ -260,7 +260,7 @@
         "pack": {
           "pack": {
             "x": 51.5,
-            "y": -35.0,
+            "y": -35,
             "rotation": 0,
             "width": 145,
             "height": 200
@@ -268,7 +268,7 @@
         },
         "armL": {
           "armL": {
-            "x": -18.0,
+            "x": -18,
             "y": -5.5,
             "rotation": 0,
             "width": 68,
@@ -278,7 +278,7 @@
         "armL2": {
           "armL2": {
             "x": -20.5,
-            "y": -5.0,
+            "y": -5,
             "rotation": 0,
             "width": 52,
             "height": 56
@@ -287,7 +287,7 @@
         "handlebar": {
           "handlebar": {
             "x": 11.5,
-            "y": -1.0,
+            "y": -1,
             "rotation": 0,
             "width": 163,
             "height": 56
@@ -305,7 +305,7 @@
         "armR2": {
           "armR2": {
             "x": -43.5,
-            "y": -10.0,
+            "y": -10,
             "rotation": 0,
             "width": 141,
             "height": 65
@@ -314,7 +314,7 @@
         "head": {
           "head": {
             "x": 4.5,
-            "y": 83.0,
+            "y": 83,
             "rotation": 0,
             "width": 120,
             "height": 190
@@ -372,7 +372,7 @@
           "rotate": [
             {
               "time": 0,
-              "angle": -2,
+              "angle": -0.7,
               "curve": [
                 0.4,
                 0,
@@ -381,8 +381,8 @@
               ]
             },
             {
-              "time": 0.7,
-              "angle": 2,
+              "time": 1.015,
+              "angle": 0.7,
               "curve": [
                 0.4,
                 0,
@@ -391,8 +391,8 @@
               ]
             },
             {
-              "time": 1.4,
-              "angle": -2
+              "time": 2.03,
+              "angle": -0.7
             }
           ],
           "translate": [
@@ -408,9 +408,9 @@
               ]
             },
             {
-              "time": 0.7,
+              "time": 1.015,
               "x": 0,
-              "y": 5,
+              "y": 1.75,
               "curve": [
                 0.4,
                 0,
@@ -419,7 +419,7 @@
               ]
             },
             {
-              "time": 1.4,
+              "time": 2.03,
               "x": 0,
               "y": 0
             }
@@ -429,7 +429,7 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 8.0,
+              "angle": 2.8,
               "curve": [
                 0.4,
                 0,
@@ -438,8 +438,8 @@
               ]
             },
             {
-              "time": 0.7,
-              "angle": -8.0,
+              "time": 1.015,
+              "angle": -2.8,
               "curve": [
                 0.4,
                 0,
@@ -448,8 +448,8 @@
               ]
             },
             {
-              "time": 1.4,
-              "angle": 8.0
+              "time": 2.03,
+              "angle": 2.8
             }
           ]
         },
@@ -457,7 +457,7 @@
           "rotate": [
             {
               "time": 0,
-              "angle": -6.0,
+              "angle": -2.1,
               "curve": [
                 0.4,
                 0,
@@ -466,8 +466,8 @@
               ]
             },
             {
-              "time": 0.7,
-              "angle": 6.0,
+              "time": 1.015,
+              "angle": 2.1,
               "curve": [
                 0.4,
                 0,
@@ -476,8 +476,8 @@
               ]
             },
             {
-              "time": 1.4,
-              "angle": -6.0
+              "time": 2.03,
+              "angle": -2.1
             }
           ]
         },
@@ -485,7 +485,7 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 6.0,
+              "angle": 2.1,
               "curve": [
                 0.4,
                 0,
@@ -494,8 +494,8 @@
               ]
             },
             {
-              "time": 0.7,
-              "angle": -8.0,
+              "time": 1.015,
+              "angle": -2.8,
               "curve": [
                 0.4,
                 0,
@@ -504,8 +504,8 @@
               ]
             },
             {
-              "time": 1.4,
-              "angle": 6.0
+              "time": 2.03,
+              "angle": 2.1
             }
           ]
         },
@@ -513,7 +513,7 @@
           "rotate": [
             {
               "time": 0,
-              "angle": -6.0,
+              "angle": -2.1,
               "curve": [
                 0.4,
                 0,
@@ -522,8 +522,8 @@
               ]
             },
             {
-              "time": 0.7,
-              "angle": 8.0,
+              "time": 1.015,
+              "angle": 2.8,
               "curve": [
                 0.4,
                 0,
@@ -532,8 +532,8 @@
               ]
             },
             {
-              "time": 1.4,
-              "angle": -6.0
+              "time": 2.03,
+              "angle": -2.1
             }
           ]
         },
@@ -551,9 +551,9 @@
               ]
             },
             {
-              "time": 0.35,
+              "time": 0.507,
               "x": 0,
-              "y": 7,
+              "y": 2.45,
               "curve": [
                 0.4,
                 0,
@@ -562,7 +562,7 @@
               ]
             },
             {
-              "time": 0.7,
+              "time": 1.015,
               "x": 0,
               "y": 0,
               "curve": [
@@ -573,9 +573,9 @@
               ]
             },
             {
-              "time": 1.05,
+              "time": 1.523,
               "x": 0,
-              "y": 7,
+              "y": 2.45,
               "curve": [
                 0.4,
                 0,
@@ -584,7 +584,7 @@
               ]
             },
             {
-              "time": 1.4,
+              "time": 2.03,
               "x": 0,
               "y": 0
             }
@@ -594,11 +594,11 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
-              "time": 1.4,
-              "angle": -360.0
+              "time": 2.03,
+              "angle": -126
             }
           ]
         },
@@ -606,11 +606,11 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
-              "time": 1.4,
-              "angle": -360.0
+              "time": 2.03,
+              "angle": -126
             }
           ]
         }
@@ -664,7 +664,7 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0,
+              "angle": 0,
               "curve": [
                 0.4,
                 0,
@@ -674,11 +674,11 @@
             },
             {
               "time": 0.16,
-              "angle": -8.0
+              "angle": -8
             },
             {
               "time": 0.34,
-              "angle": 10.0,
+              "angle": 10,
               "curve": [
                 0.4,
                 0,
@@ -688,7 +688,7 @@
             },
             {
               "time": 0.6,
-              "angle": 0.0
+              "angle": 0
             }
           ]
         },
@@ -696,19 +696,19 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
               "time": 0.16,
-              "angle": 10.0
+              "angle": 10
             },
             {
               "time": 0.34,
-              "angle": -8.0
+              "angle": -8
             },
             {
               "time": 0.6,
-              "angle": 0.0
+              "angle": 0
             }
           ]
         },
@@ -716,19 +716,19 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
               "time": 0.16,
-              "angle": -6.0
+              "angle": -6
             },
             {
               "time": 0.34,
-              "angle": 6.0
+              "angle": 6
             },
             {
               "time": 0.6,
-              "angle": 0.0
+              "angle": 0
             }
           ]
         },
@@ -736,19 +736,19 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
               "time": 0.16,
-              "angle": 6.0
+              "angle": 6
             },
             {
               "time": 0.34,
-              "angle": -6.0
+              "angle": -6
             },
             {
               "time": 0.6,
-              "angle": 0.0
+              "angle": 0
             }
           ]
         },
@@ -756,11 +756,11 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
               "time": 0.6,
-              "angle": -280.0
+              "angle": -280
             }
           ]
         },
@@ -768,11 +768,11 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
               "time": 0.6,
-              "angle": -280.0
+              "angle": -280
             }
           ]
         },
@@ -851,11 +851,11 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
               "time": 0.08,
-              "angle": -18.0,
+              "angle": -18,
               "curve": [
                 0.4,
                 0,
@@ -865,7 +865,7 @@
             },
             {
               "time": 0.36,
-              "angle": 0.0
+              "angle": 0
             }
           ]
         },
@@ -873,19 +873,19 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
               "time": 0.06,
-              "angle": -12.0
+              "angle": -12
             },
             {
               "time": 0.16,
-              "angle": 8.0
+              "angle": 8
             },
             {
               "time": 0.36,
-              "angle": 0.0
+              "angle": 0
             }
           ]
         },
@@ -893,15 +893,15 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
               "time": 0.08,
-              "angle": 28.0
+              "angle": 28
             },
             {
               "time": 0.36,
-              "angle": 0.0
+              "angle": 0
             }
           ]
         },
@@ -909,15 +909,15 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
               "time": 0.08,
-              "angle": -24.0
+              "angle": -24
             },
             {
               "time": 0.36,
-              "angle": 0.0
+              "angle": 0
             }
           ]
         },
@@ -925,15 +925,15 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
               "time": 0.08,
-              "angle": -26.0
+              "angle": -26
             },
             {
               "time": 0.36,
-              "angle": 0.0
+              "angle": 0
             }
           ]
         },
@@ -941,15 +941,15 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
               "time": 0.08,
-              "angle": 22.0
+              "angle": 22
             },
             {
               "time": 0.36,
-              "angle": 0.0
+              "angle": 0
             }
           ]
         }
@@ -983,15 +983,15 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 4.0
+              "angle": 4
             },
             {
               "time": 0.24,
-              "angle": -4.0
+              "angle": -4
             },
             {
               "time": 0.48,
-              "angle": 4.0
+              "angle": 4
             }
           ]
         },
@@ -999,19 +999,19 @@
           "rotate": [
             {
               "time": 0,
-              "angle": -12.0
+              "angle": -12
             },
             {
               "time": 0.16,
-              "angle": 10.0
+              "angle": 10
             },
             {
               "time": 0.32,
-              "angle": -12.0
+              "angle": -12
             },
             {
               "time": 0.48,
-              "angle": 8.0
+              "angle": 8
             }
           ]
         },
@@ -1019,15 +1019,15 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 18.0
+              "angle": 18
             },
             {
               "time": 0.24,
-              "angle": 8.0
+              "angle": 8
             },
             {
               "time": 0.48,
-              "angle": 18.0
+              "angle": 18
             }
           ]
         },
@@ -1035,15 +1035,15 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 16.0
+              "angle": 16
             },
             {
               "time": 0.24,
-              "angle": 28.0
+              "angle": 28
             },
             {
               "time": 0.48,
-              "angle": 16.0
+              "angle": 16
             }
           ]
         },
@@ -1051,15 +1051,15 @@
           "rotate": [
             {
               "time": 0,
-              "angle": -16.0
+              "angle": -16
             },
             {
               "time": 0.24,
-              "angle": -8.0
+              "angle": -8
             },
             {
               "time": 0.48,
-              "angle": -16.0
+              "angle": -16
             }
           ]
         },
@@ -1067,15 +1067,15 @@
           "rotate": [
             {
               "time": 0,
-              "angle": -14.0
+              "angle": -14
             },
             {
               "time": 0.24,
-              "angle": -26.0
+              "angle": -26
             },
             {
               "time": 0.48,
-              "angle": -14.0
+              "angle": -14
             }
           ]
         }
@@ -1132,7 +1132,7 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0,
+              "angle": 0,
               "curve": [
                 0.4,
                 0,
@@ -1142,15 +1142,15 @@
             },
             {
               "time": 0.28,
-              "angle": 8.0
+              "angle": 8
             },
             {
               "time": 0.55,
-              "angle": 22.0
+              "angle": 22
             },
             {
               "time": 0.8,
-              "angle": 22.0
+              "angle": 22
             }
           ]
         },
@@ -1158,7 +1158,7 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0,
+              "angle": 0,
               "curve": [
                 0.4,
                 0,
@@ -1168,11 +1168,11 @@
             },
             {
               "time": 0.4,
-              "angle": 12.0
+              "angle": 12
             },
             {
               "time": 0.8,
-              "angle": -8.0
+              "angle": -8
             }
           ]
         },
@@ -1180,7 +1180,7 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0,
+              "angle": 0,
               "curve": [
                 0.4,
                 0,
@@ -1190,11 +1190,11 @@
             },
             {
               "time": 0.4,
-              "angle": 32.0
+              "angle": 32
             },
             {
               "time": 0.8,
-              "angle": 20.0
+              "angle": 20
             }
           ]
         },
@@ -1202,7 +1202,7 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0,
+              "angle": 0,
               "curve": [
                 0.4,
                 0,
@@ -1212,11 +1212,11 @@
             },
             {
               "time": 0.4,
-              "angle": -30.0
+              "angle": -30
             },
             {
               "time": 0.8,
-              "angle": -18.0
+              "angle": -18
             }
           ]
         },
@@ -1224,11 +1224,11 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
               "time": 0.4,
-              "angle": 20.0
+              "angle": 20
             }
           ]
         },
@@ -1236,11 +1236,11 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
               "time": 0.4,
-              "angle": -18.0
+              "angle": -18
             }
           ]
         },
@@ -1298,7 +1298,7 @@
           "rotate": [
             {
               "time": 0,
-              "angle": -8.0,
+              "angle": -8,
               "curve": [
                 0.4,
                 0,
@@ -1308,7 +1308,7 @@
             },
             {
               "time": 0.45,
-              "angle": 0.0
+              "angle": 0
             }
           ]
         },
@@ -1316,11 +1316,11 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
               "time": 0.45,
-              "angle": -200.0
+              "angle": -200
             }
           ]
         },
@@ -1328,11 +1328,11 @@
           "rotate": [
             {
               "time": 0,
-              "angle": 0.0
+              "angle": 0
             },
             {
               "time": 0.45,
-              "angle": -200.0
+              "angle": -200
             }
           ]
         }

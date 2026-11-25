@@ -1,28 +1,33 @@
-import { advanceIntent, capEnemyShield, openReel, spawnFoe } from "./enemies.ts";
+import { procBonus, rarityOf, rollCall, rollRare, rowMul } from "./depth.ts";
+import { advanceIntent, capEnemyShield, foePart, openReel, spawnFoe } from "./enemies.ts";
 import { pick, roll, shuffle } from "./rng.ts";
 import {
   DOT_CAP,
   ENERGY_AT,
   ENERGY_BONUS,
+  EQUIP_PRICE,
   HEAL_GAIN,
   HEAL_PRICE,
   HEAL_STOCK,
+  HOLD_PRICE,
   MIN_DECK,
   CORE_SYMS,
   PLAY_SYMS,
   POISON_CAP,
+  REEL5_PRICE,
   REEL_PRICE,
   REMOVE_PRICE,
-  REROLL_PRICE,
   SHIELD_CAP,
   START_HP,
   START_REELS,
   STRIP,
+  SUPPORT_PRICE,
   SYM,
   critMul,
+  rerollCost,
   symDef,
 } from "./symbols.ts";
-import type { Beat, Enemy, Fx, LiveSpin, Plan, PlanReel, Run, Shop, SymId } from "./types.ts";
+import type { Beat, Enemy, EquipId, Fx, LiveSpin, Plan, PlanReel, Run, Shop, SymId } from "./types.ts";
 
 function freshStats() {
   return { turns: 0, fights: 0, kills: 0, crits: 0, dealt: 0, taken: 0, coins: 0, bestFloor: 1 };
@@ -57,6 +62,17 @@ export function createRun(seed: number, entry = 0): Run {
     cause: "",
     entry,
     growth: {},
+    call: [],
+    super: 0,
+    wager: 1,
+    held: null,
+    heldSym: null,
+    pity: 0,
+    momentum: 0,
+    lastLands: [],
+    keys: 0,
+    stamp: false,
+    equip: [],
   };
 }
 
@@ -101,9 +117,11 @@ export function dismissBanner(run: Run): Run {
 
 function spawn(run: Run, kind: "mob" | "boss" | "elite"): Run {
   const born = spawnFoe(kind, run.floor, kind === "elite" ? run.ranna + 1 : run.ranna, run.rng);
+  const called = rollCall(born.rng);
   return {
     ...run,
-    rng: born.rng,
+    rng: called.state,
+    call: called.call,
     phase: "fight",
     mobsLeft: kind === "mob" ? Math.max(0, run.mobsLeft - 1) : run.mobsLeft,
     bossPending: kind === "boss" ? false : run.bossPending,
@@ -151,9 +169,13 @@ export function beginSpin(run: Run): { run: Run; spin: LiveSpin } | null {
   let rng = run.rng;
   for (let i = 0; i < n; i++) {
     const blank = i >= n - blanks;
+    const held = run.held === i && run.heldSym;
     blankFlags.push(blank);
     if (blank) {
       strips.push(["medzera"]);
+      index.push(0);
+    } else if (held && run.heldSym) {
+      strips.push([run.heldSym]);
       index.push(0);
     } else {
       const made = makeStrip(rng, run.deck);
@@ -163,7 +185,15 @@ export function beginSpin(run: Run): { run: Run; spin: LiveSpin } | null {
     }
   }
   return {
-    run: { ...run, rng, blankReels: 0, fightTurns: run.fightTurns + 1, stats: { ...run.stats, turns: run.stats.turns + 1 } },
+    run: {
+      ...run,
+      rng,
+      blankReels: 0,
+      held: null,
+      heldSym: null,
+      fightTurns: run.fightTurns + 1,
+      stats: { ...run.stats, turns: run.stats.turns + 1 },
+    },
     spin: { strips, index, blanks: blankFlags },
   };
 }
@@ -239,7 +269,7 @@ export function sealSpin(run: Run, spin: LiveSpin): { run: Run; plan: Plan } {
     sym,
     crit: sym === "crown" || Boolean(critSym && (sym === critSym || symDef(sym)?.hook === "wild")),
   }));
-  return { run: { ...run, rng }, plan: { lands, rerolls, critSym, critMul: mul, reels } };
+  return { run: { ...run, rng, lastLands: lands }, plan: { lands, rerolls, critSym, critMul: mul, reels } };
 }
 
 function hurtEnemy(enemy: Enemy, amount: number, pierce: boolean): { enemy: Enemy; dealt: number; blocked: number } {
@@ -295,6 +325,7 @@ export function resolveReel(run: Run, plan: Plan, reel: number): { run: Run; fx:
     fx.push({ t: "hit", amount: hit.dealt, crit: step.crit, pierce, blocked: hit.blocked, bonus });
   };
 
+  const power = rowMul(plan.lands, step.reel, next.call) * (next.wager > 0 ? next.wager : 1) * (1 + next.momentum * 0.04);
   let raw = def.dmg;
   if (def.hook === "left") raw = step.reel === 0 ? def.dmg + 10 : def.dmg;
   if (def.hook === "right") raw = step.reel === plan.lands.length - 1 ? def.dmg * 2 : def.dmg;
@@ -320,6 +351,12 @@ export function resolveReel(run: Run, plan: Plan, reel: number): { run: Run; fx:
     }
   }
   if (raw > 0) {
+    raw = Math.max(0, Math.round(raw * power) + procBonus(sym, step.reel, next.rng));
+    if (next.keys > 0) {
+      raw += 8;
+      next = { ...next, keys: next.keys - 1 };
+    }
+    if (next.equip.includes("uder")) raw += 2;
     let bonus = 0;
     let energy = next.energy;
     energy += 1;
@@ -344,12 +381,13 @@ export function resolveReel(run: Run, plan: Plan, reel: number): { run: Run; fx:
   }
 
   if (def.shield > 0) {
-    const gained = gainShield(next, def.shield * cm);
+    const extra = next.equip.includes("stit") ? 3 : 0;
+    const gained = gainShield(next, def.shield * cm * power + extra);
     next = gained.run;
     fx.push({ t: "shield", amount: gained.gained, crit: step.crit });
   }
   if (def.heal > 0) {
-    const gained = gainHp(next, def.heal * cm);
+    const gained = gainHp(next, def.heal * cm * power);
     next = gained.run;
     fx.push({ t: "heal", amount: gained.gained, crit: step.crit });
   }
@@ -387,7 +425,14 @@ export function resolveReel(run: Run, plan: Plan, reel: number): { run: Run; fx:
     if (next.hp <= 0) next = die(next, "95 natural — vlastná dávka");
   }
 
-  if (dealt > 0) next = { ...next, stats: { ...next.stats, dealt: next.stats.dealt + dealt } };
+  if (dealt > 0) {
+    next = {
+      ...next,
+      super: Math.min(100, next.super + 4),
+      stats: { ...next.stats, dealt: next.stats.dealt + dealt },
+    };
+  }
+  if (enemy.hp > 0 && !enemy.enraged && enemy.hp <= enemy.maxHp * 0.5) enemy = { ...enemy, enraged: true };
   const firstCrit = plan.reels.findIndex((row) => row.crit);
   if (step.crit && step.reel === firstCrit) {
     next = { ...next, stats: { ...next.stats, crits: next.stats.crits + 1 } };
@@ -420,9 +465,10 @@ export function resolveLands(run: Run, lands: SymId[]): { run: Run; plan: Plan; 
 
 export function finishPlayer(run: Run): Run {
   if (run.phase !== "fight" || !run.enemy) return run;
-  if (run.hp <= 0) return die(run, run.cause || "Koniec smeny");
-  if (run.enemy.hp <= 0) return onKill(run);
-  return run;
+  const spent: Run = { ...run, wager: 1, super: run.super };
+  if (spent.hp <= 0) return die(spent, spent.cause || "Koniec smeny");
+  if (spent.enemy && spent.enemy.hp <= 0) return onKill(spent);
+  return spent;
 }
 
 function purse(run: Run, enemy: Enemy): number {
@@ -440,6 +486,8 @@ function onKill(run: Run): Run {
     ...run,
     enemy: { ...enemy, hp: 0 },
     coins: run.coins + gain,
+    wager: 1,
+    momentum: Math.min(3, run.momentum + 1),
     stats: { ...run.stats, kills: run.stats.kills + 1, coins: run.stats.coins + gain },
     poison: run.poison,
   };
@@ -449,7 +497,8 @@ function onKill(run: Run): Run {
   return openShop(next);
 }
 
-function weightedSym(state: number, deck: readonly SymId[]): { state: number; sym: SymId } {
+function weightedSym(state: number, deck: readonly SymId[], forceRare: boolean): { state: number; sym: SymId } {
+  if (forceRare) return rollRare(state);
   const bag: SymId[] = [];
   for (const id of PLAY_SYMS) {
     const have = deck.filter((s) => s === id).length;
@@ -462,18 +511,29 @@ function weightedSym(state: number, deck: readonly SymId[]): { state: number; sy
 
 function rollShop(run: Run): { run: Run; shop: Shop } {
   const offers: Shop["offers"] = [];
+  const faces: SymId[] = [];
   let rng = run.rng;
   const used = new Set<SymId>();
+  let forced = run.pity >= 4;
   while (offers.length < 3) {
-    const drawn = weightedSym(rng, run.deck);
+    const drawn = weightedSym(rng, run.deck, forced && offers.length === 0);
     rng = drawn.state;
     if (used.has(drawn.sym) && used.size < PLAY_SYMS.length) continue;
     used.add(drawn.sym);
     const priced = symDef(drawn.sym);
-    if (!priced) continue;
+    if (!priced || priced.price <= 0) continue;
     offers.push({ sym: drawn.sym, price: priced.price });
+    if (forced && offers.length === 1) forced = false;
   }
-  return { run: { ...run, rng }, shop: { offers, heals: 0, rerolled: false } };
+  while (faces.length < 3) {
+    const drawn = weightedSym(rng, run.deck, false);
+    rng = drawn.state;
+    if (faces.includes(drawn.sym)) continue;
+    faces.push(drawn.sym);
+  }
+  const ordinary = offers.every((offer) => rarityOf(offer.sym) === "bezny");
+  const pity = ordinary ? run.pity + 1 : 0;
+  return { run: { ...run, rng, pity }, shop: { offers, heals: 0, rerolled: false, rolls: 0, faces } };
 }
 
 function openShop(run: Run): Run {
@@ -505,10 +565,14 @@ export function buyHeal(run: Run): Run {
 }
 
 export function rerollShop(run: Run): Run {
-  if (run.phase !== "shop" || !run.shop || run.coins < REROLL_PRICE) return run;
-  const paid = { ...run, coins: run.coins - REROLL_PRICE };
+  const price = rerollCost(run.shop?.rolls ?? 0);
+  if (run.phase !== "shop" || !run.shop || run.coins < price) return run;
+  const paid = { ...run, coins: run.coins - price };
   const rolled = rollShop(paid);
-  return { ...rolled.run, shop: { ...rolled.shop, heals: run.shop.heals, rerolled: true } };
+  return {
+    ...rolled.run,
+    shop: { ...rolled.shop, heals: run.shop.heals, rerolled: true, rolls: run.shop.rolls + 1 },
+  };
 }
 
 export function removeSymbol(run: Run, index: number): Run {
@@ -523,6 +587,62 @@ export function removeSymbol(run: Run, index: number): Run {
 export function buyFourthReel(run: Run): Run {
   if (run.phase !== "shop" || run.reels >= 4 || run.floor < 3 || run.coins < REEL_PRICE) return run;
   return { ...run, coins: run.coins - REEL_PRICE, reels: 4 };
+}
+
+export function buyFifthReel(run: Run): Run {
+  if (run.phase !== "shop" || run.reels !== 4 || run.floor < 4 || run.coins < REEL5_PRICE) return run;
+  return { ...run, coins: run.coins - REEL5_PRICE, reels: 5 };
+}
+
+export function takeFace(run: Run, index: number): Run {
+  const shop = run.shop;
+  if (run.phase !== "shop" || !shop || shop.faces.length === 0) return run;
+  const sym = shop.faces[index];
+  if (!sym) return run;
+  return { ...run, deck: [...run.deck, sym], shop: { ...shop, faces: [] } };
+}
+
+export function buyKeys(run: Run): Run {
+  if (run.phase !== "shop" || !run.shop || run.coins < SUPPORT_PRICE || run.keys >= 2) return run;
+  return { ...run, coins: run.coins - SUPPORT_PRICE, keys: run.keys + 1 };
+}
+
+export function buyStamp(run: Run): Run {
+  if (run.phase !== "shop" || !run.shop || run.coins < SUPPORT_PRICE || run.stamp) return run;
+  return { ...run, coins: run.coins - SUPPORT_PRICE, stamp: true };
+}
+
+export function buyEquip(run: Run, id: EquipId): Run {
+  if (run.phase !== "shop" || !run.shop || run.coins < EQUIP_PRICE || run.equip.length >= 2 || run.equip.includes(id)) return run;
+  return { ...run, coins: run.coins - EQUIP_PRICE, equip: [...run.equip, id] };
+}
+
+/** Risk 8 HP. The next spin hits harder. The player has to tap it. */
+export function armWager(run: Run): Run {
+  if (run.phase !== "fight" || run.hp <= 18 || run.wager > 1) return run;
+  return { ...run, hp: run.hp - 8, wager: 1.5, stats: { ...run.stats, taken: run.stats.taken + 8 } };
+}
+
+/** Keep one window from the last spin. Costs a couple of coins. */
+export function holdReel(run: Run, reel: number): Run {
+  if (run.phase !== "fight" || run.coins < HOLD_PRICE) return run;
+  const sym = run.lastLands[reel];
+  if (!sym || sym === "medzera" || sym === "pokuta") return run;
+  return { ...run, coins: run.coins - HOLD_PRICE, held: reel, heldSym: sym };
+}
+
+/** Spend a full meter on one heavy pierce. Nothing happens until the tap. */
+export function fireSuper(run: Run): Run {
+  if (run.phase !== "fight" || !run.enemy || run.super < 100 || run.hp <= 0) return run;
+  const hit = hurtEnemy(run.enemy, 26 + run.momentum * 2, true);
+  let next: Run = {
+    ...run,
+    super: 0,
+    enemy: hit.enemy,
+    stats: { ...run.stats, dealt: run.stats.dealt + hit.dealt },
+  };
+  if (hit.enemy.hp <= 0) next = onKill(next);
+  return next;
 }
 
 export function leaveShop(run: Run): Run {
@@ -585,6 +705,132 @@ function hurtPlayer(run: Run, amount: number, pierce: boolean): { run: Run; lost
   return { run: next, lost: dmg, blocked };
 }
 
+function useLands(run: Run): { run: Run; beats: Beat[] } | null {
+  const start = run.enemy;
+  if (!start || start.lands.length === 0) return null;
+  const beats: Beat[] = [];
+  let enemy = start;
+  let next = run;
+  if (enemy.dot && enemy.dot.left > 0) {
+    const amount = enemy.dot.dmg;
+    const left = enemy.dot.left - 1;
+    enemy = { ...enemy, hp: enemy.hp - amount, dot: left > 0 ? { dmg: enemy.dot.dmg, left } : null };
+    next = { ...next, enemy, stats: { ...next.stats, dealt: next.stats.dealt + amount } };
+    beats.push({ t: "dot", amount, blocked: 0, text: `Jed ${amount}` });
+    if (enemy.hp <= 0) return { run: onKill(next), beats };
+  }
+  if (!enemy.enraged && enemy.hp > 0 && enemy.hp <= enemy.maxHp * 0.5) {
+    enemy = { ...enemy, enraged: true };
+    beats.push({ t: "heal", amount: 0, blocked: 0, text: "Zúri" });
+  }
+  if (next.stamp) {
+    next = { ...next, stamp: false };
+    enemy = { ...enemy, stunned: true, charge: null };
+  }
+  if (enemy.stunned) {
+    enemy = advanceIntent({ ...enemy, stunned: false, charge: null });
+    beats.push({ t: "whiff", amount: 0, blocked: 0, text: "Omámený" });
+    const rolled = openReel(enemy, next.rng, next.floor);
+    return { run: { ...next, rng: rolled.rng, enemy: rolled.enemy }, beats };
+  }
+  if (enemy.charge && enemy.charge.left > 1) {
+    const left = enemy.charge.left - 1;
+    enemy = {
+      ...enemy,
+      charge: { ...enemy.charge, left },
+      intent: { kind: "heavy", amount: enemy.charge.amount, label: `NABÍJA ${left}` },
+    };
+    const jab = hurtPlayer(next, enemy.boss ? 5 : 4, false);
+    next = jab.run;
+    beats.push({ t: jab.lost > 0 ? "hit" : "block", amount: jab.lost, blocked: jab.blocked, text: `Nabíja ${left}` });
+    if (next.hp <= 0) return { run: die({ ...next, enemy }, `${enemy.name} ťa dorazil`), beats };
+    return { run: { ...next, enemy }, beats };
+  }
+  const charging = Boolean(enemy.charge);
+  const parts = enemy.lands.map((_, i) => foePart(enemy.lands, i, enemy, next.call));
+  if (charging && enemy.charge) {
+    const hit = hurtPlayer(next, enemy.charge.amount, enemy.charge.pierce);
+    next = hit.run;
+    const blockedAll = hit.lost <= 0 && hit.blocked > 0;
+    beats.push({
+      t: blockedAll ? "block" : "hit",
+      amount: hit.lost,
+      blocked: hit.blocked,
+      text: blockedAll ? `Štít udržal ${hit.blocked}` : `Zásah ${hit.lost}`,
+    });
+    if (next.hp > 0 && !next.deck.includes("pokuta") && next.deck.length < 9) {
+      const cursed = roll(next.rng);
+      next = { ...next, rng: cursed.state };
+      if (cursed.n < 0.28) next = { ...next, deck: [...next.deck, "pokuta"] };
+    }
+  } else {
+    let sum = 0;
+    let blocked = 0;
+    let poisoned = false;
+    let small = parts.length > 1 && parts.every((part) => !part.pierce && !part.stun && part.dot <= 0 && part.dmg <= 8);
+    for (const part of parts) {
+      if (next.hp <= 0) break;
+      if (part.dmg > 0) {
+        const hit = hurtPlayer(next, part.dmg, part.pierce);
+        next = hit.run;
+        sum += hit.lost;
+        blocked += hit.blocked;
+        if (!small) {
+          const blockedAll = hit.lost <= 0 && hit.blocked > 0;
+          beats.push({
+            t: blockedAll ? "block" : "hit",
+            amount: hit.lost,
+            blocked: hit.blocked,
+            text: blockedAll ? `Štít udržal ${hit.blocked}` : `Zásah ${hit.lost}`,
+          });
+        }
+      }
+      if (next.hp <= 0) break;
+      if (part.shield > 0) {
+        const gained = capEnemyShield(enemy.shield + part.shield) - enemy.shield;
+        enemy = { ...enemy, shield: enemy.shield + gained };
+        if (!small && gained > 0) beats.push({ t: "heal", amount: gained, blocked: 0, text: `Štít +${gained}` });
+      }
+      if (part.heal > 0) {
+        const gained = Math.min(Math.max(0, enemy.maxHp - enemy.hp), part.heal);
+        enemy = { ...enemy, hp: enemy.hp + gained };
+        if (!small && gained > 0) beats.push({ t: "heal", amount: gained, blocked: 0, text: `Liečenie ${gained}` });
+      }
+      if (part.coins > 0) {
+        const coins = Math.min(next.coins, part.coins);
+        next = { ...next, coins: next.coins - coins };
+        if (!small) beats.push({ t: "steal", amount: coins, blocked: 0, text: coins > 0 ? `Krádež ${coins}` : "Nemáš čo ukradnúť" });
+      }
+      if (part.dot > 0 && !poisoned) {
+        poisoned = true;
+        const prev = next.poison;
+        const tick = Math.min(POISON_CAP, Math.max(prev?.dmg ?? 0, part.dot));
+        const left = Math.min(2, Math.max(prev?.left ?? 0, 2));
+        next = { ...next, poison: { dmg: tick, left } };
+        if (!small) beats.push({ t: "poison", amount: tick, blocked: 0, text: `Jed ${tick}` });
+      }
+      if (part.stun) {
+        next = { ...next, blankReels: Math.max(next.blankReels, 1) };
+        if (!small) beats.push({ t: "stun", amount: 0, blocked: 0, text: "Pečiatka — valec zamrzne" });
+      }
+    }
+    if (small && (sum > 0 || blocked > 0)) {
+      const blockedAll = sum <= 0 && blocked > 0;
+      beats.push({
+        t: blockedAll ? "block" : "hit",
+        amount: sum,
+        blocked,
+        text: blockedAll ? `Štít udržal ${blocked}` : `Zásah ${sum}`,
+      });
+    }
+  }
+  if (next.hp <= 0) return { run: die({ ...next, enemy }, `${enemy.name} ťa dorazil`), beats };
+  if (enemy.hp <= 0) return { run: onKill({ ...next, enemy }), beats };
+  enemy = advanceIntent({ ...enemy, charge: null });
+  const rolled = openReel(enemy, next.rng, next.floor);
+  return { run: { ...next, rng: rolled.rng, enemy: rolled.enemy }, beats };
+}
+
 function rageMul(turns: number): number {
   if (turns >= 36) return 3;
   if (turns >= 24) return 2;
@@ -593,6 +839,8 @@ function rageMul(turns: number): number {
 
 export function enemyPhase(run: Run): { run: Run; beats: Beat[] } {
   if (run.phase !== "fight" || !run.enemy || run.hp <= 0) return { run, beats: [] };
+  const visible = useLands(run);
+  if (visible) return visible;
   const beats: Beat[] = [];
   let enemy = run.enemy;
   let next = run;
@@ -691,9 +939,14 @@ export function face(
     intent,
     reel: "blocek",
     kit: [],
+    deck: [],
+    lands: [],
+    windows: 0,
     roll: 0,
+    enraged: false,
+    charge: null,
   };
-  return { ...run, phase: "fight", enemy, fightTurns: 1 };
+  return { ...run, phase: "fight", enemy, fightTurns: 1, call: [], wager: 1, momentum: 0, keys: 0, equip: [] };
 }
 
 export function resign(run: Run): Run {

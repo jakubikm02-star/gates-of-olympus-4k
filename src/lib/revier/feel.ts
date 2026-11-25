@@ -3,7 +3,7 @@
  * Fractions are of the fight canvas. The canvas mounts in a DOM node.
  */
 export const FEEL = {
-  dprCap: 0.8,
+  dprCap: 2,
   particles: 16,
   particlesLow: 14,
   budgetMs: 18,
@@ -26,7 +26,7 @@ export const FEEL = {
   critLinkMs: 420,
   numberPopMs: 260,
   buttonSquashMs: 120,
-  rigMix: 0.12,
+  rigMix: 0.08,
   gravity: 0.0016,
   layout: {
     enemyTop: 0.02,

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { HEAL_PRICE, HEAL_STOCK, REEL_PRICE, REMOVE_PRICE, REROLL_PRICE, aspectKind, floorInfo, symDef, symMark } from "@/lib/revier/symbols";
+import { FAMILY_NAME, metaOf } from "@/lib/revier/depth";
+import { HEAL_PRICE, HEAL_STOCK, HOLD_PRICE, REEL5_PRICE, REEL_PRICE, REMOVE_PRICE, SUPPORT_PRICE, EQUIP_PRICE, aspectKind, floorInfo, rerollCost, symDef, symMark } from "@/lib/revier/symbols";
+import { muffleMusic, playSoftHit, setNsSfx } from "@/lib/slot/audio";
 import type { NocnaRecord, Run, SymId } from "@/lib/revier/types";
 import { useRevier, type Stage } from "@/hooks/use-revier";
 import { preloadNocna } from "@/nocna/preload";
@@ -20,11 +22,27 @@ export function NocnaSmena(props: Props) {
   const host = useRef<HTMLDivElement>(null);
   const fightRef = useRef<FightHandle | null>(null);
   const [gear, setGear] = useState(false);
+  const [sfxVol, setSfxVol] = useState(55);
   const [box, setBox] = useState({ w: 412, h: 915 });
   const kind = aspectKind(box.w, box.h);
   const info = floorInfo(v.run.floor);
   const showFight = FIGHT.includes(v.stage);
   const fps = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("fps");
+
+  useEffect(() => {
+    const danger = v.run.hp > 0 && v.run.hp / Math.max(1, v.run.maxHp) <= 0.25 && v.stage !== "dead" && v.stage !== "draft";
+    const hot = danger || (v.suspense && v.stage === "spin");
+    if (!hot) {
+      muffleMusic(false);
+      return;
+    }
+    muffleMusic(danger);
+    const timer = window.setInterval(() => playSoftHit("heart"), danger ? 720 : 880);
+    return () => {
+      window.clearInterval(timer);
+      muffleMusic(false);
+    };
+  }, [v.run.hp, v.run.maxHp, v.suspense, v.stage]);
 
   useEffect(() => {
     void preloadNocna();
@@ -145,7 +163,9 @@ export function NocnaSmena(props: Props) {
                 <button key={id} type="button" className={at >= 0 ? "is-on" : ""} onClick={() => v.toggle(id)}>
                   {at >= 0 ? <em>{at + 1}</em> : null}
                   <img src={def.art} alt="" />
-                  <span>{mark.chip}</span>
+                  <span>{def.name}</span>
+                  <b>{mark.chip}</b>
+                  {metaOf(id) ? <small>{FAMILY_NAME[metaOf(id)!.family]}</small> : null}
                   <i
                     role="button"
                     aria-label="Detail"
@@ -200,25 +220,78 @@ export function NocnaSmena(props: Props) {
           <button type="button" className={v.calm ? "is-on" : ""} onClick={() => v.setCalm(!v.calm)} aria-pressed={v.calm}>
             Kľud
           </button>
+          <label className="ns-sfx">
+            Zvuk {sfxVol}
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={sfxVol}
+              aria-label="Hlasitosť úderov"
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                setSfxVol(next);
+                setNsSfx(next / 100);
+              }}
+            />
+          </label>
           {v.stage === "shop" && v.run.shop ? (
             <>
               <button type="button" disabled={v.run.coins < REMOVE_PRICE || v.run.deck.length <= 3} onClick={() => v.remove(v.run.deck.length - 1)}>
                 Vyradiť {REMOVE_PRICE}
               </button>
-              <button type="button" disabled={v.run.coins < REROLL_PRICE} onClick={v.reroll}>
-                Premiešať {REROLL_PRICE}
+              <button type="button" disabled={v.run.coins < rerollCost(v.run.shop.rolls)} onClick={v.reroll}>
+                Premiešať {rerollCost(v.run.shop.rolls)}
               </button>
               <button type="button" disabled={v.run.coins < HEAL_PRICE || v.run.shop.heals >= HEAL_STOCK || v.run.hp >= v.run.maxHp} onClick={v.heal}>
                 Život {HEAL_PRICE}
               </button>
               <button type="button" disabled={v.run.reels >= 4 || v.run.floor < 3 || v.run.coins < REEL_PRICE} onClick={v.fourth}>
-                Valec {v.run.floor < 3 ? "3" : REEL_PRICE}
+                4. valec {v.run.floor < 3 ? "od 3" : REEL_PRICE}
+              </button>
+              <button type="button" disabled={v.run.reels !== 4 || v.run.floor < 4 || v.run.coins < REEL5_PRICE} onClick={v.fifth}>
+                5. valec {REEL5_PRICE}
+              </button>
+              <button type="button" disabled={v.run.coins < SUPPORT_PRICE || v.run.keys >= 2} onClick={v.keys}>
+                Kľúče {SUPPORT_PRICE}
+              </button>
+              <button type="button" disabled={v.run.coins < SUPPORT_PRICE || v.run.stamp} onClick={v.stamp}>
+                Pečiatka {SUPPORT_PRICE}
+              </button>
+              <button type="button" disabled={v.run.coins < EQUIP_PRICE || v.run.equip.includes("uder") || v.run.equip.length >= 2} onClick={() => v.equip("uder")}>
+                Sila {EQUIP_PRICE}
+              </button>
+              <button type="button" disabled={v.run.coins < EQUIP_PRICE || v.run.equip.includes("stit") || v.run.equip.length >= 2} onClick={() => v.equip("stit")}>
+                Odolnosť {EQUIP_PRICE}
               </button>
             </>
           ) : null}
           <button type="button" onClick={v.giveUp}>
             {v.stage === "draft" ? "Späť" : "Vzdať"}
           </button>
+        </div>
+      ) : null}
+      {v.stage === "ready" ? (
+        <div className="ns-risk">
+          <button type="button" disabled={v.run.super < 100} onClick={v.burst}>
+            VÝBOJ {v.run.super}
+          </button>
+          <button type="button" disabled={v.run.hp <= 18 || v.run.wager > 1} onClick={v.wager}>
+            ALL-IN
+          </button>
+          <button type="button" disabled={v.run.coins < HOLD_PRICE || !v.run.lastLands.length} onClick={() => v.hold(0)}>
+            ZÁMOK {HOLD_PRICE}
+          </button>
+        </div>
+      ) : null}
+      {v.stage === "shop" && v.run.shop?.faces.length ? (
+        <div className="ns-faces" aria-label="Výber kariet">
+          {v.run.shop.faces.map((id, i) => (
+            <button key={`${id}-${i}`} type="button" onClick={() => v.face(i)}>
+              <img src={symDef(id)?.art} alt="" />
+              <span>{symDef(id)?.name ?? id}</span>
+            </button>
+          ))}
         </div>
       ) : null}
       <button

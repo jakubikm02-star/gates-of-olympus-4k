@@ -1,16 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import * as sfx from "@/lib/slot/audio";
+import { linkBetween, metaOf, STAT_NAME } from "@/lib/revier/depth";
 import { FEEL, type FeelTarget } from "@/lib/revier/feel";
 import {
+  armWager,
   beginSpin,
+  buyEquip,
+  buyFifthReel,
   buyFourthReel,
   buyHeal,
+  buyKeys,
   buyOffer,
+  buyStamp,
   confirmDraft,
   createRun,
   dismissBanner,
   enemyPhase,
   finishPlayer,
+  fireSuper,
+  holdReel,
   leaveShop,
   lockReel,
   nextOpenReel,
@@ -20,6 +28,7 @@ import {
   resign,
   resolveReel,
   sealSpin,
+  takeFace,
   togglePick,
 } from "@/lib/revier/engine";
 import { symDef, symMark } from "@/lib/revier/symbols";
@@ -32,7 +41,7 @@ export interface WinView extends WinSnap {
   sym: SymId | null;
 }
 
-type LiveSpin = NonNullable<ReturnType<typeof beginSpin>>;
+type SpinBag = NonNullable<ReturnType<typeof beginSpin>>;
 
 function snd(play: () => void) {
   try {
@@ -59,13 +68,13 @@ function intentMark(intent: { kind: string; amount: number; turns?: number } | u
   return String(intent.amount);
 }
 
-function turnLabel(stage: Stage) {
+function turnLabel(stage: Stage, call: string) {
   if (stage === "enemy") return "ŤAH NEPRIATEĽA";
   if (stage === "spin") return "TOČÍ SA";
   if (stage === "shop") return "OBCHOD";
   if (stage === "dead") return "KONIEC";
   if (stage === "draft") return "VÝBER";
-  return "TVOJ ŤAH";
+  return call ? `TVOJ ŤAH · ${call}` : "TVOJ ŤAH";
 }
 
 function buttonLabel(stage: Stage, picks: number) {
@@ -74,6 +83,25 @@ function buttonLabel(stage: Stage, picks: number) {
   if (stage === "spin") return "STOP";
   if (stage === "dead") return "SPÄŤ";
   return "ĎALEJ";
+}
+
+function couldSuspense(spin: SpinBag["spin"], enemy: Run["enemy"]): boolean {
+  if (spin.index.filter((n) => n == null).length !== 1) return false;
+  const counts = new Map<string, number>();
+  const families = new Map<string, number>();
+  let dmg = 0;
+  spin.strips.forEach((strip, i) => {
+    if (spin.index[i] == null) return;
+    const sym = strip[spin.index[i] ?? 0];
+    if (!sym || sym === "medzera") return;
+    counts.set(sym, (counts.get(sym) ?? 0) + 1);
+    const fam = metaOf(sym)?.family;
+    if (fam) families.set(fam, (families.get(fam) ?? 0) + 1);
+    dmg += symDef(sym)?.dmg ?? 0;
+  });
+  if ([...counts.values()].some((n) => n >= 2)) return true;
+  if ([...families.values()].some((n) => n >= 2)) return true;
+  return Boolean(enemy && dmg + 12 >= enemy.hp + enemy.shield);
 }
 
 function targetOf(sym: SymId): FeelTarget {
@@ -98,10 +126,12 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
   const [rychlo, setRychlo] = useState(false);
   const [shake, setShake] = useState(1);
   const [calm, setCalm] = useState(reduced);
+  const [suspense, setSuspense] = useState(false);
+  const [foeSpin, setFoeSpin] = useState(true);
   const rychloRef = useRef(false);
   rychloRef.current = rychlo;
   const planRef = useRef<Plan | null>(null);
-  const spinRef = useRef<LiveSpin | null>(null);
+  const spinRef = useRef<SpinBag | null>(null);
   const fight = useRef<FightHandle | null>(null);
   const pressRef = useRef<() => void>(() => {});
   const noted = useRef(false);
@@ -125,6 +155,15 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
     noted.current = true;
     onRecord.current(run);
   }, [run]);
+
+  const foeRoll = run.enemy?.roll ?? 0;
+  const foeId = run.enemy?.id ?? "";
+  useEffect(() => {
+    if (!foeId) return;
+    setFoeSpin(true);
+    const t = window.setTimeout(() => setFoeSpin(false), reduced ? 90 : 620);
+    return () => window.clearTimeout(t);
+  }, [foeRoll, foeId, reduced]);
 
   const emptyWins = (n: number): WinView[] =>
     Array.from({ length: n }, () => ({ sym: null, mode: "empty" as const, crit: false, token: 0, chip: "" }));
@@ -156,7 +195,8 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
     setActive(null);
     planRef.current = null;
     go("ready");
-    showHint("spin", "Ťukni ZATOČ.");
+    if (next.enemy?.boss && next.fightTurns === 0) setHint(next.enemy.taunt);
+    else showHint("spin", "Ťukni ZATOČ.");
   };
 
   const spin = () => {
@@ -215,8 +255,11 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
     const nxt = nextOpenReel(locked);
     if (nxt >= 0) {
       setActive(nxt);
+      setSuspense(couldSuspense(locked, runRef.current.enemy));
+      if (couldSuspense(locked, runRef.current.enemy)) snd(() => sfx.playSoftHit("drop"));
       return;
     }
+    setSuspense(false);
     const sealed = sealSpin(runRef.current, locked);
     commit(sealed.run);
     planRef.current = sealed.plan;
@@ -240,8 +283,13 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
     if (stageRef.current !== "preview" || !plan || busy) return;
     setBusy(true);
     setHint(null);
+    setSuspense(false);
     go("act");
-    fight.current?.setPace(rychloRef.current ? 1.5 : 1);
+    const trivial = plan.reels.every((step) => {
+      const def = symDef(step.sym);
+      return !step.crit && (def?.dmg ?? 0) <= 10 && !def?.stun && def?.hook !== "burst";
+    });
+    fight.current?.setPace(rychloRef.current || trivial ? 1.55 : 1);
     if (plan.critSym && fight.current) {
       await fight.current.playFoe(plan.critMul >= 3 ? "MEGA" : "KRIT", "hit", "foe");
     }
@@ -254,23 +302,32 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
       }
       if (step.sym === "medzera" || step.sym === "restart") continue;
       const resolved = resolveReel(runRef.current, plan, step.reel);
+      const foe = runRef.current.enemy;
+      const rough = (symDef(step.sym)?.dmg ?? 0) * (step.crit ? plan.critMul : 1);
+      const slow = Boolean(foe && (rough >= foe.hp + foe.shield || (foe.hp <= foe.maxHp * 0.5 && step.reel === plan.reels.length - 1 && rough >= foe.hp)));
       const cue: Cue = {
         reel: step.reel,
         sym: step.sym,
         crit: step.crit,
         rewind: false,
-        chip: mark?.chip ?? "",
+        chip: trivial && !step.crit ? "" : (mark?.chip ?? ""),
         selfChip: step.sym === "natural" ? "❤−8" : undefined,
         target: targetOf(step.sym),
+        slow,
       };
+      if (slow) {
+        snd(() => sfx.playSoftHit("riser"));
+        fight.current?.setPace(0.62);
+      }
       if (fight.current) {
         await fight.current.playCue(cue, () => {
           commit(resolved.run);
-          snd(() => (step.crit ? sfx.playWin("full") : sfx.playStrike()));
+          if (!trivial || step.crit || slow) snd(() => (step.crit || slow ? sfx.playSoftHit("big") : sfx.playSoftHit("hit")));
         });
       } else {
         commit(resolved.run);
       }
+      if (slow) fight.current?.setPace(rychloRef.current || trivial ? 1.55 : 1);
       if (runRef.current.hp <= 0) {
         go("dead");
         setBusy(false);
@@ -292,10 +349,36 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
       return;
     }
     go("enemy");
+    const lands = done.enemy?.lands.slice() ?? [];
+    const countdown = (done.enemy?.charge?.left ?? 0) > 1;
+    const clutch = Boolean(done.enemy?.charge && done.enemy.charge.left <= 1);
+    if (!countdown && lands.length && fight.current) {
+      for (let i = 0; i < lands.length; i++) {
+        const sym = lands[i]!;
+        const mark = symMark(sym);
+        if (clutch && i === 0) snd(() => sfx.playSoftHit("riser"));
+        await fight.current.playCue(
+          {
+            reel: i,
+            row: "foe",
+            sym,
+            crit: clutch,
+            rewind: false,
+            chip: "",
+            target: (symDef(sym)?.dmg ?? 0) > 0 ? "you" : "foe",
+            slow: clutch,
+          },
+          () => {},
+        );
+      }
+    }
     const acted = enemyPhase(done);
+    const lethal = acted.beats.some((beat) => beat.t === "hit" && beat.amount >= done.hp);
     for (const beat of acted.beats) {
       const kind = beat.t === "block" ? "block" : beat.t === "whiff" ? "miss" : beat.t === "heal" ? "heal" : "hit";
-      if (fight.current) await fight.current.playFoe(beatChip(beat), kind);
+      if (lethal && beat.t === "hit") snd(() => sfx.playSoftHit("drop"));
+      if (fight.current) await fight.current.playFoe(beatChip(beat), kind, beat.t === "heal" ? "foe" : "you", lethal || clutch);
+      if (beat.t === "hit" || beat.t === "block") snd(() => sfx.playSoftHit(lethal || clutch ? "big" : "hit"));
     }
     commit(acted.run);
     setWindows(emptyWins(acted.run.reels));
@@ -352,8 +435,22 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
       windows,
       reduced: calm || reduced,
       intent: intentMark(enemy?.intent),
-      foeArt: enemy?.reel ? (symDef(enemy.reel)?.art ?? null) : null,
+      foeArt: null,
+      foeWindows: (enemy?.lands ?? []).map((sym) => ({
+        sym,
+        mode: foeSpin && !calm ? "flicker" : "sit",
+        crit: Boolean(enemy?.charge),
+        token: enemy?.roll ?? 0,
+        chip: symMark(sym)?.chip ?? "",
+      })),
+      links: linkBetween(windows.map((win) => (win.sym ?? "medzera") as SymId)),
       foeRoll: enemy?.roll ?? 0,
+      charge: enemy?.charge?.left ?? 0,
+      enraged: Boolean(enemy?.enraged),
+      suspense,
+      danger: live.hp > 0 && live.hp / Math.max(1, live.maxHp) <= 0.25,
+      call: live.call.map((id) => STAT_NAME[id]).join(" "),
+      super: live.super,
       shake,
       shop: stageRef.current === "shop",
       deck: stageRef.current === "shop" ? live.deck : [],
@@ -362,7 +459,7 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
       pulse: stageRef.current === "ready" || stageRef.current === "preview" || stageRef.current === "shop" || stageRef.current === "banner" || (stageRef.current === "draft" && live.picks.length === 3) || stageRef.current === "spin",
       coins: live.coins,
       floor,
-      turn: turnLabel(stageRef.current),
+      turn: turnLabel(stageRef.current, live.call.map((id) => STAT_NAME[id]).join(" ")),
       hint: hint ?? "",
       active,
     };
@@ -446,6 +543,32 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
     reroll: () => openShop(rerollShop(runRef.current)),
     remove: (index: number) => openShop(removeSymbol(runRef.current, index)),
     fourth: () => openShop(buyFourthReel(runRef.current)),
+    fifth: () => openShop(buyFifthReel(runRef.current)),
+    face: (index: number) => openShop(takeFace(runRef.current, index)),
+    keys: () => openShop(buyKeys(runRef.current)),
+    stamp: () => openShop(buyStamp(runRef.current)),
+    equip: (id: "uder" | "stit") => openShop(buyEquip(runRef.current, id)),
+    wager: () => {
+      if (stageRef.current !== "ready") return;
+      const next = armWager(runRef.current);
+      if (next !== runRef.current) commit(next);
+    },
+    hold: (reel: number) => {
+      if (stageRef.current !== "ready") return;
+      const next = holdReel(runRef.current, reel);
+      if (next !== runRef.current) commit(next);
+    },
+    burst: () => {
+      if (stageRef.current !== "ready") return;
+      const next = fireSuper(runRef.current);
+      if (next === runRef.current) return;
+      if (next.phase === "shop") openShop(next);
+      else if (next.phase === "dead") {
+        commit(next);
+        go("dead");
+      } else commit(next);
+    },
+    suspense,
     rychlo,
     setRychlo,
     shake,
