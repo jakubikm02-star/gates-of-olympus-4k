@@ -70,7 +70,7 @@ function rungFor(dpr: number): number {
 }
 
 const DJ_STILL = ["aura", "auraHot", "desk", "mic", "torso", "armLU", "armLL", "armRU", "armRL"] as const;
-const DJ_LIVE = ["head", "jaw", "eyes", "handL", "handR"] as const;
+const DJ_LIVE = ["head", "jaw", "handL", "handR"] as const;
 
 function urls(): string[] {
   const syms = Object.values(SYM).map((def) => def.art);
@@ -676,12 +676,19 @@ export class FightStage {
       reelY = h * 0.22;
     }
     if (blast && split) {
-      const top = 108;
-      const footRoom = 118;
-      foeH = Math.max(90, h - top - footRoom);
-      foeY = top + foeH;
-      foeX = leftW * 0.48;
+      this.foeCell = Math.min(this.foeCell, Math.max(40, Math.floor((leftW - 36) / foeCount)));
+      const cell = this.foeCell;
+      const chipBottom = 72;
+      const footer = 8 + 36 + 8 + (cell + 18);
+      const bandTop = h - footer;
+      const feetLimit = bandTop - 10;
+      const room = Math.max(110, feetLimit - chipBottom);
+      foeH = Math.min(room, h * 0.55);
+      const extra = Math.max(0, room - foeH);
+      foeY = chipBottom + extra / 2 + foeH;
+      foeX = leftW * 0.5;
       reelY = 28;
+      this.bandY = bandTop;
     } else if (blast) {
       const top = 92;
       const wanted = h * 0.3;
@@ -691,11 +698,11 @@ export class FightStage {
     }
     this.foeX = foeX;
     this.foeY = foeY;
-    this.bandY = foeY + (blast && split ? 18 : 8);
+    if (!(blast && split)) this.bandY = foeY + 8;
     this.rowCenter = blast && split ? leftW * 0.48 : w / 2;
     this.rowLeft = blast && split ? 8 : 8;
     this.rowRight = blast && split ? leftW - 10 : w - 8;
-    if (blast && split) this.foeCell = Math.min(this.foeCell, Math.max(34, Math.floor((leftW - 36) / foeCount)));
+    if (blast && split) this.foeCell = Math.min(this.foeCell, Math.max(40, Math.floor((leftW - 36) / foeCount)));
     if (this.rig?.doc) {
       const sk = this.rig.doc.skeleton.height || 512;
       const sc = (foeH * (blast ? 1 : 0.74)) / sk;
@@ -769,6 +776,7 @@ export class FightStage {
     const trayH = 46;
     const trayX = blast && split ? rightX + 4 : (w - trayW) / 2;
     const trayY = blast && split ? Math.min(gaugeTop + plateH + 4, by - trayH - 6) : Math.max(gaugeTop + plateH + 6, by - trayH - 8);
+    this.tray.view.visible = !(blast && split);
     this.tray.place(trayX, trayY, trayW, trayH);
     this.tray.setTexture(this.coinIcon.texture);
     this.tray.physics = this.quality.tier === "high" && !this.reduced;
@@ -997,7 +1005,9 @@ export class FightStage {
       ePlateW = this.eBarW + 56;
     }
     const underFoe = this.bandY + this.foeCell + 6;
-    const ePlateY = foeX < w * 0.4 ? underFoe : Math.max(inset + 8, Math.min(underFoe, plateY - 40));
+    const ePlateH = 32;
+    let ePlateY = foeX < w * 0.4 ? underFoe : Math.max(inset + 8, Math.min(underFoe, plateY - 40));
+    ePlateY = Math.max(8, Math.min(ePlateY, h - ePlateH - 6));
     this.ePlateX = ePlateX;
     this.ePlateY = ePlateY;
     this.chargeFill.position.set(ePlateX + 10, ePlateY + 28);
@@ -1012,7 +1022,8 @@ export class FightStage {
     this.hpGhost.position.set(barX, plateY + 12);
     this.hpFill.position.set(barX, plateY + 12);
     this.shFill.position.set(barX, plateY + 28);
-    this.ehpFill.position.set(ePlateX + 28, ePlateY + 12);
+    this.ehpFill.position.set(ePlateX + 26, ePlateY + 12);
+    this.eBarW = Math.max(20, ePlateW - 26 - 48);
     this.hpGhost.scale.y = 10;
     this.hpFill.scale.y = 10;
     this.shFill.scale.y = 6;
@@ -1138,7 +1149,7 @@ export class FightStage {
     const prevColor = bg.color;
     bg.alpha = 0;
     bg.color = 0x000000;
-    this.app.renderer.render({ container: rig, target: this.djPlateRT, clear: true });
+    this.app.renderer.render({ container: rig, target: this.djPlateRT, clear: true, clearColor: [0, 0, 0, 0] });
     bg.alpha = prevAlpha;
     bg.color = prevColor;
     parent?.addChildAt(rig, index);
@@ -1223,11 +1234,25 @@ export class FightStage {
     const g = c.getContext("2d");
     if (!g) return img.src;
     g.drawImage(img, 0, 0);
-    g.globalCompositeOperation = "multiply";
-    g.fillStyle = `rgb(${(hex >> 16) & 255},${(hex >> 8) & 255},${hex & 255})`;
-    g.fillRect(0, 0, c.width, c.height);
-    g.globalCompositeOperation = "destination-in";
-    g.drawImage(img, 0, 0);
+    const data = g.getImageData(0, 0, c.width, c.height);
+    const px = data.data;
+    const tr = (hex >> 16) & 255;
+    const tg = (hex >> 8) & 255;
+    const tb = hex & 255;
+    for (let i = 0; i < px.length; i += 4) {
+      const a = px[i + 3] ?? 0;
+      if (a < 32) {
+        px[i] = 0;
+        px[i + 1] = 0;
+        px[i + 2] = 0;
+        px[i + 3] = 0;
+        continue;
+      }
+      px[i] = ((px[i] ?? 0) * tr) / 255;
+      px[i + 1] = ((px[i + 1] ?? 0) * tg) / 255;
+      px[i + 2] = ((px[i + 2] ?? 0) * tb) / 255;
+    }
+    g.putImageData(data, 0, 0);
     return c.toDataURL("image/png");
   }
 

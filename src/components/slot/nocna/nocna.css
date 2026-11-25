@@ -427,10 +427,11 @@
   position: absolute;
   inset: 0;
   text-align: center;
-  color: #1a1204;
+  color: #fff6d8;
   font-family: "Oswald", sans-serif;
   font-size: 0.68rem;
   line-height: 18px;
+  text-shadow: 0 1px 0 #1a1204;
 }
 .ns-go:active { transform: scale(0.96); }
 .ns-go:disabled { opacity: 0.4; }

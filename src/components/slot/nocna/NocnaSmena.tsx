@@ -310,7 +310,7 @@ export function NocnaSmena(props: Props) {
           </button>
         </div>
       ) : null}
-      {showFight ? (
+      {showFight && v.run.super > 0 ? (
         <div className="ns-meter" aria-label="Výboj">
           <i style={{ width: `${Math.min(100, v.run.super)}%` }} />
           <span>VÝBOJ {v.run.super}{v.run.momentum > 0 ? ` · SÉRIA +${v.run.momentum}` : ""}</span>

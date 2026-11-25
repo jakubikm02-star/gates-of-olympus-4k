@@ -104,7 +104,7 @@ export class Rig extends Container {
 
   showAllSlots() {
     for (const [name, node] of this.slotNodes) {
-      node.visible = name !== "teeBlack" && name !== "auraHot";
+      node.visible = name !== "teeBlack" && name !== "auraHot" && name !== "eyes";
     }
     this.setPhase(this.phaseOn);
   }
@@ -289,7 +289,7 @@ export class Rig extends Container {
       // Slot order, not tree order. A torso sprite added after its children
       // would otherwise cover the head.
       wrap.zIndex = index;
-      wrap.visible = slot.name !== "teeBlack" && slot.name !== "auraHot";
+      wrap.visible = slot.name !== "teeBlack" && slot.name !== "auraHot" && slot.name !== "eyes";
       this.slotNodes.set(slot.name, wrap);
       bone.view.addChild(wrap);
     });

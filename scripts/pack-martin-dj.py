@@ -387,12 +387,13 @@ def silhouette(im: Image.Image) -> Image.Image:
     for y in range(h):
         for x in range(w):
             r, g, b, a = px[x, y]
-            if a < 20:
+            if a < 100:
+                px[x, y] = (0, 0, 0, 0)
                 continue
             if r > g + 30 and r > 70:
-                px[x, y] = (120, 24, 28, min(255, a))
+                px[x, y] = (140, 28, 32, a)
             else:
-                px[x, y] = (18, 10, 14, min(220, int(a * 0.92)))
+                px[x, y] = (16, 8, 12, a)
     src = src.crop((420, 10, 1180, 1180))
     box = src.getbbox()
     if box:
