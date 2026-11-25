@@ -46,7 +46,7 @@ export interface RunSummary {
   hp: number;
 }
 
-const DRAFT: Record<SymId, number> = {
+const DRAFT: Partial<Record<SymId, number>> = {
   blocek: 10,
   stit: 9,
   krimp: 8,
@@ -66,9 +66,13 @@ function incoming(intent: Intent): number {
   return intent.amount;
 }
 
+function scoreOf(sym: SymId): number {
+  return DRAFT[sym] ?? 3;
+}
+
 function want(run: Run, sym: SymId): number {
   const enemy = run.enemy;
-  if (!enemy) return DRAFT[sym];
+  if (!enemy) return scoreOf(sym);
   const threat = incoming(enemy.intent) > run.shield + 4 || run.hp <= 42;
   const almost = enemy.hp + enemy.shield <= 40;
   switch (sym) {
@@ -120,7 +124,7 @@ function chooseStop(run: Run, strip: readonly SymId[], profile: BotProfile): { r
 }
 
 function draft(run: Run): Run {
-  const ranked = run.draft.slice().sort((a, b) => DRAFT[b] - DRAFT[a] || a.localeCompare(b));
+  const ranked = run.draft.slice().sort((a, b) => scoreOf(b) - scoreOf(a) || a.localeCompare(b));
   let next = run;
   for (const sym of ranked.slice(0, 3)) next = togglePick(next, sym);
   return confirmDraft(next);
@@ -132,7 +136,7 @@ function worstIndex(run: Run): number {
   const counts = new Map<SymId, number>();
   for (const sym of run.deck) counts.set(sym, (counts.get(sym) ?? 0) + 1);
   run.deck.forEach((sym, i) => {
-    let s = DRAFT[sym];
+    let s = scoreOf(sym);
     if ((counts.get(sym) ?? 0) > 2 && sym !== "blocek" && sym !== "krimp") s -= 4;
     if (sym === "natural" && run.hp < 60) s -= 6;
     if (s < score) {
@@ -166,7 +170,7 @@ function shop(run: Run): Run {
     let bestScore = 5;
     stock.offers.forEach((offer, i) => {
       if (next.coins < offer.price || next.deck.length >= 9) return;
-      const score = DRAFT[offer.sym];
+      const score = scoreOf(offer.sym);
       if (score > bestScore) {
         bestScore = score;
         best = i;
@@ -183,7 +187,7 @@ function shop(run: Run): Run {
         continue;
       }
     }
-    if (!stock.rerolled && next.coins >= REROLL_PRICE + 6 && stock.offers.every((offer) => DRAFT[offer.sym] < 6)) {
+    if (!stock.rerolled && next.coins >= REROLL_PRICE + 6 && stock.offers.every((offer) => scoreOf(offer.sym) < 6)) {
       next = rerollShop(next);
       continue;
     }

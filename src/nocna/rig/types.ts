@@ -49,6 +49,9 @@ export interface SpineDoc {
     target: string;
     bendPositive?: boolean;
     mix?: number;
+    /** Upper and lower bone lengths for the delta IK. Absent chains stay keyframed. */
+    l1?: number;
+    l2?: number;
   }[];
   physics?: { name: string; bone: string; strength?: number; damping?: number; mix?: number }[];
   events?: Record<string, { string?: string }>;

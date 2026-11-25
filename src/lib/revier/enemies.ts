@@ -1,6 +1,7 @@
 import { pick } from "./rng.ts";
 import { ENEMY_SHIELD_CAP } from "./symbols.ts";
-import type { Enemy, Intent } from "./types.ts";
+import type { Enemy, Intent, SymId } from "./types.ts";
+import { symDef } from "./symbols.ts";
 
 type Scaler = (base: number) => number;
 
@@ -135,7 +136,7 @@ const FOES: Record<string, Foe> = {
     taunt: "Štít som ti neuznal.",
     boss: true,
     elite: false,
-    hp: 640,
+    hp: 560,
     pattern: (s) => [pierce(s(26)), hit(s(20)), hit(s(34), true)],
   },
   general: {
@@ -246,8 +247,64 @@ function build(id: string, floor: number, ranna: number, rng: number): { rng: nu
     pattern,
     pi: 0,
     intent: pattern[0]!,
+    reel: "blocek",
+    kit: KITS[def.id] ?? [],
+    roll: 0,
   };
-  return { rng, enemy };
+  return openReel({ ...enemy }, rng);
+}
+
+const KITS: Record<string, SymId[]> = {
+  neplatic: ["dacia", "rj45", "gemr", "roof"],
+  pokutomat: ["meter", "gemr", "dacia", "fs"],
+  ozran: ["gemr", "dacia", "rj45", "gemp"],
+  inkasak: ["fs", "gemr", "dacia", "roof"],
+  zlodej: ["dacia", "gemr", "roof", "case"],
+  uradnicka: ["gemr", "dacia", "roof", "fs"],
+  kurier: ["dacia", "gemr", "can3", "crown"],
+  demon: ["gemr", "dacia", "can3", "gemp"],
+  anjel: ["gemr", "dacia", "fs", "krimp"],
+  general: ["krimp", "fs", "dacia", "arris"],
+  prednosta: ["pdf", "fs", "krimp", "stat"],
+  krovinorez: ["dacia", "gemr", "can2", "gemp"],
+  motorka: ["dacia", "crown", "gemr", "can4"],
+  myto: ["fs", "dacia", "case", "gemr"],
+};
+
+/** Land the enemy reel and turn that symbol into the telegraphed intent. Amount stays on the scripted step. */
+export function openReel(enemy: Enemy, rng: number): { rng: number; enemy: Enemy } {
+  if (!enemy.kit.length) return { rng, enemy };
+  const drawn = pick(rng, enemy.kit);
+  const base = enemy.pattern[enemy.pi]?.amount ?? enemy.intent.amount;
+  return {
+    rng: drawn.state,
+    enemy: { ...enemy, reel: drawn.item, roll: enemy.roll + 1, intent: intentFromKit(drawn.item, base) },
+  };
+}
+
+function intentFromKit(sym: SymId, amount: number): Intent {
+  const n = Math.max(1, Math.round(amount));
+  const name = symDef(sym)?.name ?? sym;
+  if (sym === "roof" || sym === "gemb" || sym === "stit" || sym === "okres" || sym === "canarc") {
+    return { kind: "shield", amount: n, label: `${name} · štít ${n}` };
+  }
+  if (sym === "gemp" || sym === "kraj" || sym === "boticka") {
+    return { kind: "poison", amount: Math.max(1, Math.round(n * 0.45)), turns: 3, label: `${name} · jed` };
+  }
+  if (sym === "case" || sym === "konektor" || sym === "gemy") {
+    return { kind: "steal", amount: Math.max(1, Math.round(n * 0.7)), turns: 2, label: `${name} · krádež` };
+  }
+  if (sym === "arris" || sym === "data") {
+    return { kind: "stun", amount: Math.max(1, Math.round(n * 0.6)), label: `${name} · pečiatka` };
+  }
+  if (sym === "fs" || sym === "exekucia" || sym === "stat") {
+    return { kind: "pierce", amount: n, label: `${name} · cez štít ${n}` };
+  }
+  if (sym === "pdf" || sym === "natural" || sym === "krimp" || sym === "can4") {
+    return { kind: "heavy", amount: n, label: `${name} · ťažký ${n}` };
+  }
+  if (sym === "crown") return { kind: "double", amount: Math.max(1, Math.round(n * 0.6)), label: `${name} · dvojitý` };
+  return { kind: "hit", amount: n, label: `${name} · úder ${n}` };
 }
 
 export function spawnFoe(

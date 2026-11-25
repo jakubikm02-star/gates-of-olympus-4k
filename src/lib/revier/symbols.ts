@@ -1,6 +1,7 @@
-import type { SymId } from "./types.ts";
+import type { SymHook, SymId, SymMotion } from "./types.ts";
 
-export const PLAY_SYMS = [
+/** Opening draft. Order is the contract the seeded tests shuffle. */
+export const CORE_SYMS = [
   "blocek",
   "krimp",
   "stit",
@@ -12,6 +13,41 @@ export const PLAY_SYMS = [
   "restart",
   "natural",
 ] as const satisfies readonly SymId[];
+
+/** Classic Parkizmus art, each with its own night-shift job. Shop and enemy reels. */
+export const EXTRA_SYMS = [
+  "rj45",
+  "router",
+  "hap",
+  "roof",
+  "arris",
+  "case",
+  "dacia",
+  "meter",
+  "pdf",
+  "tv",
+  "gemr",
+  "gemb",
+  "gemg",
+  "gemy",
+  "gemp",
+  "crown",
+  "chalice",
+  "hour",
+  "ring",
+  "fs",
+  "can1",
+  "can2",
+  "can3",
+  "can4",
+  "canarc",
+  "ulica",
+  "okres",
+  "kraj",
+  "stat",
+] as const satisfies readonly SymId[];
+
+export const PLAY_SYMS = [...CORE_SYMS, ...EXTRA_SYMS] as const satisfies readonly SymId[];
 
 export const STRIP = 16;
 export const SHIELD_CAP = 48;
@@ -46,6 +82,9 @@ export interface SymDef {
   dotTurns: number;
   pierce: boolean;
   stun: boolean;
+  hook?: SymHook;
+  motion?: SymMotion;
+  aim?: "foe" | "you" | "coin";
 }
 
 export const SYM: Record<Exclude<SymId, "medzera">, SymDef> = {
@@ -219,7 +258,65 @@ export const SYM: Record<Exclude<SymId, "medzera">, SymDef> = {
     pierce: false,
     stun: false,
   },
+  rj45: s("rj45", "Hrdzavý RJ45", "Úder 8, ale 18 keď sedí na ľavom valci.", "/symbols/rj45.png", 7, 6, { dmg: 8, hook: "left", motion: "strike" }),
+  router: s("router", "Wi-Fi router", "Zopakuje úder suseda vľavo. Sám dá 6, keď je prvý.", "/symbols/router.png", 9, 5, { dmg: 6, hook: "copy", motion: "copy" }),
+  hap: s("hap", "hAP ac²", "Sám dá 6. Dva a viac v rade dajú každý 16.", "/symbols/hap.png", 8, 6, { dmg: 6, hook: "chain", motion: "strike" }),
+  roof: s("roof", "Krytina", "Štít 14. Drží, kým ho nerozbijú.", "/symbols/roof.png", 8, 6, { shield: 14, motion: "guard", aim: "you" }),
+  arris: s("arris", "Set-top box", "Omráči ďalší úder. Druhý v rade ho len kopne.", "/symbols/arris.png", 10, 4, { stun: true, motion: "stamp" }),
+  case: s("case", "Kufrík", "Dve mince do tácky.", "/symbols/case.png", 7, 6, { coins: 2, motion: "coin", aim: "coin" }),
+  dacia: s("dacia", "Dacia Jogger", "Nájazd za 18.", "/symbols/dacia.png", 11, 5, { dmg: 18, motion: "strike" }),
+  meter: s("meter", "OLP-87", "Úder 9, na pravom valci 18.", "/symbols/meter.png", 10, 4, { dmg: 9, hook: "right", motion: "strike" }),
+  pdf: s("pdf", "PDF 4K 5G", "Zmaže sa z balíka a tresne 32.", "/symbols/pdf.png", 13, 3, { dmg: 32, hook: "burst", motion: "burst" }),
+  tv: s("tv", "4KA TV", "Divoká. Počíta sa k najčastejšiemu symbolu a dá 8.", "/symbols/tv4ka.png", 12, 3, { dmg: 8, hook: "wild", motion: "wild" }),
+  gemr: s("gemr", "Červený kameň", "Úder 12.", "/symbols/gem-red.png", 7, 7, { dmg: 12, motion: "strike" }),
+  gemb: s("gemb", "Modrý kameň", "Štít 11.", "/symbols/gem-blue.png", 7, 6, { shield: 11, motion: "guard", aim: "you" }),
+  gemg: s("gemg", "Zelený kameň", "Naleje 8 života.", "/symbols/gem-green.png", 8, 5, { heal: 8, motion: "sip", aim: "you" }),
+  gemy: s("gemy", "Žltý kameň", "Minca a malý úder 4.", "/symbols/gem-yellow.png", 8, 5, { coins: 1, dmg: 4, motion: "coin", aim: "coin" }),
+  gemp: s("gemp", "Fialový kameň", "Jed 4 na 3 ťahy.", "/symbols/gem-purple.png", 9, 5, { dot: 4, dotTurns: 3, motion: "venom" }),
+  crown: s("crown", "Koruna", "Tento úder 14 je vždy kritický.", "/symbols/crown.png", 14, 3, { dmg: 14, motion: "burst" }),
+  chalice: s("chalice", "Kalich", "Naleje 14 života.", "/symbols/chalice.png", 11, 4, { heal: 14, motion: "sip", aim: "you" }),
+  hour: s("hour", "Presýpacie hodiny", "Úder 5 a pri každom ďalšom použití +3.", "/symbols/hourglass.png", 9, 4, { dmg: 5, hook: "grow", motion: "strike" }),
+  ring: s("ring", "Prsteň", "Zopakuje úder suseda vľavo ešte raz.", "/symbols/ring.png", 12, 3, { dmg: 0, hook: "double", motion: "copy" }),
+  fs: s("fs", "Finančná správa", "14 cez štít.", "/symbols/fs.png", 12, 4, { dmg: 14, pierce: true, motion: "pierce" }),
+  can1: s("can1", "Plechovka I", "Zmaže sa a dá 10.", "/symbols/can-t1.webp", 6, 5, { dmg: 10, hook: "burst", motion: "burst" }),
+  can2: s("can2", "Plechovka II", "Zmaže sa a dá 16.", "/symbols/can-t2.webp", 8, 4, { dmg: 16, hook: "burst", motion: "burst" }),
+  can3: s("can3", "Plechovka III", "Zmaže sa a dá 24.", "/symbols/can-t3.webp", 11, 3, { dmg: 24, hook: "burst", motion: "burst" }),
+  can4: s("can4", "Plechovka IV", "Zmaže sa a dá 34.", "/symbols/can-t4.webp", 14, 2, { dmg: 34, hook: "burst", motion: "burst" }),
+  canarc: s("canarc", "Oblúková plechovka", "Štít 8 a úder 8.", "/symbols/can-arc.webp", 10, 4, { shield: 8, dmg: 8, motion: "guard", aim: "you" }),
+  ulica: s("ulica", "1-FTTB", "Úder 6, na ľavom valci 16.", "/symbols/fttb-ulica.png", 7, 5, { dmg: 6, hook: "left", motion: "strike" }),
+  okres: s("okres", "2-FTTB", "Štít 10.", "/symbols/fttb-okres.png", 8, 5, { shield: 10, motion: "guard", aim: "you" }),
+  kraj: s("kraj", "3-FTTB", "Jed 5 na 3 ťahy.", "/symbols/fttb-kraj.png", 9, 4, { dot: 5, dotTurns: 3, motion: "venom" }),
+  stat: s("stat", "4-FTTB", "Úder 10, na pravom valci 20 cez štít.", "/symbols/fttb-stat.png", 12, 3, { dmg: 10, hook: "right", pierce: true, motion: "pierce" }),
 };
+
+function s(
+  id: SymId,
+  name: string,
+  blurb: string,
+  art: string,
+  price: number,
+  weight: number,
+  extra: Partial<SymDef>,
+): SymDef {
+  return {
+    id,
+    name,
+    blurb,
+    art,
+    price,
+    weight,
+    dmg: 0,
+    shield: 0,
+    heal: 0,
+    coins: 0,
+    self: 0,
+    dot: 0,
+    dotTurns: 0,
+    pierce: false,
+    stun: false,
+    ...extra,
+  };
+}
 
 export function symDef(id: SymId): SymDef | null {
   if (id === "medzera") return null;

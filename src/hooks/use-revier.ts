@@ -22,7 +22,7 @@ import {
   sealSpin,
   togglePick,
 } from "@/lib/revier/engine";
-import { symMark } from "@/lib/revier/symbols";
+import { symDef, symMark } from "@/lib/revier/symbols";
 import type { Beat, Plan, Run, SymId } from "@/lib/revier/types";
 import type { Cue, FightHandle, FightSnap, WinSnap } from "@/nocna/fight-types";
 
@@ -77,9 +77,7 @@ function buttonLabel(stage: Stage, picks: number) {
 }
 
 function targetOf(sym: SymId): FeelTarget {
-  if (sym === "stit" || sym === "parkvolt" || sym === "natural") return "you";
-  if (sym === "konektor") return "coin";
-  return "foe";
+  return symDef(sym)?.aim ?? (sym === "stit" || sym === "parkvolt" || sym === "natural" ? "you" : sym === "konektor" ? "coin" : "foe");
 }
 
 /**
@@ -354,6 +352,8 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
       windows,
       reduced: calm || reduced,
       intent: intentMark(enemy?.intent),
+      foeArt: enemy?.reel ? (symDef(enemy.reel)?.art ?? null) : null,
+      foeRoll: enemy?.roll ?? 0,
       shake,
       shop: stageRef.current === "shop",
       deck: stageRef.current === "shop" ? live.deck : [],

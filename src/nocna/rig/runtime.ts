@@ -316,14 +316,20 @@ export class Rig extends Container {
       head.view.addChild(mark);
       this.stunMark = mark;
     }
-    const root = this.bones.get("root");
-    if (root) {
+    const torso = this.bones.get("torso");
+    if (torso) {
       const flash = new Graphics();
-      flash.circle(0, -300, 78).fill({ color: 0xfff4d2, alpha: 0.85 });
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI;
+        flash.moveTo(Math.cos(a) * 3, Math.sin(a) * 3).lineTo(Math.cos(a) * 14, Math.sin(a) * 14);
+      }
+      flash.stroke({ color: 0xfff3c4, width: 2, alpha: 0.95 });
       flash.blendMode = "add";
       flash.visible = false;
       flash.zIndex = 10_000;
-      root.view.addChild(flash);
+      const head = this.bones.get("head");
+      flash.position.set((head?.setupX ?? 0) * 0.3, -((head?.setupY ?? 80) * 0.55));
+      torso.view.addChild(flash);
       this.flash = flash;
     }
   }
@@ -351,8 +357,8 @@ export class Rig extends Container {
 
   /** Knockback flash, death fade, and the stun stars. Cheap: no filters. */
   private applyRead() {
-    const hitFlash = this.clip === "hit" && this.time >= 0.04 && this.time <= 0.16;
-    const tint = hitFlash ? 0xffe2c4 : 0xffffff;
+    const hitFlash = this.clip === "hit" && this.time >= 0.04 && this.time <= 0.14;
+    const tint = hitFlash ? 0xfff0d2 : 0xffffff;
     for (const sprite of this.sprites) sprite.tint = tint;
     if (this.flash) this.flash.visible = hitFlash;
     if (this.stunMark) {
@@ -408,24 +414,19 @@ export class Rig extends Container {
   private applyIk() {
     const list = [...(this.doc?.ik ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     for (const ik of list) {
-      if ((ik.mix ?? 1) <= 0 || ik.bones.length < 2) continue;
-      const targetMoved = this.bones.get(ik.target);
-      if (targetMoved && Math.hypot(targetMoved.x - targetMoved.setupX, targetMoved.y - targetMoved.setupY) < 1.5) continue;
-      const [aName, bName] = ik.bones;
-      const A = this.bones.get(aName);
-      const B = this.bones.get(bName);
+      if ((ik.mix ?? 1) <= 0 || ik.bones.length < 2 || !ik.l1 || !ik.l2) continue;
       const T = this.bones.get(ik.target);
-      if (!A?.parent || !B || !T) continue;
-      const parent = this.world(A.parent);
-      const aw = this.world(aName);
-      const tw = this.world(ik.target);
-      // World positions are in y-down pixels. Convert the target offset to y-up.
-      const dx = tw.x - aw.x;
-      const dy = -(tw.y - aw.y);
-      const solved = solveTwoBone(Math.max(8, A.length), Math.max(8, B.length), dx, dy, Boolean(ik.bendPositive));
-      const localA = solved.a - parent.rot;
-      A.rotation = A.rotation + (localA - A.rotation) * (ik.mix ?? 1);
-      B.rotation = B.rotation + (solved.b - B.rotation) * (ik.mix ?? 1);
+      const A = this.bones.get(ik.bones[0]!);
+      const B = this.bones.get(ik.bones[1]!);
+      if (!A || !B || !T || T.parent !== A.parent) continue;
+      if (Math.hypot(T.x - T.setupX, T.y - T.setupY) < 1.5) continue;
+      const bend = Boolean(ik.bendPositive);
+      const solve = (tx: number, ty: number) => solveTwoBone(ik.l1!, ik.l2!, tx, ty, bend);
+      const rest = solve(T.setupX - A.setupX, T.setupY - A.setupY);
+      const now = solve(T.x - A.x, T.y - A.y);
+      const mix = ik.mix ?? 1;
+      A.rotation = A.setupRot + (now.a - rest.a) * mix;
+      B.rotation = B.setupRot + (now.b - rest.b) * mix;
     }
   }
 

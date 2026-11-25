@@ -11,6 +11,7 @@ import { Rig } from "@/nocna/rig/runtime";
 import { Director, type Clip } from "./director";
 import { ease } from "./eases";
 import { readPalette, type Palette } from "./palette";
+import { CoinTray } from "./coin-tray";
 import { ParticlePool } from "./particles";
 
 export type { Cue, FightSnap, WinSnap };
@@ -144,6 +145,10 @@ export class FightStage {
   private youY = 0;
   private coinX = 0;
   private coinY = 0;
+  private readonly tray = new CoinTray();
+  private knownCoins = -1;
+  private foeIcon = new Sprite(Texture.WHITE);
+  private foeRoll = -1;
   private foeX = 0;
   private foeY = 0;
   private phase = "";
@@ -207,7 +212,11 @@ export class FightStage {
     this.coinIcon.anchor.set(0.5);
     this.particles = new ParticlePool(this.world, FEEL.particles);
     this.baked.visible = false;
-    this.world.addChild(this.baked, this.bg, this.bgDim, this.rigLayer, this.light, this.cabinet, this.plates, this.hpGhost, this.hpFill, this.shFill, this.ehpFill, this.heart, this.shieldIcon, this.coinIcon, this.bars, this.flyer, this.num, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.btn);
+    this.foeIcon.anchor.set(0.5);
+    this.foeIcon.width = 36;
+    this.foeIcon.height = 36;
+    this.foeIcon.visible = false;
+    this.world.addChild(this.baked, this.bg, this.bgDim, this.rigLayer, this.light, this.cabinet, this.plates, this.tray.view, this.hpGhost, this.hpFill, this.shFill, this.ehpFill, this.heart, this.shieldIcon, this.coinIcon, this.bars, this.flyer, this.num, this.intentText, this.foeIcon, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.btn);
     app.stage.addChild(this.world);
     app.ticker.add(this.tick);
   }
@@ -299,7 +308,9 @@ export class FightStage {
   }
 
   playCue(cue: Cue, onImpact: () => void): Promise<void> {
-    const hold = cue.sym === "exekucia" || cue.sym === "natural" ? FEEL.bigHoldMs : FEEL.resultHoldMs;
+    const motion = SYM[cue.sym as keyof typeof SYM]?.motion ?? "strike";
+    const local = motion === "guard" || motion === "sip" || motion === "coin" || motion === "stamp" || motion === "venom" || motion === "wild";
+    const hold = cue.sym === "exekucia" || cue.sym === "natural" || motion === "burst" ? FEEL.bigHoldMs : FEEL.resultHoldMs;
     const k = this.reduced ? 0.35 : 1;
     this.cueReel = cue.reel;
     let impacted = false;
@@ -340,13 +351,22 @@ export class FightStage {
           update: (u) => {
             const win = this.wins[cue.reel];
             const from = win ? { x: win.root.x + win.size / 2, y: win.root.y + win.size / 2 } : { x: 40, y: 40 };
+            if (local && win) {
+              const hop = motion === "sip" ? -u * 18 : motion === "venom" ? u * 10 : motion === "stamp" ? Math.sin(u * Math.PI) * 8 : Math.sin(u * Math.PI) * 12;
+              win.icon.position.set(win.size / 2, win.size / 2 + hop);
+              const squash = motion === "stamp" ? 1 - u * 0.25 : motion === "guard" ? 1 + u * 0.18 : 1 + Math.sin(u * Math.PI) * 0.12;
+              win.icon.scale.set(squash, motion === "stamp" ? 1 + u * 0.2 : squash);
+              win.icon.rotation = motion === "wild" ? u * 4 : 0;
+              this.flyer.visible = false;
+              return;
+            }
             const to = this.targetPoint(cue.target);
-            const arc = Math.sin(u * Math.PI) * (cue.crit ? 28 : 14);
+            const arc = Math.sin(u * Math.PI) * (cue.crit || motion === "burst" ? 28 : 14);
             this.flyer.visible = true;
             const art = SYM[cue.sym as keyof typeof SYM]?.art;
             if (art) this.flyer.texture = Texture.from(art);
             this.flyer.position.set(from.x + (to.x - from.x) * u, from.y + (to.y - from.y) * u - arc);
-            this.flyer.scale.set(cue.crit ? 0.62 : 0.4);
+            this.flyer.scale.set(cue.crit || motion === "pierce" ? 0.62 : 0.4);
             if (this.quality.tier === "high" && u > 0.15 && Math.random() < 0.7) {
               this.particles.burst({ x: this.flyer.x, y: this.flyer.y, n: 1, color: this.pal.accent, speed: 0.08, life: 180, g: 0, trails: true });
             }
@@ -564,6 +584,15 @@ export class FightStage {
     const bx = (w - bw) / 2;
     const by = h - bh - 12;
     this.btn.position.set(bx + bw / 2, by + bh / 2);
+    const trayW = Math.min(bw, 280);
+    const trayH = 46;
+    const trayX = (w - trayW) / 2;
+    const trayY = Math.max(gaugeTop + plateH + 6, by - trayH - 8);
+    this.tray.place(trayX, trayY, trayW, trayH);
+    this.tray.setTexture(this.coinIcon.texture);
+    this.tray.physics = this.quality.tier === "high" && !this.reduced;
+    this.syncCoins(snap);
+    this.placeFoe(snap);
     this.paintButton(bw, bh, pal);
     this.btnLabel.style.fill = pal.ink;
     this.heart.texture = Texture.from("/nocna/ui/ui-hp-heart.webp");
@@ -635,6 +664,8 @@ export class FightStage {
     this.turnText.text = snap.hint || snap.turn;
     this.coinNum.text = String(snap.coins);
     this.intentText.text = snap.shop ? "" : snap.intent;
+    this.syncCoins(snap);
+    this.placeFoe(snap);
     const cell = this.wins[0]?.size || 80;
     this.wins.forEach((win, i) => {
       const spec = snap.windows[i];
@@ -899,6 +930,41 @@ export class FightStage {
     this.shakeT = ms * this.shake;
   }
 
+  private syncCoins(snap: FightSnap) {
+    if (this.knownCoins < 0) {
+      this.knownCoins = snap.coins;
+      if (snap.coins > 0) this.tray.burst(snap.coins, this.coinX, this.coinY);
+      return;
+    }
+    const delta = snap.coins - this.knownCoins;
+    if (delta > 0) {
+      const win = this.wins[this.cueReel];
+      const from = win ? { x: win.root.x + win.size / 2, y: win.root.y } : { x: this.foeX, y: this.foeY };
+      this.tray.burst(delta, from.x, from.y);
+    } else if (delta < 0) {
+      this.tray.sweep(-delta, this.btn.x, this.btn.y);
+    }
+    this.knownCoins = snap.coins;
+  }
+
+  private foeSpinUntil = 0;
+
+  private placeFoe(snap: FightSnap) {
+    if (!snap.foeArt || snap.shop) {
+      this.foeIcon.visible = false;
+      return;
+    }
+    this.foeIcon.visible = true;
+    this.foeIcon.texture = Texture.from(snap.foeArt);
+    this.foeIcon.width = 34;
+    this.foeIcon.height = 34;
+    this.foeIcon.position.set(this.ehpFill.x + 18, this.ehpFill.y - 28);
+    if (snap.foeRoll !== this.foeRoll) {
+      this.foeRoll = snap.foeRoll;
+      this.foeSpinUntil = performance.now() + 480;
+    }
+  }
+
   private targetPoint(target: FeelTarget) {
     if (target === "you") return { x: this.youX, y: this.youY };
     if (target === "coin") return { x: this.coinX, y: this.coinY };
@@ -928,6 +994,12 @@ export class FightStage {
       }
     }
     this.director.tick(dt);
+    this.tray.physics = this.quality.tier === "high" && !this.reduced;
+    this.tray.update(dt);
+    if (this.foeIcon.visible) {
+      const left = this.foeSpinUntil - performance.now();
+      this.foeIcon.rotation = left > 0 ? Math.sin(left / 36) * 0.6 : 0;
+    }
     this.particles.tick(dt, this.quality.tier === "high" && !this.reduced);
     this.rig?.update(dt);
     const now = performance.now();

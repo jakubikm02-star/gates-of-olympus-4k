@@ -24,6 +24,9 @@ export interface FightSnap {
   reduced: boolean;
   /** Icon + number only, drawn beside the enemy bar. */
   intent: string;
+  /** Enemy reel: the symbol they already landed, telegraphed before your spin. */
+  foeArt: string | null;
+  foeRoll: number;
   shake: number;
   shop: boolean;
   deck: string[];

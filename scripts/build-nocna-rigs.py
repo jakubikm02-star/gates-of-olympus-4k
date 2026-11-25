@@ -199,193 +199,177 @@ def build(char: dict) -> None:
     for chain, tip_name in (("armL", "armL2"), ("armR", "armR2"), ("legL", "legL2"), ("legR", "legR2")):
         if chain not in by or tip_name not in by:
             continue
-        tip = by[tip_name]["pivot_img"]
-        dx, dy = tip[0] - root_xy[0], tip[1] - root_xy[1]
+        parent = "torso" if chain.startswith("arm") and "torso" in by else "root"
+        origin = by["torso"]["pivot_img"] if parent == "torso" else root_xy
+        shoulder = by[chain]["pivot_img"]
+        elbow = by[tip_name]["pivot_img"]
+        ex, ey = elbow[0] - shoulder[0], elbow[1] - shoulder[1]
+        elen = math.hypot(ex, ey) or 1.0
+        # Fist sits further along the forearm so the two-bone reach has an elbow.
+        reach = 1.65 if chain.startswith("arm") else 1.0
+        fist = (shoulder[0] + ex / elen * elen * reach, shoulder[1] + ey / elen * elen * reach)
+        tx, ty = fist[0] - origin[0], fist[1] - origin[1]
         tname = f"{chain}-ik"
-        bones.append({"name": tname, "parent": "root", "x": round(dx, 2), "y": round(-dy, 2), "rotation": 0, "length": 8})
+        bones.append({"name": tname, "parent": parent, "x": round(tx, 2), "y": round(-ty, 2), "rotation": 0, "length": 8})
         ik.append({
             "name": tname,
             "order": len(ik),
             "bones": [chain, tip_name],
             "target": tname,
-            "bendPositive": chain.endswith("L"),
+            "bendPositive": not chain.endswith("R"),
             "mix": 1,
+            "l1": round(elen, 2),
+            "l2": round(elen * 0.65, 2),
         })
 
     bez = [0.4, 0, 0.2, 1]
     bike = "scooter" in by
-    # Head stays inside ±12°. Inkasák's neck fill shows at 25°.
-    # The root, torso and arms carry the pose so the joints do not have to twist open.
-    # Pack and flame are never rotated on their own: the painted fire sits behind the pack.
+    # Root tilt stays inside ±5°. The limbs do the acting.
+    # Head stays inside ±12°. Pack and flame are never rotated on their own.
 
-    def swing(name, keys):
+    def rot(name, keys):
         return bone_anim(rotate=keys) if name in by else None
 
-    # Wider than this and Inkasák's shoulder opens onto the background.
-    arm_back = 8 if bike else 10
-    arm_strike = -8 if bike else -10
+    def put(bag, name, row):
+        if row:
+            bag[name] = row
 
     idle = {
         "root": bone_anim(
-            translate=[{"time": 0, "x": 0, "y": 0, "curve": bez}, {"time": 0.7, "x": 0, "y": 8, "curve": bez}, {"time": 1.4, "x": 0, "y": 0}],
-            rotate=[{"time": 0, "angle": -3, "curve": bez}, {"time": 0.7, "angle": 3, "curve": bez}, {"time": 1.4, "angle": -3}],
+            translate=[{"time": 0, "x": 0, "y": 0, "curve": bez}, {"time": 0.7, "x": 0, "y": 5, "curve": bez}, {"time": 1.4, "x": 0, "y": 0}],
+            rotate=[{"time": 0, "angle": -2, "curve": bez}, {"time": 0.7, "angle": 2, "curve": bez}, {"time": 1.4, "angle": -2}],
         ),
         "head": bone_anim(rotate=[
-            {"time": 0, "angle": 10, "curve": bez},
-            {"time": 0.7, "angle": -10, "curve": bez},
-            {"time": 1.4, "angle": 10},
+            {"time": 0, "angle": 8, "curve": bez}, {"time": 0.7, "angle": -8, "curve": bez}, {"time": 1.4, "angle": 8},
         ]),
         "torso": bone_anim(
-            rotate=[{"time": 0, "angle": -4, "curve": bez}, {"time": 0.7, "angle": 4, "curve": bez}, {"time": 1.4, "angle": -4}],
-            **({} if bike else {"scale": [
-                {"time": 0, "x": 1, "y": 1, "curve": bez},
-                {"time": 0.7, "x": 1.045, "y": 0.97, "curve": bez},
-                {"time": 1.4, "x": 1, "y": 1},
-            ]}),
+            rotate=[{"time": 0, "angle": -6, "curve": bez}, {"time": 0.7, "angle": 6, "curve": bez}, {"time": 1.4, "angle": -6}],
         ),
     }
-    if "armR" in by and not bike:
-        idle["armR"] = bone_anim(rotate=[
-            {"time": 0, "angle": -8, "curve": bez},
-            {"time": 0.7, "angle": 10, "curve": bez},
-            {"time": 1.4, "angle": -8},
-        ])
-    if "wheelF" in by:
-        # Spin the wheel bone, never the axle, so the ellipse stays put.
+    put(idle, "armL", rot("armL", [{"time": 0, "angle": 6, "curve": bez}, {"time": 0.7, "angle": -8, "curve": bez}, {"time": 1.4, "angle": 6}]))
+    put(idle, "armR", rot("armR", [{"time": 0, "angle": -6, "curve": bez}, {"time": 0.7, "angle": 8, "curve": bez}, {"time": 1.4, "angle": -6}]))
+    put(idle, "legL", rot("legL", [{"time": 0, "angle": 4, "curve": bez}, {"time": 0.7, "angle": -4, "curve": bez}, {"time": 1.4, "angle": 4}]))
+    put(idle, "legR", rot("legR", [{"time": 0, "angle": -4, "curve": bez}, {"time": 0.7, "angle": 4, "curve": bez}, {"time": 1.4, "angle": -4}]))
+    if bike:
+        idle["scooter"] = bone_anim(
+            translate=[{"time": 0, "x": 0, "y": 0, "curve": bez}, {"time": 0.35, "x": 0, "y": 7, "curve": bez}, {"time": 0.7, "x": 0, "y": 0, "curve": bez}, {"time": 1.05, "x": 0, "y": 7, "curve": bez}, {"time": 1.4, "x": 0, "y": 0}],
+        )
         idle["wheelF"] = bone_anim(rotate=[{"time": 0, "angle": 0}, {"time": 1.4, "angle": -360}])
         idle["wheelR"] = bone_anim(rotate=[{"time": 0, "angle": 0}, {"time": 1.4, "angle": -360}])
 
     attack = {
         "root": bone_anim(
-            rotate=[
-                {"time": 0, "angle": 0, "curve": bez},
-                {"time": 0.16, "angle": -16},
-                {"time": 0.34, "angle": 20, "curve": bez},
-                {"time": 0.6, "angle": 0},
-            ],
-            translate=[
-                {"time": 0, "x": 0, "y": 0, "curve": bez},
-                {"time": 0.16, "x": -22, "y": 8},
-                {"time": 0.34, "x": 32, "y": -6, "curve": bez},
-                {"time": 0.6, "x": 0, "y": 0},
-            ],
+            rotate=[{"time": 0, "angle": 0}, {"time": 0.16, "angle": -4}, {"time": 0.34, "angle": 4}, {"time": 0.6, "angle": 0}],
+            translate=[{"time": 0, "x": 0, "y": 0}, {"time": 0.16, "x": -8, "y": 0}, {"time": 0.34, "x": 10, "y": 0}, {"time": 0.6, "x": 0, "y": 0}],
         ),
         "torso": bone_anim(rotate=[
-            {"time": 0, "angle": 0, "curve": bez},
-            {"time": 0.16, "angle": -3 if bike else -4},
-            {"time": 0.34, "angle": 3 if bike else 4, "curve": bez},
-            {"time": 0.6, "angle": 0},
+            {"time": 0, "angle": 0, "curve": bez}, {"time": 0.16, "angle": -8}, {"time": 0.34, "angle": 10, "curve": bez}, {"time": 0.6, "angle": 0},
         ]),
         "head": bone_anim(rotate=[
-            {"time": 0, "angle": 0},
-            {"time": 0.16, "angle": 12},
-            {"time": 0.34, "angle": -12},
-            {"time": 0.6, "angle": 0},
+            {"time": 0, "angle": 0}, {"time": 0.16, "angle": 10}, {"time": 0.34, "angle": -8}, {"time": 0.6, "angle": 0},
         ]),
     }
-    for name, angle_back, angle_hit in (
-        ("armR", arm_back, arm_strike),
-        ("armR2", arm_back * 0.45, arm_strike * 0.5),
-        ("armL", -arm_back * 0.6, -arm_strike * 0.4),
-        ("armL2", -arm_back * 0.3, -arm_strike * 0.25),
-    ):
-        row = swing(name, [
-            {"time": 0, "angle": 0, "curve": bez},
-            {"time": 0.16, "angle": round(angle_back, 1)},
-            {"time": 0.34, "angle": round(angle_hit, 1), "curve": bez},
-            {"time": 0.6, "angle": 0},
+    # Lead arm: the IK target draws back, then the fist punches. Elbow bend comes from the solver.
+    punch = None if bike else "armR-ik"
+    if punch and punch[:-3] in by:
+        attack[punch] = bone_anim(translate=[
+            {"time": 0, "x": 0, "y": 0, "curve": bez},
+            {"time": 0.16, "x": -40, "y": 48},
+            {"time": 0.34, "x": 78, "y": -24, "curve": bez},
+            {"time": 0.6, "x": 0, "y": 0},
         ])
-        if row:
-            attack[name] = row
-    if "wheelF" in by:
-        attack["wheelF"] = bone_anim(rotate=[{"time": 0, "angle": 0}, {"time": 0.6, "angle": -240}])
-        attack["wheelR"] = bone_anim(rotate=[{"time": 0, "angle": 0}, {"time": 0.6, "angle": -240}])
+    put(attack, "armL", rot("armL", [
+        {"time": 0, "angle": 0, "curve": bez}, {"time": 0.16, "angle": 14}, {"time": 0.34, "angle": -10}, {"time": 0.6, "angle": 0},
+    ]) if not bike else rot("armL", [
+        {"time": 0, "angle": 0}, {"time": 0.16, "angle": -6}, {"time": 0.34, "angle": 6}, {"time": 0.6, "angle": 0},
+    ]))
+    if bike:
+        put(attack, "armR", rot("armR", [
+            {"time": 0, "angle": 0}, {"time": 0.16, "angle": 6}, {"time": 0.34, "angle": -6}, {"time": 0.6, "angle": 0},
+        ]))
+        attack["wheelF"] = bone_anim(rotate=[{"time": 0, "angle": 0}, {"time": 0.6, "angle": -280}])
+        attack["wheelR"] = bone_anim(rotate=[{"time": 0, "angle": 0}, {"time": 0.6, "angle": -280}])
+        attack["scooter"] = bone_anim(translate=[
+            {"time": 0, "x": 0, "y": 0}, {"time": 0.16, "x": 0, "y": 4}, {"time": 0.34, "x": 6, "y": -2}, {"time": 0.6, "x": 0, "y": 0},
+        ])
+    put(attack, "legR", rot("legR", [
+        {"time": 0, "angle": 0, "curve": bez}, {"time": 0.16, "angle": -10}, {"time": 0.34, "angle": 24, "curve": bez}, {"time": 0.6, "angle": 0},
+    ]))
+    put(attack, "legR2", rot("legR2", [
+        {"time": 0, "angle": 0, "curve": bez}, {"time": 0.16, "angle": 22}, {"time": 0.34, "angle": -18, "curve": bez}, {"time": 0.6, "angle": 0},
+    ]))
+    put(attack, "legL", rot("legL", [
+        {"time": 0, "angle": 0}, {"time": 0.34, "angle": -8}, {"time": 0.6, "angle": 0},
+    ]))
 
     hit = {
         "root": bone_anim(
-            rotate=[{"time": 0, "angle": 0}, {"time": 0.08, "angle": 20, "curve": bez}, {"time": 0.36, "angle": 0}],
-            translate=[
-                {"time": 0, "x": 0, "y": 0},
-                {"time": 0.08, "x": 46, "y": -10},
-                {"time": 0.36, "x": 0, "y": 0},
-            ],
+            rotate=[{"time": 0, "angle": 0}, {"time": 0.08, "angle": 4}, {"time": 0.36, "angle": 0}],
+            translate=[{"time": 0, "x": 0, "y": 0}, {"time": 0.08, "x": 16, "y": -4}, {"time": 0.36, "x": 0, "y": 0}],
         ),
-        "head": bone_anim(rotate=[
-            {"time": 0, "angle": 0},
-            {"time": 0.08, "angle": -12},
-            {"time": 0.36, "angle": 0},
-        ]),
-    }
-    stun = {
-        "root": bone_anim(rotate=[
-            {"time": 0, "angle": -8},
-            {"time": 0.12, "angle": 8},
-            {"time": 0.24, "angle": -8},
-            {"time": 0.36, "angle": 8},
-            {"time": 0.48, "angle": -8},
-        ]),
         "torso": bone_anim(rotate=[
-            {"time": 0, "angle": 6},
-            {"time": 0.12, "angle": -6},
-            {"time": 0.24, "angle": 6},
-            {"time": 0.36, "angle": -6},
-            {"time": 0.48, "angle": 6},
+            {"time": 0, "angle": 0}, {"time": 0.08, "angle": -18, "curve": bez}, {"time": 0.36, "angle": 0},
         ]),
         "head": bone_anim(rotate=[
-            {"time": 0, "angle": -12},
-            {"time": 0.12, "angle": 12},
-            {"time": 0.24, "angle": -12},
-            {"time": 0.36, "angle": 12},
-            {"time": 0.48, "angle": -12},
+            {"time": 0, "angle": 0}, {"time": 0.06, "angle": -12}, {"time": 0.16, "angle": 8}, {"time": 0.36, "angle": 0},
         ]),
     }
-    if "armR" in by:
-        stun["armR"] = bone_anim(rotate=[
-            {"time": 0, "angle": 14},
-            {"time": 0.24, "angle": -14},
-            {"time": 0.48, "angle": 14},
-        ])
-    if "armL" in by:
-        stun["armL"] = bone_anim(rotate=[
-            {"time": 0, "angle": -12},
-            {"time": 0.24, "angle": 12},
-            {"time": 0.48, "angle": -12},
-        ])
+    put(hit, "armL", rot("armL", [{"time": 0, "angle": 0}, {"time": 0.08, "angle": 28}, {"time": 0.36, "angle": 0}]))
+    put(hit, "armL2", rot("armL2", [{"time": 0, "angle": 0}, {"time": 0.08, "angle": -24}, {"time": 0.36, "angle": 0}]))
+    put(hit, "armR", rot("armR", [{"time": 0, "angle": 0}, {"time": 0.08, "angle": -26}, {"time": 0.36, "angle": 0}]))
+    put(hit, "armR2", rot("armR2", [{"time": 0, "angle": 0}, {"time": 0.08, "angle": 22}, {"time": 0.36, "angle": 0}]))
+
+    stun = {
+        "root": bone_anim(rotate=[{"time": 0, "angle": -2}, {"time": 0.24, "angle": 2}, {"time": 0.48, "angle": -2}]),
+        "torso": bone_anim(rotate=[{"time": 0, "angle": 4}, {"time": 0.24, "angle": -4}, {"time": 0.48, "angle": 4}]),
+        "head": bone_anim(rotate=[
+            {"time": 0, "angle": -12}, {"time": 0.16, "angle": 10}, {"time": 0.32, "angle": -12}, {"time": 0.48, "angle": 8},
+        ]),
+    }
+    put(stun, "armL", rot("armL", [{"time": 0, "angle": 18}, {"time": 0.24, "angle": 8}, {"time": 0.48, "angle": 18}]))
+    put(stun, "armL2", rot("armL2", [{"time": 0, "angle": 16}, {"time": 0.24, "angle": 28}, {"time": 0.48, "angle": 16}]))
+    put(stun, "armR", rot("armR", [{"time": 0, "angle": -16}, {"time": 0.24, "angle": -8}, {"time": 0.48, "angle": -16}]))
+    put(stun, "armR2", rot("armR2", [{"time": 0, "angle": -14}, {"time": 0.24, "angle": -26}, {"time": 0.48, "angle": -14}]))
+
     death = {
         "root": bone_anim(
-            rotate=[{"time": 0, "angle": 0, "curve": bez}, {"time": 0.5, "angle": -80}, {"time": 0.75, "angle": -80}],
-            translate=[
-                {"time": 0, "x": 0, "y": 0, "curve": bez},
-                {"time": 0.5, "x": 48, "y": -120},
-                {"time": 0.75, "x": 56, "y": -140},
-            ],
+            rotate=[{"time": 0, "angle": 0, "curve": bez}, {"time": 0.55, "angle": 5}, {"time": 0.8, "angle": 5}],
+            translate=[{"time": 0, "x": 0, "y": 0, "curve": bez}, {"time": 0.45, "x": 6, "y": -12}, {"time": 0.8, "x": 18, "y": -170}],
         ),
-        "head": bone_anim(rotate=[{"time": 0, "angle": 0, "curve": bez}, {"time": 0.5, "angle": -12}]),
+        "torso": bone_anim(rotate=[
+            {"time": 0, "angle": 0, "curve": bez}, {"time": 0.28, "angle": 8}, {"time": 0.55, "angle": 22}, {"time": 0.8, "angle": 22},
+        ]),
+        "head": bone_anim(rotate=[{"time": 0, "angle": 0, "curve": bez}, {"time": 0.4, "angle": 12}, {"time": 0.8, "angle": -8}]),
     }
-    if "armR" in by:
-        death["armR"] = bone_anim(rotate=[{"time": 0, "angle": 0, "curve": bez}, {"time": 0.5, "angle": 24}])
-    if "armL" in by:
-        death["armL"] = bone_anim(rotate=[{"time": 0, "angle": 0, "curve": bez}, {"time": 0.5, "angle": -20}])
+    put(death, "legL", rot("legL", [{"time": 0, "angle": 0, "curve": bez}, {"time": 0.28, "angle": 16}, {"time": 0.55, "angle": 8}]))
+    put(death, "legR", rot("legR", [{"time": 0, "angle": 0, "curve": bez}, {"time": 0.28, "angle": -18}, {"time": 0.55, "angle": -6}]))
+    put(death, "legL2", rot("legL2", [{"time": 0, "angle": 0, "curve": bez}, {"time": 0.28, "angle": -28}, {"time": 0.55, "angle": -10}]))
+    put(death, "legR2", rot("legR2", [{"time": 0, "angle": 0, "curve": bez}, {"time": 0.28, "angle": 26}, {"time": 0.55, "angle": 8}]))
+    put(death, "armL", rot("armL", [{"time": 0, "angle": 0, "curve": bez}, {"time": 0.4, "angle": 32}, {"time": 0.8, "angle": 20}]))
+    put(death, "armR", rot("armR", [{"time": 0, "angle": 0, "curve": bez}, {"time": 0.4, "angle": -30}, {"time": 0.8, "angle": -18}]))
+    put(death, "armL2", rot("armL2", [{"time": 0, "angle": 0}, {"time": 0.4, "angle": 20}]))
+    put(death, "armR2", rot("armR2", [{"time": 0, "angle": 0}, {"time": 0.4, "angle": -18}]))
+    if bike:
+        death["scooter"] = bone_anim(translate=[
+            {"time": 0, "x": 0, "y": 0, "curve": bez}, {"time": 0.8, "x": 8, "y": -36},
+        ])
 
     animations = {
         "idle": {"bones": idle},
-        "attack": {
-            "bones": attack,
-            "events": [{"time": 0.34, "name": "hit"}, {"time": 0.34, "name": "shake"}],
-        },
+        "attack": {"bones": attack, "events": [{"time": 0.34, "name": "hit"}, {"time": 0.34, "name": "shake"}]},
         "hit": {"bones": hit, "events": [{"time": 0.08, "name": "fx"}]},
         "stun": {"bones": stun},
-        "death": {"bones": death, "events": [{"time": 0.35, "name": "fx"}]},
+        "death": {"bones": death, "events": [{"time": 0.45, "name": "fx"}]},
     }
     if bike:
         animations["intro"] = {
             "bones": {
-                "root": bone_anim(
-                    translate=[{"time": 0, "x": 50, "y": 36, "curve": bez}, {"time": 0.5, "x": 0, "y": 0}],
-                    rotate=[{"time": 0, "angle": -10, "curve": bez}, {"time": 0.5, "angle": 0}],
-                ),
+                "scooter": bone_anim(translate=[{"time": 0, "x": 36, "y": 10, "curve": bez}, {"time": 0.45, "x": 0, "y": 0}]),
+                "torso": bone_anim(rotate=[{"time": 0, "angle": -8, "curve": bez}, {"time": 0.45, "angle": 0}]),
+                "wheelF": bone_anim(rotate=[{"time": 0, "angle": 0}, {"time": 0.45, "angle": -200}]),
+                "wheelR": bone_anim(rotate=[{"time": 0, "angle": 0}, {"time": 0.45, "angle": -200}]),
             },
-            "events": [{"time": 0.42, "name": "shake"}],
+            "events": [{"time": 0.4, "name": "shake"}],
         }
 
     setup_rot = {b["name"]: b.get("rotation", 0) for b in bones}

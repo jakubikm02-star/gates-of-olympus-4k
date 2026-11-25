@@ -1,4 +1,4 @@
-import { advanceIntent, capEnemyShield, spawnFoe } from "./enemies.ts";
+import { advanceIntent, capEnemyShield, openReel, spawnFoe } from "./enemies.ts";
 import { pick, roll, shuffle } from "./rng.ts";
 import {
   DOT_CAP,
@@ -8,6 +8,7 @@ import {
   HEAL_PRICE,
   HEAL_STOCK,
   MIN_DECK,
+  CORE_SYMS,
   PLAY_SYMS,
   POISON_CAP,
   REEL_PRICE,
@@ -55,6 +56,7 @@ export function createRun(seed: number, entry = 0): Run {
     stats: freshStats(),
     cause: "",
     entry,
+    growth: {},
   };
 }
 
@@ -64,7 +66,7 @@ export function mobsOn(floor: number): number {
 }
 
 function dealDraft(state: number): { state: number; items: SymId[] } {
-  const rest = PLAY_SYMS.filter((id) => id !== "blocek" && id !== "stit");
+  const rest = CORE_SYMS.filter((id) => id !== "blocek" && id !== "stit");
   const shuffled = shuffle(state, rest);
   const items = shuffle(shuffled.state, ["blocek", "stit", ...shuffled.items.slice(0, 4)] as SymId[]);
   return items;
@@ -213,18 +215,29 @@ export function sealSpin(run: Run, spin: LiveSpin): { run: Run; plan: Plan } {
   }
   let critSym: SymId | null = null;
   let best = 1;
+  let wilds = 0;
   for (const [sym, n] of counts) {
+    if (symDef(sym)?.hook === "wild") {
+      wilds += n;
+      continue;
+    }
     if (n > best) {
       best = n;
-      critSym = n >= 3 ? sym : null;
+      critSym = sym;
     }
   }
+  if (critSym && wilds) best += wilds;
+  if (!critSym && wilds >= 3) {
+    critSym = "tv";
+    best = wilds;
+  }
   if (best < 3) critSym = null;
-  const mul = critSym ? critMul(best) : 1;
+  let mul = critSym ? critMul(best) : 1;
+  if (lands.includes("crown")) mul = Math.max(2, mul);
   const reels: PlanReel[] = lands.map((sym, reel) => ({
     reel,
     sym,
-    crit: Boolean(critSym && sym === critSym),
+    crit: sym === "crown" || Boolean(critSym && (sym === critSym || symDef(sym)?.hook === "wild")),
   }));
   return { run: { ...run, rng }, plan: { lands, rerolls, critSym, critMul: mul, reels } };
 }
@@ -282,7 +295,31 @@ export function resolveReel(run: Run, plan: Plan, reel: number): { run: Run; fx:
     fx.push({ t: "hit", amount: hit.dealt, crit: step.crit, pierce, blocked: hit.blocked, bonus });
   };
 
-  if (def.dmg > 0) {
+  let raw = def.dmg;
+  if (def.hook === "left") raw = step.reel === 0 ? def.dmg + 10 : def.dmg;
+  if (def.hook === "right") raw = step.reel === plan.lands.length - 1 ? def.dmg * 2 : def.dmg;
+  if (def.hook === "chain") {
+    const mates = plan.lands.filter((id) => id === sym).length;
+    raw = mates >= 2 ? Math.max(def.dmg, 16) : def.dmg;
+  }
+  if (def.hook === "copy" && step.reel > 0) {
+    const left = symDef(plan.lands[step.reel - 1] ?? "medzera");
+    raw = left && left.dmg > 0 ? left.dmg : def.dmg;
+  }
+  if (def.hook === "grow") {
+    const seen = next.growth[sym] ?? 0;
+    raw = def.dmg + seen * 3;
+    next = { ...next, growth: { ...next.growth, [sym]: seen + 1 } };
+  }
+  if (def.hook === "burst") {
+    const at = next.deck.indexOf(sym);
+    if (at >= 0 && next.deck.length > 3) {
+      const deck = next.deck.slice();
+      deck.splice(at, 1);
+      next = { ...next, deck };
+    }
+  }
+  if (raw > 0) {
     let bonus = 0;
     let energy = next.energy;
     energy += 1;
@@ -291,7 +328,11 @@ export function resolveReel(run: Run, plan: Plan, reel: number): { run: Run; fx:
       energy = 0;
     }
     next = { ...next, energy };
-    strike(def.dmg * cm + bonus, def.pierce, bonus);
+    strike(raw * cm + bonus, def.pierce, bonus);
+  }
+  if (def.hook === "double" && step.reel > 0) {
+    const left = symDef(plan.lands[step.reel - 1] ?? "medzera");
+    if (left && left.dmg > 0) strike(Math.round(left.dmg * cm), left.pierce, 0);
   }
 
   if (def.dot > 0) {
@@ -621,7 +662,8 @@ export function enemyPhase(run: Run): { run: Run; beats: Beat[] } {
     return { run: next, beats };
   }
   enemy = advanceIntent(enemy);
-  return { run: { ...next, enemy }, beats };
+  const rolled = openReel(enemy, next.rng);
+  return { run: { ...next, rng: rolled.rng, enemy: rolled.enemy }, beats };
 }
 
 /** Replace the living enemy. Tests pin a fixture without rolling the floor table. */
@@ -645,6 +687,9 @@ export function face(
     pattern: [intent, intent],
     pi: 0,
     intent,
+    reel: "blocek",
+    kit: [],
+    roll: 0,
   };
   return { ...run, phase: "fight", enemy, fightTurns: 1 };
 }

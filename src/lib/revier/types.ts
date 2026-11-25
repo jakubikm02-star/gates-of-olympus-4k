@@ -9,7 +9,41 @@ export type SymId =
   | "exekucia"
   | "restart"
   | "natural"
+  | "rj45"
+  | "router"
+  | "hap"
+  | "roof"
+  | "arris"
+  | "case"
+  | "dacia"
+  | "meter"
+  | "pdf"
+  | "tv"
+  | "gemr"
+  | "gemb"
+  | "gemg"
+  | "gemy"
+  | "gemp"
+  | "crown"
+  | "chalice"
+  | "hour"
+  | "ring"
+  | "fs"
+  | "can1"
+  | "can2"
+  | "can3"
+  | "can4"
+  | "canarc"
+  | "ulica"
+  | "okres"
+  | "kraj"
+  | "stat"
   | "medzera";
+
+/** How a symbol bends the basic numbers. Absent means the numbers stand alone. */
+export type SymHook = "left" | "right" | "chain" | "copy" | "burst" | "grow" | "double" | "wild";
+
+export type SymMotion = "strike" | "guard" | "sip" | "coin" | "venom" | "stamp" | "burst" | "copy" | "pierce" | "wild";
 
 export type Phase = "draft" | "banner" | "fight" | "shop" | "dead";
 
@@ -43,6 +77,11 @@ export interface Enemy {
   pattern: Intent[];
   pi: number;
   intent: Intent;
+  /** Landed enemy-reel symbol. Empty kit means the scripted pattern is the whole telegraph. */
+  reel: SymId;
+  kit: SymId[];
+  /** Increments every time the enemy reel lands, so the cabinet can spin. */
+  roll: number;
 }
 
 export interface Offer {
@@ -96,6 +135,8 @@ export interface Run {
   cause: string;
   /** Classic credit paid to enter. Bookkeeping only — never paid back. */
   entry: number;
+  /** Times a growing symbol has already fired. */
+  growth: Partial<Record<SymId, number>>;
 }
 
 export interface LiveSpin {
