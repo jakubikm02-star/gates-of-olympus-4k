@@ -534,6 +534,8 @@ export class FightStage {
     this.destroyed = true;
     this.skip();
     this.observer?.disconnect();
+    this.plateEl?.remove();
+    for (const el of this.cloneEls) el.remove();
     this.rig?.destroy();
     this.app.destroy(true);
   }
@@ -674,7 +676,7 @@ export class FightStage {
       reelY = h * 0.22;
     }
     if (blast && split) {
-      const top = 96;
+      const top = 108;
       const footRoom = 118;
       foeH = Math.max(90, h - top - footRoom);
       foeY = top + foeH;
@@ -689,7 +691,7 @@ export class FightStage {
     }
     this.foeX = foeX;
     this.foeY = foeY;
-    this.bandY = foeY + 8;
+    this.bandY = foeY + (blast && split ? 18 : 8);
     this.rowCenter = blast && split ? leftW * 0.48 : w / 2;
     this.rowLeft = blast && split ? 8 : 8;
     this.rowRight = blast && split ? leftW - 10 : w - 8;
@@ -705,7 +707,7 @@ export class FightStage {
       this.rig.setPhase(phase);
       this.ensureDjPlate(phase);
     }
-    this.placeClones(snap, foeX, foeY, foeH, w, land);
+    this.placeClones(snap, foeX, foeY, foeH, land);
     this.bpmText.visible = snap.bpm > 0 && !snap.shop;
     this.bpmText.text = snap.bpm > 0 ? `BPM ${snap.bpm}` : "";
     this.bpmText.anchor.set(0.5, 0);
@@ -1010,7 +1012,7 @@ export class FightStage {
     this.hpGhost.position.set(barX, plateY + 12);
     this.hpFill.position.set(barX, plateY + 12);
     this.shFill.position.set(barX, plateY + 28);
-    this.ehpFill.position.set(ePlateX + 10, ePlateY + 12);
+    this.ehpFill.position.set(ePlateX + 28, ePlateY + 12);
     this.hpGhost.scale.y = 10;
     this.hpFill.scale.y = 10;
     this.shFill.scale.y = 6;
@@ -1027,8 +1029,8 @@ export class FightStage {
     this.ehpNum.position.set(ePlateX + ePlateW - 10, ePlateY + 16);
     this.hpNum.anchor.set(1, 0);
     this.hpNum.position.set(plateX + plateW - 8, plateY + 8);
-    this.intentText.anchor.set(1, 0.5);
-    this.intentText.position.set(w - 16, this.bandY + this.foeCell / 2);
+    this.intentText.anchor.set(0, 0.5);
+    this.intentText.position.set(ePlateX + 8, ePlateY + 16);
     this.hpFill.tint = pal.hp;
     this.shFill.tint = pal.shield;
     this.ehpFill.tint = pal.hp;
@@ -1145,52 +1147,138 @@ export class FightStage {
     rig.showOnly(DJ_LIVE);
     this.djPlatePhase = phase;
     this.placeDjPlate(rig);
+    this.publishPlate();
+  }
+
+  /** The still body is one PNG behind the canvas. The head and hands stay in WebGL. */
+  private publishPlate() {
+    if (!this.djPlateRT || !this.djPlate) return;
+    try {
+      const canvas = this.app.renderer.extract.canvas({ target: this.djPlateRT });
+      if (!canvas.toDataURL) return;
+      if (!this.plateEl) this.plateEl = this.layerImg("1");
+      this.plateEl.src = canvas.toDataURL("image/png");
+      this.placeDomPlate();
+    } catch {
+      this.djPlate.visible = true;
+      this.djPlate.renderable = true;
+    }
+  }
+
+  private layerImg(z: string): HTMLImageElement {
+    const img = document.createElement("img");
+    img.alt = "";
+    img.draggable = false;
+    img.style.position = "absolute";
+    img.style.pointerEvents = "none";
+    img.style.zIndex = z;
+    this.app.canvas.parentElement?.appendChild(img);
+    this.app.canvas.style.zIndex = "2";
+    return img;
+  }
+
+  private placeDomPlate() {
+    const el = this.plateEl;
+    const plate = this.djPlate;
+    if (!el || !plate) return;
+    const w = plate.width;
+    const h = plate.height;
+    el.style.left = `${plate.x - w / 2}px`;
+    el.style.top = `${plate.y - h}px`;
+    el.style.width = `${w}px`;
+    el.style.height = `${h}px`;
+    plate.visible = false;
+    plate.renderable = false;
+  }
+
+  private cloneTint(hex: number): string {
+    const hit = this.cloneTints.get(hex);
+    if (hit) return hit;
+    const src = "/nocna/bosses/clone-silhouette.webp";
+    const probe = new Image();
+    probe.src = src;
+    const finish = () => {
+      const url = this.drawTint(probe, hex);
+      this.cloneTints.set(hex, url);
+      for (const el of this.cloneEls) {
+        if (el.dataset.want === String(hex)) {
+          el.src = url;
+          el.dataset.tint = String(hex);
+        }
+      }
+    };
+    if (!probe.complete || !probe.naturalWidth) {
+      probe.onload = finish;
+      return src;
+    }
+    const url = this.drawTint(probe, hex);
+    this.cloneTints.set(hex, url);
+    return url;
+  }
+
+  private drawTint(img: HTMLImageElement, hex: number): string {
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const g = c.getContext("2d");
+    if (!g) return img.src;
+    g.drawImage(img, 0, 0);
+    g.globalCompositeOperation = "multiply";
+    g.fillStyle = `rgb(${(hex >> 16) & 255},${(hex >> 8) & 255},${hex & 255})`;
+    g.fillRect(0, 0, c.width, c.height);
+    g.globalCompositeOperation = "destination-in";
+    g.drawImage(img, 0, 0);
+    return c.toDataURL("image/png");
   }
 
   private placeDjPlate(rig: Rig) {
     if (!this.djPlate || !this.djPlateRT || !rig.doc) return;
     const bakeScale = (this.djPlateRT.height - 4) / (rig.doc.skeleton.height || 1400);
     const k = rig.scale.x / bakeScale;
-    this.djPlate.visible = true;
     this.djPlate.position.set(rig.position.x, rig.position.y);
     this.djPlate.width = this.djPlateRT.width * k;
     this.djPlate.height = this.djPlateRT.height * k;
+    if (this.plateEl) this.placeDomPlate();
+    else this.djPlate.visible = true;
   }
 
-  private placeClones(snap: FightSnap, foeX: number, foeY: number, foeH: number, w: number, land: boolean) {
+  private placeClones(snap: FightSnap, foeX: number, foeY: number, foeH: number, land: boolean) {
+    for (const sprite of this.cloneSprites) sprite.visible = false;
     snap.clones.forEach((clone, i) => {
-      let sprite = this.cloneSprites[i];
-      if (!sprite) {
-        sprite = new Sprite();
-        sprite.anchor.set(0.5, 1);
-        this.cloneLayer.addChild(sprite);
-        this.cloneSprites[i] = sprite;
+      let el = this.cloneEls[i];
+      if (!el) {
+        el = this.layerImg("0");
+        this.cloneEls[i] = el;
       }
       const alive = clone.hp > 0 && !snap.shop;
-      sprite.visible = alive;
+      el.style.display = alive ? "block" : "none";
       if (!alive) return;
-      const art = "/nocna/bosses/clone-silhouette.webp";
-      const tagged = sprite as Sprite & { __art?: string; __base?: number };
-      if (tagged.__art !== art) {
-        tagged.__art = art;
-        sprite.texture = Texture.from(art);
+      const tint = snap.focus === i ? 0xffe0a8 : 0x2a1820;
+      el.dataset.want = String(tint);
+      const url = this.cloneTint(tint);
+      if (el.dataset.tint !== String(tint)) {
+        el.src = url;
+        if (url.startsWith("data:")) el.dataset.tint = String(tint);
       }
-      sprite.width = foeH * 0.3;
-      sprite.height = foeH * 0.5;
+      const room = Math.max(40, this.rowRight - this.rowLeft);
+      const width = Math.min(foeH * 0.3, room * 0.32);
+      const height = width * (5 / 3);
       const slot = snap.clones.slice(0, i + 1).filter((row) => row.hp > 0).length - 1;
       const side = slot % 2 === 0 ? -1 : 1;
       const ring = Math.floor(slot / 2);
-      const reach = foeH * (land ? 0.58 : 0.5) + ring * foeH * 0.18;
-      const x = foeX + side * reach;
+      const reach = Math.min(foeH * (land ? 0.58 : 0.5) + ring * foeH * 0.18, room * 0.46);
+      const half = width / 2;
+      const x = Math.max(this.rowLeft + half, Math.min(this.rowRight - half, foeX + side * reach));
       const y = foeY - foeH * 0.04;
-      tagged.__base = y;
-      sprite.position.set(Math.max(28, Math.min(Math.max(28, w - 28), x)), y);
-      sprite.tint = snap.focus === i ? 0xffe0a8 : 0x2a1820;
-      sprite.alpha = 0.94;
+      el.style.left = `${x - width / 2}px`;
+      el.style.top = `${y - height}px`;
+      el.style.width = `${width}px`;
+      el.style.height = `${height}px`;
+      el.style.opacity = "0.94";
     });
-    for (let i = snap.clones.length; i < this.cloneSprites.length; i++) {
-      const sprite = this.cloneSprites[i];
-      if (sprite) sprite.visible = false;
+    for (let i = snap.clones.length; i < this.cloneEls.length; i++) {
+      const el = this.cloneEls[i];
+      if (el) el.style.display = "none";
     }
   }
 
@@ -1354,6 +1442,9 @@ export class FightStage {
   private djPlate: Sprite | null = null;
   private djPlateRT: RenderTexture | null = null;
   private djPlatePhase: boolean | null = null;
+  private plateEl: HTMLImageElement | null = null;
+  private cloneEls: HTMLImageElement[] = [];
+  private cloneTints = new Map<number, string>();
 
   private placeFoe(snap: FightSnap) {
     this.placeFoeRow(snap);
