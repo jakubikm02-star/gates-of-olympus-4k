@@ -47,6 +47,8 @@ export class Rig extends Container {
   private regions = new Map<string, Texture>();
   private meshes: { bone: string; mesh: MeshPlane | MeshSimple; base: Float32Array }[] = [];
   private sprites: Sprite[] = [];
+  private slotNodes = new Map<string, Container>();
+  private phaseOn = false;
   private stunMark: Container | null = null;
   private flash: Graphics | null = null;
   private clip = "idle";
@@ -59,6 +61,8 @@ export class Rig extends Container {
   private onEvent: (name: string) => void = () => {};
   private ended: (() => void) | null = null;
   private quality: RigQuality = { springs: true, mesh: true };
+  /** Phase 2 headbang runs faster. 1 is the authored timing. */
+  rate = 1;
 
   static async loadPacked(base: string, onEvent?: (name: string) => void) {
     const [doc, atlasText] = await Promise.all([
@@ -85,6 +89,41 @@ export class Rig extends Container {
 
   setQuality(q: RigQuality) {
     this.quality = q;
+  }
+
+  /**
+   * Hide every slot except `keep`. Used so the desk, body and aura can be one
+   * baked texture while the head, jaw, hands and eyes stay live.
+   */
+  showOnly(keep: readonly string[]) {
+    const allow = new Set(keep);
+    for (const [name, node] of this.slotNodes) {
+      node.visible = allow.has(name);
+    }
+  }
+
+  showAllSlots() {
+    for (const [name, node] of this.slotNodes) {
+      node.visible = name !== "teeBlack" && name !== "auraHot" && name !== "eyes";
+    }
+    this.setPhase(this.phaseOn);
+  }
+
+  /**
+   * Phase 2. The old rig swaps a black shirt. Martin's DJ already wears black,
+   * so the aura thickens and the headbang clock runs faster instead.
+   */
+  setPhase(on: boolean) {
+    this.phaseOn = on;
+    this.rate = on ? 1.65 : 1;
+    const dye = this.slotNodes.get("tee");
+    const black = this.slotNodes.get("teeBlack");
+    if (dye) dye.visible = !on;
+    if (black) black.visible = on;
+    const hot = this.slotNodes.get("auraHot");
+    const aura = this.slotNodes.get("aura");
+    if (hot) hot.visible = on;
+    if (aura) aura.alpha = on ? 1 : 0.72;
   }
 
   play(name: string, opts?: { loop?: boolean; mix?: number }) {
@@ -141,7 +180,7 @@ export class Rig extends Container {
   update(dt: number) {
     if (!this.doc) return;
     const dur = this.duration(this.clip);
-    this.time += dt / 1000;
+    this.time += (dt / 1000) * this.rate;
     if (this.nextClip) {
       this.mix += dt / 1000;
       if (this.mix >= this.mixDur) {
@@ -188,6 +227,8 @@ export class Rig extends Container {
     this.order = [];
     this.meshes = [];
     this.sprites = [];
+    this.slotNodes.clear();
+    this.phaseOn = false;
     this.stunMark = null;
     this.flash = null;
     this.regions.clear();
@@ -248,6 +289,8 @@ export class Rig extends Container {
       // Slot order, not tree order. A torso sprite added after its children
       // would otherwise cover the head.
       wrap.zIndex = index;
+      wrap.visible = slot.name !== "teeBlack" && slot.name !== "auraHot" && slot.name !== "eyes";
+      this.slotNodes.set(slot.name, wrap);
       bone.view.addChild(wrap);
     });
     this.attachMarks(skin);
@@ -280,17 +323,18 @@ export class Rig extends Container {
         wrap.addChild(plane);
       } catch (err) {
         console.error(err);
-        wrap.addChild(this.regionSprite(att, tex));
+        wrap.addChild(this.regionSprite(att, tex, bone));
       }
     } else {
-      wrap.addChild(this.regionSprite(att, tex));
+      wrap.addChild(this.regionSprite(att, tex, bone));
     }
     return wrap;
   }
 
-  private regionSprite(att: RegionAttach, tex: Texture) {
+  private regionSprite(att: RegionAttach, tex: Texture, bone?: string) {
     const sprite = new Sprite(tex);
     sprite.anchor.set(0.5);
+    if (bone === "eyes") sprite.alpha = 0.9;
     sprite.width = att.width;
     sprite.height = att.height;
     this.sprites.push(sprite);

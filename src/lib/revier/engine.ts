@@ -1,4 +1,6 @@
-import { procBonus, rarityOf, rollCall, rollRare, rowMul } from "./depth.ts";
+import { resetTempo, routeHit, scriptDj, twistLands } from "./blastbeat.ts";
+import { LOADOUT_BUDGET, LOADOUT_POOL, LOADOUT_SIZE, budgetOf, canTake } from "./dielna.ts";
+import { linkBetween, metaOf, procBonus, rarityOf, rollCall, rollRare, rowMul } from "./depth.ts";
 import { advanceIntent, capEnemyShield, foePart, openReel, spawnFoe } from "./enemies.ts";
 import { pick, roll, shuffle } from "./rng.ts";
 import {
@@ -28,7 +30,8 @@ import {
   rerollCost,
   symDef,
 } from "./symbols.ts";
-import type { Beat, Enemy, EquipId, Fx, LiveSpin, Plan, PlanReel, Run, Shop, SymId } from "./types.ts";
+import type { Beat, Enemy, EquipId, Fx, LiveSpin, Plan, PlanReel, Run, RunTrace, Shop, SymId } from "./types.ts";
+import { emptyTrace } from "./types.ts";
 
 function freshStats() {
   return { turns: 0, fights: 0, kills: 0, crits: 0, dealt: 0, taken: 0, coins: 0, bestFloor: 1 };
@@ -71,12 +74,14 @@ export function createRun(seed: number, entry = 0): Run {
     pity: 0,
     momentum: 0,
     lastLands: [],
+    spinDealt: 0,
     keys: 0,
     stamp: false,
     equip: [],
     levels: {},
     fortify: {},
     pro: [],
+    trace: emptyTrace(),
   };
 }
 
@@ -94,19 +99,23 @@ function dealDraft(state: number): { state: number; items: SymId[] } {
 
 export function togglePick(run: Run, sym: SymId): Run {
   if (run.phase !== "draft") return run;
-  if (!run.draft.includes(sym)) return run;
   if (run.picks.includes(sym)) return { ...run, picks: run.picks.filter((id) => id !== sym) };
-  if (run.picks.length >= 3) return run;
+  if (!canTake(run.picks, sym)) return run;
   return { ...run, picks: [...run.picks, sym] };
 }
 
 export function confirmDraft(run: Run): Run {
-  if (run.phase !== "draft" || run.picks.length !== 3) return run;
-  if (run.picks.some((id) => !run.draft.includes(id))) return run;
+  if (run.phase !== "draft" || run.picks.length !== LOADOUT_SIZE) return run;
+  if (run.picks.some((id) => !LOADOUT_POOL.includes(id))) return run;
+  if (budgetOf(run.picks) > LOADOUT_BUDGET) return run;
   return {
     ...run,
     phase: "banner",
     deck: run.picks.slice(),
+    reels: START_REELS,
+    levels: {},
+    fortify: {},
+    pro: [],
     stats: { ...run.stats, bestFloor: 1 },
   };
 }
@@ -224,9 +233,31 @@ function landed(spin: LiveSpin): SymId[] {
   return spin.strips.map((strip, i) => strip[spin.index[i] ?? 0] ?? "medzera");
 }
 
+function perkProc(ranks: number, sym: SymId, reel: number, salt: number): number {
+  if (ranks <= 0) return 0;
+  const n = Math.abs(Math.sin(salt * 0.017 + reel * 2.3 + sym.length * 1.7 + 4.2)) % 1;
+  return n < ranks * 0.04 ? ranks * 2 : 0;
+}
+
+function choir(lands: readonly SymId[], reel: number, sym: SymId): number {
+  if (sym === "syntik") return 0;
+  const meta = metaOf(sym);
+  if (!meta || meta.family !== "parkvolt") return 0;
+  let n = 0;
+  if (lands[reel - 1] === "syntik") n += 1;
+  if (lands[reel + 1] === "syntik") n += 1;
+  return n * 8;
+}
+
 export function sealSpin(run: Run, spin: LiveSpin): { run: Run; plan: Plan } {
   let rng = run.rng;
   let lands = landed(spin);
+  let enemy = run.enemy;
+  if (enemy?.dj) {
+    const twisted = twistLands(lands, enemy.dj);
+    lands = twisted.lands;
+    enemy = { ...enemy, dj: twisted.dj };
+  }
   const rerolls: Plan["rerolls"] = [];
   for (let i = 0; i < lands.length; i++) {
     if (lands[i] !== "restart") continue;
@@ -273,12 +304,34 @@ export function sealSpin(run: Run, spin: LiveSpin): { run: Run; plan: Plan } {
     sym,
     crit: sym === "crown" || Boolean(critSym && (sym === critSym || symDef(sym)?.hook === "wild")),
   }));
-  return { run: { ...run, rng, lastLands: lands }, plan: { lands, rerolls, critSym, critMul: mul, reels } };
+  return { run: noteSpin({ ...run, rng, lastLands: lands, enemy: enemy ?? run.enemy, spinDealt: 0 }, lands), plan: { lands, rerolls, critSym, critMul: mul, reels } };
+}
+
+function noteSpin(run: Run, lands: SymId[]): Run {
+  const links = linkBetween(lands);
+  const good = links.filter((n) => n > 0).length;
+  const bad = links.filter((n) => n < 0).length;
+  const trace: RunTrace = run.trace ?? emptyTrace();
+  const called = run.call;
+  const hit = called.length > 0 && lands.some((id) => called.includes(metaOf(id)?.stat ?? ("" as never)));
+  return {
+    ...run,
+    trace: {
+      ...trace,
+      chemGood: trace.chemGood + good,
+      chemBad: trace.chemBad + bad,
+      chemRow: Math.max(trace.chemRow, good),
+      callHits: trace.callHits + (called.length && hit ? 1 : 0),
+      callMiss: trace.callMiss + (called.length && !hit ? 1 : 0),
+    },
+  };
 }
 
 function hurtEnemy(enemy: Enemy, amount: number, pierce: boolean): { enemy: Enemy; dealt: number; blocked: number } {
   const dmg = Math.max(0, Math.round(amount));
   if (dmg <= 0) return { enemy, dealt: 0, blocked: 0 };
+  const clone = enemy.dj && enemy.dj.focus >= 0 ? enemy.dj.clones[enemy.dj.focus] : undefined;
+  if (clone && clone.hp > 0) return { enemy: routeHit(enemy, dmg, 0), dealt: dmg, blocked: 0 };
   if (pierce) {
     return { enemy: { ...enemy, hp: enemy.hp - dmg }, dealt: dmg, blocked: 0 };
   }
@@ -330,7 +383,8 @@ export function resolveReel(run: Run, plan: Plan, reel: number): { run: Run; fx:
   };
 
   const trained = 1 + (next.levels[sym] ?? 0) * 0.1;
-  const proMul = next.pro.includes(sym) ? 1.2 : 1;
+  const perk = next.meta?.[sym];
+  const proMul = Math.min(1.28, (next.pro.includes(sym) ? 1.2 : 1) * (perk?.pro ? 1.12 : 1));
   const power = rowMul(plan.lands, step.reel, next.call) * (next.wager > 0 ? next.wager : 1) * (1 + next.momentum * 0.04) * trained * proMul;
   let raw = def.dmg;
   if (def.hook === "left") raw = step.reel === 0 ? def.dmg + 10 : def.dmg;
@@ -357,7 +411,7 @@ export function resolveReel(run: Run, plan: Plan, reel: number): { run: Run; fx:
     }
   }
   if (raw > 0) {
-    raw = Math.max(0, Math.round(raw * power) + (next.fortify[sym] ?? 0) * 2 + procBonus(sym, step.reel, next.rng));
+    raw = Math.max(0, Math.round(raw * power) + (next.fortify[sym] ?? 0) * 2 + (perk?.dmg ?? 0) + procBonus(sym, step.reel, next.rng) + perkProc(perk?.proc ?? 0, sym, step.reel, next.rng) + choir(plan.lands, step.reel, sym));
     if (next.keys > 0) {
       raw += 8;
       next = { ...next, keys: next.keys - 1 };
@@ -388,12 +442,12 @@ export function resolveReel(run: Run, plan: Plan, reel: number): { run: Run; fx:
 
   if (def.shield > 0) {
     const extra = next.equip.includes("stit") ? 3 : 0;
-    const gained = gainShield(next, def.shield * cm * power + extra);
+    const gained = gainShield(next, def.shield * cm * power + extra + (perk?.shield ?? 0) + choir(plan.lands, step.reel, sym));
     next = gained.run;
     fx.push({ t: "shield", amount: gained.gained, crit: step.crit });
   }
   if (def.heal > 0) {
-    const gained = gainHp(next, def.heal * cm * power);
+    const gained = gainHp(next, def.heal * cm * power + choir(plan.lands, step.reel, sym));
     next = gained.run;
     fx.push({ t: "heal", amount: gained.gained, crit: step.crit });
   }
@@ -434,11 +488,17 @@ export function resolveReel(run: Run, plan: Plan, reel: number): { run: Run; fx:
   if (dealt > 0) {
     next = {
       ...next,
+      spinDealt: next.spinDealt + dealt,
       super: Math.min(100, next.super + 4),
       stats: { ...next.stats, dealt: next.stats.dealt + dealt },
     };
   }
-  if (enemy.hp > 0 && !enemy.enraged && enemy.hp <= enemy.maxHp * 0.5) enemy = { ...enemy, enraged: true };
+  if (enemy.hp > 0 && !enemy.enraged && enemy.hp <= enemy.maxHp * 0.5) {
+    enemy = { ...enemy, enraged: true, shield: enemy.id === "blastbeat" ? 0 : enemy.shield };
+    if (enemy.id === "blastbeat" && enemy.dj) {
+      enemy = { ...enemy, dj: { ...enemy.dj, bpm: Math.min(132, enemy.dj.bpm + 12) } };
+    }
+  }
   const firstCrit = plan.reels.findIndex((row) => row.crit);
   if (step.crit && step.reel === firstCrit) {
     next = { ...next, stats: { ...next.stats, crits: next.stats.crits + 1 } };
@@ -471,7 +531,8 @@ export function resolveLands(run: Run, lands: SymId[]): { run: Run; plan: Plan; 
 
 export function finishPlayer(run: Run): Run {
   if (run.phase !== "fight" || !run.enemy) return run;
-  const spent: Run = { ...run, wager: 1, super: run.super };
+  const whiff = run.enemy.id === "blastbeat" && run.enemy.enraged && (run.spinDealt <= 0 || run.lastLands.includes("medzera"));
+  const spent: Run = { ...run, wager: 1, super: whiff ? Math.min(100, run.super + 12) : run.super };
   if (spent.hp <= 0) return die(spent, spent.cause || "Koniec smeny");
   if (spent.enemy && spent.enemy.hp <= 0) return onKill(spent);
   return spent;
@@ -488,9 +549,11 @@ function onKill(run: Run): Run {
   if (!enemy) return run;
   const gain = purse(run, enemy);
   const clearedBoss = enemy.boss;
+  const trace = run.trace ?? emptyTrace();
   let next: Run = {
     ...run,
     enemy: { ...enemy, hp: 0 },
+    trace: enemy.boss ? { ...trace, bosses: trace.bosses + 1 } : trace,
     coins: run.coins + gain,
     wager: 1,
     momentum: Math.min(3, run.momentum + 1),
@@ -671,7 +734,8 @@ export function buyEquip(run: Run, id: EquipId): Run {
 /** Risk 8 HP. The next spin hits harder. The player has to tap it. */
 export function armWager(run: Run): Run {
   if (run.phase !== "fight" || run.hp <= 18 || run.wager > 1) return run;
-  return { ...run, hp: run.hp - 8, wager: 1.5, stats: { ...run.stats, taken: run.stats.taken + 8 } };
+  const trace = run.trace ?? emptyTrace();
+  return { ...run, hp: run.hp - 8, wager: 1.5, stats: { ...run.stats, taken: run.stats.taken + 8 }, trace: { ...trace, allIns: trace.allIns + 1 } };
 }
 
 /** Keep one window from the last spin. Costs a couple of coins. */
@@ -771,15 +835,19 @@ function useLands(run: Run): { run: Run; beats: Beat[] } | null {
     if (enemy.hp <= 0) return { run: onKill(next), beats };
   }
   if (!enemy.enraged && enemy.hp > 0 && enemy.hp <= enemy.maxHp * 0.5) {
-    enemy = { ...enemy, enraged: true };
-    beats.push({ t: "heal", amount: 0, blocked: 0, text: "Zúri" });
+    enemy = { ...enemy, enraged: true, shield: enemy.id === "blastbeat" ? 0 : enemy.shield };
+    if (enemy.id === "blastbeat" && enemy.dj) {
+      enemy = { ...enemy, dj: { ...enemy.dj, bpm: Math.min(132, enemy.dj.bpm + 12) } };
+    }
+    beats.push({ t: "heal", amount: 0, blocked: 0, text: enemy.id === "blastbeat" ? "Prijmi zlyhanie" : "Zúri" });
   }
+  if (enemy.id === "blastbeat" && enemy.enraged) enemy = { ...enemy, shield: 0 };
   if (next.stamp) {
     next = { ...next, stamp: false };
     enemy = { ...enemy, stunned: true, charge: null };
   }
   if (enemy.stunned) {
-    enemy = advanceIntent({ ...enemy, stunned: false, charge: null });
+    enemy = resetTempo(advanceIntent({ ...enemy, stunned: false, charge: null }));
     beats.push({ t: "whiff", amount: 0, blocked: 0, text: "Omámený" });
     const rolled = openReel(enemy, next.rng, next.floor);
     return { run: { ...next, rng: rolled.rng, enemy: rolled.enemy }, beats };
@@ -797,6 +865,10 @@ function useLands(run: Run): { run: Run; beats: Beat[] } | null {
     if (next.hp <= 0) return { run: die({ ...next, enemy }, `${enemy.name} ťa dorazil`), beats };
     return { run: { ...next, enemy }, beats };
   }
+  const scripted = scriptDj(enemy, next.call, next.reels, next.rng);
+  enemy = scripted.enemy;
+  next = { ...next, rng: scripted.rng };
+  for (const note of scripted.notes) beats.push({ t: "whiff", amount: 0, blocked: 0, text: note });
   const charging = Boolean(enemy.charge);
   const parts = enemy.lands.map((_, i) => foePart(enemy.lands, i, enemy, next.call));
   if (charging && enemy.charge) {
@@ -837,7 +909,7 @@ function useLands(run: Run): { run: Run; beats: Beat[] } | null {
         }
       }
       if (next.hp <= 0) break;
-      if (part.shield > 0) {
+      if (part.shield > 0 && !(enemy.id === "blastbeat" && enemy.enraged)) {
         const gained = capEnemyShield(enemy.shield + part.shield) - enemy.shield;
         enemy = { ...enemy, shield: enemy.shield + gained };
         if (!small && gained > 0) beats.push({ t: "heal", amount: gained, blocked: 0, text: `Štít +${gained}` });
@@ -873,6 +945,25 @@ function useLands(run: Run): { run: Run; beats: Beat[] } | null {
         blocked,
         text: blockedAll ? `Štít udržal ${blocked}` : `Zásah ${sum}`,
       });
+    }
+    if (enemy.id === "blastbeat" && enemy.enraged && next.hp > 0) {
+      let extra = 0;
+      let extraBlocked = 0;
+      for (const part of parts) {
+        if (part.dmg <= 0 || next.hp <= 0) continue;
+        const hit = hurtPlayer(next, part.dmg, part.pierce);
+        next = hit.run;
+        extra += hit.lost;
+        extraBlocked += hit.blocked;
+      }
+      if (extra > 0 || extraBlocked > 0) {
+        beats.push({
+          t: extra > 0 ? "hit" : "block",
+          amount: extra,
+          blocked: extraBlocked,
+          text: `Druhý úder ${extra}`,
+        });
+      }
     }
   }
   if (next.hp <= 0) return { run: die({ ...next, enemy }, `${enemy.name} ťa dorazil`), beats };
@@ -997,7 +1088,72 @@ export function face(
     enraged: false,
     charge: null,
   };
-  return { ...run, phase: "fight", enemy, fightTurns: 1, call: [], wager: 1, momentum: 0, keys: 0, equip: [] };
+  return { ...run, phase: "fight", enemy, fightTurns: 1, call: [], wager: 1, momentum: 0, keys: 0, equip: [], spinDealt: 0 };
+}
+
+/** Screenshot hook. A normal run never calls this. */
+export function previewDj(mode: string, entry = 250): Run {
+  const born = spawnFoe("boss", 4, 0, 11);
+  let enemy = born.enemy;
+  if ((mode === "mark" || mode === "phase") && enemy.dj) {
+    const phase = mode === "phase";
+    enemy = {
+      ...enemy,
+      hp: phase ? Math.round(enemy.maxHp * 0.42) : enemy.hp,
+      enraged: phase,
+      shield: 0,
+      dj: {
+        ...enemy.dj,
+        bpm: phase ? 124 : 108,
+        clones: [
+          { hp: phase ? 14 : 26, maxHp: 26, mark: 1, armed: false, black: false },
+          { hp: 26, maxHp: 26, mark: 0, armed: true, black: false },
+          { hp: 20, maxHp: 26, mark: 2, armed: false, black: phase },
+        ],
+        fan: { reel: 2, dir: -1 },
+      },
+    };
+  }
+  let run = createRun(11, entry);
+  run = {
+    ...run,
+    rng: born.rng,
+    floor: 4,
+    phase: mode === "shop" ? "shop" : "fight",
+    deck: ["syntik", "krimp", "blocek", "stit"],
+    coins: 24,
+    enemy,
+    mobsLeft: 0,
+    bossPending: false,
+  };
+  if (mode === "dead") {
+    run = {
+      ...run,
+      phase: "dead",
+      hp: 0,
+      cause: "DJ Blastbeat ťa dorazil",
+      call: ["sila", "charizma"],
+      stats: { ...run.stats, bestFloor: 4, kills: 6, dealt: 420 },
+      trace: { chemGood: 1, chemBad: 4, chemRow: 1, callHits: 1, callMiss: 5, allIns: 2, bosses: 0 },
+    };
+  }
+  if (mode === "shop") {
+    run = {
+      ...run,
+      shop: {
+        offers: [
+          { sym: "syntik", price: 11 },
+          { sym: "krimp", price: 12 },
+          { sym: "stit", price: 6 },
+        ],
+        heals: 0,
+        rerolled: false,
+        rolls: 0,
+        faces: ["natural", "exekucia", "parkvolt"],
+      },
+    };
+  }
+  return run;
 }
 
 export function resign(run: Run): Run {

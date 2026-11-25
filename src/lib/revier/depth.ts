@@ -74,6 +74,9 @@ export const META: Partial<Record<SymId, SymMeta>> = {
   kraj: m("telekom", "epicky", "rychlost", "up", "modra"),
   stat: m("telekom", "legendarny", "sila", "right", "zlta"),
   pokuta: m("urad", "bezny", "charizma", "down", "modra", 0, 0, true),
+  syntik: m("parkvolt", "vzacny", "charizma", "right", "zlta"),
+  cymbal: m("parkvolt", "bezny", "sila", "up", "zlta"),
+  ventilator: m("parkvolt", "bezny", "rychlost", "left", "modra"),
 };
 
 export const FAMILY_NAME: Record<Family, string> = {
@@ -113,6 +116,7 @@ const THEME: Record<string, Family[]> = {
   krovinorez: ["parkvolt", "kamene"],
   motorka: ["parkvolt", "kamene"],
   myto: ["urad", "parkvolt"],
+  blastbeat: ["parkvolt", "kamene"],
 };
 
 export function metaOf(id: SymId): SymMeta | null {
@@ -209,7 +213,9 @@ export function rollRare(state: number): { state: number; sym: SymId } {
   return { state: got.state, sym: got.item };
 }
 
-export function foeScale(enemy: { boss: boolean; elite: boolean; enraged: boolean }): number {
+export function foeScale(enemy: { id?: string; boss: boolean; elite: boolean; enraged: boolean }): number {
+  // Phase 2 is a second swing, so the tempo meter is his only other multiplier.
+  if (enemy.id === "blastbeat") return 0.36;
   const base = enemy.boss ? 0.42 : enemy.elite ? 0.52 : 0.58;
   return base * (enemy.enraged ? 1.16 : 1);
 }

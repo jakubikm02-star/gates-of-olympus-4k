@@ -39,6 +39,9 @@ export type SymId =
   | "kraj"
   | "stat"
   | "pokuta"
+  | "syntik"
+  | "cymbal"
+  | "ventilator"
   | "medzera";
 
 export type StatId = "sila" | "odolnost" | "rychlost" | "charizma";
@@ -94,6 +97,31 @@ export interface Enemy {
   enraged: boolean;
   /** Big hit winding up. `left` is how many enemy turns remain, including the impact. */
   charge: { left: number; amount: number; pierce: boolean } | null;
+  /** DJ Blastbeat only. Absent on every other foe. */
+  dj?: DjState;
+}
+
+export interface DjClone {
+  hp: number;
+  maxHp: number;
+  /** Window this clone has marked. Null when it is only standing there. */
+  mark: number | null;
+  /** The mark has lasted a turn. The next player spin mutes that window. */
+  armed: boolean;
+  /** Black shirt. One of the four. */
+  black: boolean;
+}
+
+export interface DjState {
+  bpm: number;
+  clones: DjClone[];
+  /** Blows a landed symbol one window sideways on the next player spin. */
+  fan: { reel: number; dir: -1 | 1 } | null;
+  /** -1 hits the boss. Otherwise the clone index. */
+  focus: number;
+  acts: number;
+  /** Telegraph: the next player spin blanks this window. */
+  phone: { reel: number; line: string } | null;
 }
 
 export interface Offer {
@@ -173,10 +201,37 @@ export interface Run {
   equip: EquipId[];
   /** Run-scoped level, 0–3, from training or the upgrade service. */
   levels: Partial<Record<SymId, number>>;
+  /** Damage dealt by the spin that just sealed. Phase 2 listens for a whiff. */
+  spinDealt: number;
   /** Spares fed in, 0–3. Each one is a flat bump. */
   fortify: Partial<Record<SymId, number>>;
   /** Two maxed copies combined. */
   pro: SymId[];
+  /** Permanent Dielňa bonuses. Empty on a fresh profile. Not cleared by death. */
+  meta?: Partial<Record<SymId, MetaPerk>>;
+  trace: RunTrace;
+}
+
+export interface MetaPerk {
+  dmg: number;
+  shield: number;
+  proc: number;
+  pro: boolean;
+}
+
+/** Facts the death screen can quote. Reset every run. */
+export interface RunTrace {
+  chemGood: number;
+  chemBad: number;
+  chemRow: number;
+  callHits: number;
+  callMiss: number;
+  allIns: number;
+  bosses: number;
+}
+
+export function emptyTrace(): RunTrace {
+  return { chemGood: 0, chemBad: 0, chemRow: 0, callHits: 0, callMiss: 0, allIns: 0, bosses: 0 };
 }
 
 export interface LiveSpin {

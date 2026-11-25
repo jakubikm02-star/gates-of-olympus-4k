@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as sfx from "@/lib/slot/audio";
+import { focusClone } from "@/lib/revier/blastbeat";
 import { linkBetween, metaOf, procBonus, STAT_NAME } from "@/lib/revier/depth";
 import { FEEL, type FeelTarget } from "@/lib/revier/feel";
 import {
@@ -17,6 +18,7 @@ import {
   dismissBanner,
   enemyPhase,
   finishPlayer,
+  previewDj,
   fireSuper,
   holdReel,
   leaveShop,
@@ -39,7 +41,7 @@ import { symDef, symMark } from "@/lib/revier/symbols";
 import type { Beat, Plan, Run, SymId } from "@/lib/revier/types";
 import type { Cue, FightHandle, FightSnap, WinSnap } from "@/nocna/fight-types";
 
-export type Stage = "draft" | "banner" | "ready" | "spin" | "preview" | "act" | "enemy" | "shop" | "dead";
+export type Stage = "bench" | "draft" | "banner" | "ready" | "spin" | "preview" | "act" | "enemy" | "shop" | "dead";
 
 export interface WinView extends WinSnap {
   sym: SymId | null;
@@ -56,6 +58,7 @@ function snd(play: () => void) {
 }
 
 function beatChip(beat: Beat): string {
+    if (beat.text.startsWith("Činel") || beat.text.startsWith("Ventil") || beat.text.startsWith("Kapela") || beat.text.startsWith("Charizma") || beat.text.startsWith("Druhý") || beat.text.startsWith("Prijmi") || beat.text.startsWith("Zvoní")) return beat.text;
   if (beat.t === "whiff") return "MINUTIE";
   if (beat.t === "stun") return "✦";
   if (beat.t === "heal") return `+${beat.amount}`;
@@ -82,10 +85,11 @@ function turnLabel(stage: Stage, call: string) {
 }
 
 function buttonLabel(stage: Stage, picks: number) {
-  if (stage === "draft") return picks === 3 ? "NASTÚPIŤ" : `${picks}/3`;
+  if (stage === "bench") return "VÝBER SYMBOLOV";
+  if (stage === "draft") return picks === 6 ? "NASTÚPIŤ" : `${picks}/6`;
+  if (stage === "dead") return "NOVÁ SMENA";
   if (stage === "ready") return "ZATOČ";
   if (stage === "spin") return "STOP";
-  if (stage === "dead") return "SPÄŤ";
   return "ĎALEJ";
 }
 
@@ -116,11 +120,11 @@ function targetOf(sym: SymId): FeelTarget {
  * Turn machine. Nothing advances unless the player taps.
  * Pixi plays one symbol beat at a time; this hook only commits rules.
  */
-export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; onExit: () => void }) {
+export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; onExit: () => void; meta?: Run["meta"]; loadout?: SymId[] }) {
   const [run, setRun] = useState<Run>(() => createRun((Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0, opts.entry));
   const runRef = useRef(run);
-  const stageRef = useRef<Stage>("draft");
-  const [stage, setStage] = useState<Stage>("draft");
+  const stageRef = useRef<Stage>("bench");
+  const [stage, setStage] = useState<Stage>("bench");
   const [windows, setWindows] = useState<WinView[]>([]);
   const [active, setActive] = useState<number | null>(null);
   const [hint, setHint] = useState<string | null>(null);
@@ -139,6 +143,7 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
   const fight = useRef<FightHandle | null>(null);
   const pressRef = useRef<() => void>(() => {});
   const noted = useRef(false);
+  const startShiftRef = useRef<() => void>(() => {});
   const hints = useRef({ spin: false, stop: false, atk: false });
   const onRecord = useRef(opts.onRecord);
   const onExit = useRef(opts.onExit);
@@ -320,6 +325,7 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
         target: targetOf(step.sym),
         slow,
         proc: procBonus(step.sym, step.reel, runRef.current.rng) || undefined,
+        chem: step.reel > 0 ? Math.max(0, linkBetween(plan.lands)[step.reel - 1] ?? 0) || undefined : undefined,
       };
       if (slow) {
         snd(() => sfx.playSoftHit("riser"));
@@ -328,6 +334,7 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
       if (fight.current) {
         await fight.current.playCue(cue, () => {
           commit(resolved.run);
+          if (cue.chem || cue.proc) snd(() => sfx.playChem());
           if (!trivial || step.crit || slow) snd(() => (step.crit || slow ? sfx.playSoftHit("big") : sfx.playSoftHit("hit")));
         });
       } else {
@@ -383,6 +390,9 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
     for (const beat of acted.beats) {
       const kind = beat.t === "block" ? "block" : beat.t === "whiff" ? "miss" : beat.t === "heal" ? "heal" : "hit";
       if (lethal && beat.t === "hit") snd(() => sfx.playSoftHit("drop"));
+      if (beat.text.startsWith("Činel") || beat.text.startsWith("Kapela")) snd(() => sfx.playCymbal());
+      if (beat.text.startsWith("Ventil")) snd(() => sfx.playSoftHit("riser"));
+      if (beat.text.startsWith("Charizma") || beat.text.startsWith("Prijmi")) snd(() => sfx.playDjArp());
       if (fight.current) await fight.current.playFoe(beatChip(beat), kind, beat.t === "heal" ? "foe" : "you", lethal || clutch);
       if (beat.t === "hit" || beat.t === "block") snd(() => sfx.playSoftHit(lethal || clutch ? "big" : "hit"));
     }
@@ -462,12 +472,23 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
       deck: stageRef.current === "shop" ? live.deck : [],
       phase: stageRef.current,
       button: buttonLabel(stageRef.current, live.picks.length),
-      pulse: stageRef.current === "ready" || stageRef.current === "preview" || stageRef.current === "shop" || stageRef.current === "banner" || (stageRef.current === "draft" && live.picks.length === 3) || stageRef.current === "spin",
+      pulse: stageRef.current === "ready" || stageRef.current === "preview" || stageRef.current === "shop" || stageRef.current === "banner" || stageRef.current === "bench" || stageRef.current === "dead" || (stageRef.current === "draft" && live.picks.length === 6) || stageRef.current === "spin",
       coins: live.coins,
       floor,
       turn: turnLabel(stageRef.current, live.call.map((id) => STAT_NAME[id]).join(" ")),
       hint: hint ?? "",
       active,
+      bpm: live.enemy?.dj?.bpm ?? 0,
+      clones: (live.enemy?.dj?.clones ?? []).map((clone) => ({
+        hp: clone.hp,
+        max: clone.maxHp,
+        black: clone.black,
+        mark: clone.mark,
+        armed: clone.armed,
+      })),
+      fan: live.enemy?.dj?.fan ?? null,
+      phone: live.enemy?.dj?.phone?.reel ?? -1,
+      focus: live.enemy?.dj?.focus ?? -1,
     };
   };
 
@@ -501,10 +522,32 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
     fight.current?.setSnap(snap());
   });
 
+  useEffect(() => {
+    const dj = new URLSearchParams(window.location.search).get("dj");
+    if (!dj) return;
+    const next = previewDj(dj, opts.entry);
+    commit(next);
+    setRun(next);
+    setWindows(
+      Array.from({ length: next.reels }, () => ({
+        sym: "blocek" as SymId,
+        mode: "sit" as const,
+        crit: false,
+        token: 1,
+        chip: "⚔15",
+      })),
+    );
+    go(dj === "shop" ? "shop" : dj === "dead" ? "dead" : dj === "bench" ? "bench" : "ready");
+  }, [opts.entry]);
+
   const who = stage === "enemy" ? "foe" : "you";
   const primary =
-    stage === "draft"
-      ? { label: buttonLabel("draft", run.picks.length), disabled: run.picks.length !== 3, pulse: run.picks.length === 3, run: confirm }
+    stage === "bench"
+      ? { label: "VÝBER SYMBOLOV", disabled: false, pulse: true, run: () => go("draft") }
+      : stage === "draft"
+      ? { label: buttonLabel("draft", run.picks.length), disabled: run.picks.length !== 6, pulse: run.picks.length === 6, run: confirm }
+      : stage === "dead"
+        ? { label: "NOVÁ SMENA", disabled: false, pulse: true, run: () => startShiftRef.current() }
       : stage === "banner"
         ? { label: "ĎALEJ", disabled: false, pulse: true, run: advance }
         : stage === "ready"
@@ -514,11 +557,30 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
             : stage === "preview"
               ? { label: "ĎALEJ", disabled: false, pulse: true, run: () => void attack() }
               : stage === "act" || stage === "enemy"
-                ? { label: "ĎALEJ", disabled: false, pulse: false, run: () => fight.current?.setPace(3) }
+                ? { label: "ĎALEJ", disabled: false, pulse: false, run: () => fight.current?.skip() }
                 : stage === "shop"
                   ? { label: "ĎALEJ", disabled: false, pulse: true, run: leave }
                   : { label: "SPÄŤ", disabled: false, pulse: true, run: () => onExit.current() };
 
+  startShiftRef.current = () => {
+    let next = createRun((Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0, opts.entry);
+    if (opts.meta) next = { ...next, meta: opts.meta };
+    const pack = opts.loadout ?? [];
+    if (pack.length === 6) {
+      const confirmed = confirmDraft({ ...next, picks: pack.slice() });
+      if (confirmed.phase === "banner") {
+        noted.current = false;
+        commit(confirmed);
+        setWindows([]);
+        go("banner");
+        return;
+      }
+    }
+    noted.current = false;
+    commit(next);
+    setWindows([]);
+    go("draft");
+  };
   pressRef.current = primary.run;
 
   return {
@@ -536,6 +598,10 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
     dismissHint: () => setHint(null),
     closeBubble: () => setBubble(null),
     openBubble: (title: string, text: string) => setBubble({ title, text }),
+    focusClone: (index: number) => {
+      const next = focusClone(runRef.current, index);
+      if (next !== runRef.current) commit(next);
+    },
     toggle: (sym: SymId) => {
       if (stageRef.current !== "draft") return;
       commit(togglePick(runRef.current, sym));
@@ -585,7 +651,10 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
     setShake,
     calm,
     setCalm,
-    hurry: () => fight.current?.setPace(3),
+    hurry: () => {
+      fight.current?.skip();
+      fight.current?.setPace(3);
+    },
     giveUp: () => {
       if (stageRef.current === "draft") {
         onExit.current();

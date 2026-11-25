@@ -1,3 +1,4 @@
+import { freshDj, bpmScale } from "./blastbeat.ts";
 import { buildDeck, foeScale, rowMul } from "./depth.ts";
 import { pick } from "./rng.ts";
 import { ENEMY_SHIELD_CAP, symDef } from "./symbols.ts";
@@ -139,6 +140,16 @@ const FOES: Record<string, Foe> = {
     hp: 460,
     pattern: (s) => [pierce(s(18)), hit(s(16)), hit(s(26), true)],
   },
+  blastbeat: {
+    id: "blastbeat",
+    name: "DJ Blastbeat",
+    art: "/nocna/bosses/boss-dj-blastbeat.webp",
+    taunt: "Tempo ide hore. Ty nie.",
+    boss: true,
+    elite: false,
+    hp: 620,
+    pattern: (s) => [hit(s(11)), hit(s(13)), shield(s(14)), hit(s(15))],
+  },
   general: {
     id: "general",
     name: "Generál podateľne",
@@ -199,7 +210,7 @@ const MOBS: Record<number, string[]> = {
   5: ["uradnicka", "inkasak", "pokutomat", "ozran", "zlodej", "neplatic"],
 };
 
-const BOSSES = ["kurier", "demon", "anjel", "general", "prednosta"] as const;
+const BOSSES = ["kurier", "demon", "anjel", "blastbeat", "prednosta"] as const;
 const ELITES = ["krovinorez", "motorka", "myto"] as const;
 
 export function hpScale(floor: number): number {
@@ -255,6 +266,7 @@ function build(id: string, floor: number, ranna: number, rng: number): { rng: nu
     roll: 0,
     enraged: false,
     charge: null,
+    dj: def.id === "blastbeat" ? freshDj() : undefined,
   };
   return openReel({ ...enemy }, rng, floor);
 }
@@ -269,6 +281,7 @@ const KITS: Record<string, SymId[]> = {
   kurier: ["dacia", "gemr", "can3", "crown"],
   demon: ["gemr", "dacia", "can3", "gemp"],
   anjel: ["gemr", "dacia", "fs", "krimp"],
+  blastbeat: ["cymbal", "ventilator", "syntik", "krimp"],
   general: ["krimp", "fs", "dacia", "arris"],
   prednosta: ["pdf", "fs", "krimp", "stat"],
   krovinorez: ["dacia", "gemr", "can2", "gemp"],
@@ -292,7 +305,7 @@ export function foePart(lands: readonly SymId[], index: number, enemy: Enemy, ca
   const sym = lands[index];
   const def = sym ? symDef(sym) : null;
   if (!sym || !def) return empty;
-  const scale = foeScale(enemy) * rowMul(lands, index, call);
+  const scale = foeScale(enemy) * rowMul(lands, index, call) * bpmScale(enemy);
   let dmg = def.dmg;
   if (def.hook === "left") dmg = index === 0 ? def.dmg + 8 : def.dmg;
   if (def.hook === "right") dmg = index === lands.length - 1 ? def.dmg * 2 : def.dmg;
@@ -344,6 +357,7 @@ export function openReel(enemy: Enemy, rng: number, floor = 1): { rng: number; e
     const built = buildDeck(state, enemy.id, enemy.boss ? 12 : 10);
     state = built.state;
     deck = built.deck.length ? built.deck : enemy.kit;
+    if (enemy.id === "blastbeat") deck = [...deck, "cymbal", "cymbal", "ventilator", "syntik"];
   }
   if (!deck.length) return { rng, enemy };
   const n = enemy.windows > 0 ? enemy.windows : enemy.boss ? 4 : 3;

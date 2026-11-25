@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { claimChallenges, challengesOn, emptyChallenges } from "./challenges.ts";
+import { buyPerk, emptyDielna, grantScrews, respec, screwsFor } from "./dielna.ts";
+import { freshDj, focusClone, scriptDj, twistLands } from "./blastbeat.ts";
+import { postMortem } from "./review.ts";
 import { DECENT, playRun } from "./bot.ts";
+import { spawnFoe } from "./enemies.ts";
 import {
   beginSpin,
   buyFourthReel,
@@ -135,7 +140,7 @@ describe("Nočná smena combat", () => {
 
   it("the enemy spins the same shared symbols the shop sells", () => {
     let seeded = createRun(11, 250);
-    for (const sym of seeded.draft.slice(0, 3)) seeded = togglePick(seeded, sym);
+    for (const sym of ["blocek", "stit", "konektor", "gemr", "gemb", "roof"] as const) seeded = togglePick(seeded, sym);
     const real = dismissBanner(confirmDraft(seeded));
     const enemy = real.enemy;
     assert.ok(enemy);
@@ -154,6 +159,113 @@ describe("Nočná smena combat", () => {
     const locked = lockReel(a!.spin, 0, 3);
     assert.equal(locked.index[0], 3);
     assert.equal(lockReel(locked, 0, 1).index[0], 3);
+  });
+});
+
+describe("DJ Blastbeat", () => {
+  it("a mark mutes the window only after the cymbal is armed", () => {
+    const quiet = freshDj();
+    quiet.clones.push({ hp: 26, maxHp: 26, mark: 1, armed: false, black: false });
+    assert.equal(twistLands(["blocek", "krimp", "stit"], quiet).lands[1], "krimp");
+    const armed = freshDj();
+    armed.clones.push({ hp: 26, maxHp: 26, mark: 1, armed: true, black: false });
+    const hit = twistLands(["blocek", "krimp", "stit"], armed);
+    assert.equal(hit.lands[1], "medzera");
+    assert.equal(hit.dj.clones[0]?.mark, null);
+  });
+
+  it("a ringing phone blanks that window on the next spin", () => {
+    const dj = freshDj();
+    dj.phone = { reel: 2, line: "Farba letí, ty nie" };
+    const hit = twistLands(["krimp", "blocek", "stit"], dj);
+    assert.equal(hit.lands[2], "medzera");
+    assert.equal(hit.dj.phone, null);
+    assert.equal(hit.lands[0], "krimp");
+  });
+
+  it("the fan slides one symbol sideways and then is spent", () => {
+    const dj = freshDj();
+    dj.fan = { reel: 0, dir: 1 };
+    const moved = twistLands(["krimp", "blocek", "stit"], dj);
+    assert.deepEqual(moved.lands, ["blocek", "krimp", "stit"]);
+    assert.equal(moved.dj.fan, null);
+  });
+
+  it("floor 4 is the DJ, and a chosen clone takes the hit", () => {
+    const born = spawnFoe("boss", 4, 0, 4);
+    assert.equal(born.enemy.id, "blastbeat");
+    assert.equal(born.enemy.windows, 4);
+    const scripted = scriptDj(born.enemy, [], 3, 9);
+    assert.ok((scripted.enemy.dj?.clones.length ?? 0) >= 1);
+    let run = face(createRun(4), { name: "DJ Blastbeat", hp: 620, id: "blastbeat" });
+    run = { ...run, enemy: { ...scripted.enemy, hp: 620, maxHp: 620 } };
+    run = focusClone(run, 0);
+    const before = run.enemy?.dj?.clones[0]?.hp ?? 0;
+    const played = resolveLands(run, ["blocek", "stit", "stit"]);
+    assert.ok((played.run.enemy?.dj?.clones[0]?.hp ?? before) < before);
+    assert.equal(played.run.enemy?.hp, 620);
+  });
+
+  it("Syntík buffs the neighbouring PARKVOLT symbol", () => {
+    const plain = resolveLands(face(createRun(2), { name: "cieľ", hp: 400 }), ["krimp", "blocek", "stit"]);
+    const buffed = resolveLands(face(createRun(2), { name: "cieľ", hp: 400 }), ["syntik", "krimp", "stit"]);
+    assert.ok(buffed.run.stats.dealt > plain.run.stats.dealt);
+  });
+
+  it("a stun drops the tempo", () => {
+    const born = spawnFoe("boss", 4, 0, 6);
+    const enemy = { ...born.enemy, stunned: true, lands: ["cymbal" as const], dj: { ...born.enemy.dj!, bpm: 120 } };
+    const run = { ...face(createRun(6), { name: "DJ", hp: 80 }), enemy };
+    const phased = enemyPhase(run);
+    assert.equal(phased.run.enemy?.dj?.bpm, 84);
+    assert.equal(phased.beats.some((beat) => beat.text === "Omámený"), true);
+  });
+});
+
+describe("Dielňa", () => {
+  it("pays screws from the floor and the fights, and caps a move", () => {
+    assert.equal(screwsFor(1, 0), 3);
+    assert.equal(screwsFor(4, 5), 17);
+    let shop = grantScrews(emptyDielna(), 4, 8);
+    assert.equal(shop.screws, 20);
+    shop = buyPerk(shop, "krimp", "dmg");
+    assert.equal(shop.perks.krimp?.dmg, 1);
+    assert.equal(shop.screws, 8);
+    const moved = respec({ ...shop, screws: 8 }, "krimp", "blocek", "dmg");
+    assert.equal(moved.perks.krimp?.dmg, 0);
+    assert.equal(moved.perks.blocek?.dmg, 1);
+    assert.equal(moved.screws, 2);
+  });
+
+  it("a new run keeps three reels and drops the run-only levels", () => {
+    let run = createRun(3, 250);
+    for (const sym of ["blocek", "stit", "konektor", "gemr", "gemb", "roof"] as const) run = togglePick(run, sym);
+    run = confirmDraft({ ...run, reels: 5, levels: { blocek: 3 }, pro: ["blocek"] });
+    assert.equal(run.reels, 3);
+    assert.equal(run.levels.blocek, undefined);
+    assert.deepEqual(run.pro, []);
+    assert.equal(run.deck.length, 6);
+  });
+
+  it("the death card quotes the run and the same day always deals the same challenges", () => {
+    let run = face(createRun(1), { name: "Pokuta", hp: 10 });
+    run = { ...run, hp: 0, phase: "dead", cause: "Pokuta ťa dorazila", stats: { ...run.stats, bestFloor: 2, kills: 1 }, trace: { ...run.trace, chemBad: 4, chemGood: 1, callHits: 0, callMiss: 3 } };
+    const card = postMortem(run);
+    assert.match(card.cause, /Pokuta/);
+    assert.equal(card.screws, screwsFor(2, 1));
+    assert.ok(card.gaps.length >= 1);
+    const a = challengesOn("2026-11-25").map((row) => row.id);
+    const b = challengesOn("2026-11-25").map((row) => row.id);
+    assert.deepEqual(a, b);
+    assert.equal(a.length, 3);
+    const ready = {
+      ...run,
+      stats: { ...run.stats, bestFloor: 5, kills: 8, crits: 3 },
+      trace: { ...run.trace, chemRow: 3, bosses: 1, allIns: 0 },
+    };
+    const claim = claimChallenges(emptyChallenges("2026-11-25"), ready, "2026-11-25");
+    assert.ok(claim.gained >= 6);
+    assert.equal(claimChallenges(claim.state, { ...run, stats: { ...run.stats, bestFloor: 3 } }, "2026-11-25").gained, 0);
   });
 });
 

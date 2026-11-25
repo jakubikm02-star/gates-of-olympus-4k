@@ -7,6 +7,8 @@ export interface ChangeNote {
 }
 
 export const CHANGELOG: readonly ChangeNote[] = [
+  { day: "2026-11-25", text: "NOČNÁ SMENA: Dielňa drží šroubky a malé trvalé úpravy aj po smrti. Pred behom si zložíš 6 kariet z celej hry v rozpočte 10 bodov. Tlačidlá píšu, čo spravia a za koľko. Po smrti vidíš, čo ťa zabilo a čo by to zmenilo. Denné a týždenné výzvy platia šroubky. Nová smena je jeden ťuk, ak balík už máš. Klasický automat sa nemení." },
+  { day: "2026-11-25", text: "NOČNÁ SMENA: na 4. poschodí čaká DJ Blastbeat. Tempo mu rastie, klon značí okno o ťah skôr a ventilátor posunie symbol. Pod polovicou života príjme zlyhanie a bije dvakrát. Syntík v obchode posilní suseda z rovnakej rodiny. Klasický automat sa nemení." },
   { day: "2026-11-25", text: "NOČNÁ SMENA: Bloček je biely lístok, papier neprepúšťa tmavé pozadie. Klasický automat sa nemení." },
   { day: "2026-11-25", text: "NOČNÁ SMENA: plechovky sú PARKVOLT, bez cudzieho znaku. Obchod má kovové karty, vzácnosť svieti a úprava karty je v jednom okne. Klasický automat sa nemení." },
   { day: "2026-11-25", text: "NOČNÁ SMENA: nepriateľov valec má vlastný pás medzi postavou a jeho životom. Obchod ukáže cenu, vzácnosť a jednu vetu, skrytý výber, premiešanie, vyradenie a zlepšenie. Výboj je meter. Obraz zľaví po krokoch, keď nestíha. Klasický automat sa nemení." },

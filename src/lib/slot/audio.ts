@@ -2366,6 +2366,85 @@ export function playSoftHit(kind: "hit" | "big" | "riser" | "heart" | "drop" = "
   releaseOnEnd(osc, filter, gain);
 }
 
+let djArpAt = 0;
+let djCrashAt = 0;
+
+/** Soft square arp. Night-shift only, and it obeys the same slider as the hits. */
+/** A short bright blip for a chemistry link or a crit flash. Same slider as the other night-shift hits. */
+export function playChem(): void {
+  unlockAudio();
+  if (!ctx || !sfx || nsSfx <= 0.01 || muted) return;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = "sine";
+  osc.frequency.value = 740;
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.05 * nsSfx), now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+  osc.connect(gain);
+  gain.connect(sfx);
+  osc.start(now);
+  osc.stop(now + 0.09);
+  releaseOnEnd(osc, gain);
+}
+
+export function playDjArp(): void {
+  unlockAudio();
+  if (!ctx || !sfx || nsSfx <= 0.01 || muted) return;
+  const now = ctx.currentTime;
+  if (now - djArpAt < 0.22) return;
+  djArpAt = now;
+  const notes = [220, 277, 330, 415];
+  notes.forEach((freq, i) => {
+    const osc = ctx!.createOscillator();
+    const filter = ctx!.createBiquadFilter();
+    const gain = ctx!.createGain();
+    osc.type = "triangle";
+    osc.frequency.value = freq;
+    filter.type = "lowpass";
+    filter.frequency.value = 900;
+    const at = now + i * 0.07;
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.035 * nsSfx), at + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.16);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(sfx!);
+    osc.start(at);
+    osc.stop(at + 0.18);
+    releaseOnEnd(osc, filter, gain);
+  });
+}
+
+/** A short noise crash, quieter than a real cymbal and still on the slider. */
+export function playCymbal(): void {
+  unlockAudio();
+  if (!ctx || !sfx || nsSfx <= 0.01 || muted) return;
+  const now = ctx.currentTime;
+  if (now - djCrashAt < 0.18) return;
+  djCrashAt = now;
+  const frames = Math.floor(ctx.sampleRate * 0.22);
+  const buffer = ctx.createBuffer(1, frames, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < frames; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / frames);
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = "highpass";
+  filter.frequency.value = 1800;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.06 * nsSfx), now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(sfx);
+  src.start(now);
+  src.stop(now + 0.22);
+  releaseOnEnd(src, filter, gain);
+}
+
 /** Pull the bed under a low-pass while life is in the red. Restored on the way out. */
 export function muffleMusic(on: boolean): void {
   if (!ctx || !music || !master) return;

@@ -1,0 +1,124 @@
+{
+  "skeleton": { "hash": "blastbeat-martin", "spine": "4.1.0", "x": -520, "y": 0, "width": 1040, "height": 1400, "images": "./", "fps": 30 },
+  "bones": [
+    { "name": "root" },
+    { "name": "aura", "parent": "root", "x": -37.0, "y": 695.0, "length": 40 },
+    { "name": "auraHot", "parent": "root", "x": -37.0, "y": 695.0, "length": 40 },
+    { "name": "desk", "parent": "root", "x": -5.0, "y": 200.0, "length": 40 },
+    { "name": "torso", "parent": "root", "x": 110.0, "y": 270, "length": 40 },
+    { "name": "armLU", "parent": "torso", "x": -40.0, "y": 697, "length": 40 },
+    { "name": "armLL", "parent": "armLU", "x": -386.5, "y": -384, "length": 40 },
+    { "name": "handL", "parent": "armLL", "x": 0.0, "y": -240, "length": 40 },
+    { "name": "armRU", "parent": "torso", "x": 158.0, "y": 697, "length": 40 },
+    { "name": "armRL", "parent": "armRU", "x": 145.0, "y": -424, "length": 40 },
+    { "name": "handR", "parent": "armRL", "x": 0.0, "y": -220, "length": 40 },
+    { "name": "head", "parent": "torso", "x": -45.5, "y": 805, "length": 40 },
+    { "name": "jaw", "parent": "head", "x": 14.0, "y": 23, "length": 40 },
+    { "name": "eyes", "parent": "head", "x": 65.0, "y": 90.0, "length": 40 },
+    { "name": "mic", "parent": "root", "x": -280.5, "y": 516.5, "length": 40 }
+  ],
+  "slots": [
+    { "name": "aura", "bone": "aura", "attachment": "aura" },
+    { "name": "auraHot", "bone": "auraHot", "attachment": "auraHot" },
+    { "name": "desk", "bone": "desk", "attachment": "desk" },
+    { "name": "torso", "bone": "torso", "attachment": "torso" },
+    { "name": "armLU", "bone": "armLU", "attachment": "armLU" },
+    { "name": "armLL", "bone": "armLL", "attachment": "armLL" },
+    { "name": "handL", "bone": "handL", "attachment": "handL" },
+    { "name": "armRU", "bone": "armRU", "attachment": "armRU" },
+    { "name": "armRL", "bone": "armRL", "attachment": "armRL" },
+    { "name": "handR", "bone": "handR", "attachment": "handR" },
+    { "name": "head", "bone": "head", "attachment": "head" },
+    { "name": "jaw", "bone": "jaw", "attachment": "jaw" },
+    { "name": "eyes", "bone": "eyes", "attachment": "eyes" },
+    { "name": "mic", "bone": "mic", "attachment": "mic" }
+  ],
+  "skins": [{ "name": "default", "attachments": {
+        "aura": {
+          "aura": { "width": 1334, "height": 1390, "x": 0.0, "y": 0.0 }
+        },
+        "auraHot": {
+          "auraHot": { "width": 1334, "height": 1390, "x": 0.0, "y": 0.0 }
+        },
+        "desk": {
+          "desk": { "width": 1398, "height": 400, "x": 0.0, "y": 0.0 }
+        },
+        "torso": {
+          "torso": { "width": 630, "height": 803, "x": 0.0, "y": 397.5 }
+        },
+        "armLU": {
+          "armLU": { "width": 431, "height": 473, "x": -207.5, "y": -224.5 }
+        },
+        "armLL": {
+          "armLL": { "width": 769, "height": 531, "x": 0.0, "y": -259.5 }
+        },
+        "handL": {
+          "handL": { "width": 769, "height": 291, "x": 0.0, "y": -139.5 }
+        },
+        "armRU": {
+          "armRU": { "width": 175, "height": 513, "x": 79.5, "y": -244.5 }
+        },
+        "armRL": {
+          "armRL": { "width": 436, "height": 549, "x": 0.0, "y": -268.5 }
+        },
+        "handR": {
+          "handR": { "width": 436, "height": 329, "x": 0.0, "y": -158.5 }
+        },
+        "head": {
+          "head": { "width": 521, "height": 323, "x": 0.0, "y": 155.5 }
+        },
+        "jaw": {
+          "jaw": { "width": 519, "height": 196, "x": 0.0, "y": -94.0 }
+        },
+        "eyes": {
+          "eyes": { "width": 257, "height": 168, "x": 0.0, "y": 0.0 }
+        },
+        "mic": {
+          "mic": { "width": 703, "height": 1021, "x": 0.0, "y": 0.0 }
+        }
+  } }],
+  "animations": { 
+    "idle": { "bones": {
+      "torso": { "translate": [ {"time": 0, "y": 0}, {"time": 0.7, "y": 3}, {"time": 1.4, "y": 0} ],
+                 "rotate": [ {"time": 0, "angle": -2}, {"time": 0.7, "angle": 2}, {"time": 1.4, "angle": -2} ] },
+      "head": { "rotate": [ {"time": 0, "angle": -3}, {"time": 0.7, "angle": 4}, {"time": 1.4, "angle": -3} ] },
+      "eyes": { "scale": [ {"time": 0, "x": 1, "y": 1}, {"time": 0.35, "x": 1.45, "y": 1.45}, {"time": 0.7, "x": 1, "y": 1}, {"time": 1.05, "x": 1.35, "y": 1.35}, {"time": 1.4, "x": 1, "y": 1} ] },
+      "handL": { "rotate": [ {"time": 0, "angle": -6}, {"time": 0.18, "angle": 7}, {"time": 0.36, "angle": -4}, {"time": 0.54, "angle": 8}, {"time": 1.4, "angle": -6} ] },
+      "handR": { "rotate": [ {"time": 0, "angle": 5}, {"time": 0.22, "angle": -8}, {"time": 0.44, "angle": 4}, {"time": 0.66, "angle": -6}, {"time": 1.4, "angle": 5} ] }
+    }, "events": [ {"time": 0.35, "name": "arp"}, {"time": 1.05, "name": "arp"} ] },
+    "headbang": { "bones": {
+      "torso": { "rotate": [ {"time": 0, "angle": -3}, {"time": 0.18, "angle": 4}, {"time": 0.36, "angle": -3}, {"time": 0.54, "angle": 4}, {"time": 0.72, "angle": -3} ] },
+      "head": { "rotate": [ {"time": 0, "angle": 16}, {"time": 0.12, "angle": -22}, {"time": 0.24, "angle": 18}, {"time": 0.36, "angle": -20}, {"time": 0.48, "angle": 14}, {"time": 0.6, "angle": -18}, {"time": 0.72, "angle": 16} ] },
+      "eyes": { "scale": [ {"time": 0, "x": 1.1, "y": 1.1}, {"time": 0.18, "x": 1.6, "y": 1.6}, {"time": 0.36, "x": 1.1, "y": 1.1}, {"time": 0.72, "x": 1.1, "y": 1.1} ] },
+      "handL": { "rotate": [ {"time": 0, "angle": -8}, {"time": 0.12, "angle": 10}, {"time": 0.24, "angle": -8}, {"time": 0.72, "angle": -8} ] },
+      "handR": { "rotate": [ {"time": 0, "angle": 8}, {"time": 0.12, "angle": -10}, {"time": 0.24, "angle": 8}, {"time": 0.72, "angle": 8} ] }
+    }, "events": [ {"time": 0.12, "name": "arp"}, {"time": 0.36, "name": "arp"} ] },
+    "attack": { "bones": {
+      "torso": { "rotate": [ {"time": 0, "angle": -2}, {"time": 0.16, "angle": 4}, {"time": 0.42, "angle": -2} ] },
+      "head": { "rotate": [ {"time": 0, "angle": 6}, {"time": 0.16, "angle": -14}, {"time": 0.42, "angle": 4} ] },
+      "jaw": { "rotate": [ {"time": 0, "angle": 0}, {"time": 0.14, "angle": 28}, {"time": 0.34, "angle": 8}, {"time": 0.42, "angle": 0} ] },
+      "eyes": { "scale": [ {"time": 0, "x": 1, "y": 1}, {"time": 0.14, "x": 1.7, "y": 1.7}, {"time": 0.42, "x": 1, "y": 1} ] }
+    }, "events": [ {"time": 0.14, "name": "cymbal"}, {"time": 0.14, "name": "wave"}, {"time": 0.16, "name": "paint"}, {"time": 0.18, "name": "hit"} ] },
+    "hit": { "bones": {
+      "torso": { "rotate": [ {"time": 0, "angle": 0}, {"time": 0.08, "angle": 5}, {"time": 0.28, "angle": 0} ] },
+      "head": { "rotate": [ {"time": 0, "angle": 0}, {"time": 0.08, "angle": 12}, {"time": 0.28, "angle": 0} ] }
+    }, "events": [ {"time": 0.08, "name": "shake"}, {"time": 0.08, "name": "paint"} ] },
+    "stun": { "bones": {
+      "torso": { "rotate": [ {"time": 0, "angle": 4}, {"time": 0.6, "angle": 3} ] },
+      "head": { "rotate": [ {"time": 0, "angle": 22}, {"time": 0.6, "angle": 18} ] },
+      "jaw": { "rotate": [ {"time": 0, "angle": 8}, {"time": 0.6, "angle": 6} ] },
+      "handL": { "rotate": [ {"time": 0, "angle": 14}, {"time": 0.6, "angle": 10} ] },
+      "handR": { "rotate": [ {"time": 0, "angle": -12}, {"time": 0.6, "angle": -8} ] }
+    } },
+    "death": { "bones": {
+      "torso": { "rotate": [ {"time": 0, "angle": 0}, {"time": 0.5, "angle": 5} ], "translate": [ {"time": 0, "y": 0}, {"time": 0.5, "y": -18} ] },
+      "head": { "rotate": [ {"time": 0, "angle": 4}, {"time": 0.5, "angle": 32} ] },
+      "jaw": { "rotate": [ {"time": 0, "angle": 0}, {"time": 0.5, "angle": 16} ] }
+    } },
+    "intro": { "bones": {
+      "head": { "rotate": [ {"time": 0, "angle": 18}, {"time": 0.2, "angle": -16}, {"time": 0.45, "angle": 2} ] },
+      "jaw": { "rotate": [ {"time": 0, "angle": 0}, {"time": 0.2, "angle": 22}, {"time": 0.45, "angle": 0} ] },
+      "torso": { "rotate": [ {"time": 0, "angle": -2}, {"time": 0.45, "angle": 2} ] }
+    }, "events": [ {"time": 0.2, "name": "cymbal"}, {"time": 0.2, "name": "wave"} ] }
+ }
+}

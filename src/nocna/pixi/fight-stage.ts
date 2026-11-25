@@ -7,6 +7,7 @@ import { FEEL } from "@/lib/revier/feel";
 import type { FeelTarget } from "@/lib/revier/feel";
 import { PLAY_SYMS, SYM, bgSrc } from "@/lib/revier/symbols";
 import type { Cue, FightSnap, WinSnap } from "@/nocna/fight-types";
+import { playCymbal, playDjArp } from "@/lib/slot/audio";
 import { Rig } from "@/nocna/rig/runtime";
 import { Director, type Clip } from "./director";
 import { ease } from "./eases";
@@ -22,6 +23,7 @@ export type { Cue, FightSnap, WinSnap };
  * single-bone idle until real separated part art exists.
  */
 const RIGS: Record<string, string> = {
+  "/nocna/bosses/boss-dj-blastbeat.webp": "/nocna/rigs/blastbeat/blastbeat",
   "/nocna/enemies/enemy-neplatic.webp": "/nocna/rigs/neplatic/neplatic",
   "/nocna/enemies/enemy-inkasak.webp": "/nocna/rigs/inkasak/inkasak",
   "/nocna/bosses/boss-1-pekelny-kurier.webp": "/nocna/rigs/kurier/kurier",
@@ -39,6 +41,8 @@ const ENEMY_URLS = Object.keys(RIGS).concat([
   "/nocna/bosses/boss-3-anjel-exekucie.webp",
   "/nocna/bosses/boss-4-general-podatelne.webp",
   "/nocna/bosses/boss-5-prednosta.webp",
+  "/nocna/bosses/boss-dj-blastbeat.webp",
+  "/nocna/bosses/clone-silhouette.webp",
 ]);
 
 export const fpsProbe = { avg: 0, max: 0, samples: [] as number[], reset: false };
@@ -46,10 +50,38 @@ export const fpsProbe = { avg: 0, max: 0, samples: [] as number[], reset: false 
 /** Sharpest first. The cabinet walks down this ladder and only walks back up after a long calm stretch. */
 const RES_LADDER = [2, 1.5, 1.25, 1] as const;
 
+/** Phones and the Fold cover. The unfolded inner screen stays on the full cap. */
+function mobileScreen(): boolean {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  return Math.min(w, h) <= 520 || (h > w && w <= 540);
+}
+
+function resolutionCap(): number {
+  const dpr = window.devicePixelRatio || 1;
+  if (typeof location !== "undefined" && new URLSearchParams(location.search).has("lockdpr")) return Math.min(2, dpr);
+  const cap = mobileScreen() ? 1.5 : FEEL.dprCap;
+  return Math.min(cap, dpr);
+}
+
 function rungFor(dpr: number): number {
   for (let i = 0; i < RES_LADDER.length; i++) if (RES_LADDER[i]! <= dpr + 0.01) return i;
   return RES_LADDER.length - 1;
 }
+
+const DJ_STILL = ["aura", "auraHot", "desk", "mic", "torso", "armLU", "armLL", "armRU", "armRL"] as const;
+const DJ_LIVE = ["head", "jaw", "handL", "handR"] as const;
+/** Room above, below and beside the skeleton so the head and the desk are not clipped. */
+const PLATE_CORE_W = 560;
+const PLATE_PAD_X = 40;
+const PLATE_W = PLATE_CORE_W + PLATE_PAD_X * 2;
+const PLATE_INNER = 596;
+const PLATE_PAD_TOP = 220;
+const PLATE_PAD_BOTTOM = 48;
+const PLATE_H = PLATE_PAD_TOP + PLATE_INNER + PLATE_PAD_BOTTOM;
+/** Spine width of the keyboard, and how far it hangs left and right of the root. */
+const DESK_SPAN = 1398;
+const DESK_LEFT = 704;
 
 function urls(): string[] {
   const syms = Object.values(SYM).map((def) => def.art);
@@ -76,6 +108,7 @@ interface WinNode {
   chip: Text;
   token: number;
   size: number;
+  mark: Graphics;
 }
 
 class Quality {
@@ -110,6 +143,14 @@ export class FightStage {
   private bg = new Sprite();
   private bgDim = new Graphics();
   private rigLayer = new Container();
+  private cloneLayer = new Container();
+  private bpmText = new Text({
+    text: "",
+    style: { fill: 0xffe08a, fontSize: 16, fontWeight: "700", fontFamily: "Oswald, sans-serif", stroke: { color: 0x140e08, width: 3 } },
+  });
+  private cloneSprites: Sprite[] = [];
+  private phaseOn = false;
+  private arpAt = 0;
   private cabinet = new Graphics();
   private light = new Graphics();
   private rig: Rig | null = null;
@@ -192,6 +233,9 @@ export class FightStage {
   private fastStreak = 0;
   private recentMax = 0;
   private bandY = 80;
+  private rowCenter = 0;
+  private rowLeft = 8;
+  private rowRight = 400;
   private foeCell = 56;
   private frameN = 0;
   private bgUrl = "";
@@ -248,9 +292,10 @@ export class FightStage {
     this.chargeFill.tint = 0xffb020;
     this.chargeFill.scale.y = 4;
     this.vignette.alpha = 0;
-    const res = Math.max(1, Math.round(this.app.renderer.resolution || 1));
-    for (const text of [this.num, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.btnLabel]) text.resolution = res;
-    this.world.addChild(this.baked, this.bg, this.bgDim, this.rigLayer, this.light, this.cabinet, this.plates, this.tray.view, this.hpGhost, this.hpFill, this.shFill, this.ehpFill, this.chargeFill, this.heart, this.shieldIcon, this.coinIcon, this.bars, this.flyer, this.num, this.intentText, this.foeIcon, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.vignette, this.btn);
+    for (const text of [this.num, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.btnLabel, this.bpmText]) text.resolution = 1;
+    this.bpmText.anchor.set(0.5, 1);
+    this.world.addChild(this.baked, this.bg, this.bgDim, this.cloneLayer, this.rigLayer, this.light, this.cabinet, this.plates, this.tray.view, this.hpGhost, this.hpFill, this.shFill, this.ehpFill, this.chargeFill, this.heart, this.shieldIcon, this.coinIcon, this.bars, this.flyer, this.num, this.intentText, this.bpmText, this.foeIcon, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.vignette, this.btn);
+    this.world.addChild(this.wave);
     app.stage.addChild(this.world);
     app.ticker.add(this.tick);
   }
@@ -258,8 +303,8 @@ export class FightStage {
   static async mount(host: HTMLElement): Promise<FightStage> {
     await preloadNocna();
     const app = new Application();
-    const raw = window.devicePixelRatio || 1;
-    const rung = rungFor(Math.min(FEEL.dprCap, raw));
+    const raw = resolutionCap();
+    const rung = rungFor(raw);
     const dpr = RES_LADDER[rung] ?? 1;
     await app.init({
       backgroundAlpha: 0,
@@ -358,7 +403,13 @@ export class FightStage {
       if (impacted) return;
       impacted = true;
       onImpact();
-      this.popNumber(cue.proc ? `PROC +${cue.proc}` : cue.chip, Boolean(cue.proc) || cue.crit);
+      const chemLabel = cue.chem ? `CHÉMIA +${Math.round(cue.chem * 100)}%` : "";
+      this.popNumber(cue.proc ? `PROC +${cue.proc}` : chemLabel || cue.chip, Boolean(cue.proc) || cue.crit || Boolean(cue.chem));
+      if (cue.chem) {
+        const win = row[cue.reel];
+        if (win) win.root.scale.set(1.08);
+        this.particles.burst({ x: (win?.root.x ?? this.foeX) + 20, y: (win?.root.y ?? this.foeY) + 20, n: 6, color: 0xffe08a, speed: 0.2, life: 280, g: FEEL.gravity, ring: true, trails: false });
+      }
       if (cue.proc) {
         const win = (cue.row === "foe" ? this.foeWins : this.wins)[cue.reel];
         if (win) win.root.scale.set(1.12);
@@ -494,6 +545,8 @@ export class FightStage {
     this.destroyed = true;
     this.skip();
     this.observer?.disconnect();
+    this.plateEl?.remove();
+    for (const el of this.cloneEls) el.remove();
     this.rig?.destroy();
     this.app.destroy(true);
   }
@@ -502,13 +555,58 @@ export class FightStage {
     if (name === "hit") this.foeWait?.();
     if (name === "shake") this.kick(FEEL.shakeHitMs);
     if (name === "fx") this.particles.burst({ x: this.foeX, y: this.foeY - 40, n: 10, color: this.pal.danger, speed: 0.3, life: 360, g: FEEL.gravity, trails: this.quality.tier === "high" });
+    if (name === "arp") playDjArp();
+    if (name === "cymbal") {
+      playCymbal();
+      this.particles.burst({ x: this.foeX, y: this.foeY - this.app.screen.height * 0.12, n: 6, color: 0xffe08a, speed: 0.32, life: 240, g: FEEL.gravity, ring: true, trails: false });
+    }
+    if (name === "wave") this.soundwave();
+    if (name === "paint") this.splatter();
   };
+
+  /** Three arcs in front of the mic. Drawn once, then only the alpha moves. */
+  private soundwave() {
+    const y = this.foeY - this.app.screen.height * 0.18;
+    const g = this.wave;
+    g.clear();
+    g.position.set(this.foeX - 10, y);
+    for (let i = 0; i < 3; i++) {
+      const r = 16 + i * 12;
+      g.arc(0, 0, r, -1.05, 1.05).stroke({ color: 0xfff3c4, width: 3, alpha: 0.85 });
+    }
+    g.alpha = 1;
+    g.visible = true;
+    this.waveUntil = performance.now() + 280;
+  }
+
+  /** Kilduff splash: a few thick drops, no trails, no blur. */
+  private splatter() {
+    const colors = [0xd23a2a, 0xf0c14a, 0x2f6fd0];
+    colors.forEach((color, i) => {
+      this.particles.burst({
+        x: this.foeX - 30 + i * 28,
+        y: this.foeY - 36,
+        n: 3,
+        color,
+        speed: 0.26,
+        life: 240,
+        g: FEEL.gravity,
+        trails: false,
+      });
+    });
+  }
 
   private syncRig(snap: FightSnap) {
     const art = snap.enemyArt || this.rigArt;
     if (!art) return;
     if (art === this.rigArt && this.rig) {
       this.rig.setQuality({ springs: false, mesh: false });
+      const bang = Boolean(snap.enraged) && art.includes("blastbeat");
+      this.rig.setPhase(bang);
+      if (bang && this.rigClip === "idle") {
+        this.rigClip = "headbang";
+        void this.rig.play("headbang", { loop: true, mix: FEEL.rigMix });
+      }
       if (snap.shop && this.rigClip !== "idle") {
         this.rigClip = "idle";
         void this.rig.play("idle", { loop: true, mix: FEEL.rigMix });
@@ -516,6 +614,7 @@ export class FightStage {
         this.rigClip = "stun";
         void this.rig.play("stun", { loop: true, mix: FEEL.rigMix });
       }
+      if (art.includes("blastbeat")) this.ensureDjPlate(bang);
       return;
     }
     const token = ++this.rigToken;
@@ -528,10 +627,13 @@ export class FightStage {
         return;
       }
       this.rig?.destroy();
+      this.djPlatePhase = null;
       this.rig = rig;
       this.rigLayer.addChild(rig);
-      rig.setQuality({ springs: !this.reduced && this.quality.tier === "high", mesh: false });
-      const boss = art.includes("kurier");
+      rig.setQuality({ springs: false, mesh: false });
+      rig.setPhase(Boolean(this.snap?.enraged) && art.includes("blastbeat"));
+      this.phaseOn = Boolean(this.snap?.enraged) && art.includes("blastbeat");
+      const boss = art.includes("kurier") || art.includes("blastbeat");
       if (boss && !this.introDone.has(art)) {
         this.introDone.add(art);
         this.rigClip = "intro";
@@ -565,13 +667,18 @@ export class FightStage {
     const foeCount = Math.max(1, snap.foeWindows?.length || 3);
     const foeCell = Math.min(68, Math.max(46, (w - 56 - (foeCount - 1) * 8) / foeCount));
     this.foeCell = foeCell;
-    let foeX = w * 0.5;
+    const blast = (snap.enemyArt ?? "").includes("blastbeat");
+    const split = land;
+    const leftW = split ? w * 0.46 : w;
+    const rightX = split ? w * 0.5 : 0;
+    const rightW = split ? w - rightX - 10 : w;
+    let foeX = split ? leftW * 0.52 : w * 0.5;
     let foeH = land ? h * 0.4 : h * 0.26;
     let foeY = (land ? h * 0.06 : 28) + foeH;
     let reelY = h * (1 - L.reelBottom - L.reelH);
-    let reelX = Math.max(w * L.gap, inset + frameOut);
-    let reelW = w - reelX - (inset + frameOut);
-    if (land) {
+    let reelX = split ? rightX : Math.max(w * L.gap, inset + frameOut);
+    let reelW = split ? rightW : w - reelX - (inset + frameOut);
+    if (land && !blast) {
       foeX = Math.max(inset + 80, w * L.landEnemyW * 0.55);
       foeH = h * 0.4;
       foeY = h * 0.08 + foeH;
@@ -579,20 +686,60 @@ export class FightStage {
       reelW = w - reelX - (inset + frameOut);
       reelY = h * 0.22;
     }
+    if (blast && split) {
+      this.foeCell = Math.min(this.foeCell, Math.max(40, Math.floor((leftW - 36) / foeCount)));
+      const cell = this.foeCell;
+      const chipBottom = 72;
+      const footer = 8 + 36 + 8 + (cell + 18);
+      const bandTop = h - footer;
+      const feetLimit = bandTop - 10;
+      const room = Math.max(110, feetLimit - chipBottom);
+      const deskMargin = 18;
+      const maxByDesk = ((leftW - deskMargin * 2) / DESK_SPAN) * 1400;
+      foeH = Math.min(room, h * 0.55, maxByDesk);
+      const extra = Math.max(0, room - foeH);
+      foeY = chipBottom + extra / 2 + foeH;
+      // The keyboard hangs further left than right. Sit it inside the column.
+      const scale = foeH / 1400;
+      const deskMid = foeH > 0 ? (DESK_LEFT - (DESK_SPAN - DESK_LEFT)) * scale * 0.5 : 0;
+      foeX = Math.min(leftW - deskMargin - (DESK_SPAN - DESK_LEFT) * scale, Math.max(deskMargin + DESK_LEFT * scale, leftW * 0.5 + deskMid));
+      reelY = 28;
+      this.bandY = bandTop;
+    } else if (blast) {
+      const top = 92;
+      const wanted = h * 0.3;
+      const maxFeet = Math.min(h * 0.58, reelY - 16);
+      foeH = Math.max(110, Math.min(wanted, maxFeet - top));
+      foeY = top + foeH;
+    }
     this.foeX = foeX;
     this.foeY = foeY;
-    this.bandY = foeY + 14;
+    if (!(blast && split)) this.bandY = foeY + 8;
+    this.rowCenter = blast && split ? leftW * 0.48 : w / 2;
+    this.rowLeft = blast && split ? 8 : 8;
+    this.rowRight = blast && split ? leftW - 10 : w - 8;
+    if (blast && split) this.foeCell = Math.min(this.foeCell, Math.max(40, Math.floor((leftW - 36) / foeCount)));
     if (this.rig?.doc) {
       const sk = this.rig.doc.skeleton.height || 512;
-      const sc = (foeH * 0.9) / sk;
+      const sc = (foeH * (blast ? 1 : 0.74)) / sk;
       this.rig.scale.set(sc);
       this.rig.position.set(foeX, foeY);
       this.rig.visible = true;
+      const phase = Boolean(snap.enraged) && blast;
+      this.phaseOn = phase;
+      this.rig.setPhase(phase);
+      this.ensureDjPlate(phase);
     }
+    this.placeClones(snap, foeX, foeY, foeH, land);
+    this.bpmText.visible = snap.bpm > 0 && !snap.shop;
+    this.bpmText.text = snap.bpm > 0 ? `BPM ${snap.bpm}` : "";
+    this.bpmText.anchor.set(0.5, 0);
+    this.bpmText.position.set(blast ? (land ? foeX - 78 : w * 0.28) : foeX, blast ? (land ? 36 : 58) : Math.max(18, foeY - foeH - 4));
     this.paintCabinet(w, h, pal, land);
     const n = Math.max(1, snap.windows.length || 3);
     const gap = 10;
-    const cell = Math.min((reelW - gap * (n - 1)) / n, h * L.reelH);
+    const cellCap = blast && split ? Math.max(72, h - 168) : h * L.reelH;
+    const cell = Math.min((reelW - gap * (n - 1)) / n, cellCap);
     const rowW = cell * n + gap * (n - 1);
     const x0 = reelX + (reelW - rowW) / 2;
     while (this.wins.length < n) this.wins.push(this.makeWin());
@@ -609,6 +756,7 @@ export class FightStage {
       else if (!win.icon.visible || spec?.mode !== "sit") this.sit(win, spec, cell);
       win.chip.text = spec?.mode === "sit" ? spec.chip : "";
       win.chip.position.set(cell / 2, cell - 4);
+      this.paintMark(win, cell, snap, i);
       win.root.removeAllListeners();
       win.root.eventMode = "static";
       win.root.on("pointertap", () => this.onReel(i));
@@ -617,31 +765,34 @@ export class FightStage {
     const btnH = Math.min(64, h * 0.09);
     const btnTop = h - btnH - 14;
     const plateH = 50;
-    let gaugeTop = (land ? foeY + 18 : reelY - plateH - 12);
+    let gaugeTop = blast && split ? reelY + cell + 8 : land ? foeY + 28 : reelY + cell + 10;
     gaugeTop = Math.max(inset, Math.min(gaugeTop, btnTop - plateH - 8));
     const numW = 40;
     const iconCol = 22;
-    const barW = Math.max(64, Math.min(210, w - inset * 2 - iconCol - numW - 48));
+    const barRoom = blast && split ? rightW - 16 : w - inset * 2;
+    const barW = Math.max(64, Math.min(210, barRoom - iconCol - numW - 48));
     const plateW = 12 + iconCol + 8 + barW + 8 + numW + 8;
-    this.paintBars(inset, gaugeTop, plateW, barW, foeX, foeY, w, h, pal);
-    this.coinX = w - 72;
-    this.coinY = 36;
+    const plateX = blast && split ? rightX : inset;
+    this.paintBars(plateX, gaugeTop, plateW, barW, foeX, foeY, w, h, pal);
+    this.coinX = w - 28;
+    this.coinY = blast && !split ? 56 : 18;
     this.coinNum.text = String(snap.coins);
     this.coinNum.anchor.set(1, 0.5);
-    this.coinNum.position.set(w - 86, 36);
+    this.coinNum.position.set(w - 14, this.coinY);
     this.turnText.text = snap.hint || snap.turn;
-    this.turnText.position.set(w / 2, 64);
+    this.turnText.position.set(blast ? (land ? foeX + 56 : w * 0.55) : w / 2, blast ? (land ? 36 : 58) : 64);
     this.intentText.text = snap.shop ? "" : snap.intent;
     this.btnLabel.text = snap.button;
-    const bw = Math.min(w - inset * 2, 420);
-    const bh = Math.min(64, h * 0.09);
-    const bx = (w - bw) / 2;
-    const by = h - bh - 12;
+    const bw = blast && split ? Math.min(rightW - 8, 480) : Math.min(w - inset * 2, 420);
+    const bh = blast && split ? 52 : Math.min(64, h * 0.09);
+    const bx = blast && split ? rightX + (rightW - bw) / 2 : (w - bw) / 2;
+    const by = blast && split ? h - bh - 8 : h - bh - 12;
     this.btn.position.set(bx + bw / 2, by + bh / 2);
-    const trayW = Math.min(bw, 280);
+    const trayW = blast && split ? Math.min(150, rightW * 0.45) : Math.min(bw, 280);
     const trayH = 46;
-    const trayX = (w - trayW) / 2;
-    const trayY = Math.max(gaugeTop + plateH + 6, by - trayH - 8);
+    const trayX = blast && split ? rightX + 4 : (w - trayW) / 2;
+    const trayY = blast && split ? Math.min(gaugeTop + plateH + 4, by - trayH - 6) : Math.max(gaugeTop + plateH + 6, by - trayH - 8);
+    this.tray.view.visible = !(blast && split);
     this.tray.place(trayX, trayY, trayW, trayH);
     this.tray.setTexture(this.coinIcon.texture);
     this.tray.physics = this.quality.tier === "high" && !this.reduced;
@@ -668,10 +819,11 @@ export class FightStage {
       this.baked.texture = this.rt;
     }
     const hide = [
-      this.baked, this.rigLayer, this.btn, this.flyer, this.num, this.hpFill, this.hpGhost, this.shFill, this.ehpFill,
+      this.baked, this.cloneLayer, this.rigLayer, this.bpmText, this.btn, this.flyer, this.num, this.hpFill, this.hpGhost, this.shFill, this.ehpFill,
       this.heart, this.shieldIcon, this.coinIcon, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText,
-      this.vignette, this.chargeFill,
+      this.vignette, this.chargeFill, this.wave,
     ];
+    if (this.djPlate) hide.push(this.djPlate);
     const was = hide.map((node) => node.visible);
     for (const node of hide) node.visible = false;
     const iconWas = this.wins.map((win) => win.icon.visible);
@@ -708,7 +860,6 @@ export class FightStage {
     hide.forEach((node, i) => {
       node.visible = was[i];
     });
-    this.baked.visible = true;
     this.wins.forEach((win, i) => {
       win.icon.visible = iconWas[i];
       win.chip.visible = chipWas[i];
@@ -723,6 +874,24 @@ export class FightStage {
     this.deck.forEach((s, i) => {
       s.visible = deckWas[i];
     });
+    this.baked.visible = false;
+    this.publishCabinet();
+  }
+
+  /** The static cabinet lives on the DOM, so the WebGL frame does not fill the screen every tick. */
+  private publishCabinet() {
+    if (!this.rt) return;
+    try {
+      const canvas = this.app.renderer.extract.canvas({ target: this.rt });
+      const host = this.app.canvas.parentElement;
+      if (!host || !canvas.toDataURL) return;
+      host.style.backgroundImage = `url(${canvas.toDataURL("image/jpeg", 0.72)})`;
+      host.style.backgroundSize = "100% 100%";
+      host.style.backgroundPosition = "center";
+      host.style.backgroundRepeat = "no-repeat";
+    } catch {
+      this.baked.visible = true;
+    }
   }
 
   /** Numbers and symbols only. Geometry stays cached. */
@@ -841,10 +1010,20 @@ export class FightStage {
     const inset = 28;
     this.barW = barW;
     this.eBarW = Math.max(48, Math.min(barW * 0.75, w - inset * 2 - 96));
-    const ePlateW = this.eBarW + 88;
+    let ePlateW = this.eBarW + 88;
     let ePlateX = foeX - ePlateW / 2;
     ePlateX = Math.max(inset, Math.min(w - inset - ePlateW, ePlateX));
-    const ePlateY = Math.max(inset + 8, Math.min(this.bandY + this.foeCell + 10, h - inset - 80));
+    if (foeX < w * 0.4) {
+      const limit = w * 0.46 - 8;
+      ePlateX = Math.max(8, Math.min(ePlateX, limit - 120));
+      const maxW = Math.max(100, limit - ePlateX);
+      this.eBarW = Math.max(40, maxW - 56);
+      ePlateW = this.eBarW + 56;
+    }
+    const underFoe = this.bandY + this.foeCell + 6;
+    const ePlateH = 32;
+    let ePlateY = foeX < w * 0.4 ? underFoe : Math.max(inset + 8, Math.min(underFoe, plateY - 40));
+    ePlateY = Math.max(8, Math.min(ePlateY, h - ePlateH - 6));
     this.ePlateX = ePlateX;
     this.ePlateY = ePlateY;
     this.chargeFill.position.set(ePlateX + 10, ePlateY + 28);
@@ -859,7 +1038,8 @@ export class FightStage {
     this.hpGhost.position.set(barX, plateY + 12);
     this.hpFill.position.set(barX, plateY + 12);
     this.shFill.position.set(barX, plateY + 28);
-    this.ehpFill.position.set(ePlateX + 10, ePlateY + 12);
+    this.ehpFill.position.set(ePlateX + 26, ePlateY + 12);
+    this.eBarW = Math.max(20, ePlateW - 26 - 48);
     this.hpGhost.scale.y = 10;
     this.hpFill.scale.y = 10;
     this.shFill.scale.y = 6;
@@ -876,8 +1056,8 @@ export class FightStage {
     this.ehpNum.position.set(ePlateX + ePlateW - 10, ePlateY + 16);
     this.hpNum.anchor.set(1, 0);
     this.hpNum.position.set(plateX + plateW - 8, plateY + 8);
-    this.intentText.anchor.set(1, 0.5);
-    this.intentText.position.set(w - 16, this.bandY + this.foeCell / 2);
+    this.intentText.anchor.set(0, 0.5);
+    this.intentText.position.set(ePlateX + 8, ePlateY + 16);
     this.hpFill.tint = pal.hp;
     this.shFill.tint = pal.shield;
     this.ehpFill.tint = pal.hp;
@@ -894,7 +1074,8 @@ export class FightStage {
     const cell = this.foeCell;
     const gap = 8;
     const rowW = cell * n + gap * Math.max(0, n - 1);
-    const x0 = Math.max(16, (this.app.screen.width - rowW) / 2 - 18);
+    let x0 = this.rowCenter - rowW / 2;
+    x0 = Math.max(this.rowLeft, Math.min(x0, this.rowRight - rowW));
     const y = this.bandY;
     this.foeWins.forEach((win, i) => {
       const spec = snap.foeWindows?.[i];
@@ -945,6 +1126,236 @@ export class FightStage {
     });
   }
 
+  /** One texture for the still body. Head, jaw, eyes and both hands stay on the rig. */
+  private ensureDjPlate(phase: boolean) {
+    const rig = this.rig;
+    if (!rig?.doc) return;
+    if (this.djPlate && this.djPlatePhase === phase) {
+      this.placeDjPlate(rig);
+      rig.showOnly(DJ_LIVE);
+      return;
+    }
+    const w = PLATE_W;
+    const h = PLATE_H;
+    if (!this.djPlateRT || this.djPlateRT.width !== w || this.djPlateRT.height !== h) {
+      this.djPlateRT?.destroy(true);
+      this.djPlateRT = RenderTexture.create({ width: w, height: h, resolution: 1 });
+      if (!this.djPlate) {
+        this.djPlate = new Sprite(this.djPlateRT);
+        this.djPlate.anchor.set(0.5, 1);
+        const at = this.world.getChildIndex(this.rigLayer);
+        this.world.addChildAt(this.djPlate, at);
+      } else this.djPlate.texture = this.djPlateRT;
+    }
+    const still = phase
+      ? (["auraHot", "desk", "mic", "torso", "armLU", "armLL", "armRU", "armRL"] as const)
+      : (["aura", "desk", "mic", "torso", "armLU", "armLL", "armRU", "armRL"] as const);
+    rig.setPhase(phase);
+    rig.showOnly(still);
+    const parent = rig.parent;
+    const index = parent ? parent.getChildIndex(rig) : 0;
+    const px = rig.position.x;
+    const py = rig.position.y;
+    const sc = rig.scale.x;
+    parent?.removeChild(rig);
+    const skel = rig.doc.skeleton.height || 1400;
+    rig.position.set(w / 2, PLATE_PAD_TOP + PLATE_INNER);
+    rig.scale.set(PLATE_INNER / skel);
+    const bg = this.app.renderer.background;
+    const prevAlpha = bg.alpha;
+    const prevColor = bg.color;
+    bg.alpha = 0;
+    bg.color = 0x000000;
+    this.app.renderer.render({ container: rig, target: this.djPlateRT, clear: true, clearColor: [0, 0, 0, 0] });
+    bg.alpha = prevAlpha;
+    bg.color = prevColor;
+    parent?.addChildAt(rig, index);
+    rig.position.set(px, py);
+    rig.scale.set(sc);
+    rig.showOnly(DJ_LIVE);
+    this.djPlatePhase = phase;
+    this.placeDjPlate(rig);
+    this.publishPlate();
+  }
+
+  /** The still body is one PNG behind the canvas. The head and hands stay in WebGL. */
+  private publishPlate() {
+    if (!this.djPlateRT || !this.djPlate) return;
+    try {
+      const canvas = this.app.renderer.extract.canvas({ target: this.djPlateRT });
+      if (!canvas.toDataURL) return;
+      if (!this.plateEl) this.plateEl = this.layerImg("1");
+      this.plateEl.src = canvas.toDataURL("image/png");
+      this.placeDomPlate();
+    } catch {
+      this.djPlate.visible = true;
+      this.djPlate.renderable = true;
+    }
+  }
+
+  private layerImg(z: string): HTMLImageElement {
+    const img = document.createElement("img");
+    img.alt = "";
+    img.draggable = false;
+    img.style.position = "absolute";
+    img.style.pointerEvents = "none";
+    img.style.zIndex = z;
+    this.app.canvas.parentElement?.appendChild(img);
+    this.app.canvas.style.zIndex = "2";
+    return img;
+  }
+
+  private placeDomPlate() {
+    const el = this.plateEl;
+    const plate = this.djPlate;
+    const rig = this.rig;
+    if (!el || !plate || !rig?.doc) return;
+    const skel = rig.doc.skeleton.height || 1400;
+    const k = rig.scale.x / (PLATE_INNER / skel);
+    const w = PLATE_W * k;
+    const h = PLATE_H * k;
+    const foot = PLATE_PAD_BOTTOM * k;
+    el.style.left = `${rig.position.x - w / 2}px`;
+    el.style.top = `${rig.position.y + foot - h}px`;
+    el.style.width = `${w}px`;
+    el.style.height = `${h}px`;
+    // The keyboard sits on the skeleton's feet. Fade the last 30px of it.
+    const sole = Math.max(0, h - foot);
+    const fadeStart = Math.max(0, sole - 30);
+    const fade = `linear-gradient(to bottom, #000 0px, #000 ${fadeStart}px, transparent ${sole}px)`;
+    el.style.maskImage = fade;
+    el.style.setProperty("-webkit-mask-image", fade);
+    plate.visible = false;
+    plate.renderable = false;
+  }
+
+  private cloneTint(hex: number): string {
+    const hit = this.cloneTints.get(hex);
+    if (hit) return hit;
+    const src = "/nocna/bosses/clone-silhouette.webp";
+    const probe = new Image();
+    probe.src = src;
+    const finish = () => {
+      const url = this.drawTint(probe, hex);
+      this.cloneTints.set(hex, url);
+      for (const el of this.cloneEls) {
+        if (el.dataset.want === String(hex)) {
+          el.src = url;
+          el.dataset.tint = String(hex);
+        }
+      }
+    };
+    if (!probe.complete || !probe.naturalWidth) {
+      probe.onload = finish;
+      return src;
+    }
+    const url = this.drawTint(probe, hex);
+    this.cloneTints.set(hex, url);
+    return url;
+  }
+
+  private drawTint(img: HTMLImageElement, hex: number): string {
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const g = c.getContext("2d");
+    if (!g) return img.src;
+    g.drawImage(img, 0, 0);
+    const data = g.getImageData(0, 0, c.width, c.height);
+    const px = data.data;
+    const tr = (hex >> 16) & 255;
+    const tg = (hex >> 8) & 255;
+    const tb = hex & 255;
+    for (let i = 0; i < px.length; i += 4) {
+      const a = px[i + 3] ?? 0;
+      if (a < 32) {
+        px[i] = 0;
+        px[i + 1] = 0;
+        px[i + 2] = 0;
+        px[i + 3] = 0;
+        continue;
+      }
+      px[i] = ((px[i] ?? 0) * tr) / 255;
+      px[i + 1] = ((px[i + 1] ?? 0) * tg) / 255;
+      px[i + 2] = ((px[i + 2] ?? 0) * tb) / 255;
+    }
+    g.putImageData(data, 0, 0);
+    return c.toDataURL("image/png");
+  }
+
+  private placeDjPlate(rig: Rig) {
+    if (!this.djPlate || !this.djPlateRT || !rig.doc) return;
+    const skel = rig.doc.skeleton.height || 1400;
+    const k = rig.scale.x / (PLATE_INNER / skel);
+    this.djPlate.position.set(rig.position.x, rig.position.y + PLATE_PAD_BOTTOM * k);
+    this.djPlate.width = PLATE_W * k;
+    this.djPlate.height = PLATE_H * k;
+    if (this.plateEl) this.placeDomPlate();
+    else this.djPlate.visible = true;
+  }
+
+  private placeClones(snap: FightSnap, foeX: number, foeY: number, foeH: number, land: boolean) {
+    for (const sprite of this.cloneSprites) sprite.visible = false;
+    snap.clones.forEach((clone, i) => {
+      let el = this.cloneEls[i];
+      if (!el) {
+        el = this.layerImg("0");
+        this.cloneEls[i] = el;
+      }
+      const alive = clone.hp > 0 && !snap.shop;
+      el.style.display = alive ? "block" : "none";
+      if (!alive) return;
+      const tint = snap.focus === i ? 0xffe0a8 : 0x2a1820;
+      el.dataset.want = String(tint);
+      const url = this.cloneTint(tint);
+      if (el.dataset.tint !== String(tint)) {
+        el.src = url;
+        if (url.startsWith("data:")) el.dataset.tint = String(tint);
+      }
+      const room = Math.max(40, this.rowRight - this.rowLeft);
+      const width = Math.min(foeH * 0.3, room * 0.32);
+      const height = width * (5 / 3);
+      const slot = snap.clones.slice(0, i + 1).filter((row) => row.hp > 0).length - 1;
+      const side = slot % 2 === 0 ? -1 : 1;
+      const ring = Math.floor(slot / 2);
+      const reach = Math.min(foeH * (land ? 0.58 : 0.5) + ring * foeH * 0.18, room * 0.46);
+      const half = width / 2;
+      const x = Math.max(this.rowLeft + half, Math.min(this.rowRight - half, foeX + side * reach));
+      const y = foeY - foeH * 0.04;
+      el.style.left = `${x - width / 2}px`;
+      el.style.top = `${y - height}px`;
+      el.style.width = `${width}px`;
+      el.style.height = `${height}px`;
+      el.style.opacity = "0.94";
+      const cloneFade = "linear-gradient(to bottom, #000 calc(100% - 30px), transparent)";
+      el.style.maskImage = cloneFade;
+      el.style.setProperty("-webkit-mask-image", cloneFade);
+    });
+    for (let i = snap.clones.length; i < this.cloneEls.length; i++) {
+      const el = this.cloneEls[i];
+      if (el) el.style.display = "none";
+    }
+  }
+
+  private paintMark(win: WinNode, cell: number, snap: FightSnap, i: number) {
+    win.mark.clear();
+    if (snap.shop) return;
+    const marked = snap.clones.some((clone) => clone.hp > 0 && clone.mark === i);
+    const armed = snap.clones.some((clone) => clone.hp > 0 && clone.mark === i && clone.armed);
+    const fan = snap.fan?.reel === i;
+    const phone = snap.phone === i;
+    if (!marked && !fan && !phone) return;
+    const color = armed ? 0xff5a3c : phone && !marked ? 0x7dffb2 : fan && !marked ? 0x7ec8ff : 0xffd15a;
+    win.mark.roundRect(3, 3, cell - 6, cell - 6, 12).stroke({ color, width: armed ? 5 : 3, alpha: 0.95 });
+    if (fan) {
+      const dir = snap.fan?.dir ?? 1;
+      const y = cell * 0.5;
+      const x0 = dir > 0 ? cell * 0.28 : cell * 0.72;
+      const x1 = dir > 0 ? cell * 0.72 : cell * 0.28;
+      win.mark.moveTo(x0, y).lineTo(x1, y).stroke({ color: 0x7ec8ff, width: 3, alpha: 0.9 });
+    }
+  }
+
   private makeWin(): WinNode {
     const root = new Container();
     const frame = new Graphics();
@@ -956,20 +1367,30 @@ export class FightStage {
     const slip = new Sprite();
     slip.anchor.set(0.5);
     slip.visible = false;
+    const mark = new Graphics();
     const chip = new Text({
       text: "",
       style: { fill: 0xfff6d2, fontSize: 16, fontWeight: "700", fontFamily: "Oswald, sans-serif", stroke: { color: 0x140e08, width: 3 } },
     });
-    chip.resolution = Math.max(1, Math.round(this.app.renderer.resolution || 1));
+    chip.resolution = 1;
     chip.anchor.set(0.5, 1);
-    root.addChild(frame, hole, glass, clip, slip, icon, chip);
-    icon.mask = clip;
-    slip.mask = clip;
+    root.addChild(frame, hole, glass, clip, slip, icon, mark, chip);
+    clip.visible = false;
     this.world.addChild(root);
-    return { root, hole, frame, glass, clip, icon, slip, chip, token: -1, size: 80 };
+    return { root, hole, frame, glass, clip, icon, slip, chip, mark, token: -1, size: 80 };
+  }
+
+  /** Stencil masks cost a full extra pass. Only the sliding reel needs one. */
+  private clipWin(win: WinNode, on: boolean) {
+    const mask = on ? win.clip : null;
+    if (win.icon.mask !== mask) win.icon.mask = mask;
+    if (win.slip.mask !== mask) win.slip.mask = mask;
+    win.clip.visible = on;
+    win.clip.renderable = on;
   }
 
   private sit(win: WinNode, spec: WinSnap | undefined, cell: number) {
+    this.clipWin(win, false);
     win.slip.visible = false;
     win.icon.scale.set(1);
     if (!spec || spec.mode === "empty" || !spec.sym) {
@@ -989,6 +1410,7 @@ export class FightStage {
   }
 
   private dropIn(win: WinNode, spec: WinSnap, cell: number) {
+    this.clipWin(win, true);
     win.slip.visible = false;
     win.icon.scale.set(1);
     const art = spec.sym ? SYM[spec.sym as keyof typeof SYM]?.art : "";
@@ -1006,6 +1428,7 @@ export class FightStage {
         win.icon.scale.set(base * (2 - squash), base * squash);
       },
       onComplete: () => {
+        this.clipWin(win, false);
         win.icon.position.set(cell / 2, cell / 2);
         win.icon.scale.set(base);
         this.particles.burst({ x: win.root.x + cell / 2, y: win.root.y + cell, n: 6, color: this.pal.glow, speed: 0.2, life: 260, g: FEEL.gravity });
@@ -1067,6 +1490,16 @@ export class FightStage {
   }
 
   private foeSpinUntil = 0;
+  private fxAt = 0;
+  private wave = new Graphics();
+  private waveUntil = 0;
+  /** Desk, body, arms and aura, drawn once. The head and hands stay live on top. */
+  private djPlate: Sprite | null = null;
+  private djPlateRT: RenderTexture | null = null;
+  private djPlatePhase: boolean | null = null;
+  private plateEl: HTMLImageElement | null = null;
+  private cloneEls: HTMLImageElement[] = [];
+  private cloneTints = new Map<number, string>();
 
   private placeFoe(snap: FightSnap) {
     this.placeFoeRow(snap);
@@ -1103,7 +1536,7 @@ export class FightStage {
     fpsProbe.max = 0;
     const res = RES_LADDER[this.rung] ?? 1;
     this.app.renderer.resize(this.app.screen.width, this.app.screen.height, res);
-    for (const text of [this.num, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.btnLabel]) text.resolution = res;
+    for (const text of [this.num, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.btnLabel, this.bpmText]) text.resolution = 1;
   }
 
   /** Walk 2 → 1.5 → 1.25 → 1 when the average stays under 55. Climb back only after a long stretch above 62. */
@@ -1121,7 +1554,7 @@ export class FightStage {
       this.slowStreak = 0;
       this.fastStreak = 0;
     }
-    const cap = Math.min(FEEL.dprCap, window.devicePixelRatio || 1);
+    const cap = resolutionCap();
     if (this.slowStreak >= 8 && this.rung < RES_LADDER.length - 1) {
       this.applyRung(this.rung + 1, now, 700);
       return;
@@ -1161,6 +1594,17 @@ export class FightStage {
       }
     }
     this.director.tick(dt);
+    const now = performance.now();
+    this.cloneSprites.forEach((sprite, i) => {
+      if (!sprite.visible) return;
+      const base = (sprite as Sprite & { __base?: number }).__base;
+      if (base != null && Math.abs(sprite.y - base) > 0.5) sprite.y = base;
+    });
+    if (this.wave.visible) {
+      const left = this.waveUntil - now;
+      this.wave.visible = left > 0;
+      this.wave.alpha = Math.max(0, left / 280);
+    }
     this.tray.physics = this.quality.tier === "high" && !this.reduced;
     this.tray.update(dt);
     if (this.foeIcon.visible) {
@@ -1172,14 +1616,12 @@ export class FightStage {
     this.frameN += 1;
     const stride = lively ? 1 : 3;
     if (this.frameN % stride === 0) this.rig?.update(dt * stride);
-    const now = performance.now();
     if (this.shakeT > 0) {
       this.shakeT -= dt;
       const mag = (this.shakeT / FEEL.shakeCritMs) * 8 * this.shake;
       this.world.position.set(Math.sin(now / 16) * mag, Math.cos(now / 18) * mag * 0.6);
     } else if (this.world.position.x !== 0 || this.world.position.y !== 0) this.world.position.set(0, 0);
-    const pulse = this.snap?.pulse && !this.reduced ? 1 + Math.sin(now / 280) * 0.03 : 1;
-    const nextScale = this.btnScale * pulse;
+    const nextScale = this.btnScale;
     if (Math.abs(this.btn.scale.x - nextScale) > 0.002) this.btn.scale.set(nextScale);
     if (snap) {
       const maxHp = Math.max(1, snap.maxHp);
@@ -1204,7 +1646,15 @@ export class FightStage {
       const charge = snap.shop ? 0 : Math.max(0, snap.charge) / 3;
       this.chargeFill.visible = charge > 0;
       this.chargeFill.scale.x = Math.max(0.01, this.eBarW * charge);
-      this.tuneResolution(now, raw);
+      if (typeof location !== "undefined" && new URLSearchParams(location.search).has("fx")) {
+      if (now > this.fxAt) {
+        this.fxAt = now + 520;
+        void this.rig?.play("attack", { loop: false, mix: 0.05 }).then(() => {
+          if (this.rigClip !== "death") void this.rig?.play("idle", { loop: true, mix: 0.08 });
+        });
+      }
+    }
+    if (typeof location === "undefined" || !new URLSearchParams(location.search).has("lockdpr")) this.tuneResolution(now, raw);
       }
     const spinBag = PLAY_SYMS;
     for (let i = 0; i < this.foeWins.length; i++) {
@@ -1212,8 +1662,10 @@ export class FightStage {
       const spec = snap?.foeWindows[i];
       if (!win.root.visible || !spec || spec.mode !== "flicker") {
         if (win.slip.visible) win.slip.visible = false;
+        if (win.icon.mask) this.clipWin(win, false);
         continue;
       }
+      this.clipWin(win, true);
       const period = 90;
       const hold = typeof location !== "undefined" && new URLSearchParams(location.search).has("reel");
       const phase = hold ? 0.45 : (now / period + i * 0.41) % 1;
