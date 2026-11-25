@@ -58,7 +58,7 @@ function snd(play: () => void) {
 }
 
 function beatChip(beat: Beat): string {
-  if (beat.text.startsWith("Činel") || beat.text.startsWith("Ventil") || beat.text.startsWith("Kapela") || beat.text.startsWith("Charizma") || beat.text.startsWith("Druhý") || beat.text.startsWith("Prijmi")) return beat.text;
+    if (beat.text.startsWith("Činel") || beat.text.startsWith("Ventil") || beat.text.startsWith("Kapela") || beat.text.startsWith("Charizma") || beat.text.startsWith("Druhý") || beat.text.startsWith("Prijmi") || beat.text.startsWith("Zvoní")) return beat.text;
   if (beat.t === "whiff") return "MINUTIE";
   if (beat.t === "stun") return "✦";
   if (beat.t === "heal") return `+${beat.amount}`;
@@ -487,6 +487,7 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
         armed: clone.armed,
       })),
       fan: live.enemy?.dj?.fan ?? null,
+      phone: live.enemy?.dj?.phone?.reel ?? -1,
       focus: live.enemy?.dj?.focus ?? -1,
     };
   };

@@ -51,6 +51,8 @@ export interface FightSnap {
   bpm: number;
   clones: { hp: number; max: number; black: boolean; mark: number | null; armed: boolean }[];
   fan: { reel: number; dir: number } | null;
+  /** Window a caller is about to insult. -1 when the phone is quiet. */
+  phone: number;
   focus: number;
 }
 

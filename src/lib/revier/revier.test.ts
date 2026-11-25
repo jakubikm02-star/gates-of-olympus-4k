@@ -174,6 +174,15 @@ describe("DJ Blastbeat", () => {
     assert.equal(hit.dj.clones[0]?.mark, null);
   });
 
+  it("a ringing phone blanks that window on the next spin", () => {
+    const dj = freshDj();
+    dj.phone = { reel: 2, line: "Farba letí, ty nie" };
+    const hit = twistLands(["krimp", "blocek", "stit"], dj);
+    assert.equal(hit.lands[2], "medzera");
+    assert.equal(hit.dj.phone, null);
+    assert.equal(hit.lands[0], "krimp");
+  });
+
   it("the fan slides one symbol sideways and then is spent", () => {
     const dj = freshDj();
     dj.fan = { reel: 0, dir: 1 };

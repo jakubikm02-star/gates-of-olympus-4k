@@ -495,6 +495,9 @@ export function resolveReel(run: Run, plan: Plan, reel: number): { run: Run; fx:
   }
   if (enemy.hp > 0 && !enemy.enraged && enemy.hp <= enemy.maxHp * 0.5) {
     enemy = { ...enemy, enraged: true, shield: enemy.id === "blastbeat" ? 0 : enemy.shield };
+    if (enemy.id === "blastbeat" && enemy.dj) {
+      enemy = { ...enemy, dj: { ...enemy.dj, bpm: Math.min(132, enemy.dj.bpm + 12) } };
+    }
   }
   const firstCrit = plan.reels.findIndex((row) => row.crit);
   if (step.crit && step.reel === firstCrit) {
@@ -833,6 +836,9 @@ function useLands(run: Run): { run: Run; beats: Beat[] } | null {
   }
   if (!enemy.enraged && enemy.hp > 0 && enemy.hp <= enemy.maxHp * 0.5) {
     enemy = { ...enemy, enraged: true, shield: enemy.id === "blastbeat" ? 0 : enemy.shield };
+    if (enemy.id === "blastbeat" && enemy.dj) {
+      enemy = { ...enemy, dj: { ...enemy.dj, bpm: Math.min(132, enemy.dj.bpm + 12) } };
+    }
     beats.push({ t: "heal", amount: 0, blocked: 0, text: enemy.id === "blastbeat" ? "Prijmi zlyhanie" : "Zúri" });
   }
   if (enemy.id === "blastbeat" && enemy.enraged) enemy = { ...enemy, shield: 0 };

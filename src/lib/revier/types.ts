@@ -120,6 +120,8 @@ export interface DjState {
   /** -1 hits the boss. Otherwise the clone index. */
   focus: number;
   acts: number;
+  /** Telegraph: the next player spin blanks this window. */
+  phone: { reel: number; line: string } | null;
 }
 
 export interface Offer {

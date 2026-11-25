@@ -1,54 +1,103 @@
 blastbeat.webp
-size: 2048,420
+size: 2048,1623
 format: RGBA8888
 filter: Linear,Linear
 repeat: none
-legs
+aura
   rotate: false
-  xy: 8, 72
-  size: 230, 340
-  orig: 230, 340
+  xy: 4, 924
+  size: 667, 695
+  orig: 667, 695
+  offset: 0, 0
+  index: -1
+auraHot
+  rotate: false
+  xy: 675, 924
+  size: 667, 695
+  orig: 667, 695
   offset: 0, 0
   index: -1
 desk
   rotate: false
-  xy: 246, 162
-  size: 334, 250
-  orig: 334, 250
+  xy: 4, 720
+  size: 699, 200
+  orig: 699, 200
   offset: 0, 0
   index: -1
-tee
+torso
   rotate: false
-  xy: 588, 112
-  size: 227, 300
-  orig: 227, 300
+  xy: 707, 518
+  size: 315, 402
+  orig: 315, 402
   offset: 0, 0
   index: -1
-teeBlack
+armLU
   rotate: false
-  xy: 823, 112
-  size: 187, 300
-  orig: 187, 300
+  xy: 1026, 684
+  size: 216, 236
+  orig: 216, 236
   offset: 0, 0
   index: -1
-armL
+armLL
   rotate: false
-  xy: 1018, 132
-  size: 254, 280
-  orig: 254, 280
+  xy: 1246, 654
+  size: 384, 266
+  orig: 384, 266
   offset: 0, 0
   index: -1
-armR
+handL
   rotate: false
-  xy: 1280, 132
-  size: 226, 280
-  orig: 226, 280
+  xy: 1634, 774
+  size: 384, 146
+  orig: 384, 146
+  offset: 0, 0
+  index: -1
+armRU
+  rotate: false
+  xy: 4, 258
+  size: 88, 256
+  orig: 88, 256
+  offset: 0, 0
+  index: -1
+armRL
+  rotate: false
+  xy: 96, 240
+  size: 218, 274
+  orig: 218, 274
+  offset: 0, 0
+  index: -1
+handR
+  rotate: false
+  xy: 318, 350
+  size: 218, 164
+  orig: 218, 164
   offset: 0, 0
   index: -1
 head
   rotate: false
-  xy: 1514, 152
-  size: 164, 260
-  orig: 164, 260
+  xy: 540, 352
+  size: 260, 162
+  orig: 260, 162
+  offset: 0, 0
+  index: -1
+jaw
+  rotate: false
+  xy: 804, 416
+  size: 260, 98
+  orig: 260, 98
+  offset: 0, 0
+  index: -1
+eyes
+  rotate: false
+  xy: 1068, 430
+  size: 128, 84
+  orig: 128, 84
+  offset: 0, 0
+  index: -1
+mic
+  rotate: false
+  xy: 1200, 4
+  size: 352, 510
+  orig: 352, 510
   offset: 0, 0
   index: -1

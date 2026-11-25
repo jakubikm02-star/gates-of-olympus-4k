@@ -61,6 +61,8 @@ export class Rig extends Container {
   private onEvent: (name: string) => void = () => {};
   private ended: (() => void) | null = null;
   private quality: RigQuality = { springs: true, mesh: true };
+  /** Phase 2 headbang runs faster. 1 is the authored timing. */
+  rate = 1;
 
   static async loadPacked(base: string, onEvent?: (name: string) => void) {
     const [doc, atlasText] = await Promise.all([
@@ -89,14 +91,21 @@ export class Rig extends Container {
     this.quality = q;
   }
 
-  /** Phase 2 swaps the tie-dye shirt for the black one. Other rigs ignore it. */
+  /**
+   * Phase 2. The old rig swaps a black shirt. Martin's DJ already wears black,
+   * so the aura thickens and the headbang clock runs faster instead.
+   */
   setPhase(on: boolean) {
     this.phaseOn = on;
+    this.rate = on ? 1.65 : 1;
     const dye = this.slotNodes.get("tee");
     const black = this.slotNodes.get("teeBlack");
-    if (!dye && !black) return;
     if (dye) dye.visible = !on;
     if (black) black.visible = on;
+    const hot = this.slotNodes.get("auraHot");
+    const aura = this.slotNodes.get("aura");
+    if (hot) hot.visible = on;
+    if (aura) aura.alpha = on ? 1 : 0.72;
   }
 
   play(name: string, opts?: { loop?: boolean; mix?: number }) {
@@ -153,7 +162,7 @@ export class Rig extends Container {
   update(dt: number) {
     if (!this.doc) return;
     const dur = this.duration(this.clip);
-    this.time += dt / 1000;
+    this.time += (dt / 1000) * this.rate;
     if (this.nextClip) {
       this.mix += dt / 1000;
       if (this.mix >= this.mixDur) {
@@ -262,7 +271,7 @@ export class Rig extends Container {
       // Slot order, not tree order. A torso sprite added after its children
       // would otherwise cover the head.
       wrap.zIndex = index;
-      wrap.visible = slot.name !== "teeBlack";
+      wrap.visible = slot.name !== "teeBlack" && slot.name !== "auraHot";
       this.slotNodes.set(slot.name, wrap);
       bone.view.addChild(wrap);
     });
@@ -296,17 +305,18 @@ export class Rig extends Container {
         wrap.addChild(plane);
       } catch (err) {
         console.error(err);
-        wrap.addChild(this.regionSprite(att, tex));
+        wrap.addChild(this.regionSprite(att, tex, bone));
       }
     } else {
-      wrap.addChild(this.regionSprite(att, tex));
+      wrap.addChild(this.regionSprite(att, tex, bone));
     }
     return wrap;
   }
 
-  private regionSprite(att: RegionAttach, tex: Texture) {
+  private regionSprite(att: RegionAttach, tex: Texture, bone?: string) {
     const sprite = new Sprite(tex);
     sprite.anchor.set(0.5);
+    if (bone === "eyes") sprite.alpha = 0.9;
     sprite.width = att.width;
     sprite.height = att.height;
     this.sprites.push(sprite);

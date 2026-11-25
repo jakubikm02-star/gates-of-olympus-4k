@@ -42,9 +42,7 @@ const ENEMY_URLS = Object.keys(RIGS).concat([
   "/nocna/bosses/boss-4-general-podatelne.webp",
   "/nocna/bosses/boss-5-prednosta.webp",
   "/nocna/bosses/boss-dj-blastbeat.webp",
-  "/nocna/bosses/clone-dye.webp",
-  "/nocna/bosses/clone-dye-up.webp",
-  "/nocna/bosses/clone-black-up.webp",
+  "/nocna/bosses/clone-silhouette.webp",
 ]);
 
 export const fpsProbe = { avg: 0, max: 0, samples: [] as number[], reset: false };
@@ -267,6 +265,7 @@ export class FightStage {
     for (const text of [this.num, this.intentText, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.btnLabel]) text.resolution = res;
     this.bpmText.anchor.set(0.5, 1);
     this.world.addChild(this.baked, this.bg, this.bgDim, this.cloneLayer, this.rigLayer, this.light, this.cabinet, this.plates, this.tray.view, this.hpGhost, this.hpFill, this.shFill, this.ehpFill, this.chargeFill, this.heart, this.shieldIcon, this.coinIcon, this.bars, this.flyer, this.num, this.intentText, this.bpmText, this.foeIcon, this.ehpNum, this.hpNum, this.coinNum, this.turnText, this.vignette, this.btn);
+    this.world.addChild(this.wave);
     app.stage.addChild(this.world);
     app.ticker.add(this.tick);
   }
@@ -525,14 +524,57 @@ export class FightStage {
     if (name === "shake") this.kick(FEEL.shakeHitMs);
     if (name === "fx") this.particles.burst({ x: this.foeX, y: this.foeY - 40, n: 10, color: this.pal.danger, speed: 0.3, life: 360, g: FEEL.gravity, trails: this.quality.tier === "high" });
     if (name === "arp") playDjArp();
-    if (name === "cymbal") playCymbal();
+    if (name === "cymbal") {
+      playCymbal();
+      this.particles.burst({ x: this.foeX, y: this.foeY - this.app.screen.height * 0.12, n: 6, color: 0xffe08a, speed: 0.32, life: 240, g: FEEL.gravity, ring: true, trails: false });
+    }
+    if (name === "wave") this.soundwave();
+    if (name === "paint") this.splatter();
   };
+
+  /** Three arcs in front of the mic. Drawn once, then only the alpha moves. */
+  private soundwave() {
+    const y = this.foeY - this.app.screen.height * 0.18;
+    const g = this.wave;
+    g.clear();
+    g.position.set(this.foeX - 10, y);
+    for (let i = 0; i < 3; i++) {
+      const r = 16 + i * 12;
+      g.arc(0, 0, r, -1.05, 1.05).stroke({ color: 0xfff3c4, width: 3, alpha: 0.85 });
+    }
+    g.alpha = 1;
+    g.visible = true;
+    this.waveUntil = performance.now() + 280;
+  }
+
+  /** Kilduff splash: a few thick drops, no trails, no blur. */
+  private splatter() {
+    const colors = [0xd23a2a, 0xf0c14a, 0x2f6fd0];
+    colors.forEach((color, i) => {
+      this.particles.burst({
+        x: this.foeX - 30 + i * 28,
+        y: this.foeY - 36,
+        n: 3,
+        color,
+        speed: 0.26,
+        life: 240,
+        g: FEEL.gravity,
+        trails: false,
+      });
+    });
+  }
 
   private syncRig(snap: FightSnap) {
     const art = snap.enemyArt || this.rigArt;
     if (!art) return;
     if (art === this.rigArt && this.rig) {
       this.rig.setQuality({ springs: false, mesh: false });
+      const bang = Boolean(snap.enraged) && art.includes("blastbeat");
+      this.rig.setPhase(bang);
+      if (bang && this.rigClip === "idle") {
+        this.rigClip = "headbang";
+        void this.rig.play("headbang", { loop: true, mix: FEEL.rigMix });
+      }
       if (snap.shop && this.rigClip !== "idle") {
         this.rigClip = "idle";
         void this.rig.play("idle", { loop: true, mix: FEEL.rigMix });
@@ -610,7 +652,8 @@ export class FightStage {
     this.bandY = foeY + 14;
     if (this.rig?.doc) {
       const sk = this.rig.doc.skeleton.height || 512;
-      const sc = (foeH * 0.74) / sk;
+      const blast = (snap.enemyArt ?? "").includes("blastbeat");
+      const sc = (foeH * (blast ? 0.98 : 0.74)) / sk;
       this.rig.scale.set(sc);
       this.rig.position.set(foeX, foeY);
       this.rig.visible = true;
@@ -980,7 +1023,6 @@ export class FightStage {
   }
 
   private placeClones(snap: FightSnap, foeX: number, foeY: number, foeH: number, w: number, land: boolean) {
-    const gap = land ? 86 : Math.min(92, Math.max(64, (w - 24) / 5));
     snap.clones.forEach((clone, i) => {
       let sprite = this.cloneSprites[i];
       if (!sprite) {
@@ -992,15 +1034,24 @@ export class FightStage {
       const alive = clone.hp > 0 && !snap.shop;
       sprite.visible = alive;
       if (!alive) return;
-      sprite.width = foeH * 0.38;
-      sprite.height = foeH * 0.58;
-      const count = snap.clones.filter((row) => row.hp > 0).length;
+      const art = "/nocna/bosses/clone-silhouette.webp";
+      const tagged = sprite as Sprite & { __art?: string; __base?: number };
+      if (tagged.__art !== art) {
+        tagged.__art = art;
+        sprite.texture = Texture.from(art);
+      }
+      sprite.width = foeH * 0.3;
+      sprite.height = foeH * 0.5;
       const slot = snap.clones.slice(0, i + 1).filter((row) => row.hp > 0).length - 1;
-      const x = foeX + (slot - (count - 1) / 2) * gap;
-      sprite.position.set(Math.max(40, Math.min(Math.max(40, w - 40), x)), foeY - foeH * 0.02);
-      sprite.tint = snap.focus === i ? 0xffe7a3 : 0xffffff;
-      (sprite as Sprite & { __black?: boolean; __armed?: boolean }).__black = clone.black;
-      (sprite as Sprite & { __armed?: boolean }).__armed = clone.armed;
+      const side = slot % 2 === 0 ? -1 : 1;
+      const ring = Math.floor(slot / 2);
+      const reach = foeH * (land ? 0.58 : 0.5) + ring * foeH * 0.18;
+      const x = foeX + side * reach;
+      const y = foeY - foeH * 0.04;
+      tagged.__base = y;
+      sprite.position.set(Math.max(28, Math.min(Math.max(28, w - 28), x)), y);
+      sprite.tint = snap.focus === i ? 0xffe0a8 : 0x2a1820;
+      sprite.alpha = 0.94;
     });
     for (let i = snap.clones.length; i < this.cloneSprites.length; i++) {
       const sprite = this.cloneSprites[i];
@@ -1014,8 +1065,9 @@ export class FightStage {
     const marked = snap.clones.some((clone) => clone.hp > 0 && clone.mark === i);
     const armed = snap.clones.some((clone) => clone.hp > 0 && clone.mark === i && clone.armed);
     const fan = snap.fan?.reel === i;
-    if (!marked && !fan) return;
-    const color = armed ? 0xff5a3c : fan && !marked ? 0x7ec8ff : 0xffd15a;
+    const phone = snap.phone === i;
+    if (!marked && !fan && !phone) return;
+    const color = armed ? 0xff5a3c : phone && !marked ? 0x7dffb2 : fan && !marked ? 0x7ec8ff : 0xffd15a;
     win.mark.roundRect(3, 3, cell - 6, cell - 6, 12).stroke({ color, width: armed ? 5 : 3, alpha: 0.95 });
     if (fan) {
       const dir = snap.fan?.dir ?? 1;
@@ -1045,13 +1097,22 @@ export class FightStage {
     chip.resolution = Math.max(1, Math.round(this.app.renderer.resolution || 1));
     chip.anchor.set(0.5, 1);
     root.addChild(frame, hole, glass, clip, slip, icon, mark, chip);
-    icon.mask = clip;
-    slip.mask = clip;
+    clip.visible = false;
     this.world.addChild(root);
     return { root, hole, frame, glass, clip, icon, slip, chip, mark, token: -1, size: 80 };
   }
 
+  /** Stencil masks cost a full extra pass. Only the sliding reel needs one. */
+  private clipWin(win: WinNode, on: boolean) {
+    const mask = on ? win.clip : null;
+    if (win.icon.mask !== mask) win.icon.mask = mask;
+    if (win.slip.mask !== mask) win.slip.mask = mask;
+    win.clip.visible = on;
+    win.clip.renderable = on;
+  }
+
   private sit(win: WinNode, spec: WinSnap | undefined, cell: number) {
+    this.clipWin(win, false);
     win.slip.visible = false;
     win.icon.scale.set(1);
     if (!spec || spec.mode === "empty" || !spec.sym) {
@@ -1071,6 +1132,7 @@ export class FightStage {
   }
 
   private dropIn(win: WinNode, spec: WinSnap, cell: number) {
+    this.clipWin(win, true);
     win.slip.visible = false;
     win.icon.scale.set(1);
     const art = spec.sym ? SYM[spec.sym as keyof typeof SYM]?.art : "";
@@ -1088,6 +1150,7 @@ export class FightStage {
         win.icon.scale.set(base * (2 - squash), base * squash);
       },
       onComplete: () => {
+        this.clipWin(win, false);
         win.icon.position.set(cell / 2, cell / 2);
         win.icon.scale.set(base);
         this.particles.burst({ x: win.root.x + cell / 2, y: win.root.y + cell, n: 6, color: this.pal.glow, speed: 0.2, life: 260, g: FEEL.gravity });
@@ -1149,6 +1212,9 @@ export class FightStage {
   }
 
   private foeSpinUntil = 0;
+  private fxAt = 0;
+  private wave = new Graphics();
+  private waveUntil = 0;
 
   private placeFoe(snap: FightSnap) {
     this.placeFoeRow(snap);
@@ -1246,14 +1312,14 @@ export class FightStage {
     const now = performance.now();
     this.cloneSprites.forEach((sprite, i) => {
       if (!sprite.visible) return;
-      const meta = sprite as Sprite & { __black?: boolean; __armed?: boolean; __art?: string };
-      const up = Boolean(meta.__armed) || Math.sin(now / 340 + i * 0.7) > 0;
-      const art = meta.__black ? "/nocna/bosses/clone-black-up.webp" : up ? "/nocna/bosses/clone-dye-up.webp" : "/nocna/bosses/clone-dye.webp";
-      if (meta.__art !== art) {
-        meta.__art = art;
-        sprite.texture = Texture.from(art);
-      }
+      const base = (sprite as Sprite & { __base?: number }).__base;
+      if (base != null) sprite.y = base + Math.sin(now / 420 + i) * 2;
     });
+    if (this.wave.visible) {
+      const left = this.waveUntil - now;
+      this.wave.visible = left > 0;
+      this.wave.alpha = Math.max(0, left / 280);
+    }
     this.tray.physics = this.quality.tier === "high" && !this.reduced;
     this.tray.update(dt);
     if (this.foeIcon.visible) {
@@ -1296,7 +1362,15 @@ export class FightStage {
       const charge = snap.shop ? 0 : Math.max(0, snap.charge) / 3;
       this.chargeFill.visible = charge > 0;
       this.chargeFill.scale.x = Math.max(0.01, this.eBarW * charge);
-      this.tuneResolution(now, raw);
+      if (typeof location !== "undefined" && new URLSearchParams(location.search).has("fx")) {
+      if (now > this.fxAt) {
+        this.fxAt = now + 520;
+        void this.rig?.play("attack", { loop: false, mix: 0.05 }).then(() => {
+          if (this.rigClip !== "death") void this.rig?.play("idle", { loop: true, mix: 0.08 });
+        });
+      }
+    }
+    if (typeof location === "undefined" || !new URLSearchParams(location.search).has("lockdpr")) this.tuneResolution(now, raw);
       }
     const spinBag = PLAY_SYMS;
     for (let i = 0; i < this.foeWins.length; i++) {
@@ -1304,8 +1378,10 @@ export class FightStage {
       const spec = snap?.foeWindows[i];
       if (!win.root.visible || !spec || spec.mode !== "flicker") {
         if (win.slip.visible) win.slip.visible = false;
+        if (win.icon.mask) this.clipWin(win, false);
         continue;
       }
+      this.clipWin(win, true);
       const period = 90;
       const hold = typeof location !== "undefined" && new URLSearchParams(location.search).has("reel");
       const phase = hold ? 0.45 : (now / period + i * 0.41) % 1;

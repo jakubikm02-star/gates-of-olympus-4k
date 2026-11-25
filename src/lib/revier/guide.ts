@@ -22,7 +22,7 @@ export const ACTIONS: readonly GuideEntry[] = [
     id: "allin",
     cat: "danger",
     title: "ALL-IN",
-    line: "Ďalší spin má útok ×1,5. Stojí 8 HP. Pod 19 HP nejde.",
+    line: "Útok ×1,5. Stojí 8 HP.",
     body: "Násobič je 1,5, nie 2. Nepriateľ za to nedostáva bonus. Platí len na najbližší spin a potom spadne na ×1.",
   },
   {
@@ -167,15 +167,15 @@ export const GUIDE: readonly { title: string; body: string }[] = [
   },
   {
     title: "Tempo DJ Blastbeat",
-    body: "Začína na 96. Každý jeho ťah +6, strop 132. Útok sa násobí tempom / 96. Omámenie ho zrazí na 84. Charizma v kole ho stiahne o 24, najmenej na 72.",
+    body: "Začína na 96. Každý jeho ťah +6, v druhej fáze +10, strop 132. Útok sa násobí tempom / 96. Omámenie ho zrazí na 84. Charizma v kole ho stiahne o 24, najmenej na 72.",
   },
   {
     title: "Kapela a ventilátor",
-    body: "Každý tretí ťah (1, 4, 7…) privolá klona, najviac štyroch. Klon najprv označí okno a až ďalší tvoj spin ho stíši, ak klon žije. Ventilátor sa ohlási a najbližší spin posunie jeden symbol o okno vedľa.",
+    body: "Každý tretí ťah (1, 4, 7…) privolá klona, najviac štyroch. Klon najprv označí okno a až ďalší tvoj spin ho stíši, ak klon žije. Ventilátor sa ohlási a najbližší spin posunie jeden symbol o okno vedľa. Každý piaty ťah zazvoní telefón a najbližší spin v tom okne zmaže.",
   },
   {
     title: "Prijmi zlyhanie",
-    body: "Pod polovicou života DJ zhodí štít, košeľu zmení na čiernu a udrie dvakrát. Prázdny alebo márny spin ti nabije 12 výboja.",
+    body: "Pod polovicou života aura zhrubne, tempo poskočí o 12 a potom rastie o 10 namiesto 6. Štít spadne na 0 a udrie dvakrát. Prázdny alebo márny spin ti nabije 12 výboja.",
   },
   {
     title: "Syntík",

@@ -134,22 +134,24 @@ export function saveDielna(dielna: Dielna): void {
   localStorage.setItem(KEY, JSON.stringify(sanitizeDielna(dielna)));
 }
 
-/** What the bot buys between runs. Damage first, two ranks, then it stops. */
+/** What the bot buys between runs. Damage, then a shield, then Pro on the hitter. Then it stops. */
 export function botSpend(dielna: Dielna): Dielna {
-  const order: SymId[] = ["krimp", "exekucia", "blocek", "stit", "data"];
+  const plan: { sym: SymId; track: PerkTrack }[] = [
+    { sym: "krimp", track: "dmg" },
+    { sym: "krimp", track: "dmg" },
+    { sym: "blocek", track: "dmg" },
+    { sym: "stit", track: "shield" },
+    { sym: "krimp", track: "pro" },
+  ];
   let next = dielna;
-  for (let guard = 0; guard < 20; guard++) {
-    let bought = false;
-    for (const sym of order) {
-      const perk = perkOf(next, sym);
-      if (perk.dmg >= PERK_CAP) continue;
-      const cost = perkCost("dmg", perk.dmg + 1);
-      if (next.screws < cost) continue;
-      next = buyPerk(next, sym, "dmg");
-      bought = true;
-      break;
-    }
-    if (!bought) break;
+  for (const step of plan) {
+    const perk = perkOf(next, step.sym);
+    if (step.track === "pro") {
+      if (perk.pro) continue;
+    } else if (perk[step.track] >= PERK_CAP) continue;
+    const cost = perkCost(step.track, step.track === "pro" ? 1 : perk[step.track] + 1);
+    if (next.screws < cost) break;
+    next = buyPerk(next, step.sym, step.track);
   }
   return next;
 }

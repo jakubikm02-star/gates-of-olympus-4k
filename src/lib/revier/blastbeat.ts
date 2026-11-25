@@ -5,8 +5,17 @@ export const DJ_BPM_START = 96;
 export const DJ_BPM_CAP = 132;
 export const DJ_CLONE_HP = 26;
 
+export const DJ_TAUNTS = [
+  "Farba letí, ty nie",
+  "Netrep a udri",
+  "Šplechne to samo",
+  "Volajú, že váhaš",
+  "Bež, kým to schne",
+  "Ruky na klávesy",
+] as const;
+
 export function freshDj(): DjState {
-  return { bpm: DJ_BPM_START, clones: [], fan: null, focus: -1, acts: 0 };
+  return { bpm: DJ_BPM_START, clones: [], fan: null, focus: -1, acts: 0, phone: null };
 }
 
 export function bpmScale(enemy: Enemy): number {
@@ -72,6 +81,11 @@ export function twistLands(lands: SymId[], dj: DjState): { lands: SymId[]; dj: D
     clone.mark = null;
     clone.armed = false;
   }
+  let phone = dj.phone;
+  if (phone && phone.reel >= 0 && phone.reel < next.length) {
+    next[phone.reel] = "medzera";
+    phone = null;
+  }
   let fan = dj.fan;
   if (fan && next.length > 1) {
     const from = Math.max(0, Math.min(next.length - 1, fan.reel));
@@ -84,7 +98,7 @@ export function twistLands(lands: SymId[], dj: DjState): { lands: SymId[]; dj: D
     }
     fan = null;
   }
-  return { lands: next, dj: { ...dj, clones, fan } };
+  return { lands: next, dj: { ...dj, clones, fan, phone } };
 }
 
 function pickReel(state: number, n: number, taken: Set<number>): { state: number; reel: number } {
@@ -108,7 +122,7 @@ export function scriptDj(enemy: Enemy, call: readonly string[], reels: number, r
     dj.bpm = Math.max(72, dj.bpm - 24);
     notes.push("Charizma stiahla tempo");
   }
-  dj.bpm = Math.min(DJ_BPM_CAP, dj.bpm + 6);
+  dj.bpm = Math.min(DJ_BPM_CAP, dj.bpm + (enemy.enraged ? 10 : 6));
   dj.acts += 1;
   let state = rng || 1;
   for (const clone of dj.clones) {
@@ -130,6 +144,13 @@ export function scriptDj(enemy: Enemy, call: readonly string[], reels: number, r
       black: dj.clones.length === 3,
     });
     notes.push(`Kapela značí okno ${drawn.reel + 1}`);
+  }
+  if (!dj.phone && dj.acts % 5 === 0) {
+    const drawn = pickReel(state, Math.max(1, reels), new Set());
+    state = drawn.state;
+    const line = DJ_TAUNTS[(dj.acts + drawn.reel) % DJ_TAUNTS.length] ?? DJ_TAUNTS[0];
+    dj.phone = { reel: drawn.reel, line };
+    notes.push(`Zvoní telefón na ${drawn.reel + 1}. ${line}`);
   }
   if (dj.acts % 4 === 2 && !dj.fan) {
     const drawn = pickReel(state, Math.max(1, reels), new Set());

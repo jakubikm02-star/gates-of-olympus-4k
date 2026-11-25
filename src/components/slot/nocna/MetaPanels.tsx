@@ -51,19 +51,27 @@ export function GuideSheet(props: { onClose: () => void }) {
   );
 }
 
+const TONE: Record<string, string> = { vyboj: "gold", allin: "atk", zamok: "def" };
+const ICON: Record<string, string> = { vyboj: "⚡", allin: "🔥", zamok: "🔒" };
+
 export function ActButton(props: {
   id: string;
   disabled?: boolean;
   onClick: () => void;
   onInfo: (entry: GuideEntry) => void;
   extra?: string;
+  /** Shown instead of the effect line when the action really cannot be used. */
+  reason?: string;
 }) {
   const entry = ACTIONS.find((row) => row.id === props.id);
   if (!entry) return null;
+  const tone = TONE[props.id] ?? entry.cat;
+  const icon = ICON[props.id];
   return (
-    <button type="button" className={`ns-act is-${entry.cat}`} disabled={props.disabled} onClick={props.onClick}>
+    <button type="button" className={`ns-act is-${tone}${props.disabled ? " is-off" : ""}`} disabled={props.disabled} onClick={props.onClick}>
+      {icon ? <span className="ns-ico" aria-hidden="true">{icon}</span> : null}
       <b>{entry.title}</b>
-      <small>{props.extra ?? entry.line}</small>
+      <small>{props.disabled && props.reason ? props.reason : (props.extra ?? entry.line)}</small>
       <i
         role="button"
         aria-label={`Detail ${entry.title}`}

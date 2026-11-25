@@ -332,9 +332,28 @@ export function NocnaSmena(props: Props) {
       ) : null}
       {v.stage === "ready" ? (
         <div className="ns-risk">
-          <ActButton id="vyboj" disabled={v.run.super < 100} onClick={v.burst} onInfo={() => setDetail("vyboj")} extra={`Výboj ${v.run.super}/100. Prieboj ${26 + v.run.momentum * 2}.`} />
-          <ActButton id="allin" disabled={v.run.hp <= 18 || v.run.wager > 1} onClick={v.wager} onInfo={() => setDetail("allin")} />
-          <ActButton id="zamok" disabled={v.run.coins < HOLD_PRICE || !v.run.lastLands.length} onClick={() => v.hold(0)} onInfo={() => setDetail("zamok")} />
+          <ActButton
+            id="vyboj"
+            disabled={v.run.super < 100}
+            onClick={v.burst}
+            onInfo={() => setDetail("vyboj")}
+            extra={`Prieboj ${26 + v.run.momentum * 2}. Minie 100.`}
+            reason={`Výboj ${v.run.super}/100`}
+          />
+          <ActButton
+            id="allin"
+            disabled={v.run.hp <= 18 || v.run.wager > 1}
+            onClick={v.wager}
+            onInfo={() => setDetail("allin")}
+            reason={v.run.wager > 1 ? "Už beží ×1,5" : "Pod 19 HP"}
+          />
+          <ActButton
+            id="zamok"
+            disabled={v.run.coins < HOLD_PRICE || !v.run.lastLands.length}
+            onClick={() => v.hold(0)}
+            onInfo={() => setDetail("zamok")}
+            reason={!v.run.lastLands.length ? "Bez minulého spinu" : `Málo RJ (${v.run.coins}/${HOLD_PRICE})`}
+          />
         </div>
       ) : null}
       <button

@@ -244,8 +244,20 @@
   gap: 6px;
   justify-content: center;
 }
-.ns-risk { bottom: calc(84px + env(safe-area-inset-bottom)); flex-wrap: wrap; }
-.ns-risk .ns-act { flex: 1 1 30%; }
+.ns-risk { bottom: calc(84px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ns-risk .ns-act {
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  align-content: center;
+  column-gap: 8px;
+  padding: 8px 28px 8px 10px;
+  text-align: left;
+}
+.ns-risk .ns-act .ns-ico { grid-row: 1 / span 2; align-self: center; font-size: 1.45rem; line-height: 1; }
+.ns-risk .ns-act b { font-size: 1.15rem; letter-spacing: 0.03em; }
+.ns-risk .ns-act small { font-size: 0.78rem; line-height: 1.15; }
 .ns-band { bottom: calc(168px + env(safe-area-inset-bottom)); }
 @media (max-aspect-ratio: 1.2) {
   .ns-band { top: 8px; bottom: auto; left: 8px; right: auto; flex-direction: column; align-items: flex-start; }
@@ -265,7 +277,8 @@
 .ns-faces button { display: flex; align-items: center; gap: 6px; max-width: 34%; }
 .ns-faces img { width: 28px; height: 28px; object-fit: contain; }
 .ns-faces span { font-size: 0.72rem; }
-.ns-risk button:disabled, .ns-faces button:disabled { opacity: 0.45; }
+.ns-faces button:disabled { opacity: 0.45; }
+.ns-risk .ns-act:disabled { opacity: 1; }
 .ns-shop {
   display: flex;
   flex-direction: column;
@@ -416,8 +429,7 @@
 .stage.is-nocna > .stage-bg,
 .stage.is-nocna > .stage-glow,
 .stage.is-nocna > .park-lines {
-  visibility: hidden;
-  pointer-events: none;
+  display: none;
 }
 @keyframes ns-pulse {
   0%, 100% { transform: scale(1); }
@@ -457,12 +469,14 @@
 .ns-act b { font-size: 0.92rem; }
 .ns-act small { font-size: 0.68rem; line-height: 1.2; }
 .ns-act i { position: absolute; right: 6px; top: 4px; width: 16px; height: 16px; border-radius: 99px; background: rgb(0 0 0 / 0.35); font-style: normal; font-size: 0.7rem; }
-.ns-act.is-atk { background: #6d2218; border-radius: 8px 16px 8px 16px; }
-.ns-act.is-def { background: #16324a; border-radius: 999px; }
+.ns-act.is-atk { background: linear-gradient(180deg, #c44820, #7a1c12); border-radius: 12px 18px 10px 16px; color: #fff6ea; }
+.ns-act.is-gold { background: linear-gradient(180deg, #ffe08a, #e0a020); border-radius: 16px; color: #1a1208; }
+.ns-act.is-def { background: linear-gradient(180deg, #2a6ea8, #14324e); border-radius: 999px; color: #eaf4ff; }
 .ns-act.is-eco { background: #1d3a22; border-radius: 8px; }
 .ns-act.is-nav { background: #f0c14a; color: #1a1208; border-radius: 999px; }
 .ns-act.is-danger { background: #3a1014; border-radius: 4px; }
-.ns-act:disabled { opacity: 0.45; }
+.ns-act.is-off { filter: saturate(0.55) brightness(0.78); }
+.ns-act.is-off small { font-weight: 700; }
 .ns-pick-grid, .ns-perk-list, .ns-challenges { list-style: none; padding: 0; margin: 0; }
 .ns-pick-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-height: 46vh; overflow: auto; }
 .ns-pick-grid button, .ns-perk-list li { display: grid; grid-template-columns: 42px 1fr; gap: 2px 6px; text-align: left; background: #1c1812; color: #fff6d8; border-radius: 10px; padding: 6px; }
