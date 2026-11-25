@@ -441,14 +441,16 @@ function Shop(props: {
           const at = props.run.deck.lastIndexOf(id);
           return (
             <li key={id} className={id === "pokuta" ? "is-pokuta" : ""}>
-              <img src={def?.art} alt="" />
-              <div>
-                <b>{def?.name ?? id} ×{n}{pro ? " PRO" : ""}</b>
-                <small>
-                  {lv > 0 ? `úroveň ${lv} ` : ""}
-                  {fort > 0 ? `pevnosť ${fort} ` : ""}
-                  {id === "pokuta" ? "Vnútený lístok. Stojí ťa život." : lineOf(def?.blurb ?? "")}
-                </small>
+              <div className="ns-deck-head">
+                <img src={def?.art} alt="" />
+                <div>
+                  <b>{def?.name ?? id} ×{n}{pro ? " PRO" : ""}</b>
+                  <small>
+                    {lv > 0 ? `úroveň ${lv} ` : ""}
+                    {fort > 0 ? `pevnosť ${fort} ` : ""}
+                    {id === "pokuta" ? "Vnútený lístok. Stojí ťa život." : lineOf(def?.blurb ?? "")}
+                  </small>
+                </div>
               </div>
               <div className="ns-row-actions">
                 <button type="button" disabled={props.run.deck.length <= 3 || props.run.coins < REMOVE_PRICE} onClick={() => props.onRemove(at)}>

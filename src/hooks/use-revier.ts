@@ -164,8 +164,8 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
   const foeId = run.enemy?.id ?? "";
   useEffect(() => {
     if (!foeId) return;
-    const start = window.setTimeout(() => setFoeSpin(true), reduced ? 0 : 700);
-    const stop = window.setTimeout(() => setFoeSpin(false), reduced ? 80 : 1500);
+    const start = window.setTimeout(() => setFoeSpin(true), reduced ? 0 : 2200);
+    const stop = window.setTimeout(() => setFoeSpin(false), reduced ? 80 : 3100);
     return () => {
       window.clearTimeout(start);
       window.clearTimeout(stop);
