@@ -70,6 +70,7 @@ interface WinNode {
   hole: Graphics;
   frame: Graphics;
   glass: Graphics;
+  clip: Graphics;
   icon: Sprite;
   slip: Sprite;
   chip: Text;
@@ -678,10 +679,12 @@ export class FightStage {
     const foeIconWas = this.foeWins.map((win) => win.icon.visible);
     const foeChipWas = this.foeWins.map((win) => win.chip.visible);
     const deckWas = this.deck.map((s) => s.visible);
+    const clipWas = [...this.wins, ...this.foeWins].map((win) => win.clip.visible);
     for (const win of [...this.wins, ...this.foeWins]) {
       win.icon.visible = false;
       win.slip.visible = false;
       win.chip.visible = false;
+      win.clip.visible = false;
     }
     for (const s of this.deck) s.visible = false;
     this.bg.visible = true;
@@ -713,6 +716,9 @@ export class FightStage {
     this.foeWins.forEach((win, i) => {
       win.icon.visible = foeIconWas[i];
       win.chip.visible = foeChipWas[i];
+    });
+    [...this.wins, ...this.foeWins].forEach((win, i) => {
+      win.clip.visible = clipWas[i] ?? true;
     });
     this.deck.forEach((s, i) => {
       s.visible = deckWas[i];
@@ -815,6 +821,7 @@ export class FightStage {
 
   private paintWindow(win: WinNode, cell: number, pal: Palette, crit: boolean) {
     win.hole.clear().roundRect(6, 6, cell - 12, cell - 12, 10).fill({ color: 0x07080c, alpha: 0.92 });
+    win.clip.clear().roundRect(8, 8, cell - 16, cell - 16, 8).fill({ color: 0xffffff });
     win.frame.clear();
     win.frame.roundRect(-6, -6, cell + 12, cell + 12, 16).fill({ color: 0x3a3228 });
     win.frame.roundRect(-6, -6, cell + 12, cell + 12, 16).stroke({ color: 0xc8bba4, width: 2, alpha: 0.7 });
@@ -943,6 +950,7 @@ export class FightStage {
     const frame = new Graphics();
     const hole = new Graphics();
     const glass = new Graphics();
+    const clip = new Graphics();
     const icon = new Sprite();
     icon.anchor.set(0.5);
     const slip = new Sprite();
@@ -954,9 +962,11 @@ export class FightStage {
     });
     chip.resolution = Math.max(1, Math.round(this.app.renderer.resolution || 1));
     chip.anchor.set(0.5, 1);
-    root.addChild(frame, hole, glass, slip, icon, chip);
+    root.addChild(frame, hole, glass, clip, slip, icon, chip);
+    icon.mask = clip;
+    slip.mask = clip;
     this.world.addChild(root);
-    return { root, hole, frame, glass, icon, slip, chip, token: -1, size: 80 };
+    return { root, hole, frame, glass, clip, icon, slip, chip, token: -1, size: 80 };
   }
 
   private sit(win: WinNode, spec: WinSnap | undefined, cell: number) {
@@ -1205,13 +1215,14 @@ export class FightStage {
         continue;
       }
       const period = 90;
-      const phase = (now / period + i * 0.41) % 1;
-      const idx = (Math.floor(now / period) + i * 3) % spinBag.length;
+      const hold = typeof location !== "undefined" && new URLSearchParams(location.search).has("reel");
+      const phase = hold ? 0.45 : (now / period + i * 0.41) % 1;
+      const idx = (hold ? i * 3 : Math.floor(now / period) + i * 3) % spinBag.length;
       const cur = spinBag[idx]!;
       const nxt = spinBag[(idx + 1) % spinBag.length]!;
       const w = win.size * 0.62;
       const h = win.size * 0.95;
-      const travel = win.size * 0.9;
+      const travel = win.size;
       win.chip.text = "";
       win.icon.visible = true;
       win.slip.visible = true;
@@ -1221,8 +1232,9 @@ export class FightStage {
       win.icon.height = h;
       win.slip.width = w;
       win.slip.height = h;
-      win.icon.position.set(win.size / 2, win.size / 2 + (phase - 0.15) * travel);
-      win.slip.position.set(win.size / 2, win.size / 2 + (phase - 1.15) * travel);
+      const y = hold ? win.size * 0.08 : win.size / 2 + (phase - 0.5) * travel;
+      win.icon.position.set(win.size / 2, y);
+      win.slip.position.set(win.size / 2, y - travel);
       win.icon.alpha = 0.55 + phase * 0.4;
       win.slip.alpha = 0.9 - phase * 0.45;
       win.glass.visible = true;

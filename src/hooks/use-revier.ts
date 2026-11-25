@@ -165,6 +165,7 @@ export function useRevier(opts: { entry: number; onRecord: (run: Run) => void; o
   useEffect(() => {
     if (!foeId) return;
     setFoeSpin(true);
+    if (new URLSearchParams(window.location.search).has("reel")) return;
     const stop = window.setTimeout(() => setFoeSpin(false), reduced ? 80 : 1600);
     return () => window.clearTimeout(stop);
   }, [foeRoll, foeId, reduced]);
