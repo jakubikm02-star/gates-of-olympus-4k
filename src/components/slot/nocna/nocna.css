@@ -1,0 +1,282 @@
+.ns {
+  --ns-bg: #07080c;
+  --ns-text: #f6f1e7;
+  --ns-muted: #9aa4b2;
+  --ns-accent: #f0c419;
+  --ns-btn: #f2bb0c;
+  --ns-btn-ink: #1a1204;
+  --ns-metal: #8d8678;
+  --ns-glow: #ffe56a;
+  --ns-danger: #e23b3b;
+  --ns-hp: #ff4d4d;
+  --ns-shield: #3ec6e0;
+  --ns-plate: #141820;
+  color-scheme: only dark;
+  accent-color: var(--ns-accent);
+  scrollbar-color: var(--ns-metal) var(--ns-bg);
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  max-width: 100vw;
+  z-index: 120;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100dvh;
+  overflow: hidden;
+  color: var(--ns-text);
+  font-family: "Outfit", "Segoe UI", sans-serif;
+  background: var(--ns-bg);
+}
+.ns-hud { grid-row: 1; min-width: 0; max-width: 100%; }
+.ns-foot { min-width: 0; max-width: 100%; }
+.ns-gl, .ns-plate { grid-row: 2; min-height: 0; }
+.ns-foot { grid-row: 3; }
+.ns-hud {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: calc(6px + env(safe-area-inset-top)) 10px 4px;
+}
+.ns-hud small { display: block; letter-spacing: 0.14em; font-size: 0.62rem; color: #f0c419; font-family: "Oswald", sans-serif; }
+.ns-hud b { font-family: "Oswald", sans-serif; font-size: 1rem; }
+.ns-hud strong {
+  font-family: "Oswald", sans-serif;
+  letter-spacing: 0.12em;
+  font-size: 0.78rem;
+  color: #d7ffe0;
+}
+.ns-hud strong.is-foe { color: #ffb4a8; }
+.ns-purse { display: flex; align-items: center; gap: 4px; font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 700; }
+.ns-purse img { width: 18px; height: 18px; object-fit: contain; }
+.ns-quit { border: 0; background: transparent; color: #c5ced8; text-decoration: underline; min-height: 36px; }
+.ns-intent {
+  margin: 0 10px;
+  min-height: 1.6rem;
+  text-align: center;
+  font-family: "Oswald", sans-serif;
+  letter-spacing: 0.04em;
+}
+.ns-intent small { display: block; color: #f0c419; font-size: 0.66rem; letter-spacing: 0.16em; }
+.ns-intent-gap { visibility: hidden; }
+.ns-gl { position: relative; min-width: 0; min-height: 0; width: 100%; height: 100%; overflow: hidden; }
+.ns-gl canvas { position: absolute; inset: 0; display: block; width: 100% !important; height: 100% !important; max-width: 100%; max-height: 100%; }
+.ns-plate {
+  min-height: 0;
+  overflow: auto;
+  margin: 0 10px;
+  padding: 8px 8px 12px;
+  border-radius: 18px;
+  background: rgb(8 10 14 / 0.92);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+.ns-count {
+  margin: 0 0 6px;
+  text-align: center;
+  font-family: "Oswald", sans-serif;
+  font-size: 1.6rem;
+  letter-spacing: 0.08em;
+  color: #ffe56a;
+}
+.ns-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.ns-cards button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 8px 4px 10px;
+  border: 0;
+  border-radius: 16px;
+  background: rgb(255 255 255 / 0.04);
+  color: inherit;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+.ns-cards button.is-on { box-shadow: inset 0 0 0 2px #f0c419; }
+.ns-cards img { width: min(100%, 96px); height: 28vw; max-height: 110px; object-fit: contain; }
+.ns-cards span { font-family: "Oswald", sans-serif; font-size: 0.95rem; }
+.ns-cards em {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #f0c419;
+  color: #1a1204;
+  font-style: normal;
+  line-height: 22px;
+  font-family: "Oswald", sans-serif;
+}
+.ns-cards i {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.55);
+  font-style: normal;
+  font-size: 0.75rem;
+  line-height: 22px;
+}
+.ns-price {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: #ffe56a;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+.ns-price img { width: 16px; height: 16px; }
+.ns-icons { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
+.ns-icons button {
+  width: 64px;
+  min-height: 56px;
+  border: 0;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.06);
+  color: #fff6d0;
+  font-size: 1.3rem;
+}
+.ns-icons small { display: block; font-size: 0.7rem; color: #ffe56a; }
+.ns-deck { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 8px; }
+.ns-deck button { width: 48px; height: 48px; padding: 4px; border: 0; border-radius: 10px; background: rgb(0 0 0 / 0.35); }
+.ns-deck img { width: 100%; height: 100%; object-fit: contain; }
+.ns-note { text-align: center; color: #9aa4b2; font-size: 0.75rem; }
+.ns-banner, .ns-dead { display: grid; align-content: center; text-align: center; }
+.ns-banner h2, .ns-dead h2 { font-family: "Oswald", sans-serif; font-size: clamp(1.6rem, 6vw, 2.4rem); margin: 4px 0; }
+.ns-foot { display: flex; flex-direction: column; gap: 6px; padding: 0 12px calc(8px + env(safe-area-inset-bottom)); }
+.ns-toggles { display: flex; gap: 6px; justify-content: center; }
+.ns-toggles button {
+  min-height: 32px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 10px;
+  background: rgb(255 255 255 / 0.06);
+  color: #d5dbe3;
+  font-size: 0.75rem;
+}
+.ns-toggles button.is-on { color: #1a1204; background: #f0c419; }
+.ns-go {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 4;
+  height: 64px;
+  margin: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: transparent;
+  font-size: 16px;
+}
+.ns-gear {
+  position: absolute;
+  top: calc(8px + env(safe-area-inset-top));
+  right: 10px;
+  z-index: 5;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ns-plate);
+  color: var(--ns-accent);
+  box-shadow: inset 0 0 0 2px var(--ns-metal);
+}
+.ns-pop {
+  position: absolute;
+  top: calc(58px + env(safe-area-inset-top));
+  right: 10px;
+  z-index: 6;
+  display: grid;
+  gap: 8px;
+  width: min(240px, calc(100vw - 24px));
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--ns-plate);
+  color: var(--ns-text);
+  box-shadow: inset 0 0 0 1px var(--ns-metal), 0 16px 40px rgb(0 0 0 / 0.45);
+}
+.ns-pop button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.06);
+  color: var(--ns-text);
+}
+.ns-pop button.is-on { background: var(--ns-btn); color: var(--ns-btn-ink); }
+.ns-go:active { transform: scale(0.96); }
+.ns-go:disabled { opacity: 0.4; }
+.ns-hint {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(132px + env(safe-area-inset-bottom));
+  z-index: 3;
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgb(8 10 14 / 0.92);
+  color: #fff6d0;
+  box-shadow: inset 0 0 0 1px rgb(240 196 25 / 0.45);
+}
+.ns-bubble {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  z-index: 4;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #12151c;
+  box-shadow: 0 12px 30px rgb(0 0 0 / 0.45);
+}
+.ns-bubble p { margin: 4px 0 0; color: #d5dbe3; }
+.ns-fps {
+  position: absolute;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 8px;
+  z-index: 6;
+  padding: 2px 6px;
+  background: rgb(0 0 0 / 0.7);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+}
+.stage.is-nocna > .table,
+.stage.is-nocna > .stage-bg,
+.stage.is-nocna > .stage-glow,
+.stage.is-nocna > .park-lines {
+  visibility: hidden;
+  pointer-events: none;
+}
+@keyframes ns-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+@media (min-aspect-ratio: 1.05) {
+  .ns-cards { grid-template-columns: repeat(3, minmax(0, 140px)); justify-content: center; }
+  .ns-cards img { height: 18vh; }
+}
+@media (max-height: 520px) {
+  .ns-hud { padding-top: 2px; padding-bottom: 0; }
+  .ns-hud strong { font-size: 0.68rem; }
+  .ns-foot { gap: 2px; padding-bottom: 2px; }
+  .ns-icons { margin-top: 0; gap: 4px; }
+  .ns-icons button { width: 44px; min-height: 36px; font-size: 0.95rem; }
+  .ns-toggles button { min-height: 24px; font-size: 0.68rem; }
+  .ns-go { min-height: 40px; font-size: 1rem; margin: 2px 8px 4px; }
+  .ns-hint { bottom: calc(96px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 390px) {
+  .ns-icons button { width: 52px; }
+  .ns-hud strong { font-size: 0.68rem; letter-spacing: 0.06em; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ns-go.is-pulse { animation: none; }
+}

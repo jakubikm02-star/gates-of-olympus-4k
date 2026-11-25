@@ -13,6 +13,7 @@ import { sanitizeIdle, sanitizeRpDay, type RpDay } from "./rp-tickets.ts";
 import { sanitizeSuchoMul } from "./sucho-rtp.ts";
 import { emptySpectrum, sanitizeSpectrum, type SpectrumState } from "./spectrum.ts";
 import { sanitizeRibbonLog, type RibbonLog } from "./ribbons.ts";
+import { sanitizeNocna, type NocnaRecord } from "../revier/entry.ts";
 
 export const SAVE_KEY = "parkizmus-v1";
 const LEGACY_KEYS = ["olympus4k-v1"];
@@ -101,6 +102,11 @@ export interface PlayerSave {
   spectrum?: SpectrumState;
   /** Today's ribbons. Older saves omit it; a missing field is not a reset. */
   ribbons?: RibbonLog | null;
+  /**
+   * NOČNÁ SMENA record (best floor, runs). Older saves omit it.
+   * Never credit, RP, or ribbons — the run does not pay the automat back.
+   */
+  nocna?: NocnaRecord | null;
 }
 
 export function emptyPlayerSave(): PlayerSave {
@@ -162,6 +168,7 @@ export function emptyPlayerSave(): PlayerSave {
     duelDeposit: null,
     ticketPause: null,
     spectrum: emptySpectrum(),
+    nocna: null,
   };
 }
 
@@ -439,6 +446,7 @@ export function sanitizePlayerSave(raw: unknown): PlayerSave {
   s.duelDeposit = sanitizeDeposit(r.duelDeposit);
   s.ticketPause = sanitizeTicketPause(r.ticketPause);
   s.ribbons = sanitizeRibbonLog(r.ribbons);
+  s.nocna = sanitizeNocna(r.nocna);
   // A pause only makes sense next to its ticket.
   if (s.ticketPause && (!s.job || s.job.id !== s.ticketPause.jobId)) s.ticketPause = null;
   if (!s.inFs || s.fsLeft <= 0) {

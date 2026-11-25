@@ -1,0 +1,82 @@
+neplatic.webp
+size: 2048,368
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+legL2
+  rotate: false
+  xy: 2, 66
+  size: 172, 300
+  orig: 172, 300
+  offset: 0, 0
+  index: -1
+legR2
+  rotate: false
+  xy: 176, 16
+  size: 174, 350
+  orig: 174, 350
+  offset: 0, 0
+  index: -1
+legL
+  rotate: false
+  xy: 352, 54
+  size: 198, 312
+  orig: 198, 312
+  offset: 0, 0
+  index: -1
+legR
+  rotate: false
+  xy: 552, 30
+  size: 182, 336
+  orig: 182, 336
+  offset: 0, 0
+  index: -1
+torso
+  rotate: false
+  xy: 736, 2
+  size: 232, 364
+  orig: 232, 364
+  offset: 0, 0
+  index: -1
+strap
+  rotate: false
+  xy: 970, 184
+  size: 90, 182
+  orig: 90, 182
+  offset: 0, 0
+  index: -1
+armL
+  rotate: false
+  xy: 1062, 166
+  size: 170, 200
+  orig: 170, 200
+  offset: 0, 0
+  index: -1
+armL2
+  rotate: false
+  xy: 1234, 144
+  size: 150, 222
+  orig: 150, 222
+  offset: 0, 0
+  index: -1
+armR
+  rotate: false
+  xy: 1386, 102
+  size: 166, 264
+  orig: 166, 264
+  offset: 0, 0
+  index: -1
+armR2
+  rotate: false
+  xy: 1554, 250
+  size: 236, 116
+  orig: 236, 116
+  offset: 0, 0
+  index: -1
+head
+  rotate: false
+  xy: 1792, 190
+  size: 152, 176
+  orig: 152, 176
+  offset: 0, 0
+  index: -1

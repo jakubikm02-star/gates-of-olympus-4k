@@ -1,0 +1,82 @@
+inkasak.webp
+size: 2048,610
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+legL2
+  rotate: false
+  xy: 2, 302
+  size: 178, 306
+  orig: 178, 306
+  offset: 0, 0
+  index: -1
+legR2
+  rotate: false
+  xy: 182, 342
+  size: 206, 266
+  orig: 206, 266
+  offset: 0, 0
+  index: -1
+legL
+  rotate: false
+  xy: 390, 290
+  size: 210, 318
+  orig: 210, 318
+  offset: 0, 0
+  index: -1
+legR
+  rotate: false
+  xy: 602, 290
+  size: 166, 318
+  orig: 166, 318
+  offset: 0, 0
+  index: -1
+torso
+  rotate: false
+  xy: 770, 162
+  size: 356, 446
+  orig: 356, 446
+  offset: 0, 0
+  index: -1
+chain
+  rotate: false
+  xy: 1128, 506
+  size: 166, 102
+  orig: 166, 102
+  offset: 0, 0
+  index: -1
+armL
+  rotate: false
+  xy: 1296, 330
+  size: 164, 278
+  orig: 164, 278
+  offset: 0, 0
+  index: -1
+armL2
+  rotate: false
+  xy: 1462, 262
+  size: 260, 346
+  orig: 260, 346
+  offset: 0, 0
+  index: -1
+armR
+  rotate: false
+  xy: 1724, 314
+  size: 108, 294
+  orig: 108, 294
+  offset: 0, 0
+  index: -1
+armR2
+  rotate: false
+  xy: 1834, 396
+  size: 196, 212
+  orig: 196, 212
+  offset: 0, 0
+  index: -1
+head
+  rotate: false
+  xy: 2, 2
+  size: 142, 158
+  orig: 142, 158
+  offset: 0, 0
+  index: -1

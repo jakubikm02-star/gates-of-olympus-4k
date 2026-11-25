@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, BarChart3, Check, ChevronRight, Play, RotateCcw, Siren, Sparkles, Swords, Ticket } from "lucide-react";
+import { AlertTriangle, BarChart3, Check, ChevronRight, RotateCcw, Siren, Sparkles, Swords, Ticket } from "lucide-react";
 import type { BootSnapshot } from "@/lib/slot/preloader";
 import { formatMB, SLOW_HINT } from "@/lib/slot/preload-plan";
 import type { Standing } from "@/lib/slot/ranks";
@@ -43,11 +43,14 @@ interface Props {
   booting: boolean;
   rank: Standing;
   onStart: () => void;
+  onNocna: () => void;
+  nocnaPrice: number;
+  nocnaBlock: string | null;
   onRank: () => void;
   onTransfer: () => void;
 }
 
-export function BootScreen({ ready, pct, snap, onRetry, onSkip, booting, rank, onStart, onRank, onTransfer }: Props) {
+export function BootScreen({ ready, pct, snap, onRetry, onSkip, booting, rank, onStart, onNocna, nocnaPrice, nocnaBlock, onRank, onTransfer }: Props) {
   const shown = ready ? 100 : Math.max(0, Math.min(100, Math.round(pct)));
   const failed = snap?.phase === "error";
   const prog = snap?.progress;
@@ -181,10 +184,26 @@ export function BootScreen({ ready, pct, snap, onRetry, onSkip, booting, rank, o
           ) : null}
         </div>
 
-        <button type="button" className="cta bs-cta" disabled={!ready || booting} onClick={onStart}>
-          <span>{booting ? "ZVUK…" : "HRAŤ"}</span>
-          {booting ? null : <Play size={18} strokeWidth={0} fill="currentColor" aria-hidden="true" />}
-        </button>
+        <div className="bs-modes" role="group" aria-label="Režim hry">
+          <button type="button" className="bs-mode" disabled={!ready || booting} onClick={onStart}>
+            <img src="/nocna/tiles/tile-klasicky-automat.webp" alt="Klasický automat" />
+          </button>
+          <button
+            type="button"
+            className="bs-mode is-night"
+            disabled={!ready || booting || Boolean(nocnaBlock)}
+            onClick={onNocna}
+            aria-describedby="ns-entry"
+          >
+            <img src="/nocna/tiles/tile-nocna-smena.webp" alt="Nočná smena" />
+            <small className="bs-mode-tag">{nocnaBlock ?? `VSTUP ${nocnaPrice.toLocaleString("sk-SK")}`}</small>
+          </button>
+        </div>
+        <p id="ns-entry" className="bs-fine">
+          {nocnaBlock
+            ? `${nocnaBlock}. Nočná smena berie ${nocnaPrice.toLocaleString("sk-SK")} z kreditu automatu.`
+            : `Nočná smena berie ${nocnaPrice.toLocaleString("sk-SK")} z kreditu automatu. Nič sa nevracia.`}
+        </p>
 
         <BootPullCard />
 

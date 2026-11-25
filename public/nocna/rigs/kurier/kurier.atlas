@@ -1,0 +1,89 @@
+kurier.webp
+size: 2048,1036
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+wheelF
+  rotate: false
+  xy: 2, 800
+  size: 234, 234
+  orig: 234, 234
+  offset: 0, 0
+  index: -1
+wheelR
+  rotate: false
+  xy: 238, 786
+  size: 248, 248
+  orig: 248, 248
+  offset: 0, 0
+  index: -1
+scooter
+  rotate: false
+  xy: 488, 404
+  size: 720, 630
+  orig: 720, 630
+  offset: 0, 0
+  index: -1
+torso
+  rotate: false
+  xy: 1210, 618
+  size: 470, 416
+  orig: 470, 416
+  offset: 0, 0
+  index: -1
+flame
+  rotate: false
+  xy: 1682, 476
+  size: 334, 558
+  orig: 334, 558
+  offset: 0, 0
+  index: -1
+pack
+  rotate: false
+  xy: 2, 2
+  size: 290, 400
+  orig: 290, 400
+  offset: 0, 0
+  index: -1
+armL
+  rotate: false
+  xy: 294, 300
+  size: 136, 102
+  orig: 136, 102
+  offset: 0, 0
+  index: -1
+armL2
+  rotate: false
+  xy: 432, 290
+  size: 104, 112
+  orig: 104, 112
+  offset: 0, 0
+  index: -1
+handlebar
+  rotate: false
+  xy: 538, 290
+  size: 326, 112
+  orig: 326, 112
+  offset: 0, 0
+  index: -1
+armR
+  rotate: false
+  xy: 866, 132
+  size: 224, 270
+  orig: 224, 270
+  offset: 0, 0
+  index: -1
+armR2
+  rotate: false
+  xy: 1092, 272
+  size: 282, 130
+  orig: 282, 130
+  offset: 0, 0
+  index: -1
+head
+  rotate: false
+  xy: 1376, 22
+  size: 240, 380
+  orig: 240, 380
+  offset: 0, 0
+  index: -1
